@@ -35,4 +35,20 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Google OAuth Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure Google OAuth client IDs for different platforms.
+    | The mobile app will send ID tokens that need to be verified.
+    |
+    */
+
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_id_ios' => env('GOOGLE_CLIENT_ID_IOS'),
+        'client_id_android' => env('GOOGLE_CLIENT_ID_ANDROID'),
+    ],
+
 ];
