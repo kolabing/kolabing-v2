@@ -17,6 +17,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Uploads Disk
+    |--------------------------------------------------------------------------
+    |
+    | This disk is specifically used for file uploads (profile photos,
+    | opportunity photos, etc.) via the FileUploadService.
+    | Use 'cloud' for Laravel Cloud R2 storage, 'public' for local storage.
+    |
+    */
+
+    'uploads_disk' => env('FILESYSTEM_UPLOADS_DISK', 'cloud'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |
@@ -56,6 +69,29 @@ return [
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'throw' => false,
+            'report' => false,
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | Laravel Cloud R2 Storage (Cloudflare)
+        |--------------------------------------------------------------------------
+        |
+        | This disk is configured for Laravel Cloud's R2 storage service.
+        | Files are publicly accessible via the configured URL.
+        |
+        */
+        'cloud' => [
+            'driver' => 's3',
+            'key' => env('LARAVEL_CLOUD_ACCESS_KEY_ID'),
+            'secret' => env('LARAVEL_CLOUD_ACCESS_KEY_SECRET'),
+            'region' => env('LARAVEL_CLOUD_DEFAULT_REGION', 'auto'),
+            'bucket' => env('LARAVEL_CLOUD_BUCKET'),
+            'url' => env('LARAVEL_CLOUD_URL'),
+            'endpoint' => env('LARAVEL_CLOUD_ENDPOINT'),
+            'use_path_style_endpoint' => env('LARAVEL_CLOUD_USE_PATH_STYLE_ENDPOINT', false),
+            'visibility' => 'public',
             'throw' => false,
             'report' => false,
         ],

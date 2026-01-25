@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\FileUploadType;
 use App\Models\Profile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * @phpstan-type BusinessOnboardingData array{
@@ -33,7 +35,8 @@ use Illuminate\Support\Facades\DB;
 class OnboardingService
 {
     public function __construct(
-        private readonly ProfileService $profileService
+        private readonly ProfileService $profileService,
+        private readonly FileUploadService $fileUploadService
     ) {}
 
     /**
@@ -50,7 +53,10 @@ class OnboardingService
             }
 
             // Handle profile photo upload
-            $profilePhotoUrl = $this->handleProfilePhoto($data['profile_photo'] ?? null);
+            $profilePhotoUrl = $this->handleProfilePhoto(
+                $data['profile_photo'] ?? null,
+                $profile->id
+            );
 
             // Update business profile
             $businessProfile = $profile->businessProfile;
@@ -86,7 +92,10 @@ class OnboardingService
             }
 
             // Handle profile photo upload
-            $profilePhotoUrl = $this->handleProfilePhoto($data['profile_photo'] ?? null);
+            $profilePhotoUrl = $this->handleProfilePhoto(
+                $data['profile_photo'] ?? null,
+                $profile->id
+            );
 
             // Update community profile
             $communityProfile = $profile->communityProfile;
@@ -112,27 +121,68 @@ class OnboardingService
     /**
      * Handle profile photo upload.
      * Accepts base64 encoded image or URL.
+     *
+     * @param  string|null  $profilePhoto  Base64 encoded image or URL
+     * @param  string  $profileId  The profile ID for organizing storage
+     * @return string|null The uploaded file URL or null if no upload
      */
-    private function handleProfilePhoto(?string $profilePhoto): ?string
+    private function handleProfilePhoto(?string $profilePhoto, string $profileId): ?string
     {
         if (empty($profilePhoto)) {
             return null;
         }
 
-        // Check if it's a URL
-        if (filter_var($profilePhoto, FILTER_VALIDATE_URL)) {
-            return $profilePhoto;
-        }
+        try {
+            // Check if it's a URL (external image or already uploaded)
+            if (filter_var($profilePhoto, FILTER_VALIDATE_URL)) {
+                // If it's already a storage URL from our system, return as-is
+                $appUrl = config('app.url');
+                if (str_starts_with($profilePhoto, $appUrl)) {
+                    return $profilePhoto;
+                }
 
-        // Check if it's base64 encoded
-        if (preg_match('/^data:image\/(jpeg|jpg|png|gif);base64,/', $profilePhoto)) {
-            // TODO: Implement actual base64 to storage upload
-            // For now, return null as this requires storage configuration
-            // In production, this would upload to Supabase Storage or similar
+                // Download and store external URL
+                return $this->fileUploadService->uploadFromUrl(
+                    $profilePhoto,
+                    FileUploadType::ProfilePhoto,
+                    $profileId
+                );
+            }
+
+            // Check if it's base64 encoded
+            if (preg_match('/^data:image\/(jpeg|jpg|png|gif|webp);base64,/i', $profilePhoto)) {
+                return $this->fileUploadService->uploadFromBase64(
+                    $profilePhoto,
+                    FileUploadType::ProfilePhoto,
+                    $profileId
+                );
+            }
+
+            // Try to decode as raw base64 (without data URI prefix)
+            if (base64_decode($profilePhoto, true) !== false) {
+                return $this->fileUploadService->uploadFromBase64(
+                    $profilePhoto,
+                    FileUploadType::ProfilePhoto,
+                    $profileId
+                );
+            }
+
+            Log::warning('Invalid profile photo format provided', [
+                'profile_id' => $profileId,
+                'format_detected' => 'unknown',
+            ]);
+
+            return null;
+
+        } catch (\Exception $e) {
+            Log::error('Failed to upload profile photo', [
+                'profile_id' => $profileId,
+                'error' => $e->getMessage(),
+            ]);
+
+            // Return null to allow onboarding to continue without photo
             return null;
         }
-
-        return null;
     }
 
     /**
