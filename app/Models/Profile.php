@@ -19,6 +19,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string|null $phone_number
  * @property UserType $user_type
  * @property string|null $google_id
+ * @property string|null $password
  * @property string|null $avatar_url
  * @property \Illuminate\Support\Carbon|null $email_verified_at
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -56,6 +57,7 @@ class Profile extends Authenticatable
         'phone_number',
         'user_type',
         'google_id',
+        'password',
         'avatar_url',
         'email_verified_at',
     ];
@@ -67,6 +69,7 @@ class Profile extends Authenticatable
      */
     protected $hidden = [
         'google_id',
+        'password',
     ];
 
     /**
@@ -79,6 +82,7 @@ class Profile extends Authenticatable
         return [
             'user_type' => UserType::class,
             'email_verified_at' => 'datetime',
+            'password' => 'hashed',
         ];
     }
 

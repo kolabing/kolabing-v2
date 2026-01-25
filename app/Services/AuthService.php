@@ -11,6 +11,7 @@ use App\Models\BusinessSubscription;
 use App\Models\CommunityProfile;
 use App\Models\Profile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 /**
  * @phpstan-type AuthResult array{
@@ -18,11 +19,39 @@ use Illuminate\Support\Facades\DB;
  *     is_new_user: bool,
  *     token: string
  * }
+ * @phpstan-type LoginResult array{
+ *     profile: Profile,
+ *     token: string
+ * }
  * @phpstan-type GoogleUserData array{
  *     google_id: string,
  *     email: string,
  *     avatar_url: string|null,
  *     email_verified: bool
+ * }
+ * @phpstan-type BusinessProfileData array{
+ *     name: string,
+ *     about: string|null,
+ *     business_type: string,
+ *     city_id: string,
+ *     instagram: string|null,
+ *     website: string|null,
+ *     profile_photo: string|null
+ * }
+ * @phpstan-type CommunityProfileData array{
+ *     name: string,
+ *     about: string|null,
+ *     community_type: string,
+ *     city_id: string,
+ *     instagram: string|null,
+ *     tiktok: string|null,
+ *     website: string|null,
+ *     profile_photo: string|null
+ * }
+ * @phpstan-type ProfileData array{
+ *     email: string,
+ *     password: string,
+ *     phone_number: string|null
  * }
  */
 class AuthService
@@ -189,5 +218,150 @@ class AuthService
         if ($currentToken) {
             $currentToken->delete();
         }
+    }
+
+    /**
+     * Register a new business user with email and password.
+     *
+     * @param  ProfileData  $profileData
+     * @param  BusinessProfileData  $businessProfileData
+     * @return AuthResult
+     */
+    public function registerBusiness(array $profileData, array $businessProfileData): array
+    {
+        $profile = DB::transaction(function () use ($profileData, $businessProfileData): Profile {
+            // Create profile
+            $profile = Profile::query()->create([
+                'email' => $profileData['email'],
+                'password' => $profileData['password'],
+                'phone_number' => $profileData['phone_number'],
+                'user_type' => UserType::Business,
+            ]);
+
+            // Create business profile with all data
+            BusinessProfile::query()->create([
+                'profile_id' => $profile->id,
+                'name' => $businessProfileData['name'],
+                'about' => $businessProfileData['about'],
+                'business_type' => $businessProfileData['business_type'],
+                'city_id' => $businessProfileData['city_id'],
+                'instagram' => $businessProfileData['instagram'],
+                'website' => $businessProfileData['website'],
+                'profile_photo' => $businessProfileData['profile_photo'],
+            ]);
+
+            // Create inactive subscription for business users
+            BusinessSubscription::query()->create([
+                'profile_id' => $profile->id,
+                'status' => SubscriptionStatus::Inactive,
+            ]);
+
+            return $profile;
+        });
+
+        // Load relationships
+        $this->loadProfileRelationships($profile);
+
+        // Generate token with 30-day expiration
+        $token = $this->createToken($profile);
+
+        return [
+            'profile' => $profile,
+            'is_new_user' => true,
+            'token' => $token,
+        ];
+    }
+
+    /**
+     * Register a new community user with email and password.
+     *
+     * @param  ProfileData  $profileData
+     * @param  CommunityProfileData  $communityProfileData
+     * @return AuthResult
+     */
+    public function registerCommunity(array $profileData, array $communityProfileData): array
+    {
+        $profile = DB::transaction(function () use ($profileData, $communityProfileData): Profile {
+            // Create profile
+            $profile = Profile::query()->create([
+                'email' => $profileData['email'],
+                'password' => $profileData['password'],
+                'phone_number' => $profileData['phone_number'],
+                'user_type' => UserType::Community,
+            ]);
+
+            // Create community profile with all data
+            CommunityProfile::query()->create([
+                'profile_id' => $profile->id,
+                'name' => $communityProfileData['name'],
+                'about' => $communityProfileData['about'],
+                'community_type' => $communityProfileData['community_type'],
+                'city_id' => $communityProfileData['city_id'],
+                'instagram' => $communityProfileData['instagram'],
+                'tiktok' => $communityProfileData['tiktok'],
+                'website' => $communityProfileData['website'],
+                'profile_photo' => $communityProfileData['profile_photo'],
+            ]);
+
+            return $profile;
+        });
+
+        // Load relationships
+        $this->loadProfileRelationships($profile);
+
+        // Generate token with 30-day expiration
+        $token = $this->createToken($profile);
+
+        return [
+            'profile' => $profile,
+            'is_new_user' => true,
+            'token' => $token,
+        ];
+    }
+
+    /**
+     * Login a user with email and password.
+     *
+     * @return LoginResult|array{error: string, code: int}
+     */
+    public function login(string $email, string $password): array
+    {
+        $profile = Profile::query()
+            ->where('email', $email)
+            ->first();
+
+        if (! $profile) {
+            return [
+                'error' => __('Invalid credentials'),
+                'code' => 401,
+            ];
+        }
+
+        // Check if user has a password set
+        if (! $profile->password) {
+            return [
+                'error' => __('This account uses Google Sign-In. Please login with Google.'),
+                'code' => 400,
+            ];
+        }
+
+        // Verify password
+        if (! Hash::check($password, $profile->password)) {
+            return [
+                'error' => __('Invalid credentials'),
+                'code' => 401,
+            ];
+        }
+
+        // Load relationships
+        $this->loadProfileRelationships($profile);
+
+        // Generate token with 30-day expiration
+        $token = $this->createToken($profile);
+
+        return [
+            'profile' => $profile,
+            'token' => $token,
+        ];
     }
 }

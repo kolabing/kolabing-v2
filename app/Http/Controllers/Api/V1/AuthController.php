@@ -6,6 +6,9 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\GoogleLoginRequest;
+use App\Http\Requests\Api\V1\LoginRequest;
+use App\Http\Requests\Api\V1\RegisterBusinessRequest;
+use App\Http\Requests\Api\V1\RegisterCommunityRequest;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\Profile;
 use App\Services\AuthService;
@@ -110,6 +113,88 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => __('Logged out successfully'),
+        ]);
+    }
+
+    /**
+     * Register a new business user with email and password.
+     *
+     * POST /api/v1/auth/register/business
+     */
+    public function registerBusiness(RegisterBusinessRequest $request): JsonResponse
+    {
+        $result = $this->authService->registerBusiness(
+            $request->getProfileData(),
+            $request->getBusinessProfileData()
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Registration successful'),
+            'data' => [
+                'token' => $result['token'],
+                'token_type' => 'Bearer',
+                'is_new_user' => $result['is_new_user'],
+                'user' => new UserResource($result['profile']),
+            ],
+        ], 201);
+    }
+
+    /**
+     * Register a new community user with email and password.
+     *
+     * POST /api/v1/auth/register/community
+     */
+    public function registerCommunity(RegisterCommunityRequest $request): JsonResponse
+    {
+        $result = $this->authService->registerCommunity(
+            $request->getProfileData(),
+            $request->getCommunityProfileData()
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Registration successful'),
+            'data' => [
+                'token' => $result['token'],
+                'token_type' => 'Bearer',
+                'is_new_user' => $result['is_new_user'],
+                'user' => new UserResource($result['profile']),
+            ],
+        ], 201);
+    }
+
+    /**
+     * Login a user with email and password.
+     *
+     * POST /api/v1/auth/login
+     */
+    public function login(LoginRequest $request): JsonResponse
+    {
+        $result = $this->authService->login(
+            $request->getEmail(),
+            $request->getPassword()
+        );
+
+        // Check for errors
+        if (isset($result['error'])) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['error'],
+                'errors' => [
+                    'credentials' => [$result['error']],
+                ],
+            ], $result['code']);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Login successful'),
+            'data' => [
+                'token' => $result['token'],
+                'token_type' => 'Bearer',
+                'user' => new UserResource($result['profile']),
+            ],
         ]);
     }
 }
