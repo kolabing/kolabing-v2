@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\UserType;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -25,6 +26,10 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read BusinessProfile|null $businessProfile
  * @property-read CommunityProfile|null $communityProfile
  * @property-read BusinessSubscription|null $subscription
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, CollabOpportunity> $createdOpportunities
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Application> $applications
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Collaboration> $createdCollaborations
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Collaboration> $appliedCollaborations
  * @property-read bool $onboarding_completed
  */
 class Profile extends Authenticatable
@@ -108,6 +113,46 @@ class Profile extends Authenticatable
     }
 
     /**
+     * Get opportunities created by this profile.
+     *
+     * @return HasMany<CollabOpportunity, $this>
+     */
+    public function createdOpportunities(): HasMany
+    {
+        return $this->hasMany(CollabOpportunity::class, 'creator_profile_id');
+    }
+
+    /**
+     * Get applications submitted by this profile.
+     *
+     * @return HasMany<Application, $this>
+     */
+    public function applications(): HasMany
+    {
+        return $this->hasMany(Application::class, 'applicant_profile_id');
+    }
+
+    /**
+     * Get collaborations where this profile is the creator.
+     *
+     * @return HasMany<Collaboration, $this>
+     */
+    public function createdCollaborations(): HasMany
+    {
+        return $this->hasMany(Collaboration::class, 'creator_profile_id');
+    }
+
+    /**
+     * Get collaborations where this profile is the applicant.
+     *
+     * @return HasMany<Collaboration, $this>
+     */
+    public function appliedCollaborations(): HasMany
+    {
+        return $this->hasMany(Collaboration::class, 'applicant_profile_id');
+    }
+
+    /**
      * Check if the user is a business user.
      */
     public function isBusiness(): bool
@@ -121,6 +166,19 @@ class Profile extends Authenticatable
     public function isCommunity(): bool
     {
         return $this->user_type === UserType::Community;
+    }
+
+    /**
+     * Check if the business user has an active subscription.
+     * Community users always return false.
+     */
+    public function hasActiveSubscription(): bool
+    {
+        if (! $this->isBusiness()) {
+            return false;
+        }
+
+        return $this->subscription?->isActive() ?? false;
     }
 
     /**

@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\ApplicationController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\LookupController;
 use App\Http\Controllers\Api\V1\OnboardingController;
+use App\Http\Controllers\Api\V1\OpportunityController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -62,5 +65,107 @@ Route::prefix('v1')->group(function (): void {
         Route::put('onboarding/community', [OnboardingController::class, 'community'])
             ->middleware('user_type:community')
             ->name('api.v1.onboarding.community');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Opportunities
+        |--------------------------------------------------------------------------
+        */
+
+        // Browse opportunities (public list of published)
+        Route::get('opportunities', [OpportunityController::class, 'index'])
+            ->name('api.v1.opportunities.index');
+
+        // My opportunities
+        Route::get('me/opportunities', [OpportunityController::class, 'myOpportunities'])
+            ->name('api.v1.me.opportunities');
+
+        // Single opportunity
+        Route::get('opportunities/{opportunity}', [OpportunityController::class, 'show'])
+            ->name('api.v1.opportunities.show');
+
+        // Create opportunity
+        Route::post('opportunities', [OpportunityController::class, 'store'])
+            ->name('api.v1.opportunities.store');
+
+        // Update opportunity
+        Route::put('opportunities/{opportunity}', [OpportunityController::class, 'update'])
+            ->name('api.v1.opportunities.update');
+
+        // Delete opportunity
+        Route::delete('opportunities/{opportunity}', [OpportunityController::class, 'destroy'])
+            ->name('api.v1.opportunities.destroy');
+
+        // Publish opportunity
+        Route::post('opportunities/{opportunity}/publish', [OpportunityController::class, 'publish'])
+            ->name('api.v1.opportunities.publish');
+
+        // Close opportunity
+        Route::post('opportunities/{opportunity}/close', [OpportunityController::class, 'close'])
+            ->name('api.v1.opportunities.close');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Applications
+        |--------------------------------------------------------------------------
+        */
+
+        // List applications for an opportunity (creator only)
+        Route::get('opportunities/{opportunity}/applications', [ApplicationController::class, 'forOpportunity'])
+            ->name('api.v1.opportunities.applications.index');
+
+        // Apply to opportunity
+        Route::post('opportunities/{opportunity}/applications', [ApplicationController::class, 'store'])
+            ->name('api.v1.opportunities.applications.store');
+
+        // Get application details
+        Route::get('applications/{application}', [ApplicationController::class, 'show'])
+            ->name('api.v1.applications.show');
+
+        // Accept application
+        Route::post('applications/{application}/accept', [ApplicationController::class, 'accept'])
+            ->name('api.v1.applications.accept');
+
+        // Decline application
+        Route::post('applications/{application}/decline', [ApplicationController::class, 'decline'])
+            ->name('api.v1.applications.decline');
+
+        // Withdraw application
+        Route::post('applications/{application}/withdraw', [ApplicationController::class, 'withdraw'])
+            ->name('api.v1.applications.withdraw');
+
+        // My sent applications
+        Route::get('me/applications', [ApplicationController::class, 'myApplications'])
+            ->name('api.v1.me.applications');
+
+        // Received applications
+        Route::get('me/received-applications', [ApplicationController::class, 'receivedApplications'])
+            ->name('api.v1.me.received-applications');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Collaborations
+        |--------------------------------------------------------------------------
+        */
+
+        // List my collaborations
+        Route::get('collaborations', [CollaborationController::class, 'index'])
+            ->name('api.v1.collaborations.index');
+
+        // Get collaboration details
+        Route::get('collaborations/{collaboration}', [CollaborationController::class, 'show'])
+            ->name('api.v1.collaborations.show');
+
+        // Activate collaboration
+        Route::post('collaborations/{collaboration}/activate', [CollaborationController::class, 'activate'])
+            ->name('api.v1.collaborations.activate');
+
+        // Complete collaboration
+        Route::post('collaborations/{collaboration}/complete', [CollaborationController::class, 'complete'])
+            ->name('api.v1.collaborations.complete');
+
+        // Cancel collaboration
+        Route::post('collaborations/{collaboration}/cancel', [CollaborationController::class, 'cancel'])
+            ->name('api.v1.collaborations.cancel');
     });
 });
