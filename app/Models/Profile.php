@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -24,9 +25,11 @@ use Laravel\Sanctum\HasApiTokens;
  * @property \Illuminate\Support\Carbon|null $email_verified_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property \Illuminate\Support\Carbon|null $deleted_at
  * @property-read BusinessProfile|null $businessProfile
  * @property-read CommunityProfile|null $communityProfile
  * @property-read BusinessSubscription|null $subscription
+ * @property-read NotificationPreference|null $notificationPreferences
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CollabOpportunity> $createdOpportunities
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Application> $applications
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Collaboration> $createdCollaborations
@@ -39,6 +42,7 @@ class Profile extends Authenticatable
     use HasFactory;
     use HasUuids;
     use Notifiable;
+    use SoftDeletes;
 
     /**
      * The table associated with the model.
@@ -114,6 +118,16 @@ class Profile extends Authenticatable
     public function subscription(): HasOne
     {
         return $this->hasOne(BusinessSubscription::class);
+    }
+
+    /**
+     * Get the notification preferences for this user.
+     *
+     * @return HasOne<NotificationPreference, $this>
+     */
+    public function notificationPreferences(): HasOne
+    {
+        return $this->hasOne(NotificationPreference::class);
     }
 
     /**

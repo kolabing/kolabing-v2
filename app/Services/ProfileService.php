@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\NotificationPreference;
 use App\Models\Profile;
+use Illuminate\Support\Facades\DB;
 
 class ProfileService
 {
@@ -19,6 +21,17 @@ class ProfileService
     }
 
     /**
+     * Get the full profile with subscription and notification preferences.
+     */
+    public function getFullProfile(Profile $profile): Profile
+    {
+        $this->loadProfileRelationships($profile);
+        $profile->load('notificationPreferences');
+
+        return $profile;
+    }
+
+    /**
      * Load profile relationships based on user type.
      */
     public function loadProfileRelationships(Profile $profile): void
@@ -28,5 +41,84 @@ class ProfileService
         } else {
             $profile->load(['communityProfile.city']);
         }
+    }
+
+    /**
+     * Update the profile and extended profile data.
+     *
+     * @param  array<string, mixed>  $profileData
+     * @param  array<string, mixed>  $extendedProfileData
+     */
+    public function updateProfile(
+        Profile $profile,
+        array $profileData,
+        array $extendedProfileData
+    ): Profile {
+        return DB::transaction(function () use ($profile, $profileData, $extendedProfileData): Profile {
+            // Update base profile data
+            if (! empty($profileData)) {
+                $profile->update($profileData);
+            }
+
+            // Update extended profile based on user type
+            if (! empty($extendedProfileData)) {
+                if ($profile->isBusiness() && $profile->businessProfile) {
+                    $profile->businessProfile->update($extendedProfileData);
+                } elseif ($profile->isCommunity() && $profile->communityProfile) {
+                    $profile->communityProfile->update($extendedProfileData);
+                }
+            }
+
+            // Reload relationships
+            $this->loadProfileRelationships($profile);
+
+            return $profile;
+        });
+    }
+
+    /**
+     * Soft delete the profile and revoke all tokens.
+     */
+    public function deleteProfile(Profile $profile): bool
+    {
+        return DB::transaction(function () use ($profile): bool {
+            // Revoke all tokens
+            $profile->tokens()->delete();
+
+            // Soft delete the profile
+            return $profile->delete();
+        });
+    }
+
+    /**
+     * Get or create notification preferences for a profile.
+     */
+    public function getOrCreateNotificationPreferences(Profile $profile): NotificationPreference
+    {
+        return $profile->notificationPreferences()->firstOrCreate(
+            ['profile_id' => $profile->id],
+            [
+                'email_notifications' => true,
+                'whatsapp_notifications' => true,
+                'new_application_alerts' => true,
+                'collaboration_updates' => true,
+                'marketing_tips' => false,
+            ]
+        );
+    }
+
+    /**
+     * Update notification preferences.
+     *
+     * @param  array<string, bool>  $preferencesData
+     */
+    public function updateNotificationPreferences(
+        Profile $profile,
+        array $preferencesData
+    ): NotificationPreference {
+        $preferences = $this->getOrCreateNotificationPreferences($profile);
+        $preferences->update($preferencesData);
+
+        return $preferences;
     }
 }

@@ -6,8 +6,11 @@ use App\Http\Controllers\Api\V1\ApplicationController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\LookupController;
+use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OnboardingController;
 use App\Http\Controllers\Api\V1\OpportunityController;
+use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -74,6 +77,60 @@ Route::prefix('v1')->group(function (): void {
         Route::put('onboarding/community', [OnboardingController::class, 'community'])
             ->middleware('user_type:community')
             ->name('api.v1.onboarding.community');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Profile Management
+        |--------------------------------------------------------------------------
+        */
+
+        // Get full profile with subscription
+        Route::get('me/profile', [ProfileController::class, 'show'])
+            ->name('api.v1.me.profile');
+
+        // Update profile
+        Route::put('me/profile', [ProfileController::class, 'update'])
+            ->name('api.v1.me.profile.update');
+
+        // Delete account (soft delete)
+        Route::delete('me/account', [ProfileController::class, 'destroy'])
+            ->name('api.v1.me.account.destroy');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Notification Preferences
+        |--------------------------------------------------------------------------
+        */
+
+        // Get notification preferences
+        Route::get('me/notification-preferences', [NotificationPreferenceController::class, 'show'])
+            ->name('api.v1.me.notification-preferences');
+
+        // Update notification preferences
+        Route::put('me/notification-preferences', [NotificationPreferenceController::class, 'update'])
+            ->name('api.v1.me.notification-preferences.update');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Subscription (Business only)
+        |--------------------------------------------------------------------------
+        */
+
+        // Get subscription details
+        Route::get('me/subscription', [SubscriptionController::class, 'show'])
+            ->name('api.v1.me.subscription');
+
+        // Create Stripe checkout session
+        Route::post('me/subscription/checkout', [SubscriptionController::class, 'checkout'])
+            ->name('api.v1.me.subscription.checkout');
+
+        // Get Stripe billing portal URL
+        Route::get('me/subscription/portal', [SubscriptionController::class, 'portal'])
+            ->name('api.v1.me.subscription.portal');
+
+        // Cancel subscription at period end
+        Route::post('me/subscription/cancel', [SubscriptionController::class, 'cancel'])
+            ->name('api.v1.me.subscription.cancel');
 
         /*
         |--------------------------------------------------------------------------
