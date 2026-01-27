@@ -1,0 +1,155 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature\Api\V1;
+
+use App\Models\CollabOpportunity;
+use App\Models\Profile;
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Tests\TestCase;
+
+class OpportunityListingTest extends TestCase
+{
+    use LazilyRefreshDatabase;
+
+    /*
+    |--------------------------------------------------------------------------
+    | My Opportunities (GET /api/v1/me/opportunities)
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_my_opportunities_requires_authentication(): void
+    {
+        $response = $this->getJson('/api/v1/me/opportunities');
+
+        $response->assertStatus(401);
+    }
+
+    public function test_my_opportunities_returns_only_own_opportunities(): void
+    {
+        $owner = Profile::factory()->business()->create();
+        $other = Profile::factory()->business()->create();
+
+        CollabOpportunity::factory()->count(3)->published()->forCreator($owner)->create();
+        CollabOpportunity::factory()->count(2)->published()->forCreator($other)->create();
+
+        $response = $this->actingAs($owner)
+            ->getJson('/api/v1/me/opportunities');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('meta.total', 3);
+    }
+
+    public function test_my_opportunities_returns_all_statuses(): void
+    {
+        $owner = Profile::factory()->business()->create();
+
+        CollabOpportunity::factory()->forCreator($owner)->create(); // draft
+        CollabOpportunity::factory()->published()->forCreator($owner)->create();
+        CollabOpportunity::factory()->closed()->forCreator($owner)->create();
+
+        $response = $this->actingAs($owner)
+            ->getJson('/api/v1/me/opportunities');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('meta.total', 3);
+    }
+
+    public function test_my_opportunities_filters_by_status(): void
+    {
+        $owner = Profile::factory()->business()->create();
+
+        CollabOpportunity::factory()->forCreator($owner)->create(); // draft
+        CollabOpportunity::factory()->count(2)->published()->forCreator($owner)->create();
+
+        $response = $this->actingAs($owner)
+            ->getJson('/api/v1/me/opportunities?status=published');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('meta.total', 2);
+    }
+
+    public function test_my_opportunities_returns_correct_structure(): void
+    {
+        $owner = Profile::factory()->business()->create();
+        CollabOpportunity::factory()->published()->forCreator($owner)->create();
+
+        $response = $this->actingAs($owner)
+            ->getJson('/api/v1/me/opportunities');
+
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'success',
+                'data' => [
+                    'data' => [
+                        '*' => [
+                            'id',
+                            'title',
+                            'description',
+                            'status',
+                            'business_offer',
+                            'community_deliverables',
+                            'categories',
+                            'availability_mode',
+                            'availability_start',
+                            'availability_end',
+                            'venue_mode',
+                            'preferred_city',
+                            'is_own',
+                            'created_at',
+                            'updated_at',
+                        ],
+                    ],
+                ],
+                'meta' => [
+                    'current_page',
+                    'last_page',
+                    'per_page',
+                    'total',
+                ],
+            ]);
+    }
+
+    public function test_my_opportunities_returns_empty_when_none_exist(): void
+    {
+        $owner = Profile::factory()->business()->create();
+
+        $response = $this->actingAs($owner)
+            ->getJson('/api/v1/me/opportunities');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('meta.total', 0);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Browse Published Opportunities (GET /api/v1/opportunities)
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_browse_opportunities_requires_authentication(): void
+    {
+        $response = $this->getJson('/api/v1/opportunities');
+
+        $response->assertStatus(401);
+    }
+
+    public function test_browse_opportunities_returns_only_published(): void
+    {
+        $owner = Profile::factory()->business()->create();
+
+        CollabOpportunity::factory()->forCreator($owner)->create(); // draft
+        CollabOpportunity::factory()->count(2)->published()->forCreator($owner)->create();
+        CollabOpportunity::factory()->closed()->forCreator($owner)->create();
+
+        $response = $this->actingAs($owner)
+            ->getJson('/api/v1/opportunities');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('meta.total', 2);
+    }
+}
