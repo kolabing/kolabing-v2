@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\ApplicationController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\LookupController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
@@ -207,6 +208,28 @@ Route::prefix('v1')->group(function (): void {
         // Received applications
         Route::get('me/received-applications', [ApplicationController::class, 'receivedApplications'])
             ->name('api.v1.me.received-applications');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Chat Messages
+        |--------------------------------------------------------------------------
+        */
+
+        // Get chat messages for an application
+        Route::get('applications/{application}/messages', [ChatController::class, 'index'])
+            ->name('api.v1.applications.messages.index');
+
+        // Send a chat message
+        Route::post('applications/{application}/messages', [ChatController::class, 'store'])
+            ->name('api.v1.applications.messages.store');
+
+        // Mark messages as read
+        Route::post('applications/{application}/messages/read', [ChatController::class, 'markAsRead'])
+            ->name('api.v1.applications.messages.read');
+
+        // Get unread message count
+        Route::get('me/unread-messages-count', [ChatController::class, 'unreadCount'])
+            ->name('api.v1.me.unread-messages-count');
 
         /*
         |--------------------------------------------------------------------------

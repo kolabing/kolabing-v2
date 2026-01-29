@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\OfferStatus;
+use App\Enums\UserType;
 use App\Models\CollabOpportunity;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class OpportunityService
@@ -28,11 +30,19 @@ class OpportunityService
      *     search?: string,
      * }  $filters
      */
-    public function browse(array $filters, int $perPage = 20): LengthAwarePaginator
+    public function browse(Profile $viewer, array $filters, int $perPage = 20): LengthAwarePaginator
     {
         $query = CollabOpportunity::query()
             ->where('status', OfferStatus::Published)
             ->with('creatorProfile');
+
+        if (! isset($filters['creator_type']) || $filters['creator_type'] === '') {
+            $oppositeType = $viewer->user_type === UserType::Business
+                ? UserType::Community
+                : UserType::Business;
+
+            $query->where('creator_profile_type', $oppositeType);
+        }
 
         $this->applyFilters($query, $filters);
 
@@ -286,11 +296,44 @@ class OpportunityService
         }
 
         if (isset($filters['search']) && $filters['search'] !== '') {
-            $searchTerm = '%'.$filters['search'].'%';
-            $query->where(function (Builder $q) use ($searchTerm) {
-                $q->where('title', 'ilike', $searchTerm)
-                    ->orWhere('description', 'ilike', $searchTerm);
+            $searchTerm = '%'.strtolower($filters['search']).'%';
+            $likeOperator = $this->getCaseInsensitiveLikeOperator();
+
+            $query->where(function (Builder $q) use ($searchTerm, $likeOperator) {
+                if ($likeOperator === 'ilike') {
+                    $q->where('collab_opportunities.title', 'ilike', $searchTerm)
+                        ->orWhere('collab_opportunities.description', 'ilike', $searchTerm);
+                } else {
+                    $q->whereRaw('LOWER(collab_opportunities.title) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(collab_opportunities.description) LIKE ?', [$searchTerm]);
+                }
+
+                $q->orWhereHas('creatorProfile.businessProfile', function (Builder $bq) use ($searchTerm, $likeOperator) {
+                    if ($likeOperator === 'ilike') {
+                        $bq->where('name', 'ilike', $searchTerm);
+                    } else {
+                        $bq->whereRaw('LOWER(name) LIKE ?', [$searchTerm]);
+                    }
+                });
+
+                $q->orWhereHas('creatorProfile.communityProfile', function (Builder $cq) use ($searchTerm, $likeOperator) {
+                    if ($likeOperator === 'ilike') {
+                        $cq->where('name', 'ilike', $searchTerm);
+                    } else {
+                        $cq->whereRaw('LOWER(name) LIKE ?', [$searchTerm]);
+                    }
+                });
             });
         }
+    }
+
+    /**
+     * Get the case-insensitive LIKE operator based on database driver.
+     */
+    private function getCaseInsensitiveLikeOperator(): string
+    {
+        $driver = DB::connection()->getDriverName();
+
+        return $driver === 'pgsql' ? 'ilike' : 'like';
     }
 }

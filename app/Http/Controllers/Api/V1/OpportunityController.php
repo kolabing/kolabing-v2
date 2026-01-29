@@ -29,6 +29,9 @@ class OpportunityController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
         $filters = [
             'creator_type' => $request->query('creator_type'),
             'categories' => $request->query('categories'),
@@ -43,7 +46,7 @@ class OpportunityController extends Controller
         $perPage = (int) $request->query('per_page', 20);
         $perPage = min(max($perPage, 1), 100);
 
-        $opportunities = $this->opportunityService->browse($filters, $perPage);
+        $opportunities = $this->opportunityService->browse($profile, $filters, $perPage);
 
         return response()->json([
             'success' => true,

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
@@ -25,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property-read CollabOpportunity $collabOpportunity
  * @property-read Profile $applicantProfile
  * @property-read Collaboration|null $collaboration
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, ChatMessage> $chatMessages
  */
 class Application extends Model
 {
@@ -86,6 +88,16 @@ class Application extends Model
     public function collaboration(): HasOne
     {
         return $this->hasOne(Collaboration::class);
+    }
+
+    /**
+     * Get all chat messages for this application.
+     *
+     * @return HasMany<ChatMessage, $this>
+     */
+    public function chatMessages(): HasMany
+    {
+        return $this->hasMany(ChatMessage::class);
     }
 
     /**
