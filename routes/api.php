@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\ApplicationController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\CollaborationController;
+use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\LookupController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OnboardingController;
@@ -92,6 +93,10 @@ Route::prefix('v1')->group(function (): void {
         // Update profile
         Route::put('me/profile', [ProfileController::class, 'update'])
             ->name('api.v1.me.profile.update');
+
+        // Dashboard
+        Route::get('me/dashboard', DashboardController::class)
+            ->name('api.v1.me.dashboard');
 
         // Delete account (soft delete)
         Route::delete('me/account', [ProfileController::class, 'destroy'])

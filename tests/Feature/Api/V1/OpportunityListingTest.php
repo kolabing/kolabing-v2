@@ -139,17 +139,58 @@ class OpportunityListingTest extends TestCase
 
     public function test_browse_opportunities_returns_only_published(): void
     {
-        $owner = Profile::factory()->business()->create();
+        $viewer = Profile::factory()->business()->create();
+        $communityCreator = Profile::factory()->community()->create();
 
-        CollabOpportunity::factory()->forCreator($owner)->create(); // draft
-        CollabOpportunity::factory()->count(2)->published()->forCreator($owner)->create();
-        CollabOpportunity::factory()->closed()->forCreator($owner)->create();
+        CollabOpportunity::factory()->forCreator($communityCreator)->create(); // draft
+        CollabOpportunity::factory()->count(2)->published()->forCreator($communityCreator)->create();
+        CollabOpportunity::factory()->closed()->forCreator($communityCreator)->create();
 
-        $response = $this->actingAs($owner)
+        $response = $this->actingAs($viewer)
             ->getJson('/api/v1/opportunities');
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
+            ->assertJsonPath('meta.total', 2);
+    }
+
+    public function test_browse_opportunities_shows_opposite_user_type(): void
+    {
+        $businessViewer = Profile::factory()->business()->create();
+        $communityViewer = Profile::factory()->community()->create();
+        $businessCreator = Profile::factory()->business()->create();
+        $communityCreator = Profile::factory()->community()->create();
+
+        CollabOpportunity::factory()->count(2)->published()->forCreator($businessCreator)->create();
+        CollabOpportunity::factory()->count(3)->published()->forCreator($communityCreator)->create();
+
+        // Business viewer should see community opportunities
+        $response = $this->actingAs($businessViewer)
+            ->getJson('/api/v1/opportunities');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('meta.total', 3);
+
+        // Community viewer should see business opportunities
+        $response = $this->actingAs($communityViewer)
+            ->getJson('/api/v1/opportunities');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('meta.total', 2);
+    }
+
+    public function test_browse_opportunities_explicit_creator_type_overrides_default(): void
+    {
+        $businessViewer = Profile::factory()->business()->create();
+        $businessCreator = Profile::factory()->business()->create();
+
+        CollabOpportunity::factory()->count(2)->published()->forCreator($businessCreator)->create();
+
+        // Business viewer explicitly requesting business-type opportunities
+        $response = $this->actingAs($businessViewer)
+            ->getJson('/api/v1/opportunities?creator_type=business');
+
+        $response->assertStatus(200)
             ->assertJsonPath('meta.total', 2);
     }
 }

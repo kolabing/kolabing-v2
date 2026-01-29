@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Chat system allows Business and Community users to communicate after an application is created. Each chat conversation is tied to a specific Application, enabling both the opportunity creator and the applicant to exchange messages.
+The Chalutter: 🔐 Response body (first 500 chars): {"success":false,"message":"Validation failed","errors":{"email":["This email is already registered"]}}t system allows Business and Community users to communicate after an application is created. Each chat conversation is tied to a specific Application, enabling both the opportunity creator and the applicant to exchange messages.
 
 ### Chat Participants
 - **Opportunity Creator**: The business/community who created the collaboration opportunity
