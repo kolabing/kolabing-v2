@@ -32,7 +32,7 @@ class ApplicationPolicy
     /**
      * Determine whether the user can create an application for the opportunity.
      * Cannot apply to own opportunity; opportunity must be published;
-     * profile must be complete; business users need active subscription.
+     * profile must be complete.
      */
     public function create(Profile $user, CollabOpportunity $opportunity): bool
     {
@@ -48,11 +48,6 @@ class ApplicationPolicy
 
         // Profile must have completed onboarding
         if (! $user->onboarding_completed) {
-            return false;
-        }
-
-        // Business users need active subscription to apply
-        if ($user->isBusiness() && ! $user->hasActiveSubscription()) {
             return false;
         }
 

@@ -243,13 +243,6 @@ class ApplicationService
             );
         }
 
-        // Business users must have active subscription to apply
-        if ($applicant->isBusiness() && ! $applicant->hasActiveSubscription()) {
-            throw new RuntimeException(
-                'An active subscription is required to apply to opportunities.'
-            );
-        }
-
         // Check for existing application (unique constraint will also catch this)
         $existingApplication = Application::query()
             ->where('collab_opportunity_id', $opportunity->id)
