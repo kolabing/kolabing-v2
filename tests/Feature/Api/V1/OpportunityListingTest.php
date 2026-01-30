@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Models\Application;
 use App\Models\CollabOpportunity;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -192,5 +193,83 @@ class OpportunityListingTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 2);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Browse: Hide Already Applied Opportunities
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_browse_excludes_opportunities_user_has_applied_to(): void
+    {
+        $businessViewer = Profile::factory()->business()->create();
+        $communityCreator = Profile::factory()->community()->create();
+
+        $opportunity1 = CollabOpportunity::factory()->published()->forCreator($communityCreator)->create();
+        $opportunity2 = CollabOpportunity::factory()->published()->forCreator($communityCreator)->create();
+        CollabOpportunity::factory()->published()->forCreator($communityCreator)->create(); // not applied
+
+        // Viewer applied to opportunity1 (pending) and opportunity2 (declined)
+        Application::factory()->forOpportunity($opportunity1)->forApplicant($businessViewer)->pending()->create();
+        Application::factory()->forOpportunity($opportunity2)->forApplicant($businessViewer)->declined()->create();
+
+        $response = $this->actingAs($businessViewer)
+            ->getJson('/api/v1/opportunities');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_browse_excludes_withdrawn_applications(): void
+    {
+        $businessViewer = Profile::factory()->business()->create();
+        $communityCreator = Profile::factory()->community()->create();
+
+        $opportunity = CollabOpportunity::factory()->published()->forCreator($communityCreator)->create();
+        CollabOpportunity::factory()->published()->forCreator($communityCreator)->create(); // not applied
+
+        Application::factory()->forOpportunity($opportunity)->forApplicant($businessViewer)->withdrawn()->create();
+
+        $response = $this->actingAs($businessViewer)
+            ->getJson('/api/v1/opportunities');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_browse_excludes_accepted_applications(): void
+    {
+        $businessViewer = Profile::factory()->business()->create();
+        $communityCreator = Profile::factory()->community()->create();
+
+        $opportunity = CollabOpportunity::factory()->published()->forCreator($communityCreator)->create();
+        CollabOpportunity::factory()->count(2)->published()->forCreator($communityCreator)->create();
+
+        Application::factory()->forOpportunity($opportunity)->forApplicant($businessViewer)->accepted()->create();
+
+        $response = $this->actingAs($businessViewer)
+            ->getJson('/api/v1/opportunities');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('meta.total', 2);
+    }
+
+    public function test_browse_shows_opportunities_other_users_applied_to(): void
+    {
+        $businessViewer = Profile::factory()->business()->create();
+        $otherBusiness = Profile::factory()->business()->create();
+        $communityCreator = Profile::factory()->community()->create();
+
+        $opportunity = CollabOpportunity::factory()->published()->forCreator($communityCreator)->create();
+
+        // Another user applied, not the viewer
+        Application::factory()->forOpportunity($opportunity)->forApplicant($otherBusiness)->pending()->create();
+
+        $response = $this->actingAs($businessViewer)
+            ->getJson('/api/v1/opportunities');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('meta.total', 1);
     }
 }

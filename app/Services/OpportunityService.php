@@ -44,6 +44,11 @@ class OpportunityService
             $query->where('creator_profile_type', $oppositeType);
         }
 
+        // Exclude opportunities the viewer has already applied to
+        $query->whereDoesntHave('applications', function (Builder $q) use ($viewer) {
+            $q->where('applicant_profile_id', $viewer->id);
+        });
+
         $this->applyFilters($query, $filters);
 
         return $query
