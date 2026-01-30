@@ -8,7 +8,9 @@ use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
 use App\Models\CommunityProfile;
 use App\Models\Profile;
+use App\Services\SubscriptionService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Mockery;
 use Tests\TestCase;
 
 class SubscriptionControllerTest extends TestCase
@@ -216,6 +218,16 @@ class SubscriptionControllerTest extends TestCase
         $profile = Profile::factory()->business()->create();
         BusinessProfile::factory()->create(['profile_id' => $profile->id]);
 
+        // Mock SubscriptionService to avoid real Stripe API calls
+        $mock = Mockery::mock(SubscriptionService::class)->makePartial();
+        $mock->shouldReceive('createCheckoutSession')
+            ->once()
+            ->andReturn([
+                'checkout_url' => 'https://checkout.stripe.com/c/pay/cs_test_123',
+                'session_id' => 'cs_test_123',
+            ]);
+        $this->app->instance(SubscriptionService::class, $mock);
+
         $response = $this->actingAs($profile)
             ->postJson('/api/v1/me/subscription/checkout', [
                 'success_url' => 'https://example.com/success',
@@ -232,7 +244,6 @@ class SubscriptionControllerTest extends TestCase
                 ],
             ]);
 
-        // Verify checkout URL format (placeholder)
         $checkoutUrl = $response->json('data.checkout_url');
         $this->assertStringContainsString('checkout.stripe.com', $checkoutUrl);
     }
@@ -245,6 +256,16 @@ class SubscriptionControllerTest extends TestCase
             'profile_id' => $profile->id,
             'stripe_customer_id' => 'cus_existing123',
         ]);
+
+        // Mock SubscriptionService to avoid real Stripe API calls
+        $mock = Mockery::mock(SubscriptionService::class)->makePartial();
+        $mock->shouldReceive('createCheckoutSession')
+            ->once()
+            ->andReturn([
+                'checkout_url' => 'https://checkout.stripe.com/c/pay/cs_test_456',
+                'session_id' => 'cs_test_456',
+            ]);
+        $this->app->instance(SubscriptionService::class, $mock);
 
         $response = $this->actingAs($profile)
             ->postJson('/api/v1/me/subscription/checkout', [
@@ -312,6 +333,15 @@ class SubscriptionControllerTest extends TestCase
             'stripe_customer_id' => 'cus_test123',
         ]);
 
+        // Mock SubscriptionService to avoid real Stripe API calls
+        $mock = Mockery::mock(SubscriptionService::class)->makePartial();
+        $mock->shouldReceive('getBillingPortalUrl')
+            ->once()
+            ->andReturn([
+                'portal_url' => 'https://billing.stripe.com/p/session/test_portal_123',
+            ]);
+        $this->app->instance(SubscriptionService::class, $mock);
+
         $response = $this->actingAs($profile)
             ->getJson('/api/v1/me/subscription/portal?return_url=https://example.com/dashboard');
 
@@ -324,7 +354,6 @@ class SubscriptionControllerTest extends TestCase
                 ],
             ]);
 
-        // Verify portal URL format (placeholder)
         $portalUrl = $response->json('data.portal_url');
         $this->assertStringContainsString('billing.stripe.com', $portalUrl);
     }
@@ -395,6 +424,17 @@ class SubscriptionControllerTest extends TestCase
             'cancel_at_period_end' => false,
         ]);
 
+        // Mock SubscriptionService to avoid real Stripe API calls
+        $mock = Mockery::mock(SubscriptionService::class)->makePartial();
+        $mock->shouldReceive('cancelSubscription')
+            ->once()
+            ->andReturnUsing(function () use ($subscription) {
+                $subscription->update(['cancel_at_period_end' => true]);
+
+                return $subscription->fresh();
+            });
+        $this->app->instance(SubscriptionService::class, $mock);
+
         $response = $this->actingAs($profile)
             ->postJson('/api/v1/me/subscription/cancel');
 
@@ -404,7 +444,6 @@ class SubscriptionControllerTest extends TestCase
             ->assertJsonPath('data.status', 'active')
             ->assertJsonPath('data.cancel_at_period_end', true);
 
-        // Verify database was updated
         $this->assertDatabaseHas('business_subscriptions', [
             'id' => $subscription->id,
             'cancel_at_period_end' => true,
@@ -415,10 +454,21 @@ class SubscriptionControllerTest extends TestCase
     {
         $profile = Profile::factory()->business()->create();
         BusinessProfile::factory()->create(['profile_id' => $profile->id]);
-        BusinessSubscription::factory()->active()->create([
+        $subscription = BusinessSubscription::factory()->active()->create([
             'profile_id' => $profile->id,
             'cancel_at_period_end' => false,
         ]);
+
+        // Mock SubscriptionService for both calls
+        $mock = Mockery::mock(SubscriptionService::class)->makePartial();
+        $mock->shouldReceive('cancelSubscription')
+            ->twice()
+            ->andReturnUsing(function () use ($subscription) {
+                $subscription->update(['cancel_at_period_end' => true]);
+
+                return $subscription->fresh();
+            });
+        $this->app->instance(SubscriptionService::class, $mock);
 
         // First cancellation
         $this->actingAs($profile)

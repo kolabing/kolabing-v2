@@ -85,6 +85,27 @@ class OpportunityService
     }
 
     /**
+     * Maximum number of opportunities a business user can create without a subscription.
+     */
+    public const int FREE_OPPORTUNITY_LIMIT = 3;
+
+    /**
+     * Check if a business user has reached the free opportunity limit.
+     */
+    public function hasReachedFreeLimit(Profile $profile): bool
+    {
+        if (! $profile->isBusiness()) {
+            return false;
+        }
+
+        if ($profile->hasActiveSubscription()) {
+            return false;
+        }
+
+        return $profile->createdOpportunities()->count() >= self::FREE_OPPORTUNITY_LIMIT;
+    }
+
+    /**
      * Create a new opportunity in draft status.
      *
      * @param  array{
@@ -101,9 +122,17 @@ class OpportunityService
      *     preferred_city?: string|null,
      *     offer_photo?: string|null,
      * }  $data
+     *
+     * @throws InvalidArgumentException
      */
     public function create(Profile $creator, array $data): CollabOpportunity
     {
+        if ($this->hasReachedFreeLimit($creator)) {
+            throw new InvalidArgumentException(
+                'You have reached the free opportunity limit. Please subscribe to create more opportunities.'
+            );
+        }
+
         return CollabOpportunity::query()->create([
             'creator_profile_id' => $creator->id,
             'creator_profile_type' => $creator->user_type,

@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OnboardingController;
 use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\StripeWebhookController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
@@ -45,6 +46,10 @@ Route::prefix('v1')->group(function (): void {
 
     Route::post('auth/login', [AuthController::class, 'login'])
         ->name('api.v1.auth.login');
+
+    // Stripe Webhook
+    Route::post('webhooks/stripe', StripeWebhookController::class)
+        ->name('api.v1.webhooks.stripe');
 
     // Lookups
     Route::get('cities', [LookupController::class, 'cities'])

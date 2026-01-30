@@ -133,14 +133,22 @@ class OpportunityController extends Controller
             ], 403);
         }
 
-        $opportunity = $this->opportunityService->create($profile, $request->validated());
-        $opportunity->load('creatorProfile');
+        try {
+            $opportunity = $this->opportunityService->create($profile, $request->validated());
+            $opportunity->load('creatorProfile');
 
-        return response()->json([
-            'success' => true,
-            'message' => __('Opportunity created successfully.'),
-            'data' => new OpportunityResource($opportunity),
-        ], 201);
+            return response()->json([
+                'success' => true,
+                'message' => __('Opportunity created successfully.'),
+                'data' => new OpportunityResource($opportunity),
+            ], 201);
+        } catch (InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'requires_subscription' => true,
+            ], 403);
+        }
     }
 
     /**
