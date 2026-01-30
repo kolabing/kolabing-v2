@@ -14,6 +14,10 @@ use InvalidArgumentException;
 
 class ChatService
 {
+    public function __construct(
+        private readonly NotificationService $notificationService
+    ) {}
+
     /**
      * Get chat messages for an application.
      *
@@ -51,6 +55,9 @@ class ChatService
 
         // Broadcast the new message event
         broadcast(new NewChatMessage($message))->toOthers();
+
+        // Create notification for the recipient
+        $this->notificationService->notifyNewMessage($message, $application);
 
         return $message;
     }

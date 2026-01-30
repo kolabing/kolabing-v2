@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\GalleryController;
 use App\Http\Controllers\Api\V1\LookupController;
+use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OnboardingController;
 use App\Http\Controllers\Api\V1\OpportunityController;
@@ -277,6 +278,28 @@ Route::prefix('v1')->group(function (): void {
         // Get unread message count
         Route::get('me/unread-messages-count', [ChatController::class, 'unreadCount'])
             ->name('api.v1.me.unread-messages-count');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Notifications
+        |--------------------------------------------------------------------------
+        */
+
+        // List notifications
+        Route::get('me/notifications', [NotificationController::class, 'index'])
+            ->name('api.v1.me.notifications');
+
+        // Unread count
+        Route::get('me/notifications/unread-count', [NotificationController::class, 'unreadCount'])
+            ->name('api.v1.me.notifications.unread-count');
+
+        // Mark single as read
+        Route::post('me/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])
+            ->name('api.v1.me.notifications.read');
+
+        // Mark all as read
+        Route::post('me/notifications/read-all', [NotificationController::class, 'markAllAsRead'])
+            ->name('api.v1.me.notifications.read-all');
 
         /*
         |--------------------------------------------------------------------------

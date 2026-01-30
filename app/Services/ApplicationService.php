@@ -17,6 +17,10 @@ use RuntimeException;
 
 class ApplicationService
 {
+    public function __construct(
+        private readonly NotificationService $notificationService
+    ) {}
+
     /**
      * Apply to an opportunity.
      *
@@ -31,7 +35,7 @@ class ApplicationService
     {
         $this->validateCanApply($applicant, $opportunity);
 
-        return Application::create([
+        $application = Application::create([
             'collab_opportunity_id' => $opportunity->id,
             'applicant_profile_id' => $applicant->id,
             'applicant_profile_type' => $applicant->user_type,
@@ -39,6 +43,10 @@ class ApplicationService
             'availability' => $data['availability'] ?? null,
             'status' => ApplicationStatus::Pending,
         ]);
+
+        $this->notificationService->notifyApplicationReceived($application);
+
+        return $application;
     }
 
     /**
@@ -61,6 +69,8 @@ class ApplicationService
             ]);
 
             $collaboration = $this->createCollaboration($application, $data);
+
+            $this->notificationService->notifyApplicationAccepted($application);
 
             return [
                 'application' => $application->fresh(),
@@ -88,6 +98,8 @@ class ApplicationService
         $application->update([
             'status' => ApplicationStatus::Declined,
         ]);
+
+        $this->notificationService->notifyApplicationDeclined($application);
 
         return $application->fresh();
     }
