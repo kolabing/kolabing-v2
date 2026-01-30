@@ -26,7 +26,7 @@ class ApplyToOpportunityRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'message' => ['required', 'string', 'min:50', 'max:2000'],
+            'message' => ['required', 'string', 'min:20', 'max:2000'],
             'availability' => ['required', 'string', 'min:20', 'max:500'],
         ];
     }
@@ -40,7 +40,7 @@ class ApplyToOpportunityRequest extends FormRequest
     {
         return [
             'message.required' => __('validation.required', ['attribute' => 'message']),
-            'message.min' => __('validation.min.string', ['attribute' => 'message', 'min' => 50]),
+            'message.min' => __('validation.min.string', ['attribute' => 'message', 'min' => 20]),
             'message.max' => __('validation.max.string', ['attribute' => 'message', 'max' => 2000]),
             'availability.required' => __('validation.required', ['attribute' => 'availability']),
             'availability.min' => __('validation.min.string', ['attribute' => 'availability', 'min' => 20]),

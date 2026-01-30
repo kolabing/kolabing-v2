@@ -41,7 +41,7 @@ POST /api/v1/opportunities/{opportunity_id}/applications
 
 | Field | Type | Required | Validation | Description |
 |-------|------|----------|------------|-------------|
-| `message` | string | Yes | min: 50, max: 2000 | Application message explaining why you want to collaborate |
+| `message` | string | Yes | min: 20, max: 2000 | Application message explaining why you want to collaborate |
 | `availability` | string | Yes | min: 20, max: 500 | Your availability for this collaboration |
 
 ### Example Request
@@ -90,7 +90,7 @@ POST /api/v1/opportunities/{opportunity_id}/applications
   "success": false,
   "message": "Validation failed",
   "errors": {
-    "message": ["The message field must be at least 50 characters."],
+    "message": ["The message field must be at least 20 characters."],
     "availability": ["The availability field is required."]
   }
 }
