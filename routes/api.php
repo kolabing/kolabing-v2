@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\DashboardController;
+use App\Http\Controllers\Api\V1\GalleryController;
 use App\Http\Controllers\Api\V1\LookupController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OnboardingController;
@@ -142,6 +143,28 @@ Route::prefix('v1')->group(function (): void {
         // Cancel subscription at period end
         Route::post('me/subscription/cancel', [SubscriptionController::class, 'cancel'])
             ->name('api.v1.me.subscription.cancel');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Gallery
+        |--------------------------------------------------------------------------
+        */
+
+        // List own gallery photos
+        Route::get('me/gallery', [GalleryController::class, 'index'])
+            ->name('api.v1.me.gallery');
+
+        // Upload gallery photo
+        Route::post('me/gallery', [GalleryController::class, 'store'])
+            ->name('api.v1.me.gallery.store');
+
+        // Delete gallery photo
+        Route::delete('me/gallery/{photo}', [GalleryController::class, 'destroy'])
+            ->name('api.v1.me.gallery.destroy');
+
+        // View another profile's gallery
+        Route::get('profiles/{profile}/gallery', [GalleryController::class, 'show'])
+            ->name('api.v1.profiles.gallery');
 
         /*
         |--------------------------------------------------------------------------
