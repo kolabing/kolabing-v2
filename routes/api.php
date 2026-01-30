@@ -168,6 +168,20 @@ Route::prefix('v1')->group(function (): void {
 
         /*
         |--------------------------------------------------------------------------
+        | Public Profile
+        |--------------------------------------------------------------------------
+        */
+
+        // View public profile
+        Route::get('profiles/{profile}', [ProfileController::class, 'publicProfile'])
+            ->name('api.v1.profiles.show');
+
+        // View profile's completed collaborations
+        Route::get('profiles/{profile}/collaborations', [ProfileController::class, 'profileCollaborations'])
+            ->name('api.v1.profiles.collaborations');
+
+        /*
+        |--------------------------------------------------------------------------
         | Opportunities
         |--------------------------------------------------------------------------
         */

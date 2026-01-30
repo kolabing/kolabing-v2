@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\CollaborationStatus;
+use App\Models\Collaboration;
 use App\Models\NotificationPreference;
 use App\Models\Profile;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class ProfileService
@@ -88,6 +91,30 @@ class ProfileService
             // Soft delete the profile
             return $profile->delete();
         });
+    }
+
+    /**
+     * Get completed collaborations for a profile (public view).
+     *
+     * @return LengthAwarePaginator<Collaboration>
+     */
+    public function getCompletedCollaborations(Profile $profile, int $perPage = 10): LengthAwarePaginator
+    {
+        return Collaboration::query()
+            ->where('status', CollaborationStatus::Completed)
+            ->where(function ($q) use ($profile): void {
+                $q->where('creator_profile_id', $profile->id)
+                    ->orWhere('applicant_profile_id', $profile->id);
+            })
+            ->with([
+                'collabOpportunity',
+                'creatorProfile.businessProfile',
+                'creatorProfile.communityProfile',
+                'applicantProfile.businessProfile',
+                'applicantProfile.communityProfile',
+            ])
+            ->orderByDesc('completed_at')
+            ->paginate($perPage);
     }
 
     /**

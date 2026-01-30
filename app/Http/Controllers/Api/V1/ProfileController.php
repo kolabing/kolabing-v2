@@ -6,6 +6,8 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\UpdateProfileRequest;
+use App\Http\Resources\Api\V1\PublicCollaborationResource;
+use App\Http\Resources\Api\V1\PublicProfileResource;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\Profile;
 use App\Services\ProfileService;
@@ -63,6 +65,48 @@ class ProfileController extends Controller
             'success' => true,
             'message' => __('Profile updated successfully'),
             'data' => new UserResource($profile),
+        ]);
+    }
+
+    /**
+     * Get a public profile by ID.
+     *
+     * GET /api/v1/profiles/{profile}
+     */
+    public function publicProfile(Profile $profile): JsonResponse
+    {
+        $this->profileService->loadProfileRelationships($profile);
+
+        return response()->json([
+            'success' => true,
+            'data' => new PublicProfileResource($profile),
+        ]);
+    }
+
+    /**
+     * Get completed collaborations for a profile.
+     *
+     * GET /api/v1/profiles/{profile}/collaborations
+     */
+    public function profileCollaborations(Request $request, Profile $profile): JsonResponse
+    {
+        $perPage = min((int) $request->query('per_page', 10), 100);
+
+        $collaborations = $this->profileService->getCompletedCollaborations($profile, $perPage);
+
+        $data = $collaborations->through(
+            fn ($collaboration) => (new PublicCollaborationResource($collaboration))->forProfile($profile)
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+            'meta' => [
+                'current_page' => $collaborations->currentPage(),
+                'last_page' => $collaborations->lastPage(),
+                'per_page' => $collaborations->perPage(),
+                'total' => $collaborations->total(),
+            ],
         ]);
     }
 
