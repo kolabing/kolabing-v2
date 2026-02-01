@@ -12,6 +12,8 @@ use App\Models\CommunityProfile;
 use App\Models\Profile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use InvalidArgumentException;
 
 /**
  * @phpstan-type AuthResult array{
@@ -363,5 +365,52 @@ class AuthService
             'profile' => $profile,
             'token' => $token,
         ];
+    }
+
+    /**
+     * Send password reset link to user's email.
+     *
+     * @throws InvalidArgumentException
+     */
+    public function sendPasswordResetLink(string $email): string
+    {
+        $status = Password::broker()->sendResetLink(['email' => $email]);
+
+        if ($status !== Password::RESET_LINK_SENT) {
+            throw new InvalidArgumentException(__($status));
+        }
+
+        return $status;
+    }
+
+    /**
+     * Reset user's password using token.
+     *
+     * @param  array{email: string, password: string, password_confirmation: string, token: string}  $data
+     *
+     * @throws InvalidArgumentException
+     */
+    public function resetPassword(array $data): string
+    {
+        $status = Password::broker()->reset(
+            [
+                'email' => $data['email'],
+                'password' => $data['password'],
+                'password_confirmation' => $data['password_confirmation'],
+                'token' => $data['token'],
+            ],
+            function (Profile $profile, string $password): void {
+                $profile->update(['password' => $password]);
+
+                // Revoke all existing tokens for security
+                $profile->tokens()->delete();
+            }
+        );
+
+        if ($status !== Password::PASSWORD_RESET) {
+            throw new InvalidArgumentException(__($status));
+        }
+
+        return $status;
     }
 }

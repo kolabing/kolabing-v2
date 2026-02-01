@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\ForgotPasswordRequest;
 use App\Http\Requests\Api\V1\GoogleLoginRequest;
 use App\Http\Requests\Api\V1\LoginRequest;
 use App\Http\Requests\Api\V1\RegisterBusinessRequest;
 use App\Http\Requests\Api\V1\RegisterCommunityRequest;
+use App\Http\Requests\Api\V1\ResetPasswordRequest;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\Profile;
 use App\Services\AuthService;
@@ -16,6 +18,7 @@ use App\Services\GoogleAuthService;
 use App\Services\ProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use InvalidArgumentException;
 
 class AuthController extends Controller
 {
@@ -196,5 +199,51 @@ class AuthController extends Controller
                 'user' => new UserResource($result['profile']),
             ],
         ]);
+    }
+
+    /**
+     * Send password reset link.
+     *
+     * POST /api/v1/auth/forgot-password
+     */
+    public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
+    {
+        try {
+            $this->authService->sendPasswordResetLink($request->validated('email'));
+
+            return response()->json([
+                'success' => true,
+                'message' => __('Password reset link sent to your email.'),
+            ]);
+        } catch (InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 400);
+        }
+    }
+
+    /**
+     * Reset password with token.
+     *
+     * POST /api/v1/auth/reset-password
+     */
+    public function resetPassword(ResetPasswordRequest $request): JsonResponse
+    {
+        try {
+            $this->authService->resetPassword(
+                $request->only(['token', 'email', 'password', 'password_confirmation'])
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => __('Password has been reset successfully.'),
+            ]);
+        } catch (InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
     }
 }
