@@ -54,7 +54,7 @@ class UpdateProfileRequest extends FormRequest
             'city_id' => ['nullable', 'uuid', Rule::exists('cities', 'id')],
             'instagram' => ['nullable', 'string', 'max:255'],
             'website' => ['nullable', 'string', 'max:255', 'url'],
-            'profile_photo' => ['nullable', 'string', 'max:500'],
+            'profile_photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
         ];
     }
 
@@ -73,7 +73,7 @@ class UpdateProfileRequest extends FormRequest
             'instagram' => ['nullable', 'string', 'max:255'],
             'tiktok' => ['nullable', 'string', 'max:255'],
             'website' => ['nullable', 'string', 'max:255', 'url'],
-            'profile_photo' => ['nullable', 'string', 'max:500'],
+            'profile_photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
         ];
     }
 
@@ -101,7 +101,6 @@ class UpdateProfileRequest extends FormRequest
             'city_id',
             'instagram',
             'website',
-            'profile_photo',
         ]);
     }
 
@@ -120,7 +119,6 @@ class UpdateProfileRequest extends FormRequest
             'instagram',
             'tiktok',
             'website',
-            'profile_photo',
         ]);
     }
 }

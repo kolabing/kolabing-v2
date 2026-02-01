@@ -11,6 +11,8 @@ use App\Models\CommunityProfile;
 use App\Models\NotificationPreference;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ProfileControllerTest extends TestCase
@@ -294,6 +296,140 @@ class ProfileControllerTest extends TestCase
             ->assertJsonPath('data.phone_number', '+34600000000')
             ->assertJsonPath('data.business_profile.name', 'Updated Name Only')
             ->assertJsonPath('data.business_profile.about', 'Original About');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Profile Photo Upload Tests
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_business_user_can_upload_profile_photo(): void
+    {
+        config(['filesystems.uploads_disk' => 'public']);
+        Storage::fake('public');
+
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/me/profile', [
+                'profile_photo' => UploadedFile::fake()->image('photo.jpg', 800, 600),
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Profile updated successfully');
+
+        $profile->refresh();
+        $businessProfile = $profile->businessProfile;
+
+        $this->assertNotNull($businessProfile->profile_photo);
+        $this->assertStringContainsString('profiles/', $businessProfile->profile_photo);
+    }
+
+    public function test_community_user_can_upload_profile_photo(): void
+    {
+        config(['filesystems.uploads_disk' => 'public']);
+        Storage::fake('public');
+
+        $profile = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/me/profile', [
+                'profile_photo' => UploadedFile::fake()->image('avatar.png', 400, 400),
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true);
+
+        $profile->refresh();
+        $communityProfile = $profile->communityProfile;
+
+        $this->assertNotNull($communityProfile->profile_photo);
+        $this->assertStringContainsString('profiles/', $communityProfile->profile_photo);
+    }
+
+    public function test_profile_photo_upload_rejects_non_image_file(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/me/profile', [
+                'profile_photo' => UploadedFile::fake()->create('document.pdf', 100, 'application/pdf'),
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['profile_photo']);
+    }
+
+    public function test_profile_photo_upload_rejects_file_exceeding_5mb(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/me/profile', [
+                'profile_photo' => UploadedFile::fake()->image('large.jpg')->size(6000),
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['profile_photo']);
+    }
+
+    public function test_profile_photo_upload_with_other_fields(): void
+    {
+        config(['filesystems.uploads_disk' => 'public']);
+        Storage::fake('public');
+
+        $city = City::factory()->create();
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $profile->id,
+            'name' => 'Old Name',
+            'city_id' => $city->id,
+        ]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/me/profile', [
+                'name' => 'New Name',
+                'profile_photo' => UploadedFile::fake()->image('photo.jpg', 800, 600),
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.business_profile.name', 'New Name');
+
+        $profile->refresh();
+        $this->assertNotNull($profile->businessProfile->profile_photo);
+    }
+
+    public function test_profile_photo_is_optional_on_update(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $profile->id,
+            'profile_photo' => 'https://example.com/old-photo.jpg',
+        ]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/me/profile', [
+                'name' => 'Updated Name',
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true);
+
+        // Old photo URL should remain unchanged
+        $profile->refresh();
+        $this->assertEquals('https://example.com/old-photo.jpg', $profile->businessProfile->profile_photo);
     }
 
     /*

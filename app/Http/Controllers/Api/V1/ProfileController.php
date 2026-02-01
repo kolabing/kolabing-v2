@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\FileUploadType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\UpdateProfileRequest;
 use App\Http\Resources\Api\V1\PublicCollaborationResource;
 use App\Http\Resources\Api\V1\PublicProfileResource;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\Profile;
+use App\Services\FileUploadService;
 use App\Services\ProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +19,8 @@ use Illuminate\Http\Request;
 class ProfileController extends Controller
 {
     public function __construct(
-        private readonly ProfileService $profileService
+        private readonly ProfileService $profileService,
+        private readonly FileUploadService $fileUploadService,
     ) {}
 
     /**
@@ -54,6 +57,26 @@ class ProfileController extends Controller
         $extendedProfileData = $profile->isBusiness()
             ? $request->getBusinessProfileData()
             : $request->getCommunityProfileData();
+
+        // Handle profile photo file upload
+        if ($request->hasFile('profile_photo')) {
+            $extendedProfile = $profile->isBusiness()
+                ? $profile->businessProfile
+                : $profile->communityProfile;
+
+            // Delete old photo if exists
+            if ($extendedProfile?->profile_photo) {
+                $this->fileUploadService->delete($extendedProfile->profile_photo);
+            }
+
+            $url = $this->fileUploadService->uploadFromFile(
+                $request->file('profile_photo'),
+                FileUploadType::ProfilePhoto,
+                $profile->id
+            );
+
+            $extendedProfileData['profile_photo'] = $url;
+        }
 
         $profile = $this->profileService->updateProfile(
             $profile,
