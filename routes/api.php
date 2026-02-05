@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\DashboardController;
+use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\GalleryController;
 use App\Http\Controllers\Api\V1\LookupController;
 use App\Http\Controllers\Api\V1\NotificationController;
@@ -172,6 +173,32 @@ Route::prefix('v1')->group(function (): void {
         // View another profile's gallery
         Route::get('profiles/{profile}/gallery', [GalleryController::class, 'show'])
             ->name('api.v1.profiles.gallery');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Events (Past Events)
+        |--------------------------------------------------------------------------
+        */
+
+        // List events (own or by profile_id query param)
+        Route::get('events', [EventController::class, 'index'])
+            ->name('api.v1.events.index');
+
+        // Get single event
+        Route::get('events/{event}', [EventController::class, 'show'])
+            ->name('api.v1.events.show');
+
+        // Create event
+        Route::post('events', [EventController::class, 'store'])
+            ->name('api.v1.events.store');
+
+        // Update event
+        Route::put('events/{event}', [EventController::class, 'update'])
+            ->name('api.v1.events.update');
+
+        // Delete event
+        Route::delete('events/{event}', [EventController::class, 'destroy'])
+            ->name('api.v1.events.destroy');
 
         /*
         |--------------------------------------------------------------------------
