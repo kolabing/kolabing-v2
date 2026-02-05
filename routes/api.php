@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\ApplicationController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ChatController;
+use App\Http\Controllers\Api\V1\CheckinController;
 use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\EventController;
@@ -202,6 +203,24 @@ Route::prefix('v1')->group(function (): void {
         // Delete event
         Route::delete('events/{event}', [EventController::class, 'destroy'])
             ->name('api.v1.events.destroy');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Gamification - Check-in
+        |--------------------------------------------------------------------------
+        */
+
+        // Generate QR check-in token for an event
+        Route::post('events/{event}/generate-qr', [CheckinController::class, 'generateQr'])
+            ->name('api.v1.events.generate-qr');
+
+        // Check in using QR token
+        Route::post('checkin', [CheckinController::class, 'checkin'])
+            ->name('api.v1.checkin');
+
+        // List check-ins for an event
+        Route::get('events/{event}/checkins', [CheckinController::class, 'index'])
+            ->name('api.v1.events.checkins');
 
         /*
         |--------------------------------------------------------------------------
