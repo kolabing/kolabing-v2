@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\ApplicationController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\ChallengeCompletionController;
 use App\Http\Controllers\Api\V1\ChallengeController;
 use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\CheckinController;
@@ -244,6 +245,28 @@ Route::prefix('v1')->group(function (): void {
         // Delete a custom challenge
         Route::delete('challenges/{challenge}', [ChallengeController::class, 'destroy'])
             ->name('api.v1.challenges.destroy');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Gamification - Challenge Completion
+        |--------------------------------------------------------------------------
+        */
+
+        // Initiate a peer-to-peer challenge
+        Route::post('challenges/initiate', [ChallengeCompletionController::class, 'initiate'])
+            ->name('api.v1.challenges.initiate');
+
+        // Verify a challenge completion
+        Route::post('challenge-completions/{challengeCompletion}/verify', [ChallengeCompletionController::class, 'verify'])
+            ->name('api.v1.challenge-completions.verify');
+
+        // Reject a challenge completion
+        Route::post('challenge-completions/{challengeCompletion}/reject', [ChallengeCompletionController::class, 'reject'])
+            ->name('api.v1.challenge-completions.reject');
+
+        // My challenge completions
+        Route::get('me/challenge-completions', [ChallengeCompletionController::class, 'myCompletions'])
+            ->name('api.v1.me.challenge-completions');
 
         /*
         |--------------------------------------------------------------------------
