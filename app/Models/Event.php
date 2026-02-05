@@ -28,6 +28,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Profile $profile
  * @property-read \Illuminate\Database\Eloquent\Collection<int, EventPhoto> $photos
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, EventCheckin> $checkins
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Challenge> $challenges
  */
 class Event extends Model
 {
@@ -83,5 +85,21 @@ class Event extends Model
     public function photos(): HasMany
     {
         return $this->hasMany(EventPhoto::class)->orderBy('sort_order');
+    }
+
+    /**
+     * @return HasMany<EventCheckin, $this>
+     */
+    public function checkins(): HasMany
+    {
+        return $this->hasMany(EventCheckin::class);
+    }
+
+    /**
+     * @return HasMany<Challenge, $this>
+     */
+    public function challenges(): HasMany
+    {
+        return $this->hasMany(Challenge::class);
     }
 }

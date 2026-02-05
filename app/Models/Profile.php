@@ -38,6 +38,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, ProfileGalleryPhoto> $galleryPhotos
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Event> $events
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Notification> $notifications
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, EventCheckin> $eventCheckins
  * @property-read bool $onboarding_completed
  */
 class Profile extends Authenticatable
@@ -212,6 +213,16 @@ class Profile extends Authenticatable
     public function notifications(): HasMany
     {
         return $this->hasMany(Notification::class);
+    }
+
+    /**
+     * Get event checkins for this profile.
+     *
+     * @return HasMany<EventCheckin, $this>
+     */
+    public function eventCheckins(): HasMany
+    {
+        return $this->hasMany(EventCheckin::class);
     }
 
     /**
