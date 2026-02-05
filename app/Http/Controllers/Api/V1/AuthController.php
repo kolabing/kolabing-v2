@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ForgotPasswordRequest;
 use App\Http\Requests\Api\V1\GoogleLoginRequest;
 use App\Http\Requests\Api\V1\LoginRequest;
+use App\Http\Requests\Api\V1\RegisterAttendeeRequest;
 use App\Http\Requests\Api\V1\RegisterBusinessRequest;
 use App\Http\Requests\Api\V1\RegisterCommunityRequest;
 use App\Http\Requests\Api\V1\ResetPasswordRequest;
@@ -153,6 +154,29 @@ class AuthController extends Controller
         $result = $this->authService->registerCommunity(
             $request->getProfileData(),
             $request->getCommunityProfileData()
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Registration successful'),
+            'data' => [
+                'token' => $result['token'],
+                'token_type' => 'Bearer',
+                'is_new_user' => $result['is_new_user'],
+                'user' => new UserResource($result['profile']),
+            ],
+        ], 201);
+    }
+
+    /**
+     * Register a new attendee user with email and password.
+     *
+     * POST /api/v1/auth/register/attendee
+     */
+    public function registerAttendee(RegisterAttendeeRequest $request): JsonResponse
+    {
+        $result = $this->authService->registerAttendee(
+            $request->only(['email', 'password'])
         );
 
         return response()->json([

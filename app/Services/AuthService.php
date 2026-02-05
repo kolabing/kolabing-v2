@@ -329,6 +329,39 @@ class AuthService
     }
 
     /**
+     * Register a new attendee user with email and password.
+     *
+     * @param  array{email: string, password: string}  $data
+     * @return AuthResult
+     */
+    public function registerAttendee(array $data): array
+    {
+        $profile = DB::transaction(function () use ($data): Profile {
+            $profile = Profile::query()->create([
+                'email' => $data['email'],
+                'password' => $data['password'],
+                'user_type' => UserType::Attendee,
+            ]);
+
+            AttendeeProfile::query()->create([
+                'profile_id' => $profile->id,
+            ]);
+
+            return $profile;
+        });
+
+        $this->loadProfileRelationships($profile);
+
+        $token = $this->createToken($profile);
+
+        return [
+            'profile' => $profile,
+            'is_new_user' => true,
+            'token' => $token,
+        ];
+    }
+
+    /**
      * Login a user with email and password.
      *
      * @return LoginResult|array{error: string, code: int}
