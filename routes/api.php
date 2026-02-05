@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\ApplicationController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\ChallengeController;
 use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\CheckinController;
 use App\Http\Controllers\Api\V1\CollaborationController;
@@ -221,6 +222,28 @@ Route::prefix('v1')->group(function (): void {
         // List check-ins for an event
         Route::get('events/{event}/checkins', [CheckinController::class, 'index'])
             ->name('api.v1.events.checkins');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Gamification - Challenges
+        |--------------------------------------------------------------------------
+        */
+
+        // List challenges for an event (system + custom)
+        Route::get('events/{event}/challenges', [ChallengeController::class, 'index'])
+            ->name('api.v1.events.challenges.index');
+
+        // Create custom challenge for an event
+        Route::post('events/{event}/challenges', [ChallengeController::class, 'store'])
+            ->name('api.v1.events.challenges.store');
+
+        // Update a custom challenge
+        Route::put('challenges/{challenge}', [ChallengeController::class, 'update'])
+            ->name('api.v1.challenges.update');
+
+        // Delete a custom challenge
+        Route::delete('challenges/{challenge}', [ChallengeController::class, 'destroy'])
+            ->name('api.v1.challenges.destroy');
 
         /*
         |--------------------------------------------------------------------------
