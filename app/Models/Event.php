@@ -18,6 +18,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $partner_type
  * @property \Illuminate\Support\Carbon $event_date
  * @property int $attendee_count
+ * @property string|null $location_lat
+ * @property string|null $location_lng
+ * @property string|null $address
+ * @property int $max_challenges_per_attendee
+ * @property bool $is_active
+ * @property string|null $checkin_token
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Profile $profile
@@ -40,6 +46,12 @@ class Event extends Model
         'partner_type',
         'event_date',
         'attendee_count',
+        'location_lat',
+        'location_lng',
+        'address',
+        'max_challenges_per_attendee',
+        'is_active',
+        'checkin_token',
     ];
 
     /**
@@ -50,6 +62,10 @@ class Event extends Model
         return [
             'event_date' => 'date',
             'attendee_count' => 'integer',
+            'location_lat' => 'decimal:7',
+            'location_lng' => 'decimal:7',
+            'max_challenges_per_attendee' => 'integer',
+            'is_active' => 'boolean',
         ];
     }
 
