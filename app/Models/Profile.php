@@ -35,6 +35,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Collaboration> $createdCollaborations
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Collaboration> $appliedCollaborations
  * @property-read \Illuminate\Database\Eloquent\Collection<int, ProfileGalleryPhoto> $galleryPhotos
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Event> $events
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Notification> $notifications
  * @property-read bool $onboarding_completed
  */
@@ -180,6 +181,16 @@ class Profile extends Authenticatable
     public function galleryPhotos(): HasMany
     {
         return $this->hasMany(ProfileGalleryPhoto::class);
+    }
+
+    /**
+     * Get events for this profile.
+     *
+     * @return HasMany<Event, $this>
+     */
+    public function events(): HasMany
+    {
+        return $this->hasMany(Event::class, 'profile_id');
     }
 
     /**
