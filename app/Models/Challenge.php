@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property string $id
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Event|null $event
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, ChallengeCompletion> $completions
  */
 class Challenge extends Model
 {
@@ -55,6 +57,14 @@ class Challenge extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    /**
+     * @return HasMany<ChallengeCompletion, $this>
+     */
+    public function completions(): HasMany
+    {
+        return $this->hasMany(ChallengeCompletion::class);
     }
 
     public function isSystemChallenge(): bool
