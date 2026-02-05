@@ -482,6 +482,25 @@ class EventTest extends TestCase
             ->assertJsonValidationErrors(['attendee_count']);
     }
 
+    public function test_create_event_rejects_name_exceeding_100_characters(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        $partner = Profile::factory()->community()->create();
+
+        $response = $this->actingAs($profile)
+            ->postJson('/api/v1/events', [
+                'name' => str_repeat('A', 101),
+                'partner_id' => $partner->id,
+                'partner_type' => 'community',
+                'date' => '2025-01-01',
+                'attendee_count' => 10,
+                'photos' => [UploadedFile::fake()->image('p.jpg', 800, 600)],
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['name']);
+    }
+
     public function test_community_user_can_create_event(): void
     {
         $community = $this->createCommunityProfile();
@@ -587,6 +606,27 @@ class EventTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['name', 'attendee_count', 'partner_type', 'date']);
+    }
+
+    public function test_update_event_can_change_date(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        $partner = Profile::factory()->community()->create();
+        $event = Event::factory()->forProfile($profile)->withPartner($partner)->create([
+            'event_date' => '2025-01-01',
+        ]);
+
+        $response = $this->actingAs($profile)
+            ->putJson("/api/v1/events/{$event->id}", [
+                'date' => '2025-06-15',
+            ]);
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('events', [
+            'id' => $event->id,
+            'event_date' => '2025-06-15 00:00:00',
+        ]);
     }
 
     public function test_update_event_partial_update(): void

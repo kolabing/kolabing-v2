@@ -99,6 +99,8 @@ class EventService
      */
     public function delete(Event $event): void
     {
+        $event->load('photos');
+
         DB::transaction(function () use ($event): void {
             foreach ($event->photos as $photo) {
                 $this->fileUploadService->delete($photo->url);
