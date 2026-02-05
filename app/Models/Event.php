@@ -14,14 +14,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $id
  * @property string $profile_id
  * @property string $name
- * @property string $partner_id
+ * @property string $partner_name
  * @property string $partner_type
  * @property \Illuminate\Support\Carbon $event_date
  * @property int $attendee_count
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Profile $profile
- * @property-read Profile $partner
  * @property-read \Illuminate\Database\Eloquent\Collection<int, EventPhoto> $photos
  */
 class Event extends Model
@@ -37,7 +36,7 @@ class Event extends Model
     protected $fillable = [
         'profile_id',
         'name',
-        'partner_id',
+        'partner_name',
         'partner_type',
         'event_date',
         'attendee_count',
@@ -60,14 +59,6 @@ class Event extends Model
     public function profile(): BelongsTo
     {
         return $this->belongsTo(Profile::class);
-    }
-
-    /**
-     * @return BelongsTo<Profile, $this>
-     */
-    public function partner(): BelongsTo
-    {
-        return $this->belongsTo(Profile::class, 'partner_id');
     }
 
     /**

@@ -63,13 +63,12 @@ class EventTest extends TestCase
     public function test_list_own_events(): void
     {
         $profile = $this->createBusinessProfile();
-        $partner = $this->createCommunityProfile();
 
-        Event::factory()->count(3)->forProfile($profile)->withPartner($partner)->create();
+        Event::factory()->count(3)->forProfile($profile)->create();
 
         // Another user's events should not appear
         $other = $this->createBusinessProfile();
-        Event::factory()->count(2)->forProfile($other)->withPartner($partner)->create();
+        Event::factory()->count(2)->forProfile($other)->create();
 
         $response = $this->actingAs($profile)
             ->getJson('/api/v1/events');
@@ -84,7 +83,8 @@ class EventTest extends TestCase
                         '*' => [
                             'id',
                             'name',
-                            'partner',
+                            'partner_name',
+                            'partner_type',
                             'date',
                             'attendee_count',
                             'photos',
@@ -106,9 +106,8 @@ class EventTest extends TestCase
     {
         $viewer = $this->createBusinessProfile();
         $target = $this->createCommunityProfile();
-        $partner = $this->createBusinessProfile();
 
-        Event::factory()->count(2)->forProfile($target)->withPartner($partner)->create();
+        Event::factory()->count(2)->forProfile($target)->create();
 
         $response = $this->actingAs($viewer)
             ->getJson("/api/v1/events?profile_id={$target->id}");
@@ -121,9 +120,8 @@ class EventTest extends TestCase
     public function test_list_events_respects_pagination_limit(): void
     {
         $profile = $this->createBusinessProfile();
-        $partner = $this->createCommunityProfile();
 
-        Event::factory()->count(5)->forProfile($profile)->withPartner($partner)->create();
+        Event::factory()->count(5)->forProfile($profile)->create();
 
         $response = $this->actingAs($profile)
             ->getJson('/api/v1/events?limit=2');
@@ -160,15 +158,14 @@ class EventTest extends TestCase
     public function test_list_events_ordered_by_date_descending(): void
     {
         $profile = $this->createBusinessProfile();
-        $partner = $this->createCommunityProfile();
 
-        $oldest = Event::factory()->forProfile($profile)->withPartner($partner)->create([
+        $oldest = Event::factory()->forProfile($profile)->create([
             'event_date' => '2023-01-01',
         ]);
-        $middle = Event::factory()->forProfile($profile)->withPartner($partner)->create([
+        $middle = Event::factory()->forProfile($profile)->create([
             'event_date' => '2024-06-15',
         ]);
-        $newest = Event::factory()->forProfile($profile)->withPartner($partner)->create([
+        $newest = Event::factory()->forProfile($profile)->create([
             'event_date' => '2025-12-25',
         ]);
 
@@ -201,9 +198,11 @@ class EventTest extends TestCase
     public function test_show_event_returns_full_details(): void
     {
         $profile = $this->createBusinessProfile();
-        $partner = $this->createCommunityProfile();
 
-        $event = Event::factory()->forProfile($profile)->withPartner($partner)->create();
+        $event = Event::factory()->forProfile($profile)->create([
+            'partner_name' => 'Cafe Barcelona',
+            'partner_type' => 'business',
+        ]);
         EventPhoto::factory()->count(2)->forEvent($event)->create();
 
         $response = $this->actingAs($profile)
@@ -216,12 +215,8 @@ class EventTest extends TestCase
                 'data' => [
                     'id',
                     'name',
-                    'partner' => [
-                        'id',
-                        'name',
-                        'profile_photo',
-                        'type',
-                    ],
+                    'partner_name',
+                    'partner_type',
                     'date',
                     'attendee_count',
                     'photos' => [
@@ -237,16 +232,17 @@ class EventTest extends TestCase
             ])
             ->assertJsonCount(2, 'data.photos')
             ->assertJsonPath('data.id', $event->id)
-            ->assertJsonPath('data.name', $event->name);
+            ->assertJsonPath('data.name', $event->name)
+            ->assertJsonPath('data.partner_name', 'Cafe Barcelona')
+            ->assertJsonPath('data.partner_type', 'business');
     }
 
     public function test_any_authenticated_user_can_view_event(): void
     {
         $owner = $this->createBusinessProfile();
-        $partner = $this->createCommunityProfile();
         $viewer = $this->createCommunityProfile();
 
-        $event = Event::factory()->forProfile($owner)->withPartner($partner)->create();
+        $event = Event::factory()->forProfile($owner)->create();
 
         $response = $this->actingAs($viewer)
             ->getJson("/api/v1/events/{$event->id}");
@@ -282,12 +278,11 @@ class EventTest extends TestCase
     public function test_create_event_with_valid_data(): void
     {
         $profile = $this->createBusinessProfile();
-        $partner = $this->createCommunityProfile();
 
         $response = $this->actingAs($profile)
             ->postJson('/api/v1/events', [
                 'name' => 'Summer Festival 2025',
-                'partner_id' => $partner->id,
+                'partner_name' => 'Yoga Community Madrid',
                 'partner_type' => 'community',
                 'date' => '2025-06-15',
                 'attendee_count' => 150,
@@ -300,12 +295,14 @@ class EventTest extends TestCase
         $response->assertStatus(201)
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.name', 'Summer Festival 2025')
+            ->assertJsonPath('data.partner_name', 'Yoga Community Madrid')
+            ->assertJsonPath('data.partner_type', 'community')
             ->assertJsonPath('data.attendee_count', 150);
 
         $this->assertDatabaseHas('events', [
             'profile_id' => $profile->id,
             'name' => 'Summer Festival 2025',
-            'partner_id' => $partner->id,
+            'partner_name' => 'Yoga Community Madrid',
             'partner_type' => 'community',
             'attendee_count' => 150,
         ]);
@@ -330,18 +327,17 @@ class EventTest extends TestCase
             ->postJson('/api/v1/events', []);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['name', 'partner_id', 'partner_type', 'date', 'attendee_count', 'photos']);
+            ->assertJsonValidationErrors(['name', 'partner_name', 'partner_type', 'date', 'attendee_count', 'photos']);
     }
 
     public function test_create_event_validates_name_min_length(): void
     {
         $profile = $this->createBusinessProfile();
-        $partner = $this->createCommunityProfile();
 
         $response = $this->actingAs($profile)
             ->postJson('/api/v1/events', [
                 'name' => 'AB',
-                'partner_id' => $partner->id,
+                'partner_name' => 'Some Partner',
                 'partner_type' => 'community',
                 'date' => '2025-06-15',
                 'attendee_count' => 50,
@@ -357,12 +353,11 @@ class EventTest extends TestCase
     public function test_create_event_rejects_future_date(): void
     {
         $profile = $this->createBusinessProfile();
-        $partner = $this->createCommunityProfile();
 
         $response = $this->actingAs($profile)
             ->postJson('/api/v1/events', [
                 'name' => 'Future Event',
-                'partner_id' => $partner->id,
+                'partner_name' => 'Some Partner',
                 'partner_type' => 'community',
                 'date' => '2099-01-01',
                 'attendee_count' => 50,
@@ -375,14 +370,14 @@ class EventTest extends TestCase
             ->assertJsonValidationErrors(['date']);
     }
 
-    public function test_create_event_rejects_invalid_partner_id(): void
+    public function test_create_event_validates_partner_name_min_length(): void
     {
         $profile = $this->createBusinessProfile();
 
         $response = $this->actingAs($profile)
             ->postJson('/api/v1/events', [
                 'name' => 'Test Event',
-                'partner_id' => '00000000-0000-0000-0000-000000000000',
+                'partner_name' => 'A',
                 'partner_type' => 'community',
                 'date' => '2025-06-15',
                 'attendee_count' => 50,
@@ -392,18 +387,17 @@ class EventTest extends TestCase
             ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['partner_id']);
+            ->assertJsonValidationErrors(['partner_name']);
     }
 
     public function test_create_event_rejects_invalid_partner_type(): void
     {
         $profile = $this->createBusinessProfile();
-        $partner = $this->createCommunityProfile();
 
         $response = $this->actingAs($profile)
             ->postJson('/api/v1/events', [
                 'name' => 'Test Event',
-                'partner_id' => $partner->id,
+                'partner_name' => 'Some Partner',
                 'partner_type' => 'invalid',
                 'date' => '2025-06-15',
                 'attendee_count' => 50,
@@ -419,7 +413,6 @@ class EventTest extends TestCase
     public function test_create_event_rejects_more_than_5_photos(): void
     {
         $profile = $this->createBusinessProfile();
-        $partner = $this->createCommunityProfile();
 
         $photos = [];
         for ($i = 0; $i < 6; $i++) {
@@ -429,7 +422,7 @@ class EventTest extends TestCase
         $response = $this->actingAs($profile)
             ->postJson('/api/v1/events', [
                 'name' => 'Too Many Photos Event',
-                'partner_id' => $partner->id,
+                'partner_name' => 'Some Partner',
                 'partner_type' => 'community',
                 'date' => '2025-06-15',
                 'attendee_count' => 50,
@@ -443,12 +436,11 @@ class EventTest extends TestCase
     public function test_create_event_rejects_non_image_photos(): void
     {
         $profile = $this->createBusinessProfile();
-        $partner = $this->createCommunityProfile();
 
         $response = $this->actingAs($profile)
             ->postJson('/api/v1/events', [
                 'name' => 'Invalid Photo Event',
-                'partner_id' => $partner->id,
+                'partner_name' => 'Some Partner',
                 'partner_type' => 'community',
                 'date' => '2025-06-15',
                 'attendee_count' => 50,
@@ -464,12 +456,11 @@ class EventTest extends TestCase
     public function test_create_event_rejects_zero_attendee_count(): void
     {
         $profile = $this->createBusinessProfile();
-        $partner = $this->createCommunityProfile();
 
         $response = $this->actingAs($profile)
             ->postJson('/api/v1/events', [
                 'name' => 'Zero Attendees Event',
-                'partner_id' => $partner->id,
+                'partner_name' => 'Some Partner',
                 'partner_type' => 'community',
                 'date' => '2025-06-15',
                 'attendee_count' => 0,
@@ -485,12 +476,11 @@ class EventTest extends TestCase
     public function test_create_event_rejects_name_exceeding_100_characters(): void
     {
         $profile = Profile::factory()->business()->create();
-        $partner = Profile::factory()->community()->create();
 
         $response = $this->actingAs($profile)
             ->postJson('/api/v1/events', [
                 'name' => str_repeat('A', 101),
-                'partner_id' => $partner->id,
+                'partner_name' => 'Some Partner',
                 'partner_type' => 'community',
                 'date' => '2025-01-01',
                 'attendee_count' => 10,
@@ -504,12 +494,11 @@ class EventTest extends TestCase
     public function test_community_user_can_create_event(): void
     {
         $community = $this->createCommunityProfile();
-        $partner = $this->createBusinessProfile();
 
         $response = $this->actingAs($community)
             ->postJson('/api/v1/events', [
                 'name' => 'Community Created Event',
-                'partner_id' => $partner->id,
+                'partner_name' => 'Local Business Madrid',
                 'partner_type' => 'business',
                 'date' => '2025-03-10',
                 'attendee_count' => 75,
@@ -520,11 +509,13 @@ class EventTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.name', 'Community Created Event');
+            ->assertJsonPath('data.name', 'Community Created Event')
+            ->assertJsonPath('data.partner_name', 'Local Business Madrid');
 
         $this->assertDatabaseHas('events', [
             'profile_id' => $community->id,
             'name' => 'Community Created Event',
+            'partner_name' => 'Local Business Madrid',
         ]);
     }
 
@@ -548,9 +539,8 @@ class EventTest extends TestCase
     public function test_owner_can_update_event(): void
     {
         $owner = $this->createBusinessProfile();
-        $partner = $this->createCommunityProfile();
 
-        $event = Event::factory()->forProfile($owner)->withPartner($partner)->create([
+        $event = Event::factory()->forProfile($owner)->create([
             'name' => 'Original Name',
             'attendee_count' => 100,
         ]);
@@ -577,9 +567,8 @@ class EventTest extends TestCase
     {
         $owner = $this->createBusinessProfile();
         $nonOwner = $this->createCommunityProfile();
-        $partner = $this->createBusinessProfile();
 
-        $event = Event::factory()->forProfile($owner)->withPartner($partner)->create();
+        $event = Event::factory()->forProfile($owner)->create();
 
         $response = $this->actingAs($nonOwner)
             ->putJson("/api/v1/events/{$event->id}", [
@@ -592,9 +581,8 @@ class EventTest extends TestCase
     public function test_update_event_validates_fields(): void
     {
         $owner = $this->createBusinessProfile();
-        $partner = $this->createCommunityProfile();
 
-        $event = Event::factory()->forProfile($owner)->withPartner($partner)->create();
+        $event = Event::factory()->forProfile($owner)->create();
 
         $response = $this->actingAs($owner)
             ->putJson("/api/v1/events/{$event->id}", [
@@ -611,8 +599,7 @@ class EventTest extends TestCase
     public function test_update_event_can_change_date(): void
     {
         $profile = Profile::factory()->business()->create();
-        $partner = Profile::factory()->community()->create();
-        $event = Event::factory()->forProfile($profile)->withPartner($partner)->create([
+        $event = Event::factory()->forProfile($profile)->create([
             'event_date' => '2025-01-01',
         ]);
 
@@ -629,12 +616,33 @@ class EventTest extends TestCase
         ]);
     }
 
+    public function test_update_event_can_change_partner_name(): void
+    {
+        $owner = $this->createBusinessProfile();
+
+        $event = Event::factory()->forProfile($owner)->create([
+            'partner_name' => 'Old Partner',
+        ]);
+
+        $response = $this->actingAs($owner)
+            ->putJson("/api/v1/events/{$event->id}", [
+                'partner_name' => 'New Partner Name',
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.partner_name', 'New Partner Name');
+
+        $this->assertDatabaseHas('events', [
+            'id' => $event->id,
+            'partner_name' => 'New Partner Name',
+        ]);
+    }
+
     public function test_update_event_partial_update(): void
     {
         $owner = $this->createBusinessProfile();
-        $partner = $this->createCommunityProfile();
 
-        $event = Event::factory()->forProfile($owner)->withPartner($partner)->create([
+        $event = Event::factory()->forProfile($owner)->create([
             'name' => 'Original Name',
             'attendee_count' => 100,
             'event_date' => '2025-01-01',
@@ -676,9 +684,8 @@ class EventTest extends TestCase
     public function test_owner_can_delete_event(): void
     {
         $owner = $this->createBusinessProfile();
-        $partner = $this->createCommunityProfile();
 
-        $event = Event::factory()->forProfile($owner)->withPartner($partner)->create();
+        $event = Event::factory()->forProfile($owner)->create();
         $photo = EventPhoto::factory()->forEvent($event)->create();
 
         $response = $this->actingAs($owner)
@@ -695,9 +702,8 @@ class EventTest extends TestCase
     {
         $owner = $this->createBusinessProfile();
         $nonOwner = $this->createCommunityProfile();
-        $partner = $this->createBusinessProfile();
 
-        $event = Event::factory()->forProfile($owner)->withPartner($partner)->create();
+        $event = Event::factory()->forProfile($owner)->create();
 
         $response = $this->actingAs($nonOwner)
             ->deleteJson("/api/v1/events/{$event->id}");

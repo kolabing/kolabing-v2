@@ -25,7 +25,7 @@ class EventService
     {
         return Event::query()
             ->where('profile_id', $profile->id)
-            ->with(['partner', 'photos'])
+            ->with(['photos'])
             ->orderByDesc('event_date')
             ->paginate($perPage);
     }
@@ -35,7 +35,7 @@ class EventService
      */
     public function getWithRelations(Event $event): Event
     {
-        return $event->load(['partner', 'photos']);
+        return $event->load(['photos']);
     }
 
     /**
@@ -50,7 +50,7 @@ class EventService
             $event = Event::query()->create([
                 'profile_id' => $profile->id,
                 'name' => $data['name'],
-                'partner_id' => $data['partner_id'],
+                'partner_name' => $data['partner_name'],
                 'partner_type' => $data['partner_type'],
                 'event_date' => $data['date'],
                 'attendee_count' => $data['attendee_count'],
@@ -58,7 +58,7 @@ class EventService
 
             $this->uploadPhotos($event, $photos);
 
-            return $event->load(['partner', 'photos']);
+            return $event->load(['photos']);
         });
     }
 
@@ -74,8 +74,8 @@ class EventService
         if (isset($data['name'])) {
             $updateData['name'] = $data['name'];
         }
-        if (isset($data['partner_id'])) {
-            $updateData['partner_id'] = $data['partner_id'];
+        if (isset($data['partner_name'])) {
+            $updateData['partner_name'] = $data['partner_name'];
         }
         if (isset($data['partner_type'])) {
             $updateData['partner_type'] = $data['partner_type'];
@@ -91,7 +91,7 @@ class EventService
             $event->update($updateData);
         }
 
-        return $event->load(['partner', 'photos']);
+        return $event->load(['photos']);
     }
 
     /**

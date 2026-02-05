@@ -21,7 +21,8 @@ class EventResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'partner' => new EventPartnerResource($this->whenLoaded('partner')),
+            'partner_name' => $this->partner_name,
+            'partner_type' => $this->partner_type,
             'date' => $this->event_date->toDateString(),
             'attendee_count' => $this->attendee_count,
             'photos' => EventPhotoResource::collection($this->whenLoaded('photos')),
