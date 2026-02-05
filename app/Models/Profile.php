@@ -220,6 +220,14 @@ class Profile extends Authenticatable
     }
 
     /**
+     * Check if the user is an attendee user.
+     */
+    public function isAttendee(): bool
+    {
+        return $this->user_type === UserType::Attendee;
+    }
+
+    /**
      * Check if the business user has an active subscription.
      * Community users always return false.
      */

@@ -59,6 +59,16 @@ class ProfileFactory extends Factory
     }
 
     /**
+     * Indicate that the profile is for an attendee user.
+     */
+    public function attendee(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'user_type' => UserType::Attendee,
+        ]);
+    }
+
+    /**
      * Indicate that the profile has not verified their email.
      */
     public function unverified(): static

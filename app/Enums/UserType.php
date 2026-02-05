@@ -8,6 +8,7 @@ enum UserType: string
 {
     case Business = 'business';
     case Community = 'community';
+    case Attendee = 'attendee';
 
     /**
      * @return array<string>
