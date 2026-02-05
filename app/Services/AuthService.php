@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserType;
+use App\Models\AttendeeProfile;
 use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
 use App\Models\CommunityProfile;
@@ -158,6 +159,10 @@ class AuthService
                     'profile_id' => $profile->id,
                     'status' => SubscriptionStatus::Inactive,
                 ]);
+            } elseif ($userType === UserType::Attendee) {
+                AttendeeProfile::query()->create([
+                    'profile_id' => $profile->id,
+                ]);
             } else {
                 CommunityProfile::query()->create([
                     'profile_id' => $profile->id,
@@ -187,6 +192,8 @@ class AuthService
     {
         if ($profile->isBusiness()) {
             $profile->load(['businessProfile.city', 'subscription']);
+        } elseif ($profile->isAttendee()) {
+            $profile->load(['attendeeProfile']);
         } else {
             $profile->load(['communityProfile.city']);
         }

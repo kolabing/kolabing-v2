@@ -26,6 +26,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property \Illuminate\Support\Carbon|null $deleted_at
+ * @property-read AttendeeProfile|null $attendeeProfile
  * @property-read BusinessProfile|null $businessProfile
  * @property-read CommunityProfile|null $communityProfile
  * @property-read BusinessSubscription|null $subscription
@@ -111,6 +112,16 @@ class Profile extends Authenticatable
     public function communityProfile(): HasOne
     {
         return $this->hasOne(CommunityProfile::class);
+    }
+
+    /**
+     * Get the attendee profile for this user.
+     *
+     * @return HasOne<AttendeeProfile, $this>
+     */
+    public function attendeeProfile(): HasOne
+    {
+        return $this->hasOne(AttendeeProfile::class);
     }
 
     /**
@@ -243,11 +254,17 @@ class Profile extends Authenticatable
     /**
      * Get the extended profile based on user type.
      */
-    public function getExtendedProfile(): BusinessProfile|CommunityProfile|null
+    public function getExtendedProfile(): AttendeeProfile|BusinessProfile|CommunityProfile|null
     {
-        return $this->isBusiness()
-            ? $this->businessProfile
-            : $this->communityProfile;
+        if ($this->isBusiness()) {
+            return $this->businessProfile;
+        }
+
+        if ($this->isAttendee()) {
+            return $this->attendeeProfile;
+        }
+
+        return $this->communityProfile;
     }
 
     /**
