@@ -13,6 +13,7 @@ enum FileUploadType: string
     case ProfilePhoto = 'profile_photo';
     case OpportunityPhoto = 'opportunity_photo';
     case GalleryPhoto = 'gallery_photo';
+    case EventPhoto = 'event_photo';
 
     /**
      * Get the storage directory for this upload type.
@@ -25,6 +26,7 @@ enum FileUploadType: string
             self::ProfilePhoto => 'profiles',
             self::OpportunityPhoto => 'opportunities',
             self::GalleryPhoto => 'gallery',
+            self::EventPhoto => 'events',
         };
     }
 
@@ -39,6 +41,7 @@ enum FileUploadType: string
             self::ProfilePhoto => 5 * 1024 * 1024, // 5MB
             self::OpportunityPhoto => 5 * 1024 * 1024, // 5MB
             self::GalleryPhoto => 5 * 1024 * 1024, // 5MB
+            self::EventPhoto => 5 * 1024 * 1024, // 5MB
         };
     }
 
@@ -50,7 +53,7 @@ enum FileUploadType: string
     public function getAllowedMimeTypes(): array
     {
         return match ($this) {
-            self::ProfilePhoto, self::OpportunityPhoto, self::GalleryPhoto => [
+            self::ProfilePhoto, self::OpportunityPhoto, self::GalleryPhoto, self::EventPhoto => [
                 'image/jpeg',
                 'image/jpg',
                 'image/png',
@@ -68,7 +71,7 @@ enum FileUploadType: string
     public function getAllowedExtensions(): array
     {
         return match ($this) {
-            self::ProfilePhoto, self::OpportunityPhoto, self::GalleryPhoto => [
+            self::ProfilePhoto, self::OpportunityPhoto, self::GalleryPhoto, self::EventPhoto => [
                 'jpeg',
                 'jpg',
                 'png',
