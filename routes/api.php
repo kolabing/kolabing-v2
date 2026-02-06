@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\CheckinController;
 use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\EventController;
+use App\Http\Controllers\Api\V1\EventRewardController;
 use App\Http\Controllers\Api\V1\GalleryController;
 use App\Http\Controllers\Api\V1\LeaderboardController;
 use App\Http\Controllers\Api\V1\LookupController;
@@ -19,7 +20,9 @@ use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OnboardingController;
 use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\SpinWheelController;
 use App\Http\Controllers\Api\V1\StripeWebhookController;
+use App\Http\Controllers\Api\V1\RewardWalletController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
@@ -282,6 +285,38 @@ Route::prefix('v1')->group(function (): void {
         // Global leaderboard
         Route::get('leaderboard/global', [LeaderboardController::class, 'globalLeaderboard'])
             ->name('api.v1.leaderboard.global');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Gamification - Rewards (Organizer Management)
+        |--------------------------------------------------------------------------
+        */
+
+        // List rewards for an event
+        Route::get('events/{event}/rewards', [EventRewardController::class, 'index'])
+            ->name('api.v1.events.rewards.index');
+
+        // Create reward for an event
+        Route::post('events/{event}/rewards', [EventRewardController::class, 'store'])
+            ->name('api.v1.events.rewards.store');
+
+        // Update a reward
+        Route::put('event-rewards/{eventReward}', [EventRewardController::class, 'update'])
+            ->name('api.v1.event-rewards.update');
+
+        // Delete a reward
+        Route::delete('event-rewards/{eventReward}', [EventRewardController::class, 'destroy'])
+            ->name('api.v1.event-rewards.destroy');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Gamification - Spin the Wheel
+        |--------------------------------------------------------------------------
+        */
+
+        // Spin the wheel after verified challenge completion
+        Route::post('rewards/spin', [SpinWheelController::class, 'spin'])
+            ->name('api.v1.rewards.spin');
 
         /*
         |--------------------------------------------------------------------------
