@@ -6,9 +6,11 @@ namespace App\Services;
 
 use App\Enums\NotificationType;
 use App\Models\Application;
+use App\Models\ChallengeCompletion;
 use App\Models\ChatMessage;
 use App\Models\Notification;
 use App\Models\Profile;
+use App\Models\RewardClaim;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Str;
 
@@ -201,6 +203,41 @@ class NotificationService
             actor: $actor,
             targetId: $application->id,
             targetType: 'application',
+        );
+    }
+
+    /**
+     * Notify when a challenge is verified (awarded to the challenger).
+     */
+    public function notifyChallengeVerified(ChallengeCompletion $completion): void
+    {
+        $completion->loadMissing(['challenge', 'challenger', 'verifier']);
+
+        $this->createNotification(
+            recipient: $completion->challenger,
+            type: NotificationType::ChallengeVerified,
+            title: 'Challenge Verified!',
+            body: "Your \"{$completion->challenge->name}\" challenge was verified. You earned {$completion->points_earned} points!",
+            actor: $completion->verifier,
+            targetId: $completion->id,
+            targetType: 'challenge_completion',
+        );
+    }
+
+    /**
+     * Notify when a reward is won from spin-the-wheel.
+     */
+    public function notifyRewardWon(RewardClaim $claim): void
+    {
+        $claim->loadMissing(['eventReward', 'profile']);
+
+        $this->createNotification(
+            recipient: $claim->profile,
+            type: NotificationType::RewardWon,
+            title: 'You Won a Reward!',
+            body: "You won \"{$claim->eventReward->name}\" from spin-the-wheel!",
+            targetId: $claim->id,
+            targetType: 'reward_claim',
         );
     }
 }

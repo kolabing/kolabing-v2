@@ -10,6 +10,9 @@ enum NotificationType: string
     case ApplicationReceived = 'application_received';
     case ApplicationAccepted = 'application_accepted';
     case ApplicationDeclined = 'application_declined';
+    case BadgeAwarded = 'badge_awarded';
+    case ChallengeVerified = 'challenge_verified';
+    case RewardWon = 'reward_won';
 
     /**
      * @return array<string>

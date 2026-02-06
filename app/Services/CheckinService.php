@@ -12,6 +12,10 @@ use Illuminate\Support\Str;
 
 class CheckinService
 {
+    public function __construct(
+        private readonly BadgeService $badgeService
+    ) {}
+
     /**
      * Generate a unique QR check-in token for an event.
      */
@@ -59,6 +63,8 @@ class CheckinService
         // Increment total_events_attended on attendee profile
         if ($profile->isAttendee() && $profile->attendeeProfile) {
             $profile->attendeeProfile->increment('total_events_attended');
+            $profile->attendeeProfile->refresh();
+            $this->badgeService->checkAndAwardBadges($profile);
         }
 
         return $checkin->load(['event', 'profile']);

@@ -14,6 +14,11 @@ use Illuminate\Support\Facades\DB;
 
 class SpinWheelService
 {
+    public function __construct(
+        private readonly BadgeService $badgeService,
+        private readonly NotificationService $notificationService
+    ) {}
+
     /**
      * Spin the wheel for a verified challenge completion.
      *
@@ -99,6 +104,14 @@ class SpinWheelService
             return ['won' => false, 'reward_claim' => null];
         }
 
-        return ['won' => true, 'reward_claim' => $claim->load('eventReward')];
+        $claim->load('eventReward');
+
+        // Send reward won notification
+        $this->notificationService->notifyRewardWon($claim);
+
+        // Check for badge milestones
+        $this->badgeService->checkAndAwardBadges($profile);
+
+        return ['won' => true, 'reward_claim' => $claim];
     }
 }

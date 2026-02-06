@@ -15,6 +15,11 @@ use Illuminate\Support\Facades\DB;
 
 class ChallengeCompletionService
 {
+    public function __construct(
+        private readonly BadgeService $badgeService,
+        private readonly NotificationService $notificationService
+    ) {}
+
     /**
      * Initiate a peer-to-peer challenge between two checked-in attendees.
      *
@@ -93,7 +98,7 @@ class ChallengeCompletionService
             throw new \LogicException('This challenge completion has already been processed.');
         }
 
-        return DB::transaction(function () use ($completion): ChallengeCompletion {
+        $result = DB::transaction(function () use ($completion): ChallengeCompletion {
             $points = $completion->challenge->points;
 
             $completion->update([
@@ -111,6 +116,15 @@ class ChallengeCompletionService
 
             return $completion->load(['challenge', 'event', 'challenger', 'verifier']);
         });
+
+        // Send challenge verified notification (after transaction)
+        $this->notificationService->notifyChallengeVerified($result);
+
+        // Check for badge milestones (after transaction)
+        $result->challenger->attendeeProfile?->refresh();
+        $this->badgeService->checkAndAwardBadges($result->challenger);
+
+        return $result;
     }
 
     /**
