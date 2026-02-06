@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, EventPhoto> $photos
  * @property-read \Illuminate\Database\Eloquent\Collection<int, EventCheckin> $checkins
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Challenge> $challenges
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, EventReward> $rewards
  */
 class Event extends Model
 {
@@ -101,5 +102,13 @@ class Event extends Model
     public function challenges(): HasMany
     {
         return $this->hasMany(Challenge::class);
+    }
+
+    /**
+     * @return HasMany<EventReward, $this>
+     */
+    public function rewards(): HasMany
+    {
+        return $this->hasMany(EventReward::class);
     }
 }
