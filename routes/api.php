@@ -20,9 +20,9 @@ use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OnboardingController;
 use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\RewardWalletController;
 use App\Http\Controllers\Api\V1\SpinWheelController;
 use App\Http\Controllers\Api\V1\StripeWebhookController;
-use App\Http\Controllers\Api\V1\RewardWalletController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
@@ -317,6 +317,24 @@ Route::prefix('v1')->group(function (): void {
         // Spin the wheel after verified challenge completion
         Route::post('rewards/spin', [SpinWheelController::class, 'spin'])
             ->name('api.v1.rewards.spin');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Gamification - Reward Wallet
+        |--------------------------------------------------------------------------
+        */
+
+        // List my reward claims
+        Route::get('me/rewards', [RewardWalletController::class, 'index'])
+            ->name('api.v1.me.rewards');
+
+        // Confirm redemption (static route must come before parameterized route)
+        Route::post('reward-claims/confirm-redeem', [RewardWalletController::class, 'confirmRedeem'])
+            ->name('api.v1.reward-claims.confirm-redeem');
+
+        // Generate redeem QR token for a reward claim
+        Route::post('reward-claims/{rewardClaim}/generate-redeem-qr', [RewardWalletController::class, 'generateRedeemQr'])
+            ->name('api.v1.reward-claims.generate-redeem-qr');
 
         /*
         |--------------------------------------------------------------------------
