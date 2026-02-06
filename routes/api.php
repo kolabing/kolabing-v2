@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\ApplicationController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BadgeController;
 use App\Http\Controllers\Api\V1\ChallengeCompletionController;
 use App\Http\Controllers\Api\V1\ChallengeController;
 use App\Http\Controllers\Api\V1\ChatController;
@@ -355,6 +356,20 @@ Route::prefix('v1')->group(function (): void {
         // Public game card for a profile
         Route::get('profiles/{profile}/game-card', [GamificationStatsController::class, 'gameCard'])
             ->name('api.v1.profiles.game-card');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Gamification - Badges
+        |--------------------------------------------------------------------------
+        */
+
+        // List all system badges
+        Route::get('badges', [BadgeController::class, 'index'])
+            ->name('api.v1.badges.index');
+
+        // My awarded badges
+        Route::get('me/badges', [BadgeController::class, 'myBadges'])
+            ->name('api.v1.me.badges');
 
         /*
         |--------------------------------------------------------------------------
