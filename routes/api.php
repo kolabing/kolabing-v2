@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\GalleryController;
+use App\Http\Controllers\Api\V1\LeaderboardController;
 use App\Http\Controllers\Api\V1\LookupController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
@@ -267,6 +268,20 @@ Route::prefix('v1')->group(function (): void {
         // My challenge completions
         Route::get('me/challenge-completions', [ChallengeCompletionController::class, 'myCompletions'])
             ->name('api.v1.me.challenge-completions');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Gamification - Leaderboard
+        |--------------------------------------------------------------------------
+        */
+
+        // Event leaderboard
+        Route::get('events/{event}/leaderboard', [LeaderboardController::class, 'eventLeaderboard'])
+            ->name('api.v1.events.leaderboard');
+
+        // Global leaderboard
+        Route::get('leaderboard/global', [LeaderboardController::class, 'globalLeaderboard'])
+            ->name('api.v1.leaderboard.global');
 
         /*
         |--------------------------------------------------------------------------
