@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\UserType;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -40,6 +41,8 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Notification> $notifications
  * @property-read \Illuminate\Database\Eloquent\Collection<int, EventCheckin> $eventCheckins
  * @property-read \Illuminate\Database\Eloquent\Collection<int, RewardClaim> $rewardClaims
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, BadgeAward> $badgeAwards
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Badge> $badges
  * @property-read bool $onboarding_completed
  */
 class Profile extends Authenticatable
@@ -234,6 +237,28 @@ class Profile extends Authenticatable
     public function rewardClaims(): HasMany
     {
         return $this->hasMany(RewardClaim::class);
+    }
+
+    /**
+     * Get badge awards for this profile.
+     *
+     * @return HasMany<BadgeAward, $this>
+     */
+    public function badgeAwards(): HasMany
+    {
+        return $this->hasMany(BadgeAward::class);
+    }
+
+    /**
+     * Get badges earned by this profile.
+     *
+     * @return BelongsToMany<Badge, $this>
+     */
+    public function badges(): BelongsToMany
+    {
+        return $this->belongsToMany(Badge::class, 'badge_awards')
+            ->withPivot('awarded_at')
+            ->withTimestamps();
     }
 
     /**
