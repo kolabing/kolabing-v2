@@ -39,6 +39,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Event> $events
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Notification> $notifications
  * @property-read \Illuminate\Database\Eloquent\Collection<int, EventCheckin> $eventCheckins
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, RewardClaim> $rewardClaims
  * @property-read bool $onboarding_completed
  */
 class Profile extends Authenticatable
@@ -223,6 +224,16 @@ class Profile extends Authenticatable
     public function eventCheckins(): HasMany
     {
         return $this->hasMany(EventCheckin::class);
+    }
+
+    /**
+     * Get reward claims for this profile.
+     *
+     * @return HasMany<RewardClaim, $this>
+     */
+    public function rewardClaims(): HasMany
+    {
+        return $this->hasMany(RewardClaim::class);
     }
 
     /**
