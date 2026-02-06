@@ -11,8 +11,10 @@ use App\Http\Controllers\Api\V1\CheckinController;
 use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\EventController;
+use App\Http\Controllers\Api\V1\EventDiscoveryController;
 use App\Http\Controllers\Api\V1\EventRewardController;
 use App\Http\Controllers\Api\V1\GalleryController;
+use App\Http\Controllers\Api\V1\GamificationStatsController;
 use App\Http\Controllers\Api\V1\LeaderboardController;
 use App\Http\Controllers\Api\V1\LookupController;
 use App\Http\Controllers\Api\V1\NotificationController;
@@ -194,6 +196,10 @@ Route::prefix('v1')->group(function (): void {
         Route::get('events', [EventController::class, 'index'])
             ->name('api.v1.events.index');
 
+        // Event Discovery (must be BEFORE events/{event} route)
+        Route::get('events/discover', EventDiscoveryController::class)
+            ->name('api.v1.events.discover');
+
         // Get single event
         Route::get('events/{event}', [EventController::class, 'show'])
             ->name('api.v1.events.show');
@@ -335,6 +341,20 @@ Route::prefix('v1')->group(function (): void {
         // Generate redeem QR token for a reward claim
         Route::post('reward-claims/{rewardClaim}/generate-redeem-qr', [RewardWalletController::class, 'generateRedeemQr'])
             ->name('api.v1.reward-claims.generate-redeem-qr');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Gamification - Stats & Game Card
+        |--------------------------------------------------------------------------
+        */
+
+        // My gamification stats
+        Route::get('me/gamification-stats', [GamificationStatsController::class, 'myStats'])
+            ->name('api.v1.me.gamification-stats');
+
+        // Public game card for a profile
+        Route::get('profiles/{profile}/game-card', [GamificationStatsController::class, 'gameCard'])
+            ->name('api.v1.profiles.game-card');
 
         /*
         |--------------------------------------------------------------------------
