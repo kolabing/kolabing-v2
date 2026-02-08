@@ -57,7 +57,7 @@ class EventDiscoveryService
             ->whereNotNull('location_lng')
             ->where('is_active', true)
             ->selectRaw("*, {$haversine} AS distance_km", [$lat, $lng, $lat])
-            ->havingRaw("{$haversine} <= ?", [$lat, $lng, $lat, $radiusKm])
+            ->whereRaw("{$haversine} <= ?", [$lat, $lng, $lat, $radiusKm])
             ->orderBy('distance_km')
             ->with(['photos', 'profile'])
             ->paginate($perPage);

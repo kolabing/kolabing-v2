@@ -21,7 +21,7 @@ class DiscoverEventsRequest extends FormRequest
         return [
             'lat' => ['required', 'numeric', 'between:-90,90'],
             'lng' => ['required', 'numeric', 'between:-180,180'],
-            'radius' => ['sometimes', 'numeric', 'min:1', 'max:200'],
+            'radius_km' => ['sometimes', 'numeric', 'min:1', 'max:200'],
             'limit' => ['sometimes', 'integer', 'min:1', 'max:50'],
         ];
     }
@@ -36,8 +36,8 @@ class DiscoverEventsRequest extends FormRequest
             'lat.between' => 'Latitude must be between -90 and 90.',
             'lng.required' => 'Longitude is required.',
             'lng.between' => 'Longitude must be between -180 and 180.',
-            'radius.min' => 'Radius must be at least 1 km.',
-            'radius.max' => 'Radius cannot exceed 200 km.',
+            'radius_km.min' => 'Radius must be at least 1 km.',
+            'radius_km.max' => 'Radius cannot exceed 200 km.',
             'limit.min' => 'Limit must be at least 1.',
             'limit.max' => 'Limit cannot exceed 50.',
         ];

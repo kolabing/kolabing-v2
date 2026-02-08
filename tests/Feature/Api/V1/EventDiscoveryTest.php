@@ -146,7 +146,7 @@ class EventDiscoveryTest extends TestCase
 
         // With a 2km radius, only the very close event should appear
         $response = $this->actingAs($attendee)
-            ->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686&radius=2');
+            ->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686&radius_km=2');
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data.events');
@@ -194,7 +194,7 @@ class EventDiscoveryTest extends TestCase
         $this->createEventAt(43.0000, 2.1700); // ~180km away
 
         $response = $this->actingAs($attendee)
-            ->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686&radius=50');
+            ->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686&radius_km=50');
 
         $response->assertStatus(200)
             ->assertJsonCount(0, 'data.events');
@@ -241,11 +241,11 @@ class EventDiscoveryTest extends TestCase
         $attendee = Profile::factory()->attendee()->create();
 
         $this->actingAs($attendee)
-            ->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686&radius=0')
+            ->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686&radius_km=0')
             ->assertStatus(422);
 
         $this->actingAs($attendee)
-            ->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686&radius=300')
+            ->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686&radius_km=300')
             ->assertStatus(422);
     }
 

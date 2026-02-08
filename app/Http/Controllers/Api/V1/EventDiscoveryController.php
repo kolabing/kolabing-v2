@@ -20,7 +20,7 @@ class EventDiscoveryController extends Controller
     {
         $lat = (float) $request->validated('lat');
         $lng = (float) $request->validated('lng');
-        $radius = (float) ($request->validated('radius') ?? 50);
+        $radius = (float) ($request->validated('radius_km') ?? 50);
         $perPage = (int) ($request->validated('limit') ?? 10);
 
         $paginator = $this->discoveryService->discoverNearby($lat, $lng, $radius, $perPage);
