@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\ChallengeCategory;
 use App\Enums\ChallengeDifficulty;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property ChallengeDifficulty $difficulty
  * @property int $points
  * @property bool $is_system
+ * @property ChallengeCategory|null $category
  * @property string|null $event_id
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -38,6 +40,7 @@ class Challenge extends Model
         'difficulty',
         'points',
         'is_system',
+        'category',
         'event_id',
     ];
 
@@ -48,6 +51,7 @@ class Challenge extends Model
             'difficulty' => ChallengeDifficulty::class,
             'points' => 'integer',
             'is_system' => 'boolean',
+            'category' => ChallengeCategory::class,
         ];
     }
 

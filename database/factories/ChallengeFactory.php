@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\ChallengeCategory;
 use App\Enums\ChallengeDifficulty;
 use App\Models\Challenge;
 use App\Models\Event;
@@ -29,6 +30,7 @@ class ChallengeFactory extends Factory
             'difficulty' => $difficulty,
             'points' => $difficulty->points(),
             'is_system' => false,
+            'category' => $this->faker->randomElement(ChallengeCategory::cases()),
             'event_id' => null,
         ];
     }
