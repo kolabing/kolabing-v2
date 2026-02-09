@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * @property string $id
@@ -22,6 +23,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property \Illuminate\Support\Carbon|null $scheduled_date
  * @property \Illuminate\Support\Carbon|null $completed_at
  * @property array<string, mixed>|null $contact_methods
+ * @property string|null $event_id
+ * @property string|null $qr_code_url
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Application $application
@@ -30,6 +33,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read Profile $applicantProfile
  * @property-read BusinessProfile $businessProfile
  * @property-read CommunityProfile $communityProfile
+ * @property-read Event|null $event
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Challenge> $challenges
  */
 class Collaboration extends Model
 {
@@ -52,6 +57,8 @@ class Collaboration extends Model
         'scheduled_date',
         'completed_at',
         'contact_methods',
+        'event_id',
+        'qr_code_url',
     ];
 
     /**
@@ -127,6 +134,27 @@ class Collaboration extends Model
     public function communityProfile(): BelongsTo
     {
         return $this->belongsTo(CommunityProfile::class);
+    }
+
+    /**
+     * Get the event associated with this collaboration.
+     *
+     * @return BelongsTo<Event, $this>
+     */
+    public function event(): BelongsTo
+    {
+        return $this->belongsTo(Event::class);
+    }
+
+    /**
+     * Get the challenges selected for this collaboration.
+     *
+     * @return BelongsToMany<Challenge, $this>
+     */
+    public function challenges(): BelongsToMany
+    {
+        return $this->belongsToMany(Challenge::class, 'collaboration_challenges')
+            ->withTimestamps();
     }
 
     /**

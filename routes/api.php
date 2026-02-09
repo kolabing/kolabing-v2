@@ -9,7 +9,9 @@ use App\Http\Controllers\Api\V1\ChallengeCompletionController;
 use App\Http\Controllers\Api\V1\ChallengeController;
 use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\CheckinController;
+use App\Http\Controllers\Api\V1\CollaborationChallengeController;
 use App\Http\Controllers\Api\V1\CollaborationController;
+use App\Http\Controllers\Api\V1\CollaborationQrCodeController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\EventDiscoveryController;
@@ -27,6 +29,7 @@ use App\Http\Controllers\Api\V1\RewardWalletController;
 use App\Http\Controllers\Api\V1\SpinWheelController;
 use App\Http\Controllers\Api\V1\StripeWebhookController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
+use App\Http\Controllers\Api\V1\SystemChallengeController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -530,5 +533,21 @@ Route::prefix('v1')->group(function (): void {
         // Cancel collaboration
         Route::post('collaborations/{collaboration}/cancel', [CollaborationController::class, 'cancel'])
             ->name('api.v1.collaborations.cancel');
+
+        // Sync selected challenges for a collaboration
+        Route::put('collaborations/{collaboration}/challenges', [CollaborationChallengeController::class, 'sync'])
+            ->name('api.v1.collaborations.challenges.sync');
+
+        // Create custom challenge for a collaboration
+        Route::post('collaborations/{collaboration}/challenges', [CollaborationChallengeController::class, 'store'])
+            ->name('api.v1.collaborations.challenges.store');
+
+        // Generate QR code for a collaboration
+        Route::post('collaborations/{collaboration}/qr-code', [CollaborationQrCodeController::class, 'store'])
+            ->name('api.v1.collaborations.qr-code');
+
+        // List system challenges
+        Route::get('challenges/system', SystemChallengeController::class)
+            ->name('api.v1.challenges.system');
     });
 });

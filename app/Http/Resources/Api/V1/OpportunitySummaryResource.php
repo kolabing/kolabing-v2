@@ -26,13 +26,17 @@ class OpportunitySummaryResource extends JsonResource
         return [
             'id' => $this->id,
             'title' => $this->title,
+            'description' => $this->description,
             'status' => $this->status->value,
             'categories' => $this->categories,
+            'availability_mode' => $this->availability_mode,
             'availability_start' => $this->availability_start?->format('Y-m-d'),
             'availability_end' => $this->availability_end?->format('Y-m-d'),
             'venue_mode' => $this->venue_mode,
             'preferred_city' => $this->preferred_city,
             'offer_photo' => $this->offer_photo,
+            'business_offer' => $this->business_offer,
+            'community_deliverables' => $this->community_deliverables,
             'creator_profile' => $this->whenLoaded('creatorProfile', function () {
                 return new ProfileSummaryResource($this->creatorProfile);
             }),

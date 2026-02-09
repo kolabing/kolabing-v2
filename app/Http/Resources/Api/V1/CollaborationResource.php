@@ -86,6 +86,14 @@ class CollaborationResource extends JsonResource
             'status' => $this->status->value,
             'scheduled_date' => $this->scheduled_date?->format('Y-m-d'),
             'contact_methods' => $this->contact_methods,
+            'event_id' => $this->event_id,
+            'qr_code_url' => $this->qr_code_url,
+            'challenges' => $this->whenLoaded('challenges', function () {
+                return ChallengeResource::collection($this->challenges);
+            }),
+            'selected_challenge_ids' => $this->whenLoaded('challenges', function () {
+                return $this->challenges->pluck('id')->values();
+            }),
             'completed_at' => $this->completed_at?->toIso8601String(),
             'my_role' => $this->when($currentProfile !== null, fn () => $myRole),
             'created_at' => $this->created_at?->toIso8601String(),

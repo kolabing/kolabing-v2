@@ -41,6 +41,7 @@ class CollaborationService
                 'applicantProfile.businessProfile.city',
                 'applicantProfile.communityProfile.city',
                 'application',
+                'challenges',
             ])
             ->orderByDesc('created_at')
             ->paginate($perPage);
@@ -61,6 +62,7 @@ class CollaborationService
                 'applicantProfile.businessProfile.city',
                 'applicantProfile.communityProfile.city',
                 'application',
+                'challenges',
             ])
             ->findOrFail($id);
     }
@@ -203,6 +205,7 @@ class CollaborationService
                 'creatorProfile',
                 'applicantProfile',
                 'application',
+                'challenges',
             ]);
         });
     }
