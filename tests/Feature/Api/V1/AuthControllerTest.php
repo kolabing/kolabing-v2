@@ -593,7 +593,7 @@ class AuthControllerTest extends TestCase
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'name' => 'Test Community',
-            'community_type' => 'food_blogger',
+            'community_type' => 'run_club',
             'city_id' => fake()->uuid(),
         ]);
 
@@ -638,7 +638,7 @@ class AuthControllerTest extends TestCase
             'password_confirmation' => 'password123',
             'name' => 'Test Community',
             'about' => 'A test community description',
-            'community_type' => 'food_blogger',
+            'community_type' => 'run_club',
             'city_id' => $city->id,
             'phone_number' => '+34612345678',
             'instagram' => '@testcommunity',
@@ -693,7 +693,7 @@ class AuthControllerTest extends TestCase
             'profile_id' => $profile->id,
             'name' => 'Test Community',
             'about' => 'A test community description',
-            'community_type' => 'food_blogger',
+            'community_type' => 'run_club',
             'city_id' => $city->id,
             'instagram' => '@testcommunity',
             'tiktok' => '@testcommunity',
@@ -864,7 +864,7 @@ class AuthControllerTest extends TestCase
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'name' => 'Test Community',
-            'community_type' => 'food_blogger',
+            'community_type' => 'run_club',
             'city_id' => $city->id,
         ]);
 

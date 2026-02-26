@@ -16,15 +16,21 @@ class CommunityOnboardingRequest extends FormRequest
      * @var array<string>
      */
     public const COMMUNITY_TYPES = [
-        'food_blogger',
-        'lifestyle_influencer',
-        'fitness_enthusiast',
-        'travel_blogger',
-        'photographer',
-        'local_explorer',
-        'student',
-        'professional',
-        'community_organizer',
+        'run_club',
+        'fitness_community',
+        'wellness_community',
+        'art_creative_community',
+        'photography_community',
+        'music_community',
+        'dance_community',
+        'tech_startup_community',
+        'book_club',
+        'sustainability_community',
+        'food_community',
+        'travel_community',
+        'student_community',
+        'professional_networking_community',
+        'hobby_community',
         'other',
     ];
 

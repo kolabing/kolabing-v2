@@ -98,7 +98,7 @@ class LookupControllerTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
-            ->assertJsonPath('meta.total', 10)
+            ->assertJsonPath('meta.total', 16)
             ->assertJsonStructure([
                 'success',
                 'data' => [
@@ -115,10 +115,10 @@ class LookupControllerTest extends TestCase
 
         // Verify specific types exist
         $values = collect($response->json('data'))->pluck('value')->toArray();
-        $this->assertContains('food_blogger', $values);
-        $this->assertContains('lifestyle_influencer', $values);
-        $this->assertContains('photographer', $values);
-        $this->assertContains('student', $values);
+        $this->assertContains('run_club', $values);
+        $this->assertContains('fitness_community', $values);
+        $this->assertContains('photography_community', $values);
+        $this->assertContains('student_community', $values);
         $this->assertContains('other', $values);
     }
 

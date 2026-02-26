@@ -39,78 +39,83 @@ class CommunityTypeSeeder extends Seeder
     {
         return [
             [
-                'name' => 'Running Club',
-                'slug' => 'running-club',
+                'name' => 'Run Club',
+                'slug' => 'run-club',
                 'icon' => 'running',
             ],
             [
-                'name' => 'Club de Ciclismo',
-                'slug' => 'club-de-ciclismo',
-                'icon' => 'bicycle',
-            ],
-            [
-                'name' => 'Grupo de Yoga',
-                'slug' => 'grupo-de-yoga',
-                'icon' => 'yoga',
-            ],
-            [
-                'name' => 'Club de Fitness',
-                'slug' => 'club-de-fitness',
+                'name' => 'Fitness Community',
+                'slug' => 'fitness-community',
                 'icon' => 'dumbbell',
             ],
             [
-                'name' => 'Grupo de Senderismo',
-                'slug' => 'grupo-de-senderismo',
-                'icon' => 'mountain',
+                'name' => 'Wellness Community',
+                'slug' => 'wellness-community',
+                'icon' => 'heart',
             ],
             [
-                'name' => 'Club de Padel',
-                'slug' => 'club-de-padel',
-                'icon' => 'racket',
-            ],
-            [
-                'name' => 'Grupo de Arte',
-                'slug' => 'grupo-de-arte',
+                'name' => 'Art & Creative Community',
+                'slug' => 'art-creative-community',
                 'icon' => 'palette',
             ],
             [
-                'name' => 'Club de Lectura',
-                'slug' => 'club-de-lectura',
-                'icon' => 'book',
-            ],
-            [
-                'name' => 'Grupo de Fotografia',
-                'slug' => 'grupo-de-fotografia',
+                'name' => 'Photography Community',
+                'slug' => 'photography-community',
                 'icon' => 'camera',
             ],
             [
-                'name' => 'Comunidad Tech',
-                'slug' => 'comunidad-tech',
-                'icon' => 'laptop',
-            ],
-            [
-                'name' => 'Grupo de Networking',
-                'slug' => 'grupo-de-networking',
-                'icon' => 'users',
-            ],
-            [
-                'name' => 'Club Gastronomico',
-                'slug' => 'club-gastronomico',
-                'icon' => 'utensils',
-            ],
-            [
-                'name' => 'Grupo de Viajes',
-                'slug' => 'grupo-de-viajes',
-                'icon' => 'plane',
-            ],
-            [
-                'name' => 'Comunidad de Musica',
-                'slug' => 'comunidad-de-musica',
+                'name' => 'Music Community',
+                'slug' => 'music-community',
                 'icon' => 'music',
             ],
             [
-                'name' => 'Otro',
-                'slug' => 'otro',
+                'name' => 'Dance Community',
+                'slug' => 'dance-community',
+                'icon' => 'music-2',
+            ],
+            [
+                'name' => 'Tech / Startup Community',
+                'slug' => 'tech-startup-community',
+                'icon' => 'laptop',
+            ],
+            [
+                'name' => 'Book Club',
+                'slug' => 'book-club',
+                'icon' => 'book',
+            ],
+            [
+                'name' => 'Sustainability Community',
+                'slug' => 'sustainability-community',
+                'icon' => 'leaf',
+            ],
+            [
+                'name' => 'Food Community',
+                'slug' => 'food-community',
+                'icon' => 'utensils',
+            ],
+            [
+                'name' => 'Travel Community',
+                'slug' => 'travel-community',
+                'icon' => 'plane',
+            ],
+            [
+                'name' => 'Student Community',
+                'slug' => 'student-community',
+                'icon' => 'graduation-cap',
+            ],
+            [
+                'name' => 'Professional / Networking Community',
+                'slug' => 'professional-networking-community',
+                'icon' => 'users',
+            ],
+            [
+                'name' => 'Hobby Community',
+                'slug' => 'hobby-community',
+                'icon' => 'star',
+            ],
+            [
+                'name' => 'Other',
+                'slug' => 'other',
                 'icon' => 'ellipsis',
             ],
         ];

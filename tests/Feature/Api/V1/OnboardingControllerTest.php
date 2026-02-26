@@ -182,7 +182,7 @@ class OnboardingControllerTest extends TestCase
     {
         $response = $this->putJson('/api/v1/onboarding/community', [
             'name' => 'Test Community',
-            'community_type' => 'food_blogger',
+            'community_type' => 'run_club',
             'city_id' => $this->city->id,
             'instagram' => 'testcommunity',
         ]);
@@ -200,7 +200,7 @@ class OnboardingControllerTest extends TestCase
         $response = $this->actingAs($profile)
             ->putJson('/api/v1/onboarding/community', [
                 'name' => 'Test Community',
-                'community_type' => 'food_blogger',
+                'community_type' => 'run_club',
                 'city_id' => $this->city->id,
                 'instagram' => 'testcommunity',
             ]);
@@ -258,7 +258,7 @@ class OnboardingControllerTest extends TestCase
             ->putJson('/api/v1/onboarding/community', [
                 'name' => 'Maria Garcia',
                 'about' => 'Food blogger and coffee enthusiast',
-                'community_type' => 'food_blogger',
+                'community_type' => 'run_club',
                 'city_id' => $this->city->id,
                 'phone_number' => '+34698765432',
                 'instagram' => '@maria_food_bcn',
@@ -272,7 +272,7 @@ class OnboardingControllerTest extends TestCase
             ->assertJsonPath('data.onboarding_completed', true)
             ->assertJsonPath('data.phone_number', '+34698765432')
             ->assertJsonPath('data.community_profile.name', 'Maria Garcia')
-            ->assertJsonPath('data.community_profile.community_type', 'food_blogger')
+            ->assertJsonPath('data.community_profile.community_type', 'run_club')
             ->assertJsonPath('data.community_profile.instagram', 'maria_food_bcn')
             ->assertJsonPath('data.community_profile.tiktok', 'maria_food')
             ->assertJsonPath('data.community_profile.is_featured', false);
@@ -283,7 +283,7 @@ class OnboardingControllerTest extends TestCase
 
         $communityProfile = $profile->communityProfile;
         $this->assertEquals('Maria Garcia', $communityProfile->name);
-        $this->assertEquals('food_blogger', $communityProfile->community_type);
+        $this->assertEquals('run_club', $communityProfile->community_type);
         $this->assertEquals($this->city->id, $communityProfile->city_id);
     }
 }
