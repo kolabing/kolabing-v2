@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\CollaborationChallengeController;
 use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\CollaborationQrCodeController;
 use App\Http\Controllers\Api\V1\DashboardController;
+use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\EventDiscoveryController;
 use App\Http\Controllers\Api\V1\EventRewardController;
@@ -53,6 +54,9 @@ Route::prefix('v1')->group(function (): void {
     // Authentication
     Route::post('auth/google', [AuthController::class, 'google'])
         ->name('api.v1.auth.google');
+
+    Route::post('auth/apple', [AuthController::class, 'apple'])
+        ->name('api.v1.auth.apple');
 
     Route::post('auth/register/business', [AuthController::class, 'registerBusiness'])
         ->name('api.v1.auth.register.business');
@@ -115,6 +119,10 @@ Route::prefix('v1')->group(function (): void {
         | Profile Management
         |--------------------------------------------------------------------------
         */
+
+        // Register / update FCM device token
+        Route::post('me/device-token', [DeviceTokenController::class, 'store'])
+            ->name('api.v1.me.device-token');
 
         // Get full profile with subscription
         Route::get('me/profile', [ProfileController::class, 'show'])

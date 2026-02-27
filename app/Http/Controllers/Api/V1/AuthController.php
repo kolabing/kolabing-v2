@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\AppleLoginRequest;
 use App\Http\Requests\Api\V1\ForgotPasswordRequest;
 use App\Http\Requests\Api\V1\GoogleLoginRequest;
 use App\Http\Requests\Api\V1\LoginRequest;
@@ -14,6 +15,7 @@ use App\Http\Requests\Api\V1\RegisterCommunityRequest;
 use App\Http\Requests\Api\V1\ResetPasswordRequest;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\Profile;
+use App\Services\AppleAuthService;
 use App\Services\AuthService;
 use App\Services\GoogleAuthService;
 use App\Services\ProfileService;
@@ -25,6 +27,7 @@ class AuthController extends Controller
 {
     public function __construct(
         private readonly GoogleAuthService $googleAuthService,
+        private readonly AppleAuthService $appleAuthService,
         private readonly AuthService $authService,
         private readonly ProfileService $profileService
     ) {}
@@ -79,6 +82,49 @@ class AuthController extends Controller
                 'token' => $result['token'],
                 'token_type' => 'Bearer',
                 'is_new_user' => $result['is_new_user'],
+                'user' => new UserResource($result['profile']),
+            ],
+        ]);
+    }
+
+    /**
+     * Authenticate an existing user via Apple Sign In (login-only).
+     *
+     * POST /api/v1/auth/apple
+     */
+    public function apple(AppleLoginRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+
+        $appleUserData = $this->appleAuthService->verifyIdentityToken($validated['identity_token']);
+
+        if (! $appleUserData) {
+            return response()->json([
+                'success' => false,
+                'message' => __('Invalid Apple identity token'),
+                'errors' => [
+                    'identity_token' => [__('The provided Apple identity token is invalid or expired')],
+                ],
+            ], 400);
+        }
+
+        $result = $this->authService->authenticateWithApple($appleUserData);
+
+        if (! $result) {
+            return response()->json([
+                'success' => false,
+                'message' => __('No account found with this Apple ID. Please register first.'),
+                'errors' => null,
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Login successful'),
+            'data' => [
+                'token' => $result['token'],
+                'token_type' => 'Bearer',
+                'is_new_user' => false,
                 'user' => new UserResource($result['profile']),
             ],
         ]);

@@ -21,8 +21,11 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string|null $phone_number
  * @property UserType $user_type
  * @property string|null $google_id
+ * @property string|null $apple_id
  * @property string|null $password
  * @property string|null $avatar_url
+ * @property string|null $device_token
+ * @property string|null $device_platform
  * @property \Illuminate\Support\Carbon|null $email_verified_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -70,9 +73,12 @@ class Profile extends Authenticatable
         'phone_number',
         'user_type',
         'google_id',
+        'apple_id',
         'password',
         'avatar_url',
         'email_verified_at',
+        'device_token',
+        'device_platform',
     ];
 
     /**
@@ -82,7 +88,10 @@ class Profile extends Authenticatable
      */
     protected $hidden = [
         'google_id',
+        'apple_id',
         'password',
+        'device_token',
+        'device_platform',
     ];
 
     /**

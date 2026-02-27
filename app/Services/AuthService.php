@@ -32,6 +32,10 @@ use InvalidArgumentException;
  *     avatar_url: string|null,
  *     email_verified: bool
  * }
+ * @phpstan-type AppleUserData array{
+ *     apple_id: string,
+ *     email: string|null,
+ * }
  * @phpstan-type BusinessProfileData array{
  *     name: string,
  *     about: string|null,
@@ -59,6 +63,43 @@ use InvalidArgumentException;
  */
 class AuthService
 {
+    /**
+     * Authenticate an existing user via Apple Sign In (login-only, no registration).
+     *
+     * @param  AppleUserData  $appleUserData
+     * @return AuthResult|null Returns null when no account found
+     */
+    public function authenticateWithApple(array $appleUserData): ?array
+    {
+        $query = Profile::query()->where('apple_id', $appleUserData['apple_id']);
+
+        if (! empty($appleUserData['email'])) {
+            $query->orWhere('email', $appleUserData['email']);
+        }
+
+        $profile = $query->first();
+
+        if (! $profile) {
+            return null;
+        }
+
+        // Link apple_id if signing in by email for the first time with Apple
+        if (! $profile->apple_id) {
+            $profile->update(['apple_id' => $appleUserData['apple_id']]);
+            $profile->refresh();
+        }
+
+        $this->loadProfileRelationships($profile);
+
+        $token = $this->createToken($profile);
+
+        return [
+            'profile' => $profile,
+            'is_new_user' => false,
+            'token' => $token,
+        ];
+    }
+
     /**
      * Authenticate or register a user via Google OAuth.
      *

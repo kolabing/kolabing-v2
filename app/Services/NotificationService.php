@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\NotificationType;
+use App\Jobs\SendPushNotification;
 use App\Models\Application;
 use App\Models\ChallengeCompletion;
 use App\Models\ChatMessage;
@@ -63,7 +64,7 @@ class NotificationService
     }
 
     /**
-     * Create a notification record.
+     * Create a notification record and dispatch a push notification if the recipient has a device token.
      */
     public function createNotification(
         Profile $recipient,
@@ -74,7 +75,7 @@ class NotificationService
         ?string $targetId = null,
         ?string $targetType = null,
     ): Notification {
-        return Notification::create([
+        $notification = Notification::create([
             'profile_id' => $recipient->id,
             'type' => $type,
             'title' => $title,
@@ -83,6 +84,12 @@ class NotificationService
             'target_id' => $targetId,
             'target_type' => $targetType,
         ]);
+
+        if (! empty($recipient->device_token)) {
+            SendPushNotification::dispatch($recipient, $title, $body, $type, $targetId);
+        }
+
+        return $notification;
     }
 
     /**

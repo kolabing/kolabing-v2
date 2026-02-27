@@ -53,6 +53,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Apple Sign In Configuration
+    |--------------------------------------------------------------------------
+    |
+    | The Apple client ID is the Bundle ID of your iOS app (e.g. com.kolabing.app).
+    | If left empty, audience validation is skipped (useful for development).
+    |
+    */
+
+    'apple' => [
+        'client_id' => env('APPLE_CLIENT_ID'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Stripe Configuration
     |--------------------------------------------------------------------------
     |
