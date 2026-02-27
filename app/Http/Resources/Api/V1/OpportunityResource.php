@@ -24,6 +24,10 @@ class OpportunityResource extends JsonResource
         $isOwn = $currentProfile && $this->creator_profile_id === $currentProfile->id;
         $myApplication = $this->getMyApplication($currentProfile);
 
+        $canPublish = $isOwn
+            && $this->isDraft()
+            && (! $currentProfile->isBusiness() || $currentProfile->hasActiveSubscription());
+
         return [
             'id' => $this->id,
             'creator_profile' => $this->whenLoaded('creatorProfile', function () {
@@ -45,6 +49,7 @@ class OpportunityResource extends JsonResource
             'published_at' => $this->published_at?->toIso8601String(),
             'applications_count' => $this->whenCounted('applications'),
             'is_own' => $isOwn,
+            'can_publish' => $this->when($isOwn, $canPublish),
             'has_applied' => $this->when($currentProfile !== null && ! $isOwn, fn () => $myApplication !== null),
             'my_application' => $this->when(
                 $currentProfile !== null && ! $isOwn && $myApplication !== null,
