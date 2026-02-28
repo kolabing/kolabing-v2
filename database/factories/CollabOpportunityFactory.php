@@ -47,9 +47,12 @@ class CollabOpportunityFactory extends Factory
                 ],
             ],
             'community_deliverables' => [
-                'instagram_post' => fake()->boolean(80),
-                'instagram_story' => fake()->boolean(60),
-                'attendee_count' => fake()->numberBetween(10, 200),
+                'social_media_content' => fake()->boolean(80),
+                'event_activation' => fake()->boolean(50),
+                'product_placement' => fake()->boolean(40),
+                'community_reach' => fake()->boolean(30),
+                'review_feedback' => fake()->boolean(60),
+                'other' => null,
             ],
             'categories' => fake()->randomElements(
                 ['Food & Drink', 'Sports', 'Wellness', 'Music', 'Art', 'Fashion', 'Technology', 'Travel'],

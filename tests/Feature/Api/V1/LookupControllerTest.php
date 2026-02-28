@@ -129,4 +129,5 @@ class LookupControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('success', true);
     }
+
 }
