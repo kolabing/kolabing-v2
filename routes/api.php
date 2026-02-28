@@ -176,6 +176,10 @@ Route::prefix('v1')->group(function (): void {
         Route::post('me/subscription/cancel', [SubscriptionController::class, 'cancel'])
             ->name('api.v1.me.subscription.cancel');
 
+        // Reactivate subscription (remove cancel_at_period_end)
+        Route::post('me/subscription/reactivate', [SubscriptionController::class, 'reactivate'])
+            ->name('api.v1.me.subscription.reactivate');
+
         /*
         |--------------------------------------------------------------------------
         | Gallery

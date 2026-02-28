@@ -224,4 +224,51 @@ class StripeWebhookTest extends TestCase
 
         $this->assertTrue(true);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Webhook Service: Payment Succeeded
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_handle_payment_succeeded_restores_past_due_subscription(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+        $subscription = BusinessSubscription::factory()->pastDue()->create([
+            'profile_id' => $profile->id,
+            'stripe_subscription_id' => 'sub_restored',
+        ]);
+
+        $service = new SubscriptionService;
+        $service->handlePaymentSucceeded('sub_restored');
+
+        $subscription->refresh();
+        $this->assertEquals(SubscriptionStatus::Active, $subscription->status);
+    }
+
+    public function test_handle_payment_succeeded_ignores_already_active_subscription(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+        $subscription = BusinessSubscription::factory()->active()->create([
+            'profile_id' => $profile->id,
+            'stripe_subscription_id' => 'sub_already_active',
+        ]);
+
+        $service = new SubscriptionService;
+        $service->handlePaymentSucceeded('sub_already_active');
+
+        $subscription->refresh();
+        $this->assertEquals(SubscriptionStatus::Active, $subscription->status);
+    }
+
+    public function test_handle_payment_succeeded_ignores_unknown_subscription(): void
+    {
+        $service = new SubscriptionService;
+
+        $service->handlePaymentSucceeded('sub_unknown_xyz');
+
+        $this->assertTrue(true);
+    }
 }

@@ -24,8 +24,21 @@ class CreateCheckoutSessionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'success_url' => ['required', 'string', 'url'],
-            'cancel_url' => ['required', 'string', 'url'],
+            'success_url' => ['required', 'string', 'regex:/^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\/.+/'],
+            'cancel_url' => ['required', 'string', 'regex:/^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\/.+/'],
+        ];
+    }
+
+    /**
+     * Get custom messages for validator errors.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'success_url.regex' => __('The success URL must be a valid URL (e.g. https://example.com or kolabing://path).'),
+            'cancel_url.regex' => __('The cancel URL must be a valid URL (e.g. https://example.com or kolabing://path).'),
         ];
     }
 

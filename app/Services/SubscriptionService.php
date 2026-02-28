@@ -273,6 +273,27 @@ class SubscriptionService
     }
 
     /**
+     * Handle the invoice.payment_succeeded webhook event.
+     * Restores past_due subscriptions to active.
+     */
+    public function handlePaymentSucceeded(string $stripeSubscriptionId): void
+    {
+        $subscription = BusinessSubscription::query()
+            ->where('stripe_subscription_id', $stripeSubscriptionId)
+            ->first();
+
+        if (! $subscription) {
+            return;
+        }
+
+        if ($subscription->status === SubscriptionStatus::PastDue) {
+            $subscription->update([
+                'status' => SubscriptionStatus::Active,
+            ]);
+        }
+    }
+
+    /**
      * Handle the invoice.payment_failed webhook event.
      * Marks subscription as past due.
      */

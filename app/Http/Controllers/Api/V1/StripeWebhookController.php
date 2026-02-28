@@ -64,6 +64,7 @@ class StripeWebhookController extends Controller
             'customer.subscription.updated' => $this->handleSubscriptionUpdated($event->data->object),
             'customer.subscription.deleted' => $this->handleSubscriptionDeleted($event->data->object),
             'invoice.payment_failed' => $this->handlePaymentFailed($event->data->object),
+            'invoice.payment_succeeded' => $this->handlePaymentSucceeded($event->data->object),
             default => Log::info('Unhandled Stripe event', ['type' => $event->type]),
         };
 
@@ -100,6 +101,15 @@ class StripeWebhookController extends Controller
 
         if ($subscriptionId) {
             $this->subscriptionService->handlePaymentFailed($subscriptionId);
+        }
+    }
+
+    private function handlePaymentSucceeded(object $invoiceData): void
+    {
+        $subscriptionId = $invoiceData->subscription ?? null;
+
+        if ($subscriptionId) {
+            $this->subscriptionService->handlePaymentSucceeded($subscriptionId);
         }
     }
 }

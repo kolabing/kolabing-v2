@@ -174,4 +174,42 @@ class SubscriptionController extends Controller
             ], 403);
         }
     }
+
+    /**
+     * Reactivate a subscription that is scheduled for cancellation.
+     *
+     * POST /api/v1/me/subscription/reactivate
+     */
+    public function reactivate(Request $request): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        if (! $profile->isBusiness()) {
+            return response()->json([
+                'success' => false,
+                'message' => __('Only business users can reactivate subscriptions'),
+            ], 403);
+        }
+
+        try {
+            $subscription = $this->subscriptionService->reactivateSubscription($profile);
+
+            return response()->json([
+                'success' => true,
+                'message' => __('Subscription has been reactivated'),
+                'data' => new SubscriptionResource($subscription),
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 400);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 403);
+        }
+    }
 }

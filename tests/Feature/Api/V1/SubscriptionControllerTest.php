@@ -482,4 +482,155 @@ class SubscriptionControllerTest extends TestCase
             ->assertStatus(200)
             ->assertJsonPath('data.cancel_at_period_end', true);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reactivate Subscription Tests
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_reactivate_requires_authentication(): void
+    {
+        $response = $this->postJson('/api/v1/me/subscription/reactivate');
+
+        $response->assertStatus(401)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Unauthenticated');
+    }
+
+    public function test_reactivate_forbidden_for_community_user(): void
+    {
+        $profile = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->postJson('/api/v1/me/subscription/reactivate');
+
+        $response->assertStatus(403)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Only business users can reactivate subscriptions');
+    }
+
+    public function test_reactivate_fails_without_subscription(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->postJson('/api/v1/me/subscription/reactivate');
+
+        $response->assertStatus(400)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'No subscription found');
+    }
+
+    public function test_reactivate_fails_if_not_scheduled_for_cancellation(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->active()->create([
+            'profile_id' => $profile->id,
+            'cancel_at_period_end' => false,
+        ]);
+
+        $response = $this->actingAs($profile)
+            ->postJson('/api/v1/me/subscription/reactivate');
+
+        $response->assertStatus(400)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Subscription is not scheduled for cancellation');
+    }
+
+    public function test_reactivate_removes_cancel_at_period_end(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+        $subscription = BusinessSubscription::factory()->active()->create([
+            'profile_id' => $profile->id,
+            'cancel_at_period_end' => true,
+        ]);
+
+        // Mock SubscriptionService to avoid real Stripe API calls
+        $mock = Mockery::mock(SubscriptionService::class)->makePartial();
+        $mock->shouldReceive('reactivateSubscription')
+            ->once()
+            ->andReturnUsing(function () use ($subscription) {
+                $subscription->update(['cancel_at_period_end' => false]);
+
+                return $subscription->fresh();
+            });
+        $this->app->instance(SubscriptionService::class, $mock);
+
+        $response = $this->actingAs($profile)
+            ->postJson('/api/v1/me/subscription/reactivate');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Subscription has been reactivated')
+            ->assertJsonPath('data.status', 'active')
+            ->assertJsonPath('data.cancel_at_period_end', false);
+
+        $this->assertDatabaseHas('business_subscriptions', [
+            'id' => $subscription->id,
+            'cancel_at_period_end' => false,
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Deep Link URL Tests
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_checkout_accepts_deep_link_urls(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+
+        // Mock SubscriptionService to avoid real Stripe API calls
+        $mock = Mockery::mock(SubscriptionService::class)->makePartial();
+        $mock->shouldReceive('createCheckoutSession')
+            ->once()
+            ->andReturn([
+                'checkout_url' => 'https://checkout.stripe.com/c/pay/cs_test_deep',
+                'session_id' => 'cs_test_deep',
+            ]);
+        $this->app->instance(SubscriptionService::class, $mock);
+
+        $response = $this->actingAs($profile)
+            ->postJson('/api/v1/me/subscription/checkout', [
+                'success_url' => 'kolabing://payment/success',
+                'cancel_url' => 'kolabing://payment/cancel',
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure([
+                'success',
+                'data' => [
+                    'checkout_url',
+                    'session_id',
+                ],
+            ]);
+    }
+
+    public function test_checkout_rejects_invalid_urls(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->postJson('/api/v1/me/subscription/checkout', [
+                'success_url' => 'not-a-url',
+                'cancel_url' => 'also-not-valid',
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonStructure([
+                'success',
+                'message',
+                'errors' => ['success_url', 'cancel_url'],
+            ]);
+    }
 }
