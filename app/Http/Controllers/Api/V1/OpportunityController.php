@@ -147,7 +147,7 @@ class OpportunityController extends Controller
                 'success' => false,
                 'message' => $e->getMessage(),
                 'requires_subscription' => true,
-            ], 403);
+            ], 402);
         }
     }
 

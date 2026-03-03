@@ -90,14 +90,13 @@ class OpportunityService
     }
 
     /**
-     * Maximum number of opportunities a business user can create without a subscription.
+     * Check if a business user has reached the freemium collaboration limit.
+     *
+     * Unsubscribed business profiles may only accumulate 0 collaborations before
+     * being required to subscribe. Once they have ≥1 collaboration, further
+     * opportunity creation is blocked until they subscribe.
      */
-    public const int FREE_OPPORTUNITY_LIMIT = 3;
-
-    /**
-     * Check if a business user has reached the free opportunity limit.
-     */
-    public function hasReachedFreeLimit(Profile $profile): bool
+    public function hasReachedFreemiumCollabLimit(Profile $profile): bool
     {
         if (! $profile->isBusiness()) {
             return false;
@@ -107,7 +106,7 @@ class OpportunityService
             return false;
         }
 
-        return $profile->createdOpportunities()->count() >= self::FREE_OPPORTUNITY_LIMIT;
+        return $profile->createdCollaborations()->count() >= 1;
     }
 
     /**
@@ -132,9 +131,9 @@ class OpportunityService
      */
     public function create(Profile $creator, array $data): CollabOpportunity
     {
-        if ($this->hasReachedFreeLimit($creator)) {
+        if ($this->hasReachedFreemiumCollabLimit($creator)) {
             throw new InvalidArgumentException(
-                'You have reached the free opportunity limit. Please subscribe to create more opportunities.'
+                'A subscription is required to create more opportunities.'
             );
         }
 
