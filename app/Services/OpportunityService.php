@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\OfferStatus;
 use App\Enums\UserType;
+use App\Exceptions\FreemiumLimitExceededException;
 use App\Models\CollabOpportunity;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -132,7 +133,7 @@ class OpportunityService
     public function create(Profile $creator, array $data): CollabOpportunity
     {
         if ($this->hasReachedFreemiumCollabLimit($creator)) {
-            throw new InvalidArgumentException(
+            throw new FreemiumLimitExceededException(
                 'A subscription is required to create more opportunities.'
             );
         }

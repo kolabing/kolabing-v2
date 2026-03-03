@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exceptions\FreemiumLimitExceededException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\CreateOpportunityRequest;
 use App\Http\Requests\Api\V1\UpdateOpportunityRequest;
@@ -142,12 +143,17 @@ class OpportunityController extends Controller
                 'message' => __('Opportunity created successfully.'),
                 'data' => new OpportunityResource($opportunity),
             ], 201);
-        } catch (InvalidArgumentException $e) {
+        } catch (FreemiumLimitExceededException $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
                 'requires_subscription' => true,
             ], 402);
+        } catch (InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 400);
         }
     }
 
