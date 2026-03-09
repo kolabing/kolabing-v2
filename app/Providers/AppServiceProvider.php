@@ -10,6 +10,7 @@ use App\Models\Collaboration;
 use App\Policies\ApplicationPolicy;
 use App\Policies\CollaborationPolicy;
 use App\Policies\OpportunityPolicy;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -29,6 +30,17 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerPolicies();
+        $this->configurePasswordReset();
+    }
+
+    /**
+     * Configure the password reset URL for the mobile app.
+     */
+    private function configurePasswordReset(): void
+    {
+        ResetPassword::createUrlUsing(function (mixed $notifiable, string $token): string {
+            return config('app.url').'/reset-password?token='.$token.'&email='.urlencode($notifiable->getEmailForPasswordReset());
+        });
     }
 
     /**

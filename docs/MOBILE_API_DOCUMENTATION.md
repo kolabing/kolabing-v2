@@ -10,6 +10,8 @@
 
 1. [Authentication Flow](#authentication-flow)
 2. [Endpoints](#endpoints)
+   - [POST /auth/forgot-password](#post-authforgot-password)
+   - [POST /auth/reset-password](#post-authreset-password)
 3. [Error Handling](#error-handling)
 4. [Best Practices](#best-practices)
 
@@ -226,6 +228,112 @@ Authorization: Bearer {token}
   "message": "Logged out successfully"
 }
 ```
+
+---
+
+#### POST /auth/forgot-password
+
+Send a password reset link to the user's email.
+
+**No authentication required.**
+
+**Request:**
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Password reset link sent to your email."
+}
+```
+
+**Response (400 Bad Request)** — email not found or throttled:
+```json
+{
+  "success": false,
+  "message": "We can't find a user with that email address."
+}
+```
+
+> **Note:** Always return a generic success message in the UI regardless of the response, to avoid email enumeration.
+
+---
+
+#### POST /auth/reset-password
+
+Reset the user's password using the token received via email.
+
+**No authentication required.**
+
+**How the reset link works:**
+
+When the user taps the reset link in their email, it opens a URL like:
+```
+https://kolabing.com/reset-password?token=abc123&email=user%40example.com
+```
+
+The app must extract `token` and `email` from this URL and pass them — along with the new password — to this endpoint.
+
+**Full Password Reset Flow:**
+
+```
+┌──────────────┐          ┌─────────────┐          ┌───────────┐
+│  Mobile App  │          │   Backend   │          │   Email   │
+└──────┬───────┘          └──────┬──────┘          └─────┬─────┘
+       │                         │                       │
+       │ 1. POST /auth/forgot-password                   │
+       │    { email }            │                       │
+       │────────────────────────►│                       │
+       │                         │                       │
+       │ 2. { success: true }    │                       │
+       │◄────────────────────────│                       │
+       │                         │ 3. Send reset email   │
+       │                         │──────────────────────►│
+       │                         │                       │
+       │         4. User taps link in email              │
+       │◄────────────────────────────────────────────────│
+       │   ?token=abc123&email=user@example.com          │
+       │                         │                       │
+       │ 5. POST /auth/reset-password                    │
+       │    { token, email, password, password_confirmation }
+       │────────────────────────►│                       │
+       │                         │                       │
+       │ 6. { success: true }    │                       │
+       │◄────────────────────────│                       │
+```
+
+**Request:**
+```json
+{
+  "token": "abc123...",
+  "email": "user@example.com",
+  "password": "newpassword123",
+  "password_confirmation": "newpassword123"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Password has been reset successfully."
+}
+```
+
+**Response (422 Unprocessable Entity)** — invalid/expired token:
+```json
+{
+  "success": false,
+  "message": "This password reset token is invalid."
+}
+```
+
+> **Note:** After a successful reset, all existing Sanctum tokens are revoked. The user must log in again to get a new token.
 
 ---
 

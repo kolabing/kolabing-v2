@@ -109,7 +109,7 @@
         loop
         playsinline
     >
-        <source src="/assets/hero.mp4" type="video/mp4" />
+        <source src="/assets/video.mov" type="video/mp4" />
     </video>
 
     <div class="absolute inset-0 bg-gradient-to-b from-off-black/40 via-off-black/20 to-off-black/40 flex flex-col items-center justify-center text-center px-4">
