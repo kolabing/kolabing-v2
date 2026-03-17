@@ -33,8 +33,18 @@ class CreateOpportunityRequest extends FormRequest
             'categories' => ['required', 'array', 'min:1', 'max:5'],
             'categories.*' => ['string'],
             'availability_mode' => ['required', 'string', 'in:one_time,recurring,flexible'],
-            'availability_start' => ['required', 'date', 'after:today'],
-            'availability_end' => ['required', 'date', 'after:availability_start'],
+
+            // Dates: required for one_time and flexible, nullable for recurring
+            'availability_start' => ['required_if:availability_mode,one_time,flexible', 'nullable', 'date', 'after:today'],
+            'availability_end' => ['required_if:availability_mode,one_time,flexible', 'nullable', 'date', 'after:availability_start'],
+
+            // Time: required for one_time and recurring, prohibited for flexible
+            'selected_time' => ['required_if:availability_mode,one_time,recurring', 'prohibited_if:availability_mode,flexible', 'nullable', 'date_format:H:i'],
+
+            // Days: required for recurring, prohibited for one_time and flexible
+            'recurring_days' => ['required_if:availability_mode,recurring', 'prohibited_unless:availability_mode,recurring', 'nullable', 'array', 'min:1'],
+            'recurring_days.*' => ['integer', 'between:1,7'],
+
             'venue_mode' => ['required', 'string', 'in:business_venue,community_venue,no_venue'],
             'address' => ['required_unless:venue_mode,no_venue', 'nullable', 'string'],
             'preferred_city' => ['required', 'string', 'max:100'],
@@ -63,10 +73,18 @@ class CreateOpportunityRequest extends FormRequest
             'categories.max' => __('validation.max.array', ['attribute' => 'categories', 'max' => 5]),
             'availability_mode.required' => __('validation.required', ['attribute' => 'availability mode']),
             'availability_mode.in' => __('validation.in', ['attribute' => 'availability mode']),
-            'availability_start.required' => __('validation.required', ['attribute' => 'availability start']),
+            'availability_start.required_if' => __('validation.required_if', ['attribute' => 'availability start', 'other' => 'availability mode', 'value' => 'one_time or flexible']),
             'availability_start.after' => __('validation.after', ['attribute' => 'availability start', 'date' => 'today']),
-            'availability_end.required' => __('validation.required', ['attribute' => 'availability end']),
+            'availability_end.required_if' => __('validation.required_if', ['attribute' => 'availability end', 'other' => 'availability mode', 'value' => 'one_time or flexible']),
             'availability_end.after' => __('validation.after', ['attribute' => 'availability end', 'date' => 'availability start']),
+            'selected_time.required_if' => __('validation.required_if', ['attribute' => 'selected time', 'other' => 'availability mode', 'value' => 'one_time or recurring']),
+            'selected_time.date_format' => __('validation.date_format', ['attribute' => 'selected time', 'format' => 'HH:mm']),
+            'selected_time.prohibited_if' => __('The selected time must be empty when availability mode is flexible.'),
+            'recurring_days.required_if' => __('validation.required_if', ['attribute' => 'recurring days', 'other' => 'availability mode', 'value' => 'recurring']),
+            'recurring_days.array' => __('validation.array', ['attribute' => 'recurring days']),
+            'recurring_days.min' => __('validation.min.array', ['attribute' => 'recurring days', 'min' => 1]),
+            'recurring_days.*.between' => __('validation.between.numeric', ['attribute' => 'recurring day', 'min' => 1, 'max' => 7]),
+            'recurring_days.prohibited_unless' => __('Recurring days must be empty unless availability mode is recurring.'),
             'venue_mode.required' => __('validation.required', ['attribute' => 'venue mode']),
             'venue_mode.in' => __('validation.in', ['attribute' => 'venue mode']),
             'address.required_unless' => __('validation.required_unless', ['attribute' => 'address', 'other' => 'venue mode', 'values' => 'no_venue']),

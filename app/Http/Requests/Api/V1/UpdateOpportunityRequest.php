@@ -33,8 +33,16 @@ class UpdateOpportunityRequest extends FormRequest
             'categories' => ['sometimes', 'array', 'min:1', 'max:5'],
             'categories.*' => ['string'],
             'availability_mode' => ['sometimes', 'string', 'in:one_time,recurring,flexible'],
-            'availability_start' => ['sometimes', 'date', 'after:today'],
-            'availability_end' => ['sometimes', 'date', 'after:availability_start'],
+
+            // Dates: conditionally required based on availability_mode (if sent)
+            'availability_start' => ['sometimes', 'nullable', 'date', 'after:today'],
+            'availability_end' => ['sometimes', 'nullable', 'date', 'after:availability_start'],
+
+            // New fields
+            'selected_time' => ['sometimes', 'nullable', 'date_format:H:i'],
+            'recurring_days' => ['sometimes', 'nullable', 'array'],
+            'recurring_days.*' => ['integer', 'between:1,7'],
+
             'venue_mode' => ['sometimes', 'string', 'in:business_venue,community_venue,no_venue'],
             'address' => ['sometimes', 'nullable', 'string'],
             'preferred_city' => ['sometimes', 'string', 'max:100'],
@@ -59,6 +67,9 @@ class UpdateOpportunityRequest extends FormRequest
             'availability_mode.in' => __('validation.in', ['attribute' => 'availability mode']),
             'availability_start.after' => __('validation.after', ['attribute' => 'availability start', 'date' => 'today']),
             'availability_end.after' => __('validation.after', ['attribute' => 'availability end', 'date' => 'availability start']),
+            'selected_time.date_format' => __('validation.date_format', ['attribute' => 'selected time', 'format' => 'HH:mm']),
+            'recurring_days.array' => __('validation.array', ['attribute' => 'recurring days']),
+            'recurring_days.*.between' => __('validation.between.numeric', ['attribute' => 'recurring day', 'min' => 1, 'max' => 7]),
             'venue_mode.in' => __('validation.in', ['attribute' => 'venue mode']),
             'preferred_city.max' => __('validation.max.string', ['attribute' => 'preferred city', 'max' => 100]),
             'offer_photo.url' => __('validation.url', ['attribute' => 'offer photo']),

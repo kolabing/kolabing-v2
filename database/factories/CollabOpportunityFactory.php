@@ -58,9 +58,11 @@ class CollabOpportunityFactory extends Factory
                 ['Food & Drink', 'Sports', 'Wellness', 'Music', 'Art', 'Fashion', 'Technology', 'Travel'],
                 fake()->numberBetween(1, 3)
             ),
-            'availability_mode' => fake()->randomElement(['one_time', 'recurring', 'flexible']),
+            'availability_mode' => 'flexible',
             'availability_start' => $availabilityStart,
             'availability_end' => $availabilityEnd,
+            'selected_time' => null,
+            'recurring_days' => null,
             'venue_mode' => fake()->randomElement(['business_venue', 'community_venue', 'no_venue']),
             'address' => fake()->optional(0.7)->address(),
             'preferred_city' => fake()->randomElement(['Sevilla', 'Malaga', 'Granada', 'Cordoba', 'Cadiz']),
@@ -110,6 +112,48 @@ class CollabOpportunityFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'creator_profile_id' => Profile::factory()->community(),
             'creator_profile_type' => UserType::Community,
+        ]);
+    }
+
+    /**
+     * Set availability mode to one_time with a fixed time.
+     */
+    public function oneTime(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'availability_mode' => 'one_time',
+            'availability_start' => fake()->dateTimeBetween('+1 week', '+3 months'),
+            'availability_end' => fake()->dateTimeBetween('+3 months', '+6 months'),
+            'selected_time' => sprintf('%02d:00', fake()->numberBetween(8, 21)),
+            'recurring_days' => null,
+        ]);
+    }
+
+    /**
+     * Set availability mode to recurring with days and time.
+     */
+    public function recurring(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'availability_mode' => 'recurring',
+            'availability_start' => null,
+            'availability_end' => null,
+            'selected_time' => sprintf('%02d:00', fake()->numberBetween(8, 21)),
+            'recurring_days' => fake()->randomElements([1, 2, 3, 4, 5, 6, 7], fake()->numberBetween(1, 4)),
+        ]);
+    }
+
+    /**
+     * Set availability mode to flexible with date range only.
+     */
+    public function flexible(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'availability_mode' => 'flexible',
+            'availability_start' => fake()->dateTimeBetween('+1 week', '+3 months'),
+            'availability_end' => fake()->dateTimeBetween('+3 months', '+6 months'),
+            'selected_time' => null,
+            'recurring_days' => null,
         ]);
     }
 

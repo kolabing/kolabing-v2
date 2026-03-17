@@ -26,6 +26,8 @@ class OpportunityCreationLimitTest extends TestCase
             'availability_mode' => 'flexible',
             'availability_start' => now()->addWeek()->toDateString(),
             'availability_end' => now()->addMonth()->toDateString(),
+            'selected_time' => null,
+            'recurring_days' => null,
             'venue_mode' => 'business_venue',
             'address' => 'Calle Test 123, Sevilla',
             'preferred_city' => 'Sevilla',

@@ -42,6 +42,8 @@ class OpportunityResource extends JsonResource
             'availability_mode' => $this->availability_mode,
             'availability_start' => $this->availability_start?->format('Y-m-d'),
             'availability_end' => $this->availability_end?->format('Y-m-d'),
+            'selected_time' => $this->selected_time,
+            'recurring_days' => $this->recurring_days,
             'venue_mode' => $this->venue_mode,
             'address' => $this->address,
             'preferred_city' => $this->preferred_city,

@@ -25,6 +25,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $availability_mode
  * @property \Illuminate\Support\Carbon|null $availability_start
  * @property \Illuminate\Support\Carbon|null $availability_end
+ * @property string|null $selected_time
+ * @property array<int>|null $recurring_days
  * @property string|null $venue_mode
  * @property string|null $address
  * @property string|null $preferred_city
@@ -65,6 +67,8 @@ class CollabOpportunity extends Model
         'availability_mode',
         'availability_start',
         'availability_end',
+        'selected_time',
+        'recurring_days',
         'venue_mode',
         'address',
         'preferred_city',
@@ -87,6 +91,7 @@ class CollabOpportunity extends Model
             'categories' => 'array',
             'availability_start' => 'date',
             'availability_end' => 'date',
+            'recurring_days' => 'array',
             'published_at' => 'datetime',
         ];
     }
