@@ -35,7 +35,21 @@ class OpportunityService
     {
         $query = CollabOpportunity::query()
             ->where('status', OfferStatus::Published)
-            ->with('creatorProfile');
+            ->with([
+                'creatorProfile' => function ($query) {
+                    $query->with([
+                        'events' => function ($q) {
+                            $q->orderByDesc('event_date')->limit(5);
+                        },
+                        'events.photos' => function ($q) {
+                            $q->orderBy('sort_order')->limit(10);
+                        },
+                        'galleryPhotos' => function ($q) {
+                            $q->orderBy('sort_order')->limit(10);
+                        },
+                    ]);
+                },
+            ]);
 
         if (! isset($filters['creator_type']) || $filters['creator_type'] === '') {
             $oppositeType = $viewer->user_type === UserType::Business
@@ -66,7 +80,21 @@ class OpportunityService
     {
         $query = CollabOpportunity::query()
             ->where('creator_profile_id', $profile->id)
-            ->with('creatorProfile');
+            ->with([
+                'creatorProfile' => function ($query) {
+                    $query->with([
+                        'events' => function ($q) {
+                            $q->orderByDesc('event_date')->limit(5);
+                        },
+                        'events.photos' => function ($q) {
+                            $q->orderBy('sort_order')->limit(10);
+                        },
+                        'galleryPhotos' => function ($q) {
+                            $q->orderBy('sort_order')->limit(10);
+                        },
+                    ]);
+                },
+            ]);
 
         if (isset($filters['status']) && $filters['status'] !== '') {
             $status = OfferStatus::tryFrom($filters['status']);
@@ -86,7 +114,22 @@ class OpportunityService
     public function findOrFail(string $id): CollabOpportunity
     {
         return CollabOpportunity::query()
-            ->with(['creatorProfile', 'applications'])
+            ->with([
+                'creatorProfile' => function ($query) {
+                    $query->with([
+                        'events' => function ($q) {
+                            $q->orderByDesc('event_date')->limit(5);
+                        },
+                        'events.photos' => function ($q) {
+                            $q->orderBy('sort_order')->limit(10);
+                        },
+                        'galleryPhotos' => function ($q) {
+                            $q->orderBy('sort_order')->limit(10);
+                        },
+                    ]);
+                },
+                'applications',
+            ])
             ->findOrFail($id);
     }
 

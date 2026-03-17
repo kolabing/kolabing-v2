@@ -109,7 +109,22 @@ class OpportunityController extends Controller
             ], 403);
         }
 
-        $opportunity->load(['creatorProfile', 'applications']);
+        $opportunity->load([
+            'creatorProfile' => function ($query) {
+                $query->with([
+                    'events' => function ($q) {
+                        $q->orderByDesc('event_date')->limit(5);
+                    },
+                    'events.photos' => function ($q) {
+                        $q->orderBy('sort_order')->limit(10);
+                    },
+                    'galleryPhotos' => function ($q) {
+                        $q->orderBy('sort_order')->limit(10);
+                    },
+                ]);
+            },
+            'applications',
+        ]);
 
         return response()->json([
             'success' => true,

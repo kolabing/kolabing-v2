@@ -20,6 +20,9 @@ class DatabaseSeeder extends Seeder
             CitySeeder::class,
             BusinessTypeSeeder::class,
             CommunityTypeSeeder::class,
+            BadgeSeeder::class,
+            SystemChallengeSeeder::class,
+            RealisticDataSeeder::class,
         ]);
     }
 }

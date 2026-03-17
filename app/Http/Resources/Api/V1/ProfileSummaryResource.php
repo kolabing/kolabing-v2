@@ -33,6 +33,43 @@ class ProfileSummaryResource extends JsonResource
             'city' => $city ? new CityResource($city) : null,
             'business_type' => $this->when($this->isBusiness(), fn () => $this->businessProfile?->business_type),
             'community_type' => $this->when($this->isCommunity(), fn () => $this->communityProfile?->community_type),
+            'portfolio_photos' => $this->getPortfolioPhotos(),
         ];
+    }
+
+    /**
+     * Get merged portfolio photos from events and gallery (max 10).
+     *
+     * @return array<int, array{url: string, thumbnail_url: string|null, source: string}>
+     */
+    private function getPortfolioPhotos(): array
+    {
+        $photos = collect();
+
+        if ($this->relationLoaded('events')) {
+            foreach ($this->events as $event) {
+                if ($event->relationLoaded('photos')) {
+                    foreach ($event->photos as $photo) {
+                        $photos->push([
+                            'url' => $photo->url,
+                            'thumbnail_url' => $photo->thumbnail_url,
+                            'source' => 'event',
+                        ]);
+                    }
+                }
+            }
+        }
+
+        if ($this->relationLoaded('galleryPhotos')) {
+            foreach ($this->galleryPhotos as $photo) {
+                $photos->push([
+                    'url' => $photo->url,
+                    'thumbnail_url' => null,
+                    'source' => 'gallery',
+                ]);
+            }
+        }
+
+        return $photos->take(10)->values()->all();
     }
 }
