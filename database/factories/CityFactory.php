@@ -29,6 +29,8 @@ class CityFactory extends Factory
         return [
             'name' => fake()->unique()->city(),
             'country' => 'Spain',
+            'is_active' => false,
+            'sort_order' => 0,
         ];
     }
 }

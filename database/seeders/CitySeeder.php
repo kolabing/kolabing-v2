@@ -27,6 +27,13 @@ class CitySeeder extends Seeder
                 $city
             );
         }
+
+        // Mark initial active cities
+        foreach (self::getActiveCities() as $cityName => $sortOrder) {
+            City::query()
+                ->where('name', $cityName)
+                ->update(['is_active' => true, 'sort_order' => $sortOrder]);
+        }
     }
 
     /**
@@ -267,5 +274,26 @@ class CitySeeder extends Seeder
         }
 
         return $cities;
+    }
+
+    /**
+     * Get the initial active cities with sort order.
+     *
+     * @return array<string, int>
+     */
+    public static function getActiveCities(): array
+    {
+        return [
+            'Sevilla' => 1,
+            'Malaga' => 2,
+            'Barcelona' => 3,
+            'Madrid' => 4,
+            'Valencia' => 5,
+            'Granada' => 6,
+            'Cadiz' => 7,
+            'Cordoba' => 8,
+            'Bilbao' => 9,
+            'San Sebastian' => 10,
+        ];
     }
 }

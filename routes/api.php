@@ -97,6 +97,10 @@ Route::prefix('v1')->group(function (): void {
     */
 
     Route::middleware('auth:sanctum')->group(function (): void {
+        // City suggestions
+        Route::post('cities/suggest', [LookupController::class, 'suggestCity'])
+            ->name('api.v1.cities.suggest');
+
         // Authentication
         Route::get('auth/me', [AuthController::class, 'me'])
             ->name('api.v1.auth.me');

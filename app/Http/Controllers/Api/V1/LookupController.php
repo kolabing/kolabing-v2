@@ -9,28 +9,73 @@ use App\Http\Requests\Api\V1\BusinessOnboardingRequest;
 use App\Http\Requests\Api\V1\CommunityOnboardingRequest;
 use App\Http\Resources\Api\V1\CityResource;
 use App\Models\City;
+use App\Models\CitySuggestion;
+use App\Models\Profile;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class LookupController extends Controller
 {
     /**
      * Get the list of available cities.
+     * Returns only active cities by default. Pass ?all=true for full list.
      *
      * GET /api/v1/cities
      */
-    public function cities(): JsonResponse
+    public function cities(Request $request): JsonResponse
     {
-        $cities = City::query()
+        $query = City::query();
+
+        if (! $request->boolean('all')) {
+            $query->where('is_active', true);
+        }
+
+        $cities = $query
+            ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
 
+        $data = CityResource::collection($cities)->resolve();
+
+        // Append "Other / Suggest a city" virtual entry
+        $data[] = [
+            'id' => 'other',
+            'name' => 'Other / Suggest a city',
+            'country' => 'Spain',
+        ];
+
         return response()->json([
             'success' => true,
-            'data' => CityResource::collection($cities),
+            'data' => $data,
             'meta' => [
-                'total' => $cities->count(),
+                'total' => count($data),
             ],
         ]);
+    }
+
+    /**
+     * Submit a city suggestion.
+     *
+     * POST /api/v1/cities/suggest
+     */
+    public function suggestCity(Request $request): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        $validated = $request->validate([
+            'city_name' => ['required', 'string', 'max:200'],
+        ]);
+
+        CitySuggestion::query()->create([
+            'suggested_by' => $profile->id,
+            'city_name' => $validated['city_name'],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => __('City suggestion submitted. Thank you!'),
+        ], 201);
     }
 
     /**

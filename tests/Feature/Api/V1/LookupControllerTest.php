@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Api\V1;
 
 use App\Models\City;
+use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
@@ -12,38 +13,56 @@ class LookupControllerTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
-    public function test_cities_endpoint_returns_all_cities(): void
+    // ─── Cities ──────────────────────────────────────────────────
+
+    public function test_cities_endpoint_returns_active_cities_only(): void
     {
-        // Clear existing cities and create test data
         City::query()->delete();
-        City::factory()->create(['name' => 'Barcelona']);
-        City::factory()->create(['name' => 'Madrid']);
-        City::factory()->create(['name' => 'Valencia']);
+        City::factory()->create(['name' => 'Barcelona', 'is_active' => true, 'sort_order' => 1]);
+        City::factory()->create(['name' => 'Madrid', 'is_active' => true, 'sort_order' => 2]);
+        City::factory()->create(['name' => 'Lugo', 'is_active' => false]);
 
         $response = $this->getJson('/api/v1/cities');
 
         $response->assertStatus(200)
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('meta.total', 3)
-            ->assertJsonStructure([
-                'success',
-                'data' => [
-                    '*' => [
-                        'id',
-                        'name',
-                        'country',
-                    ],
-                ],
-                'meta' => [
-                    'total',
-                ],
-            ]);
+            ->assertJsonPath('success', true);
 
-        // Verify cities are sorted alphabetically
         $data = $response->json('data');
+        // 2 active cities + 1 "Other" entry
+        $this->assertCount(3, $data);
         $this->assertEquals('Barcelona', $data[0]['name']);
         $this->assertEquals('Madrid', $data[1]['name']);
-        $this->assertEquals('Valencia', $data[2]['name']);
+        $this->assertEquals('Other / Suggest a city', $data[2]['name']);
+        $this->assertEquals('other', $data[2]['id']);
+    }
+
+    public function test_cities_endpoint_returns_all_cities_with_all_param(): void
+    {
+        City::query()->delete();
+        City::factory()->create(['name' => 'Barcelona', 'is_active' => true, 'sort_order' => 1]);
+        City::factory()->create(['name' => 'Madrid', 'is_active' => true, 'sort_order' => 2]);
+        City::factory()->create(['name' => 'Lugo', 'is_active' => false]);
+
+        $response = $this->getJson('/api/v1/cities?all=true');
+
+        $response->assertStatus(200);
+
+        $data = $response->json('data');
+        // 3 real cities + 1 "Other" entry
+        $this->assertCount(4, $data);
+    }
+
+    public function test_cities_sorted_by_sort_order_then_name(): void
+    {
+        City::query()->delete();
+        City::factory()->create(['name' => 'Zaragoza', 'is_active' => true, 'sort_order' => 1]);
+        City::factory()->create(['name' => 'Barcelona', 'is_active' => true, 'sort_order' => 2]);
+
+        $response = $this->getJson('/api/v1/cities');
+
+        $data = $response->json('data');
+        $this->assertEquals('Zaragoza', $data[0]['name']);
+        $this->assertEquals('Barcelona', $data[1]['name']);
     }
 
     public function test_cities_endpoint_is_public(): void
@@ -53,6 +72,59 @@ class LookupControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('success', true);
     }
+
+    public function test_cities_response_includes_other_entry(): void
+    {
+        City::query()->delete();
+
+        $response = $this->getJson('/api/v1/cities');
+
+        $data = $response->json('data');
+        $lastEntry = end($data);
+        $this->assertEquals('other', $lastEntry['id']);
+        $this->assertEquals('Other / Suggest a city', $lastEntry['name']);
+    }
+
+    // ─── City Suggestions ────────────────────────────────────────
+
+    public function test_suggest_city_requires_authentication(): void
+    {
+        $response = $this->postJson('/api/v1/cities/suggest', [
+            'city_name' => 'Salamanca',
+        ]);
+
+        $response->assertStatus(401);
+    }
+
+    public function test_suggest_city_creates_suggestion(): void
+    {
+        $profile = Profile::factory()->community()->create();
+
+        $response = $this->actingAs($profile)
+            ->postJson('/api/v1/cities/suggest', [
+                'city_name' => 'Salamanca',
+            ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('city_suggestions', [
+            'suggested_by' => $profile->id,
+            'city_name' => 'Salamanca',
+        ]);
+    }
+
+    public function test_suggest_city_validates_city_name(): void
+    {
+        $profile = Profile::factory()->community()->create();
+
+        $response = $this->actingAs($profile)
+            ->postJson('/api/v1/cities/suggest', []);
+
+        $response->assertStatus(422);
+    }
+
+    // ─── Business Types ──────────────────────────────────────────
 
     public function test_business_types_endpoint_returns_all_types(): void
     {
@@ -75,7 +147,6 @@ class LookupControllerTest extends TestCase
                 ],
             ]);
 
-        // Verify specific types exist
         $values = collect($response->json('data'))->pluck('value')->toArray();
         $this->assertContains('cafe', $values);
         $this->assertContains('restaurant', $values);
@@ -91,6 +162,8 @@ class LookupControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('success', true);
     }
+
+    // ─── Community Types ─────────────────────────────────────────
 
     public function test_community_types_endpoint_returns_all_types(): void
     {
@@ -113,7 +186,6 @@ class LookupControllerTest extends TestCase
                 ],
             ]);
 
-        // Verify specific types exist
         $values = collect($response->json('data'))->pluck('value')->toArray();
         $this->assertContains('run_club', $values);
         $this->assertContains('fitness_community', $values);
@@ -129,5 +201,4 @@ class LookupControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('success', true);
     }
-
 }
