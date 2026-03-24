@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\EventDiscoveryController;
 use App\Http\Controllers\Api\V1\EventRewardController;
 use App\Http\Controllers\Api\V1\GalleryController;
 use App\Http\Controllers\Api\V1\GamificationStatsController;
+use App\Http\Controllers\Api\V1\KolabController;
 use App\Http\Controllers\Api\V1\LeaderboardController;
 use App\Http\Controllers\Api\V1\LookupController;
 use App\Http\Controllers\Api\V1\NotificationController;
@@ -441,6 +442,44 @@ Route::prefix('v1')->group(function (): void {
         // Close opportunity
         Route::post('opportunities/{opportunity}/close', [OpportunityController::class, 'close'])
             ->name('api.v1.opportunities.close');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Kolabs
+        |--------------------------------------------------------------------------
+        */
+
+        // Browse published kolabs
+        Route::get('kolabs', [KolabController::class, 'index'])
+            ->name('api.v1.kolabs.index');
+
+        // My kolabs (MUST be before {kolab})
+        Route::get('kolabs/me', [KolabController::class, 'myKolabs'])
+            ->name('api.v1.kolabs.me');
+
+        // Create kolab
+        Route::post('kolabs', [KolabController::class, 'store'])
+            ->name('api.v1.kolabs.store');
+
+        // Single kolab
+        Route::get('kolabs/{kolab}', [KolabController::class, 'show'])
+            ->name('api.v1.kolabs.show');
+
+        // Update kolab
+        Route::put('kolabs/{kolab}', [KolabController::class, 'update'])
+            ->name('api.v1.kolabs.update');
+
+        // Delete kolab
+        Route::delete('kolabs/{kolab}', [KolabController::class, 'destroy'])
+            ->name('api.v1.kolabs.destroy');
+
+        // Publish kolab
+        Route::post('kolabs/{kolab}/publish', [KolabController::class, 'publish'])
+            ->name('api.v1.kolabs.publish');
+
+        // Close kolab
+        Route::post('kolabs/{kolab}/close', [KolabController::class, 'close'])
+            ->name('api.v1.kolabs.close');
 
         /*
         |--------------------------------------------------------------------------
