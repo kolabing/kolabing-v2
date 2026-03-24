@@ -46,6 +46,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, RewardClaim> $rewardClaims
  * @property-read \Illuminate\Database\Eloquent\Collection<int, BadgeAward> $badgeAwards
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Badge> $badges
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Kolab> $kolabs
  * @property-read bool $onboarding_completed
  */
 class Profile extends Authenticatable
@@ -268,6 +269,16 @@ class Profile extends Authenticatable
         return $this->belongsToMany(Badge::class, 'badge_awards')
             ->withPivot('awarded_at')
             ->withTimestamps();
+    }
+
+    /**
+     * Get kolabs created by this profile.
+     *
+     * @return HasMany<Kolab, $this>
+     */
+    public function kolabs(): HasMany
+    {
+        return $this->hasMany(Kolab::class, 'creator_profile_id');
     }
 
     /**
