@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\RestoreApplePurchasesRequest;
 use App\Http\Requests\Api\V1\VerifyAppleTransactionRequest;
 use App\Http\Resources\Api\V1\SubscriptionResource;
+use App\Models\BusinessSubscription;
 use App\Models\Profile;
 use App\Services\AppleIAPService;
 use Illuminate\Http\JsonResponse;
@@ -39,11 +40,13 @@ class AppleIAPController extends Controller
         $transactionId = $request->input('transaction_id');
 
         if ($this->appleIAPService->transactionAlreadyRecorded($transactionId)) {
-            $subscription = $profile->subscription;
+            $subscription = BusinessSubscription::query()
+                ->where('apple_transaction_id', $transactionId)
+                ->first();
 
             return response()->json([
                 'success' => true,
-                'data' => new SubscriptionResource($subscription),
+                'data' => $subscription ? new SubscriptionResource($subscription) : null,
                 'message' => __('Transaction already verified.'),
             ], 409);
         }
