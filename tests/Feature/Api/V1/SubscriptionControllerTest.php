@@ -103,6 +103,18 @@ class SubscriptionControllerTest extends TestCase
             ->assertJsonPath('data.cancel_at_period_end', true);
     }
 
+    public function test_subscription_has_source_field(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->active()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)->getJson('/api/v1/me/subscription');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.source', 'stripe');
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Create Checkout Session Tests
