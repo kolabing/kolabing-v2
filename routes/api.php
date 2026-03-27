@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\AppleIAPController;
+use App\Http\Controllers\Api\V1\AppleWebhookController;
 use App\Http\Controllers\Api\V1\ApplicationController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BadgeController;
@@ -80,6 +82,10 @@ Route::prefix('v1')->group(function (): void {
     // Stripe Webhook
     Route::post('webhooks/stripe', StripeWebhookController::class)
         ->name('api.v1.webhooks.stripe');
+
+    // Apple Server Notifications V2 Webhook (public — verified via JWS signature)
+    Route::post('webhooks/apple', AppleWebhookController::class)
+        ->name('api.v1.webhooks.apple');
 
     // Lookups
     Route::get('cities', [LookupController::class, 'cities'])
@@ -184,6 +190,13 @@ Route::prefix('v1')->group(function (): void {
         // Reactivate subscription (remove cancel_at_period_end)
         Route::post('me/subscription/reactivate', [SubscriptionController::class, 'reactivate'])
             ->name('api.v1.me.subscription.reactivate');
+
+        // Apple IAP (iOS only)
+        Route::post('me/subscription/apple-verify', [AppleIAPController::class, 'verify'])
+            ->name('api.v1.me.subscription.apple-verify');
+
+        Route::post('me/subscription/apple-restore', [AppleIAPController::class, 'restore'])
+            ->name('api.v1.me.subscription.apple-restore');
 
         /*
         |--------------------------------------------------------------------------
