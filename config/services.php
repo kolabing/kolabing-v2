@@ -63,6 +63,11 @@ return [
 
     'apple' => [
         'client_id' => env('APPLE_CLIENT_ID'),
+        'bundle_id' => env('APPLE_BUNDLE_ID', 'com.serragcvc.kolabing'),
+        'issuer_id' => env('APPLE_ISSUER_ID'),
+        'key_id' => env('APPLE_KEY_ID'),
+        'private_key_path' => env('APPLE_PRIVATE_KEY_PATH', storage_path('app/apple/AuthKey.p8')),
+        'iap_environment' => env('APPLE_IAP_ENVIRONMENT', 'sandbox'),
     ],
 
     /*

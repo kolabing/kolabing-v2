@@ -74,14 +74,22 @@ class SubscriptionControllerTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.status', 'active')
             ->assertJsonPath('data.cancel_at_period_end', false)
+            ->assertJsonPath('data.source', 'stripe')
+            ->assertJsonPath('data.is_active', true)
+            ->assertJsonPath('data.status_label', 'Active')
             ->assertJsonStructure([
                 'success',
                 'data' => [
                     'id',
                     'status',
+                    'status_label',
+                    'source',
                     'current_period_start',
                     'current_period_end',
                     'cancel_at_period_end',
+                    'is_active',
+                    'days_remaining',
+                    'apple_product_id',
                 ],
             ]);
     }
