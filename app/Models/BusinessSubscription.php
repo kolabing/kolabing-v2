@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\SubscriptionSource;
 use App\Enums\SubscriptionStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,6 +20,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property \Illuminate\Support\Carbon|null $current_period_start
  * @property \Illuminate\Support\Carbon|null $current_period_end
  * @property bool $cancel_at_period_end
+ * @property SubscriptionSource $source
+ * @property string|null $apple_original_transaction_id
+ * @property string|null $apple_transaction_id
+ * @property string|null $apple_product_id
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Profile $profile
@@ -41,6 +46,10 @@ class BusinessSubscription extends Model
         'current_period_start',
         'current_period_end',
         'cancel_at_period_end',
+        'source',
+        'apple_original_transaction_id',
+        'apple_transaction_id',
+        'apple_product_id',
     ];
 
     /**
@@ -52,6 +61,7 @@ class BusinessSubscription extends Model
     {
         return [
             'status' => SubscriptionStatus::class,
+            'source' => SubscriptionSource::class,
             'current_period_start' => 'datetime',
             'current_period_end' => 'datetime',
             'cancel_at_period_end' => 'boolean',

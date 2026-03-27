@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\SubscriptionSource;
 use App\Enums\SubscriptionStatus;
 use App\Models\BusinessSubscription;
 use App\Models\Profile;
@@ -31,6 +32,7 @@ class BusinessSubscriptionFactory extends Factory
     {
         return [
             'profile_id' => Profile::factory()->business(),
+            'source' => SubscriptionSource::Stripe,
             'stripe_customer_id' => null,
             'stripe_subscription_id' => null,
             'status' => SubscriptionStatus::Inactive,
@@ -81,6 +83,25 @@ class BusinessSubscriptionFactory extends Factory
             'status' => SubscriptionStatus::PastDue,
             'current_period_start' => now()->subMonth(),
             'current_period_end' => now()->subDays(5),
+            'cancel_at_period_end' => false,
+        ]);
+    }
+
+    /**
+     * Indicate that the subscription is from Apple IAP.
+     */
+    public function apple(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'source' => SubscriptionSource::AppleIap,
+            'stripe_customer_id' => null,
+            'stripe_subscription_id' => null,
+            'apple_original_transaction_id' => '2000000'.fake()->numerify('#########'),
+            'apple_transaction_id' => '2000000'.fake()->numerify('#########'),
+            'apple_product_id' => 'com.kolabing.app.subscription.monthly',
+            'status' => SubscriptionStatus::Active,
+            'current_period_start' => now(),
+            'current_period_end' => now()->addMonth(),
             'cancel_at_period_end' => false,
         ]);
     }

@@ -18,4 +18,17 @@ enum SubscriptionStatus: string
     {
         return array_column(self::cases(), 'value');
     }
+
+    /**
+     * Get the human-readable label for the status.
+     */
+    public function label(): string
+    {
+        return match ($this) {
+            self::Active => 'Active',
+            self::Cancelled => 'Cancelled',
+            self::PastDue => 'Past Due',
+            self::Inactive => 'Inactive',
+        };
+    }
 }
