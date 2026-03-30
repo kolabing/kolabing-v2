@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\EventDiscoveryController;
 use App\Http\Controllers\Api\V1\EventRewardController;
 use App\Http\Controllers\Api\V1\GalleryController;
+use App\Http\Controllers\Api\V1\GamificationController;
 use App\Http\Controllers\Api\V1\GamificationStatsController;
 use App\Http\Controllers\Api\V1\KolabController;
 use App\Http\Controllers\Api\V1\LeaderboardController;
@@ -617,5 +618,26 @@ Route::prefix('v1')->group(function (): void {
         // List system challenges
         Route::get('challenges/system', SystemChallengeController::class)
             ->name('api.v1.challenges.system');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Gamification - Wallet & Rewards
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get('gamification/wallet', [GamificationController::class, 'wallet'])
+            ->name('api.v1.gamification.wallet');
+
+        Route::get('gamification/ledger', [GamificationController::class, 'ledger'])
+            ->name('api.v1.gamification.ledger');
+
+        Route::get('gamification/badges', [GamificationController::class, 'badges'])
+            ->name('api.v1.gamification.badges');
+
+        Route::get('gamification/referral-code', [GamificationController::class, 'referralCode'])
+            ->name('api.v1.gamification.referral-code');
+
+        Route::post('gamification/withdrawal', [GamificationController::class, 'withdrawal'])
+            ->name('api.v1.gamification.withdrawal');
     });
 });
