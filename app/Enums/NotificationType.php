@@ -13,6 +13,9 @@ enum NotificationType: string
     case BadgeAwarded = 'badge_awarded';
     case ChallengeVerified = 'challenge_verified';
     case RewardWon = 'reward_won';
+    case PointsEarned = 'points_earned';
+    case GamificationBadgeEarned = 'gamification_badge_earned';
+    case WithdrawalProcessed = 'withdrawal_processed';
 
     /**
      * @return array<string>
