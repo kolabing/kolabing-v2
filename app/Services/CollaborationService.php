@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\CollaborationStatus;
+use App\Enums\PointEventType;
 use App\Exceptions\CollaborationException;
 use App\Models\Application;
 use App\Models\Collaboration;
@@ -17,6 +18,10 @@ use Illuminate\Support\Facades\DB;
 
 class CollaborationService
 {
+    public function __construct(
+        private readonly GamificationWalletService $walletService
+    ) {}
+
     /**
      * Get collaborations for a profile with filtering and pagination.
      *
@@ -113,6 +118,9 @@ class CollaborationService
             'status' => CollaborationStatus::Completed,
             'completed_at' => Carbon::now(),
         ]);
+
+        // Award points to both parties
+        $this->awardCollaborationPoints($collaboration);
 
         return $collaboration->fresh([
             'collabOpportunity',
@@ -290,5 +298,30 @@ class CollaborationService
         }
 
         return null;
+    }
+
+    /**
+     * Award collaboration completion points to both parties.
+     */
+    private function awardCollaborationPoints(Collaboration $collaboration): void
+    {
+        $collaboration->loadMissing(['collabOpportunity']);
+        $title = $collaboration->collabOpportunity?->title ?? 'a collaboration';
+
+        $this->walletService->awardPoints(
+            $collaboration->creator_profile_id,
+            PointEventType::CollaborationComplete->defaultPoints(),
+            PointEventType::CollaborationComplete,
+            $collaboration->id,
+            "Collaboration completed: {$title}"
+        );
+
+        $this->walletService->awardPoints(
+            $collaboration->applicant_profile_id,
+            PointEventType::CollaborationComplete->defaultPoints(),
+            PointEventType::CollaborationComplete,
+            $collaboration->id,
+            "Collaboration completed: {$title}"
+        );
     }
 }
