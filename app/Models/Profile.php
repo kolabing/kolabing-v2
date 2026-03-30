@@ -47,6 +47,11 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, BadgeAward> $badgeAwards
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Badge> $badges
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Kolab> $kolabs
+ * @property-read Wallet|null $wallet
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, PointLedger> $pointLedger
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, EarnedBadge> $earnedBadges
+ * @property-read ReferralCode|null $referralCode
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, WithdrawalRequest> $withdrawalRequests
  * @property-read bool $onboarding_completed
  */
 class Profile extends Authenticatable
@@ -279,6 +284,56 @@ class Profile extends Authenticatable
     public function kolabs(): HasMany
     {
         return $this->hasMany(Kolab::class, 'creator_profile_id');
+    }
+
+    /**
+     * Get the gamification wallet for this profile.
+     *
+     * @return HasOne<Wallet, $this>
+     */
+    public function wallet(): HasOne
+    {
+        return $this->hasOne(Wallet::class);
+    }
+
+    /**
+     * Get point ledger entries for this profile.
+     *
+     * @return HasMany<PointLedger, $this>
+     */
+    public function pointLedger(): HasMany
+    {
+        return $this->hasMany(PointLedger::class);
+    }
+
+    /**
+     * Get earned gamification badges for this profile.
+     *
+     * @return HasMany<EarnedBadge, $this>
+     */
+    public function earnedBadges(): HasMany
+    {
+        return $this->hasMany(EarnedBadge::class);
+    }
+
+    /**
+     * Get the referral code for this profile.
+     *
+     * @return HasOne<ReferralCode, $this>
+     */
+    public function referralCode(): HasOne
+    {
+        return $this->hasOne(ReferralCode::class);
+    }
+
+    /**
+     * Get withdrawal requests for this profile.
+     *
+     * @return HasMany<WithdrawalRequest, $this>
+     */
+    public function withdrawalRequests(): HasMany
+    {
+        return $this->hasMany(WithdrawalRequest::class);
     }
 
     /**
