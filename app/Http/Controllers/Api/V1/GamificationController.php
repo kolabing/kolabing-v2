@@ -154,6 +154,7 @@ class GamificationController extends Controller
                 'eur_amount' => $eurAmount,
                 'iban' => $validated['iban'],
                 'account_holder' => $validated['account_holder'],
+                'status' => 'pending',
             ]);
 
             PointLedger::create([
