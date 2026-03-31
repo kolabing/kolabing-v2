@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\V1\SpinWheelController;
 use App\Http\Controllers\Api\V1\StripeWebhookController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\SystemChallengeController;
+use App\Http\Controllers\Api\V1\UploadController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -618,6 +619,15 @@ Route::prefix('v1')->group(function (): void {
         // List system challenges
         Route::get('challenges/system', SystemChallengeController::class)
             ->name('api.v1.challenges.system');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Generic File Uploads
+        |--------------------------------------------------------------------------
+        */
+
+        Route::post('uploads', [UploadController::class, 'store'])
+            ->name('api.v1.uploads.store');
 
         /*
         |--------------------------------------------------------------------------
