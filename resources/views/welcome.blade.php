@@ -3,7 +3,19 @@
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>Kolabing - Download the App</title>
+    <title>Kolabing — Local Business & Community Collaboration Platform</title>
+    <meta name="description" content="Kolabing connects local businesses with community groups for real events, real foot traffic, and real results. Free on iOS and Android. Find your first match today.">
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Kolabing",
+      "operatingSystem": "iOS, Android",
+      "applicationCategory": "BusinessApplication",
+      "description": "Kolabing connects local businesses with community groups",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+    }
+    </script>
     <link href="https://fonts.googleapis.com" rel="preconnect"/>
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Montserrat:ital,wght@0,900;1,900&display=swap" rel="stylesheet"/>
@@ -93,7 +105,7 @@
     <nav class="hidden md:flex items-center gap-10 text-sm font-medium">
         <a class="hover:text-primary transition-colors" href="#how-it-works">How it Works</a>
         <a class="hover:text-primary transition-colors" href="#built-for-both">Solutions</a>
-        <a class="bg-primary text-off-black px-8 py-2.5 rounded-full hover:shadow-lg transition-all" href="#">Download</a>
+        <a class="bg-primary text-off-black px-8 py-2.5 rounded-full hover:shadow-lg transition-all" href="#download">Download</a>
     </nav>
     <button class="md:hidden text-off-black">
         <span class="material-symbols-outlined">menu</span>
@@ -117,13 +129,13 @@
             Available on iOS + Android
         </div>
         <h1 class="font-montserrat font-[900] text-white uppercase text-[2.2rem] sm:text-5xl lg:text-[64px] mb-6 md:mb-8 max-w-7xl leading-[1.1] tracking-tight px-2">
-            Kolabing makes the <span class="text-primary italic">MATCH!</span>
+            Your next 30 customers are already in a <span class="text-primary italic">community nearby.</span>
         </h1>
         <p class="text-lg md:text-xl lg:text-2xl font-medium mb-8 md:mb-12 text-white/95 max-w-3xl leading-relaxed px-2">
-            Local businesses x real communities.<br/>
-            <span class="text-primary font-bold">Not influencers. Communities.</span>
+            Kolabing matches local businesses with community groups for real-world events — no ad spend, no influencers, no fake reach.
         </p>
-        <div class="flex flex-col sm:flex-row gap-4 md:gap-5 mb-6 w-full sm:w-auto px-4 sm:px-0">
+        <p class="text-white/70 text-sm font-medium mb-4">Trusted by running clubs, coffee shops, and sports teams across Barcelona</p>
+        <div class="flex flex-col sm:flex-row gap-4 md:gap-5 mb-6 w-full sm:w-auto px-4 sm:px-0" id="download">
             <a class="bg-off-black text-white px-6 md:px-8 py-3.5 md:py-4 rounded-2xl flex items-center gap-3 hover:bg-black transition-all shadow-xl group justify-center sm:justify-start" href="#">
                 <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.1 2.48-1.34.03-1.77-.79-3.31-.79-1.54 0-2.02.77-3.31.82-1.34.05-2.33-1.32-3.17-2.54-1.72-2.5-3.04-7.07-1.27-10.13 1.13-1.95 3.12-2.73 4.61-2.73 1.3 0 2.21.72 2.91.72.69 0 1.83-.87 3.37-.87 1.26 0 2.39.54 3.13 1.48-1.07.65-1.58 1.94-1.58 3.39 0 1.82 1.48 3.15 2.92 3.15.11 0 .22 0 .33-.01-.2 1.63-.82 3.03-1.73 4.41M15.97 3.38c.63-.77 1.05-1.83.94-2.88-.91.04-2 .61-2.65 1.37-.58.67-1.09 1.76-.95 2.79.99.08 2.03-.51 2.66-1.28z"></path></svg>
                 <div class="text-left">
@@ -317,7 +329,7 @@
                         <span class="text-lg">Cost-effective marketing with high ROI</span>
                     </li>
                 </ul>
-                <a class="inline-block bg-primary text-off-black font-bold px-10 py-5 rounded-2xl tracking-wide w-full text-center hover:shadow-xl transition-all" href="#">Get more customers</a>
+                <a class="inline-block bg-primary text-off-black font-bold px-10 py-5 rounded-2xl tracking-wide w-full text-center hover:shadow-xl transition-all" href="#download">Find my first community partner →</a>
             </div>
             <div class="bg-white/5 p-8 md:p-10 lg:p-12 rounded-5xl border border-white/5">
                 <h3 class="text-2xl md:text-3xl font-bold mb-8 md:mb-10 text-white">For Communities</h3>
@@ -335,7 +347,7 @@
                         <span class="text-lg">Monetize your leadership and influence</span>
                     </li>
                 </ul>
-                <a class="inline-block bg-white text-off-black font-bold px-10 py-5 rounded-2xl tracking-wide w-full text-center hover:shadow-xl transition-all" href="#">Empower my community</a>
+                <a class="inline-block bg-white text-off-black font-bold px-10 py-5 rounded-2xl tracking-wide w-full text-center hover:shadow-xl transition-all" href="#download">Get my community access →</a>
             </div>
         </div>
     </div>
@@ -357,7 +369,9 @@
             </div>
         </div>
         <div class="pt-10 md:pt-16 border-t border-white/10 text-center text-white/30 text-xs font-medium tracking-wide">
-            © 2024 Kolabing Platform. Built for real people, in real places.
+            Free for communities · Paid plans for businesses · Cancel anytime<br/>
+            © <span id="year"></span> Kolabing Platform. Built for real people, in real places.
+            <script>document.getElementById("year").textContent = new Date().getFullYear();</script>
         </div>
     </div>
 </footer>
