@@ -42,6 +42,8 @@ class UserResource extends JsonResource
             $data['subscription'] = $this->whenLoaded('subscription', function () {
                 return $this->subscription ? new SubscriptionResource($this->subscription) : null;
             });
+
+            $data['has_active_subscription'] = $this->hasActiveSubscription();
         } else {
             $data['community_profile'] = $this->whenLoaded('communityProfile', function () {
                 return new CommunityProfileResource($this->communityProfile);

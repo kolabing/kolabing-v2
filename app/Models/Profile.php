@@ -98,6 +98,7 @@ class Profile extends Authenticatable
         'password',
         'device_token',
         'device_platform',
+        'is_test_user',
     ];
 
     /**
@@ -111,6 +112,7 @@ class Profile extends Authenticatable
             'user_type' => UserType::class,
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_test_user' => 'boolean',
         ];
     }
 
@@ -368,6 +370,10 @@ class Profile extends Authenticatable
     {
         if (! $this->isBusiness()) {
             return false;
+        }
+
+        if ($this->is_test_user) {
+            return true;
         }
 
         return $this->subscription?->isActive() ?? false;
