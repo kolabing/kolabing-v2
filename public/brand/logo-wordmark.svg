@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 260" role="img" aria-labelledby="title desc">
+  <title id="title">Kolabing wordmark</title>
+  <desc id="desc">Gold glowing Kolabing wordmark on a transparent background.</desc>
+  <defs>
+    <filter id="glow" x="-20%" y="-60%" width="140%" height="220%">
+      <feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="#FFD560" flood-opacity="0.95"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="18" flood-color="#FFD560" flood-opacity="0.55"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="28" flood-color="#FFD560" flood-opacity="0.28"/>
+    </filter>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFF0A6"/>
+      <stop offset="45%" stop-color="#FFD560"/>
+      <stop offset="100%" stop-color="#F3BD3D"/>
+    </linearGradient>
+  </defs>
+  <text
+    x="50%"
+    y="54%"
+    text-anchor="middle"
+    dominant-baseline="middle"
+    fill="url(#gold)"
+    filter="url(#glow)"
+    font-family="Arial Black, Impact, Haettenschweiler, sans-serif"
+    font-size="154"
+    letter-spacing="-6"
+  >KOLABING</text>
+</svg>

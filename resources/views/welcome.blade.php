@@ -5,6 +5,17 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>Kolabing — Local Business & Community Collaboration Platform</title>
     <meta name="description" content="Kolabing connects local businesses with community groups for real events, real foot traffic, and real results. Free on iOS and Android. Find your first match today.">
+    <meta name="theme-color" content="#0D1216">
+    <meta name="msapplication-TileColor" content="#0D1216">
+    <meta name="msapplication-TileImage" content="/mstile-150x150.png">
+    <meta name="apple-mobile-web-app-title" content="Kolabing">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/svg+xml" href="/brand/logo-mark.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="mask-icon" href="/brand/safari-pinned-tab.svg" color="#FFD560">
     @verbatim
     <script type="application/ld+json">
     {
@@ -101,8 +112,9 @@
 {{-- Header --}}
 <header class="fixed top-0 w-full z-50 bg-off-white/80 backdrop-blur-md text-off-black px-4 md:px-8 py-4 md:py-5 flex justify-between items-center border-b border-off-black/5">
     <div class="flex items-center gap-2">
-        <span class="bg-primary text-off-black font-bold px-2.5 py-1 rounded-lg text-xl">K</span>
-        <span class="font-bold tracking-tight text-2xl">kolabing</span>
+        <span class="rounded-2xl bg-off-black px-3 py-2 shadow-lg shadow-primary/20">
+            <img alt="Kolabing" class="h-7 md:h-8 w-auto" src="/brand/logo-wordmark.svg"/>
+        </span>
     </div>
     <nav class="hidden md:flex items-center gap-10 text-sm font-medium">
         <a class="hover:text-primary transition-colors" href="#how-it-works">How it Works</a>
@@ -359,10 +371,11 @@
 <footer class="bg-off-black text-white py-14 md:py-24">
     <div class="max-w-7xl mx-auto px-8">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 md:gap-16 mb-12 md:mb-20">
-            <div class="flex items-center gap-3">
-                <span class="bg-primary text-off-black font-bold px-3 py-1.5 rounded-xl text-2xl">K</span>
-                <span class="font-bold tracking-tight text-3xl">kolabing</span>
-            </div>
+        <div class="flex items-center gap-3">
+            <span class="rounded-3xl bg-off-black px-4 py-3 shadow-lg shadow-primary/15">
+                <img alt="Kolabing" class="h-8 md:h-10 w-auto" src="/brand/logo-wordmark.svg"/>
+            </span>
+        </div>
             <div class="flex flex-wrap gap-10 text-sm font-medium text-white/60">
                 <a class="hover:text-primary transition-colors" href="#">Terms</a>
                 <a class="hover:text-primary transition-colors" href="#">Privacy</a>
