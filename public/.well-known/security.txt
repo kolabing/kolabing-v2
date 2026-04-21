@@ -1,0 +1,5 @@
+Contact: mailto:support@kolabing.com
+Expires: 2027-04-21T23:59:59.000Z
+Preferred-Languages: en
+Canonical: https://kolabing.com/.well-known/security.txt
+Policy: https://kolabing.com/privacy

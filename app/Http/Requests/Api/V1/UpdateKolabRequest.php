@@ -4,12 +4,30 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Enums\IntentType;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\Validator as ValidationValidator;
 
 class UpdateKolabRequest extends FormRequest
 {
+    /**
+     * @var array<int, string>
+     */
+    private const OFFERING_VALUES = [
+        'venue',
+        'venue_space',
+        'food_drink',
+        'free_drinks',
+        'discount',
+        'products',
+        'social_media',
+        'content_creation',
+        'sponsorship',
+        'other',
+    ];
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -54,14 +72,14 @@ class UpdateKolabRequest extends FormRequest
 
             // Business Targeting fields
             'offering' => ['sometimes', 'nullable', 'array'],
-            'offering.*' => ['string', 'in:venue,food_drink,discount,products,social_media,content_creation,sponsorship,other'],
+            'offering.*' => ['string', 'in:'.implode(',', self::OFFERING_VALUES)],
 
             // Optional fields
             'area' => ['sometimes', 'nullable', 'string', 'max:255'],
             'media' => ['sometimes', 'nullable', 'array'],
             'media.*.url' => ['required_with:media', 'string', 'url'],
             'media.*.type' => ['required_with:media', 'string', 'in:photo,video'],
-            'availability_mode' => ['sometimes', 'nullable', 'string', 'in:one_time,recurring,flexible'],
+            'availability_mode' => ['sometimes', 'nullable', 'string', 'in:one_time,recurring,flexible,specific_dates'],
             'availability_start' => ['sometimes', 'nullable', 'date', 'after:today'],
             'availability_end' => ['sometimes', 'nullable', 'date', 'after:availability_start'],
             'selected_time' => ['sometimes', 'nullable', 'date_format:H:i'],
@@ -118,5 +136,35 @@ class UpdateKolabRequest extends FormRequest
             'message' => __('Validation failed'),
             'errors' => $validator->errors(),
         ], 422));
+    }
+
+    public function withValidator(ValidationValidator $validator): void
+    {
+        $validator->after(function (ValidationValidator $validator): void {
+            $intentType = $this->input('intent_type');
+            $kolab = $this->route('kolab');
+
+            $isVenuePromotion = $intentType === IntentType::VenuePromotion->value
+                || ($intentType === null && $kolab?->intent_type?->value === IntentType::VenuePromotion->value);
+
+            if (! $isVenuePromotion) {
+                return;
+            }
+
+            $profile = $this->user();
+
+            if (! $profile?->isBusiness()) {
+                return;
+            }
+
+            $profile->loadMissing('businessProfile');
+
+            if (empty($profile->businessProfile?->primary_venue)) {
+                $validator->errors()->add(
+                    'primary_venue',
+                    __('A primary venue profile is required before updating a venue promotion kolab.')
+                );
+            }
+        });
     }
 }

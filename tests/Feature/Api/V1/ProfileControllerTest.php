@@ -42,6 +42,18 @@ class ProfileControllerTest extends TestCase
             'profile_id' => $profile->id,
             'name' => 'Test Business',
             'city_id' => $city->id,
+            'primary_venue' => [
+                'name' => 'Test Business Rooftop',
+                'venue_type' => 'cafe',
+                'capacity' => 120,
+                'place_id' => 'google-place-id',
+                'formatted_address' => 'Carrer de Mallorca 1, Barcelona',
+                'city' => 'Barcelona',
+                'country' => 'Spain',
+                'latitude' => 41.3874,
+                'longitude' => 2.1686,
+                'photos' => ['https://example.com/venue-photo.jpg'],
+            ],
         ]);
         BusinessSubscription::factory()->active()->create([
             'profile_id' => $profile->id,
@@ -75,6 +87,7 @@ class ProfileControllerTest extends TestCase
                         'instagram',
                         'website',
                         'profile_photo',
+                        'primary_venue',
                     ],
                     'subscription' => [
                         'id',
@@ -85,6 +98,9 @@ class ProfileControllerTest extends TestCase
                     ],
                 ],
             ]);
+
+        $response->assertJsonPath('data.business_profile.primary_venue.name', 'Test Business Rooftop')
+            ->assertJsonPath('data.business_profile.primary_venue.photos.0', 'https://example.com/venue-photo.jpg');
     }
 
     public function test_show_profile_returns_community_user(): void
@@ -486,6 +502,15 @@ class ProfileControllerTest extends TestCase
             'name' => 'Test Business',
             'business_type' => 'cafe',
             'city_id' => $city->id,
+            'primary_venue' => [
+                'name' => 'Delete Me Venue',
+                'venue_type' => 'cafe',
+                'capacity' => 100,
+                'formatted_address' => 'Passeig de Gracia 1, Barcelona',
+                'city' => $city->name,
+                'country' => $city->country,
+                'photos' => [],
+            ],
         ]);
 
         $profile = Profile::where('email', 'deleteme@example.com')->first();

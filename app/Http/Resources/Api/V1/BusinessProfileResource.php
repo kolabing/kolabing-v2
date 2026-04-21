@@ -20,17 +20,28 @@ class BusinessProfileResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $city = null;
+
+        if ($this->relationLoaded('city') && $this->city) {
+            $city = new CityResource($this->city);
+        } elseif ($this->city_name !== null) {
+            $city = [
+                'id' => null,
+                'name' => $this->city_name,
+                'country' => $this->city_country,
+            ];
+        }
+
         return [
             'id' => $this->id,
             'name' => $this->name,
             'about' => $this->about,
             'business_type' => $this->business_type,
-            'city' => $this->whenLoaded('city', function () {
-                return $this->city ? new CityResource($this->city) : null;
-            }),
+            'city' => $city,
             'instagram' => $this->instagram,
             'website' => $this->website,
             'profile_photo' => $this->profile_photo,
+            'primary_venue' => $this->primary_venue,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

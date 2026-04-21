@@ -11,11 +11,16 @@ use App\Http\Resources\Api\V1\CityResource;
 use App\Models\City;
 use App\Models\CitySuggestion;
 use App\Models\Profile;
+use App\Services\GooglePlacesService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class LookupController extends Controller
 {
+    public function __construct(
+        private readonly GooglePlacesService $googlePlacesService
+    ) {}
+
     /**
      * Get the list of available cities.
      * Returns only active cities by default. Pass ?all=true for full list.
@@ -251,6 +256,43 @@ class LookupController extends Controller
             'meta' => [
                 'total' => count($communityTypes),
             ],
+        ]);
+    }
+
+    /**
+     * GET /api/v1/places/autocomplete
+     */
+    public function autocompletePlaces(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'query' => ['required', 'string', 'min:2', 'max:255'],
+        ]);
+
+        $places = array_map(function (array $place): array {
+            $matchedCity = null;
+
+            if (! empty($place['city'])) {
+                $matchedCity = City::query()
+                    ->whereRaw('LOWER(name) = ?', [mb_strtolower((string) $place['city'])])
+                    ->first();
+            }
+
+            return [
+                'place_id' => $place['place_id'],
+                'title' => $place['title'],
+                'subtitle' => $place['subtitle'],
+                'formatted_address' => $place['formatted_address'],
+                'city' => $place['city'],
+                'country' => $place['country'],
+                'latitude' => $place['latitude'],
+                'longitude' => $place['longitude'],
+                'city_id' => $matchedCity?->id,
+            ];
+        }, $this->googlePlacesService->autocomplete($validated['query']));
+
+        return response()->json([
+            'success' => true,
+            'data' => $places,
         ]);
     }
 }

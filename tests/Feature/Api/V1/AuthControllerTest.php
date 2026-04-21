@@ -12,6 +12,7 @@ use App\Models\Profile;
 use App\Services\GoogleAuthService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Mockery\MockInterface;
 use Tests\TestCase;
 
@@ -518,6 +519,15 @@ class AuthControllerTest extends TestCase
             'phone_number' => '+34612345678',
             'instagram' => '@testbusiness',
             'website' => 'https://testbusiness.com',
+            'primary_venue' => [
+                'name' => 'Test Business Rooftop',
+                'venue_type' => 'cafe',
+                'capacity' => 100,
+                'formatted_address' => 'Carrer de Mallorca 1, Barcelona',
+                'city' => $city->name,
+                'country' => $city->country,
+                'photos' => [],
+            ],
         ]);
 
         $response->assertStatus(201)
@@ -579,6 +589,87 @@ class AuthControllerTest extends TestCase
             'profile_id' => $profile->id,
             'status' => 'inactive',
         ]);
+    }
+
+    public function test_register_business_accepts_city_name_fallback_and_primary_venue(): void
+    {
+        config(['filesystems.uploads_disk' => 'public']);
+        Storage::fake('public');
+
+        $city = City::factory()->create([
+            'name' => 'Barcelona',
+            'country' => 'Spain',
+        ]);
+
+        $response = $this->postJson('/api/v1/auth/register/business', [
+            'email' => 'venuebusiness@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Sol Studio',
+            'business_type' => 'cafe',
+            'city_name' => 'Barcelona',
+            'phone_number' => '+34612345678',
+            'instagram' => 'solstudio',
+            'website' => 'https://solstudio.com',
+            'primary_venue' => [
+                'name' => 'Sol Studio Rooftop',
+                'venue_type' => 'cafe',
+                'capacity' => 120,
+                'place_id' => 'google-place-id',
+                'formatted_address' => 'Carrer de Mallorca 1, Barcelona',
+                'city' => 'Barcelona',
+                'country' => 'Spain',
+                'latitude' => 41.3874,
+                'longitude' => 2.1686,
+                'photos' => [
+                    $this->tinyPngDataUri(),
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.user.business_profile.city.name', 'Barcelona')
+            ->assertJsonPath('data.user.business_profile.primary_venue.name', 'Sol Studio Rooftop')
+            ->assertJsonPath('data.user.business_profile.primary_venue.formatted_address', 'Carrer de Mallorca 1, Barcelona');
+
+        $this->assertStringContainsString(
+            'gallery/',
+            (string) $response->json('data.user.business_profile.primary_venue.photos.0')
+        );
+
+        $profile = Profile::where('email', 'venuebusiness@example.com')->first();
+        $this->assertNotNull($profile);
+
+        $profile->load('businessProfile');
+        $this->assertEquals($city->id, $profile->businessProfile->city_id);
+        $this->assertEquals('Sol Studio Rooftop', $profile->businessProfile->primary_venue['name']);
+        $this->assertCount(1, $profile->businessProfile->primary_venue['photos']);
+    }
+
+    public function test_register_business_requires_primary_venue_fields(): void
+    {
+        $city = City::factory()->create();
+
+        $response = $this->postJson('/api/v1/auth/register/business', [
+            'email' => 'invalidvenue@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Test Business',
+            'business_type' => 'cafe',
+            'city_id' => $city->id,
+            'primary_venue' => [
+                'capacity' => 120,
+            ],
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'primary_venue.name',
+                'primary_venue.venue_type',
+                'primary_venue.formatted_address',
+                'primary_venue.city',
+            ]);
     }
 
     /*
@@ -787,6 +878,15 @@ class AuthControllerTest extends TestCase
             'name' => 'Test Business',
             'business_type' => 'cafe',
             'city_id' => $city->id,
+            'primary_venue' => [
+                'name' => 'Password User Venue',
+                'venue_type' => 'cafe',
+                'capacity' => 100,
+                'formatted_address' => 'Gran Via 1, Madrid',
+                'city' => $city->name,
+                'country' => $city->country,
+                'photos' => [],
+            ],
         ]);
 
         $response = $this->postJson('/api/v1/auth/login', [
@@ -811,6 +911,15 @@ class AuthControllerTest extends TestCase
             'name' => 'Test Business',
             'business_type' => 'cafe',
             'city_id' => $city->id,
+            'primary_venue' => [
+                'name' => 'Valid User Venue',
+                'venue_type' => 'cafe',
+                'capacity' => 100,
+                'formatted_address' => 'Gran Via 1, Madrid',
+                'city' => $city->name,
+                'country' => $city->country,
+                'photos' => [],
+            ],
         ]);
 
         $response = $this->postJson('/api/v1/auth/login', [
@@ -892,5 +1001,10 @@ class AuthControllerTest extends TestCase
                     ],
                 ],
             ]);
+    }
+
+    private function tinyPngDataUri(): string
+    {
+        return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9oNcamcAAAAASUVORK5CYII=';
     }
 }

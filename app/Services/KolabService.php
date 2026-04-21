@@ -72,6 +72,10 @@ class KolabService
      */
     public function create(Profile $creator, array $data): Kolab
     {
+        if ($data['intent_type'] === IntentType::VenuePromotion->value) {
+            $data = $this->enrichVenuePromotionData($creator, $data);
+        }
+
         return Kolab::query()->create([
             'creator_profile_id' => $creator->id,
             'intent_type' => $data['intent_type'],
@@ -113,6 +117,12 @@ class KolabService
      */
     public function update(Kolab $kolab, array $data): Kolab
     {
+        $intentType = $data['intent_type'] ?? $kolab->intent_type->value;
+
+        if ($intentType === IntentType::VenuePromotion->value) {
+            $data = $this->enrichVenuePromotionData($kolab->creatorProfile, $data);
+        }
+
         $kolab->update($data);
         $kolab->refresh();
 
@@ -264,5 +274,30 @@ class KolabService
         $driver = DB::connection()->getDriverName();
 
         return $driver === 'pgsql' ? 'ilike' : 'like';
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function enrichVenuePromotionData(Profile $creator, array $data): array
+    {
+        $creator->loadMissing('businessProfile');
+
+        $primaryVenue = $creator->businessProfile?->primary_venue;
+
+        if (! is_array($primaryVenue) || empty($primaryVenue)) {
+            throw new InvalidArgumentException(
+                'A primary venue profile is required before creating a venue promotion kolab.'
+            );
+        }
+
+        $data['preferred_city'] = $data['preferred_city'] ?? $primaryVenue['city'] ?? null;
+        $data['venue_name'] = $primaryVenue['name'] ?? null;
+        $data['venue_type'] = $primaryVenue['venue_type'] ?? null;
+        $data['capacity'] = $primaryVenue['capacity'] ?? null;
+        $data['venue_address'] = $primaryVenue['formatted_address'] ?? null;
+
+        return $data;
     }
 }

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Kolabing social preview</title>
+  <desc id="desc">Kolabing helps local businesses and communities launch real-world collaborations.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0D1216"/>
+      <stop offset="100%" stop-color="#1B1F1C"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFF0A6"/>
+      <stop offset="45%" stop-color="#FFD560"/>
+      <stop offset="100%" stop-color="#F3BD3D"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="1010" cy="120" r="170" fill="#FFD560" fill-opacity="0.08"/>
+  <circle cx="160" cy="520" r="200" fill="#FFD560" fill-opacity="0.06"/>
+  <text x="90" y="182" fill="#FFD560" font-family="Arial Black, Impact, sans-serif" font-size="42" letter-spacing="10">KOLABING</text>
+  <text x="90" y="290" fill="#FDFBF7" font-family="Arial Black, Impact, sans-serif" font-size="76">Local businesses</text>
+  <text x="90" y="380" fill="#FDFBF7" font-family="Arial Black, Impact, sans-serif" font-size="76">&amp; communities,</text>
+  <text x="90" y="470" fill="url(#gold)" font-family="Arial Black, Impact, sans-serif" font-size="76">growing together.</text>
+  <text x="90" y="548" fill="#FDFBF7" fill-opacity="0.8" font-family="Arial, Helvetica, sans-serif" font-size="30">Partnerships that create foot traffic, member value, and repeat visits.</text>
+</svg>

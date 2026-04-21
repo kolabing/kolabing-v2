@@ -93,6 +93,9 @@ Route::prefix('v1')->group(function (): void {
     Route::get('cities', [LookupController::class, 'cities'])
         ->name('api.v1.cities');
 
+    Route::get('places/autocomplete', [LookupController::class, 'autocompletePlaces'])
+        ->name('api.v1.places.autocomplete');
+
     Route::get('lookup/business-types', [LookupController::class, 'businessTypes'])
         ->name('api.v1.lookup.business-types');
 
