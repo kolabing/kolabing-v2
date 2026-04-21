@@ -5,6 +5,7 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>Kolabing — Local Business & Community Collaboration Platform</title>
     <meta name="description" content="Kolabing connects local businesses with community groups for real events, real foot traffic, and real results. Free on iOS and Android. Find your first match today.">
+    @verbatim
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -16,6 +17,7 @@
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
     }
     </script>
+    @endverbatim
     <link href="https://fonts.googleapis.com" rel="preconnect"/>
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Montserrat:ital,wght@0,900;1,900&display=swap" rel="stylesheet"/>
