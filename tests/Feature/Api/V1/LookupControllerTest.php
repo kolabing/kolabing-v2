@@ -7,6 +7,7 @@ namespace Tests\Feature\Api\V1;
 use App\Models\City;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class LookupControllerTest extends TestCase
@@ -161,6 +162,93 @@ class LookupControllerTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true);
+    }
+
+    public function test_places_autocomplete_returns_place_predictions(): void
+    {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push([
+                    'suggestions' => [
+                        [
+                            'placePrediction' => [
+                                'placeId' => 'google-place-id',
+                                'text' => ['text' => 'Sol Studio'],
+                                'structuredFormat' => [
+                                    'mainText' => ['text' => 'Sol Studio'],
+                                    'secondaryText' => ['text' => 'Carrer de Mallorca 1, Barcelona, Spain'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ])
+                ->push([
+                    'location' => [
+                        'latitude' => 41.3874,
+                        'longitude' => 2.1686,
+                    ],
+                    'formattedAddress' => 'Carrer de Mallorca 1, Barcelona',
+                    'addressComponents' => [
+                        ['types' => ['locality'], 'longText' => 'Barcelona'],
+                        ['types' => ['country'], 'longText' => 'Spain'],
+                    ],
+                ]),
+        ]);
+
+        $response = $this->getJson('/api/v1/places/autocomplete?query=sol');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.0.place_id', 'google-place-id')
+            ->assertJsonPath('data.0.title', 'Sol Studio')
+            ->assertJsonPath('data.0.subtitle', 'Carrer de Mallorca 1, Barcelona, Spain');
+    }
+
+    public function test_places_autocomplete_matches_existing_city_id(): void
+    {
+        $city = City::factory()->create([
+            'name' => 'Barcelona',
+            'country' => 'Spain',
+        ]);
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push([
+                    'suggestions' => [
+                        [
+                            'placePrediction' => [
+                                'placeId' => 'google-place-id',
+                                'text' => ['text' => 'Sol Studio'],
+                                'structuredFormat' => [
+                                    'mainText' => ['text' => 'Sol Studio'],
+                                    'secondaryText' => ['text' => 'Carrer de Mallorca 1, Barcelona, Spain'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ])
+                ->push([
+                    'location' => [
+                        'latitude' => 41.3874,
+                        'longitude' => 2.1686,
+                    ],
+                    'formattedAddress' => 'Carrer de Mallorca 1, Barcelona',
+                    'addressComponents' => [
+                        ['types' => ['locality'], 'longText' => 'Barcelona'],
+                        ['types' => ['country'], 'longText' => 'Spain'],
+                    ],
+                ]),
+        ]);
+
+        $response = $this->getJson('/api/v1/places/autocomplete?query=sol');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.0.city', 'Barcelona')
+            ->assertJsonPath('data.0.country', 'Spain')
+            ->assertJsonPath('data.0.city_id', $city->id)
+            ->assertJsonPath('data.0.formatted_address', 'Carrer de Mallorca 1, Barcelona')
+            ->assertJsonPath('data.0.latitude', 41.3874)
+            ->assertJsonPath('data.0.longitude', 2.1686);
     }
 
     // ─── Community Types ─────────────────────────────────────────

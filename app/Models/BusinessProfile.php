@@ -16,9 +16,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $about
  * @property string|null $business_type
  * @property string|null $city_id
+ * @property string|null $city_name
+ * @property string|null $city_country
  * @property string|null $instagram
  * @property string|null $website
  * @property string|null $profile_photo
+ * @property array<string, mixed>|null $primary_venue
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Profile $profile
@@ -40,10 +43,25 @@ class BusinessProfile extends Model
         'about',
         'business_type',
         'city_id',
+        'city_name',
+        'city_country',
         'instagram',
         'website',
         'profile_photo',
+        'primary_venue',
     ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'primary_venue' => 'array',
+        ];
+    }
 
     /**
      * Get the profile that owns this business profile.

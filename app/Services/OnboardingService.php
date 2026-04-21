@@ -14,11 +14,13 @@ use Illuminate\Support\Facades\Log;
  *     name: string,
  *     about?: string|null,
  *     business_type: string,
- *     city_id: string,
+ *     city_id?: string|null,
+ *     city_name?: string|null,
  *     phone_number?: string|null,
  *     instagram?: string|null,
  *     website?: string|null,
- *     profile_photo?: string|null
+ *     profile_photo?: string|null,
+ *     primary_venue: array<string, mixed>
  * }
  * @phpstan-type CommunityOnboardingData array{
  *     name: string,
@@ -36,7 +38,8 @@ class OnboardingService
 {
     public function __construct(
         private readonly ProfileService $profileService,
-        private readonly FileUploadService $fileUploadService
+        private readonly FileUploadService $fileUploadService,
+        private readonly BusinessVenueService $businessVenueService
     ) {}
 
     /**
@@ -57,6 +60,15 @@ class OnboardingService
                 $data['profile_photo'] ?? null,
                 $profile->id
             );
+            $resolvedCity = $this->businessVenueService->resolveCity(
+                $data['city_id'] ?? null,
+                $data['city_name'] ?? $data['primary_venue']['city'] ?? null
+            );
+            $primaryVenue = $this->businessVenueService->normalizePrimaryVenue(
+                $data['primary_venue'],
+                $profile->id,
+                $profile->businessProfile?->primary_venue
+            );
 
             // Update business profile
             $businessProfile = $profile->businessProfile;
@@ -64,10 +76,13 @@ class OnboardingService
                 'name' => $data['name'],
                 'about' => $data['about'] ?? null,
                 'business_type' => $data['business_type'],
-                'city_id' => $data['city_id'],
+                'city_id' => $resolvedCity?->id,
+                'city_name' => $resolvedCity?->name ?? $data['city_name'] ?? $primaryVenue['city'],
+                'city_country' => $resolvedCity?->country ?? $primaryVenue['country'],
                 'instagram' => $this->sanitizeSocialHandle($data['instagram'] ?? null),
                 'website' => $data['website'] ?? null,
                 'profile_photo' => $profilePhotoUrl ?? $businessProfile->profile_photo,
+                'primary_venue' => $primaryVenue,
             ]);
 
             // Refresh and load relationships

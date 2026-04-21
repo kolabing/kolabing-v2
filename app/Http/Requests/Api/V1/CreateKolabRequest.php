@@ -4,12 +4,30 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Enums\IntentType;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\Validator as ValidationValidator;
 
 class CreateKolabRequest extends FormRequest
 {
+    /**
+     * @var array<int, string>
+     */
+    private const OFFERING_VALUES = [
+        'venue',
+        'venue_space',
+        'food_drink',
+        'free_drinks',
+        'discount',
+        'products',
+        'social_media',
+        'content_creation',
+        'sponsorship',
+        'other',
+    ];
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -30,7 +48,7 @@ class CreateKolabRequest extends FormRequest
             'intent_type' => ['required', 'string', 'in:community_seeking,venue_promotion,product_promotion'],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['required', 'string', 'max:5000'],
-            'preferred_city' => ['required', 'string', 'max:100'],
+            'preferred_city' => ['required_unless:intent_type,venue_promotion', 'nullable', 'string', 'max:100'],
 
             // Community Seeking fields
             'needs' => ['required_if:intent_type,community_seeking', 'nullable', 'array'],
@@ -44,10 +62,10 @@ class CreateKolabRequest extends FormRequest
             'venue_preference' => ['required_if:intent_type,community_seeking', 'nullable', 'string', 'in:business_provides,community_provides,no_venue'],
 
             // Venue Promotion fields
-            'venue_name' => ['required_if:intent_type,venue_promotion', 'nullable', 'string', 'max:255'],
-            'venue_type' => ['required_if:intent_type,venue_promotion', 'nullable', 'string', 'in:restaurant,cafe,bar_lounge,hotel,coworking,sports_facility,event_space,rooftop,beach_club,retail_store,other'],
-            'capacity' => ['required_if:intent_type,venue_promotion', 'nullable', 'integer', 'min:1'],
-            'venue_address' => ['required_if:intent_type,venue_promotion', 'nullable', 'string', 'max:500'],
+            'venue_name' => ['nullable', 'string', 'max:255'],
+            'venue_type' => ['nullable', 'string', 'in:restaurant,cafe,bar_lounge,hotel,coworking,sports_facility,event_space,rooftop,beach_club,retail_store,other'],
+            'capacity' => ['nullable', 'integer', 'min:1'],
+            'venue_address' => ['nullable', 'string', 'max:500'],
 
             // Product Promotion fields
             'product_name' => ['required_if:intent_type,product_promotion', 'nullable', 'string', 'max:255'],
@@ -55,16 +73,16 @@ class CreateKolabRequest extends FormRequest
 
             // Business Targeting fields (required unless community_seeking)
             'offering' => ['required_unless:intent_type,community_seeking', 'nullable', 'array'],
-            'offering.*' => ['string', 'in:venue,food_drink,discount,products,social_media,content_creation,sponsorship,other'],
+            'offering.*' => ['string', 'in:'.implode(',', self::OFFERING_VALUES)],
 
             // Optional fields
             'area' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'media' => ['sometimes', 'nullable', 'array'],
+            'media' => ['required_if:intent_type,venue_promotion', 'nullable', 'array', 'min:1'],
             'media.*.url' => ['required_with:media', 'string', 'url'],
             'media.*.type' => ['required_with:media', 'string', 'in:photo,video'],
-            'availability_mode' => ['sometimes', 'nullable', 'string', 'in:one_time,recurring,flexible'],
-            'availability_start' => ['sometimes', 'nullable', 'date', 'after:today'],
-            'availability_end' => ['sometimes', 'nullable', 'date', 'after:availability_start'],
+            'availability_mode' => ['required_if:intent_type,venue_promotion', 'nullable', 'string', 'in:one_time,recurring,flexible,specific_dates'],
+            'availability_start' => ['required_if:intent_type,venue_promotion', 'nullable', 'date', 'after:today'],
+            'availability_end' => ['nullable', 'date', 'after:availability_start'],
             'selected_time' => ['sometimes', 'nullable', 'date_format:H:i'],
             'recurring_days' => ['sometimes', 'nullable', 'array'],
             'recurring_days.*' => ['integer', 'between:1,7'],
@@ -91,7 +109,7 @@ class CreateKolabRequest extends FormRequest
             'title.max' => __('validation.max.string', ['attribute' => 'title', 'max' => 255]),
             'description.required' => __('validation.required', ['attribute' => 'description']),
             'description.max' => __('validation.max.string', ['attribute' => 'description', 'max' => 5000]),
-            'preferred_city.required' => __('validation.required', ['attribute' => 'preferred city']),
+            'preferred_city.required_unless' => __('validation.required_unless', ['attribute' => 'preferred city', 'other' => 'intent type', 'values' => 'venue_promotion']),
             'preferred_city.max' => __('validation.max.string', ['attribute' => 'preferred city', 'max' => 100]),
             'needs.required_if' => __('validation.required_if', ['attribute' => 'needs', 'other' => 'intent type', 'value' => 'community_seeking']),
             'needs.*.in' => __('validation.in', ['attribute' => 'needs item']),
@@ -133,5 +151,29 @@ class CreateKolabRequest extends FormRequest
             'message' => __('Validation failed'),
             'errors' => $validator->errors(),
         ], 422));
+    }
+
+    public function withValidator(ValidationValidator $validator): void
+    {
+        $validator->after(function (ValidationValidator $validator): void {
+            if ($this->input('intent_type') !== IntentType::VenuePromotion->value) {
+                return;
+            }
+
+            $profile = $this->user();
+
+            if (! $profile?->isBusiness()) {
+                return;
+            }
+
+            $profile->loadMissing('businessProfile');
+
+            if (empty($profile->businessProfile?->primary_venue)) {
+                $validator->errors()->add(
+                    'primary_venue',
+                    __('A primary venue profile is required before creating a venue promotion kolab.')
+                );
+            }
+        });
     }
 }

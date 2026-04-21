@@ -51,6 +51,10 @@ return [
         'client_id_android' => env('GOOGLE_CLIENT_ID_ANDROID'),
     ],
 
+    'google_places' => [
+        'api_key' => env('GOOGLE_PLACES_API_KEY'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Apple Sign In Configuration

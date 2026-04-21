@@ -35,9 +35,12 @@ class BusinessProfileFactory extends Factory
             'about' => fake()->optional()->paragraph(),
             'business_type' => fake()->randomElement(BusinessOnboardingRequest::BUSINESS_TYPES),
             'city_id' => City::factory(),
+            'city_name' => fake()->city(),
+            'city_country' => fake()->country(),
             'instagram' => fake()->optional()->userName(),
             'website' => fake()->optional()->url(),
             'profile_photo' => fake()->optional()->imageUrl(400, 400, 'business'),
+            'primary_venue' => null,
         ];
     }
 
@@ -51,9 +54,12 @@ class BusinessProfileFactory extends Factory
             'about' => null,
             'business_type' => null,
             'city_id' => null,
+            'city_name' => null,
+            'city_country' => null,
             'instagram' => null,
             'website' => null,
             'profile_photo' => null,
+            'primary_venue' => null,
         ]);
     }
 }

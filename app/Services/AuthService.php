@@ -40,10 +40,12 @@ use InvalidArgumentException;
  *     name: string,
  *     about: string|null,
  *     business_type: string,
- *     city_id: string,
+ *     city_id: string|null,
+ *     city_name: string|null,
  *     instagram: string|null,
  *     website: string|null,
- *     profile_photo: string|null
+ *     profile_photo: string|null,
+ *     primary_venue: array<string, mixed>
  * }
  * @phpstan-type CommunityProfileData array{
  *     name: string,
@@ -63,6 +65,11 @@ use InvalidArgumentException;
  */
 class AuthService
 {
+    public function __construct(
+        private readonly BusinessVenueService $businessVenueService,
+        private readonly FileUploadService $fileUploadService
+    ) {}
+
     /**
      * Authenticate an existing user via Apple Sign In (login-only, no registration).
      *
@@ -288,16 +295,32 @@ class AuthService
                 'user_type' => UserType::Business,
             ]);
 
+            $profilePhotoUrl = $this->handleProfilePhoto(
+                $businessProfileData['profile_photo'],
+                $profile->id
+            );
+            $resolvedCity = $this->businessVenueService->resolveCity(
+                $businessProfileData['city_id'],
+                $businessProfileData['city_name'] ?? $businessProfileData['primary_venue']['city'] ?? null
+            );
+            $primaryVenue = $this->businessVenueService->normalizePrimaryVenue(
+                $businessProfileData['primary_venue'],
+                $profile->id
+            );
+
             // Create business profile with all data
             BusinessProfile::query()->create([
                 'profile_id' => $profile->id,
                 'name' => $businessProfileData['name'],
                 'about' => $businessProfileData['about'],
                 'business_type' => $businessProfileData['business_type'],
-                'city_id' => $businessProfileData['city_id'],
+                'city_id' => $resolvedCity?->id,
+                'city_name' => $resolvedCity?->name ?? $businessProfileData['city_name'] ?? $primaryVenue['city'],
+                'city_country' => $resolvedCity?->country ?? $primaryVenue['country'],
                 'instagram' => $businessProfileData['instagram'],
                 'website' => $businessProfileData['website'],
-                'profile_photo' => $businessProfileData['profile_photo'],
+                'profile_photo' => $profilePhotoUrl,
+                'primary_venue' => $primaryVenue,
             ]);
 
             // Create inactive subscription for business users
@@ -320,6 +343,26 @@ class AuthService
             'is_new_user' => true,
             'token' => $token,
         ];
+    }
+
+    /**
+     * Handle profile photo upload.
+     */
+    private function handleProfilePhoto(?string $profilePhoto, string $profileId): ?string
+    {
+        if ($profilePhoto === null || $profilePhoto === '') {
+            return null;
+        }
+
+        if (filter_var($profilePhoto, FILTER_VALIDATE_URL)) {
+            return $profilePhoto;
+        }
+
+        return $this->fileUploadService->uploadFromBase64(
+            $profilePhoto,
+            \App\Enums\FileUploadType::ProfilePhoto,
+            $profileId
+        );
     }
 
     /**

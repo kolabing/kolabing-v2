@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Models\BusinessProfile;
 use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -59,16 +60,36 @@ class KolabCreateTest extends TestCase
     public function test_business_user_can_create_venue_promotion_kolab(): void
     {
         $business = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $business->id,
+            'primary_venue' => [
+                'name' => 'Sky Lounge Malaga',
+                'venue_type' => 'bar_lounge',
+                'capacity' => 150,
+                'place_id' => 'sky-lounge-place-id',
+                'formatted_address' => 'Calle Larios 12, Malaga',
+                'city' => 'Malaga',
+                'country' => 'Spain',
+                'latitude' => 36.7213,
+                'longitude' => -4.4214,
+                'photos' => ['https://example.com/sky-lounge.jpg'],
+            ],
+        ]);
 
         $payload = [
             'intent_type' => 'venue_promotion',
             'title' => 'Rooftop bar available for community events',
             'description' => 'Beautiful rooftop bar in the heart of Malaga available for community events.',
             'preferred_city' => 'Malaga',
-            'venue_name' => 'Sky Lounge Malaga',
-            'venue_type' => 'bar_lounge',
-            'capacity' => 150,
-            'venue_address' => 'Calle Larios 12, Malaga',
+            'media' => [
+                [
+                    'url' => 'https://example.com/promo-photo.jpg',
+                    'type' => 'photo',
+                    'sort_order' => 0,
+                ],
+            ],
+            'availability_mode' => 'one_time',
+            'availability_start' => now()->addWeek()->format('Y-m-d'),
             'offering' => ['venue', 'food_drink', 'discount'],
         ];
 
@@ -173,13 +194,25 @@ class KolabCreateTest extends TestCase
     public function test_venue_promotion_requires_venue_fields(): void
     {
         $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $profile->id,
+            'primary_venue' => [
+                'name' => 'Saved Venue',
+                'venue_type' => 'cafe',
+                'capacity' => 80,
+                'formatted_address' => 'Saved Address 1',
+                'city' => 'Malaga',
+                'country' => 'Spain',
+                'photos' => [],
+            ],
+        ]);
 
         $payload = [
             'intent_type' => 'venue_promotion',
             'title' => 'Venue available',
             'description' => 'Our venue is available for events.',
             'preferred_city' => 'Malaga',
-            // Missing: venue_name, venue_type, capacity, venue_address, offering
+            // Missing: media and offering
         ];
 
         $response = $this->actingAs($profile)
@@ -187,12 +220,99 @@ class KolabCreateTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors([
-                'venue_name',
-                'venue_type',
-                'capacity',
-                'venue_address',
+                'media',
                 'offering',
             ]);
+    }
+
+    public function test_venue_promotion_derives_primary_venue_fields_from_business_profile(): void
+    {
+        $business = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $business->id,
+            'primary_venue' => [
+                'name' => 'Sol Studio Rooftop',
+                'venue_type' => 'cafe',
+                'capacity' => 120,
+                'place_id' => 'google-place-id',
+                'formatted_address' => 'Carrer de Mallorca 1, Barcelona',
+                'city' => 'Barcelona',
+                'country' => 'Spain',
+                'latitude' => 41.3874,
+                'longitude' => 2.1686,
+                'photos' => ['https://example.com/venue-photo.jpg'],
+            ],
+        ]);
+
+        $payload = [
+            'intent_type' => 'venue_promotion',
+            'title' => 'Sunset rooftop social for local creators',
+            'description' => 'We want to host an evening meetup for lifestyle and food creators.',
+            'preferred_city' => 'Barcelona',
+            'media' => [
+                [
+                    'url' => 'https://example.com/kolab-photo.jpg',
+                    'type' => 'photo',
+                    'sort_order' => 0,
+                ],
+            ],
+            'offering' => ['free_drinks', 'venue_space'],
+            'seeking_communities' => ['food', 'lifestyle'],
+            'min_community_size' => 50,
+            'expects' => ['social_media'],
+            'availability_mode' => 'specific_dates',
+            'availability_start' => now()->addDays(10)->format('Y-m-d'),
+            'availability_end' => now()->addDays(12)->format('Y-m-d'),
+        ];
+
+        $response = $this->actingAs($business)
+            ->postJson('/api/v1/kolabs', $payload);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.venue_name', 'Sol Studio Rooftop')
+            ->assertJsonPath('data.venue_type', 'cafe')
+            ->assertJsonPath('data.capacity', 120)
+            ->assertJsonPath('data.venue_address', 'Carrer de Mallorca 1, Barcelona');
+
+        $this->assertDatabaseHas('kolabs', [
+            'creator_profile_id' => $business->id,
+            'venue_name' => 'Sol Studio Rooftop',
+            'venue_type' => 'cafe',
+            'capacity' => 120,
+            'venue_address' => 'Carrer de Mallorca 1, Barcelona',
+        ]);
+    }
+
+    public function test_venue_promotion_requires_saved_primary_venue(): void
+    {
+        $business = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $business->id,
+            'primary_venue' => null,
+        ]);
+
+        $payload = [
+            'intent_type' => 'venue_promotion',
+            'title' => 'Venue available',
+            'description' => 'Our venue is available for events.',
+            'preferred_city' => 'Malaga',
+            'media' => [
+                [
+                    'url' => 'https://example.com/promo-photo.jpg',
+                    'type' => 'photo',
+                    'sort_order' => 0,
+                ],
+            ],
+            'offering' => ['venue_space'],
+            'availability_mode' => 'one_time',
+            'availability_start' => now()->addWeek()->format('Y-m-d'),
+        ];
+
+        $response = $this->actingAs($business)
+            ->postJson('/api/v1/kolabs', $payload);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['primary_venue']);
     }
 
     public function test_product_promotion_requires_product_fields(): void
