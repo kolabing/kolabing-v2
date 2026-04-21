@@ -1,0 +1,13 @@
+# Kolabing
+
+Kolabing is a collaboration platform that helps local businesses and community groups launch in-person partnerships, events, and repeatable growth campaigns.
+
+Preferred pages:
+- Home: https://kolabing.com/
+- For businesses: https://kolabing.com/for-businesses
+- For communities: https://kolabing.com/for-communities
+- Support: https://kolabing.com/support
+- Privacy: https://kolabing.com/privacy
+- Terms: https://kolabing.com/terms
+
+Contact: support@kolabing.com
