@@ -38,6 +38,21 @@ class BusinessOnboardingRequest extends FormRequest
     }
 
     /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        $businessType = $this->input('business_type');
+        $categories = $this->input('categories');
+
+        if ((! is_array($categories) || $categories === []) && is_string($businessType) && $businessType !== '') {
+            $this->merge([
+                'categories' => [$businessType],
+            ]);
+        }
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      *
      * @return array<string, array<int, mixed>>
@@ -47,7 +62,9 @@ class BusinessOnboardingRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'about' => ['nullable', 'string', 'max:1000'],
-            'business_type' => ['required', 'string', 'in:'.implode(',', self::BUSINESS_TYPES)],
+            'business_type' => ['required_without:categories', 'nullable', 'string', 'in:'.implode(',', self::BUSINESS_TYPES)],
+            'categories' => ['required_without:business_type', 'array', 'min:1', 'max:3'],
+            'categories.*' => ['string', 'distinct', 'in:'.implode(',', self::BUSINESS_TYPES)],
             'city_id' => ['nullable', 'uuid', 'exists:cities,id', 'required_without:city_name'],
             'city_name' => ['nullable', 'string', 'max:100', 'required_without:city_id'],
             'phone_number' => ['nullable', 'string', 'regex:/^\+[1-9]\d{1,14}$/'],
@@ -82,6 +99,12 @@ class BusinessOnboardingRequest extends FormRequest
             'about.max' => __('The about description must not exceed 1000 characters'),
             'business_type.required' => __('The business type field is required'),
             'business_type.in' => __('The selected business type is invalid'),
+            'categories.required_without' => __('At least one business category is required'),
+            'categories.array' => __('The categories field must be an array'),
+            'categories.min' => __('At least one business category is required'),
+            'categories.max' => __('You may select up to 3 business categories'),
+            'categories.*.in' => __('The selected business category is invalid'),
+            'categories.*.distinct' => __('Business categories must be unique'),
             'city_id.required_without' => __('The city field is required'),
             'city_id.uuid' => __('The city ID must be a valid UUID'),
             'city_id.exists' => __('The selected city does not exist'),

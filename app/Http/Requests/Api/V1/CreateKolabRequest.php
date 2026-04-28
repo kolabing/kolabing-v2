@@ -80,6 +80,8 @@ class CreateKolabRequest extends FormRequest
             'media' => ['required_if:intent_type,venue_promotion', 'nullable', 'array', 'min:1'],
             'media.*.url' => ['required_with:media', 'string', 'url'],
             'media.*.type' => ['required_with:media', 'string', 'in:photo,video'],
+            'media.*.thumbnail_url' => ['nullable', 'string', 'url'],
+            'media.*.sort_order' => ['nullable', 'integer', 'min:0'],
             'availability_mode' => ['required_if:intent_type,venue_promotion', 'nullable', 'string', 'in:one_time,recurring,flexible,specific_dates'],
             'availability_start' => ['required_if:intent_type,venue_promotion', 'nullable', 'date', 'after:today'],
             'availability_end' => ['nullable', 'date', 'after:availability_start'],
@@ -92,6 +94,16 @@ class CreateKolabRequest extends FormRequest
             'expects' => ['sometimes', 'nullable', 'array'],
             'expects.*' => ['string', 'in:social_media,event_activation,product_placement,community_reach,review_feedback'],
             'past_events' => ['sometimes', 'nullable', 'array'],
+            'past_events.*.name' => ['required_with:past_events', 'string', 'max:255'],
+            'past_events.*.date' => ['required_with:past_events', 'date'],
+            'past_events.*.partner_name' => ['nullable', 'string', 'max:255'],
+            'past_events.*.photos' => ['nullable', 'array', 'max:3'],
+            'past_events.*.photos.*' => ['string', 'url'],
+            'past_events.*.media' => ['nullable', 'array', 'max:3'],
+            'past_events.*.media.*.url' => ['required_with:past_events.*.media', 'string', 'url'],
+            'past_events.*.media.*.type' => ['required_with:past_events.*.media', 'string', 'in:photo,video'],
+            'past_events.*.media.*.thumbnail_url' => ['nullable', 'string', 'url'],
+            'past_events.*.media.*.sort_order' => ['nullable', 'integer', 'min:0'],
         ];
     }
 

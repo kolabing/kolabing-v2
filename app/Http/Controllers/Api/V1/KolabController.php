@@ -244,6 +244,7 @@ class KolabController extends Controller
                     'success' => false,
                     'message' => $e->getMessage(),
                     'requires_subscription' => true,
+                    'code' => 'subscription_required',
                 ], 402);
             }
 

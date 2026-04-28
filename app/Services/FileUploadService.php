@@ -229,6 +229,16 @@ class FileUploadService
     }
 
     /**
+     * Infer the canonical media type for an uploaded file.
+     */
+    public function inferMediaType(UploadedFile $file): string
+    {
+        $mimeType = $file->getMimeType() ?? '';
+
+        return str_starts_with($mimeType, 'video/') ? 'video' : 'photo';
+    }
+
+    /**
      * Delete a file from storage.
      *
      * @param  string  $path  The storage path of the file to delete
@@ -406,6 +416,9 @@ class FileUploadService
             'image/png' => 'png',
             'image/gif' => 'gif',
             'image/webp' => 'webp',
+            'video/mp4' => 'mp4',
+            'video/quicktime' => 'mov',
+            'video/webm' => 'webm',
             default => 'jpg',
         };
     }

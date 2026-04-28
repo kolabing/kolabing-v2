@@ -103,6 +103,43 @@ class ProfileControllerTest extends TestCase
             ->assertJsonPath('data.business_profile.primary_venue.photos.0', 'https://example.com/venue-photo.jpg');
     }
 
+    public function test_show_profile_returns_categories_for_legacy_business_type_records(): void
+    {
+        $city = City::factory()->create();
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $profile->id,
+            'name' => 'Test Business',
+            'business_type' => 'cafe',
+            'categories' => null,
+            'city_id' => $city->id,
+            'primary_venue' => [
+                'name' => 'Test Business Rooftop',
+                'venue_type' => 'cafe',
+                'capacity' => 120,
+                'place_id' => 'google-place-id',
+                'formatted_address' => 'Carrer de Mallorca 1, Barcelona',
+                'city' => 'Barcelona',
+                'country' => 'Spain',
+                'latitude' => 41.3874,
+                'longitude' => 2.1686,
+                'photos' => ['https://example.com/venue-photo.jpg'],
+            ],
+        ]);
+        BusinessSubscription::factory()->active()->create([
+            'profile_id' => $profile->id,
+        ]);
+
+        $response = $this->actingAs($profile)
+            ->getJson('/api/v1/me/profile');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.business_profile.business_type', 'cafe')
+            ->assertJsonPath('data.business_profile.categories', ['cafe'])
+            ->assertJsonPath('data.business_profile.primary_venue.formatted_address', 'Carrer de Mallorca 1, Barcelona')
+            ->assertJsonPath('data.business_profile.primary_venue.place_id', 'google-place-id');
+    }
+
     public function test_show_profile_returns_community_user(): void
     {
         $city = City::factory()->create();
@@ -204,6 +241,49 @@ class ProfileControllerTest extends TestCase
             'name' => 'New Business Name',
             'city_id' => $newCity->id,
         ]);
+    }
+
+    public function test_update_business_profile_updates_categories_and_keeps_legacy_business_type(): void
+    {
+        $city = City::factory()->create();
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $profile->id,
+            'name' => 'Old Business Name',
+            'business_type' => 'cafe',
+            'city_id' => $city->id,
+        ]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/me/profile', [
+                'categories' => ['coworking', 'cafe'],
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.business_profile.business_type', 'coworking')
+            ->assertJsonPath('data.business_profile.categories', ['coworking', 'cafe']);
+
+        $profile->refresh();
+        $profile->load('businessProfile');
+
+        $this->assertSame('coworking', $profile->businessProfile->business_type);
+        $this->assertSame(['coworking', 'cafe'], $profile->businessProfile->categories);
+    }
+
+    public function test_update_profile_validates_categories_limit(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/me/profile', [
+                'categories' => ['cafe', 'coworking', 'other', 'gym'],
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['categories']);
     }
 
     public function test_update_community_profile_successfully(): void

@@ -75,6 +75,9 @@ Route::prefix('v1')->group(function (): void {
     Route::post('auth/login', [AuthController::class, 'login'])
         ->name('api.v1.auth.login');
 
+    Route::post('auth/refresh', [AuthController::class, 'refresh'])
+        ->name('api.v1.auth.refresh');
+
     Route::post('auth/forgot-password', [AuthController::class, 'forgotPassword'])
         ->name('api.v1.auth.forgot-password');
 

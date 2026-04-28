@@ -66,6 +66,10 @@ class ProfileService
             // Update extended profile based on user type
             if (! empty($extendedProfileData)) {
                 if ($profile->isBusiness() && $profile->businessProfile) {
+                    $extendedProfileData = $this->normalizeBusinessProfileData(
+                        $profile->businessProfile,
+                        $extendedProfileData
+                    );
                     $profile->businessProfile->update($extendedProfileData);
                 } elseif ($profile->isCommunity() && $profile->communityProfile) {
                     $profile->communityProfile->update($extendedProfileData);
@@ -147,5 +151,42 @@ class ProfileService
         $preferences->update($preferencesData);
 
         return $preferences;
+    }
+
+    /**
+     * Normalize business profile updates for categories compatibility.
+     *
+     * @param  array<string, mixed>  $extendedProfileData
+     * @return array<string, mixed>
+     */
+    private function normalizeBusinessProfileData(
+        \App\Models\BusinessProfile $businessProfile,
+        array $extendedProfileData
+    ): array {
+        $categories = $extendedProfileData['categories'] ?? null;
+        $businessType = $extendedProfileData['business_type'] ?? null;
+
+        if (is_array($categories) && $categories !== []) {
+            $normalizedCategories = array_values(array_unique($categories));
+
+            $extendedProfileData['categories'] = $normalizedCategories;
+            $extendedProfileData['business_type'] = $normalizedCategories[0];
+
+            return $extendedProfileData;
+        }
+
+        if (is_string($businessType) && $businessType !== '') {
+            $extendedProfileData['categories'] = [$businessType];
+            $extendedProfileData['business_type'] = $businessType;
+
+            return $extendedProfileData;
+        }
+
+        if (array_key_exists('categories', $extendedProfileData) && $categories === []) {
+            $extendedProfileData['categories'] = $businessProfile->normalizedCategories();
+            $extendedProfileData['business_type'] = $extendedProfileData['categories'][0] ?? $businessProfile->business_type;
+        }
+
+        return $extendedProfileData;
     }
 }

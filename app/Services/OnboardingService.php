@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\Log;
  * @phpstan-type BusinessOnboardingData array{
  *     name: string,
  *     about?: string|null,
- *     business_type: string,
+ *     business_type?: string|null,
+ *     categories?: array<int, string>,
  *     city_id?: string|null,
  *     city_name?: string|null,
  *     phone_number?: string|null,
@@ -69,13 +70,15 @@ class OnboardingService
                 $profile->id,
                 $profile->businessProfile?->primary_venue
             );
+            $categories = $this->normalizeBusinessCategories($data, $profile->businessProfile);
 
             // Update business profile
             $businessProfile = $profile->businessProfile;
             $businessProfile->update([
                 'name' => $data['name'],
                 'about' => $data['about'] ?? null,
-                'business_type' => $data['business_type'],
+                'business_type' => $categories[0] ?? $businessProfile->business_type,
+                'categories' => $categories,
                 'city_id' => $resolvedCity?->id,
                 'city_name' => $resolvedCity?->name ?? $data['city_name'] ?? $primaryVenue['city'],
                 'city_country' => $resolvedCity?->country ?? $primaryVenue['country'],
@@ -210,5 +213,26 @@ class OnboardingService
         }
 
         return ltrim($handle, '@');
+    }
+
+    /**
+     * Normalize the ordered business categories.
+     *
+     * @param  BusinessOnboardingData  $data
+     * @return array<int, string>
+     */
+    private function normalizeBusinessCategories(array $data, ?\App\Models\BusinessProfile $businessProfile): array
+    {
+        $categories = $data['categories'] ?? [];
+
+        if (is_array($categories) && $categories !== []) {
+            return array_values(array_unique($categories));
+        }
+
+        if (! empty($data['business_type'])) {
+            return [$data['business_type']];
+        }
+
+        return $businessProfile?->normalizedCategories() ?? [];
     }
 }

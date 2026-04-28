@@ -31,7 +31,8 @@ class ProfileSummaryResource extends JsonResource
             'display_name' => $extendedProfile?->name,
             'avatar_url' => $this->avatar_url,
             'city' => $city ? new CityResource($city) : null,
-            'business_type' => $this->when($this->isBusiness(), fn () => $this->businessProfile?->business_type),
+            'business_type' => $this->when($this->isBusiness(), fn () => $this->businessProfile?->primaryCategory()),
+            'categories' => $this->when($this->isBusiness(), fn () => $this->businessProfile?->normalizedCategories() ?? []),
             'community_type' => $this->when($this->isCommunity(), fn () => $this->communityProfile?->community_type),
             'portfolio_photos' => $this->getPortfolioPhotos(),
         ];

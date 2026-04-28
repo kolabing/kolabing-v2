@@ -72,6 +72,8 @@ class KolabService
      */
     public function create(Profile $creator, array $data): Kolab
     {
+        $data = $this->normalizeKolabPayload($data);
+
         if ($data['intent_type'] === IntentType::VenuePromotion->value) {
             $data = $this->enrichVenuePromotionData($creator, $data);
         }
@@ -117,6 +119,8 @@ class KolabService
      */
     public function update(Kolab $kolab, array $data): Kolab
     {
+        $data = $this->normalizeKolabPayload($data);
+
         $intentType = $data['intent_type'] ?? $kolab->intent_type->value;
 
         if ($intentType === IntentType::VenuePromotion->value) {
@@ -299,5 +303,92 @@ class KolabService
         $data['venue_address'] = $primaryVenue['formatted_address'] ?? null;
 
         return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function normalizeKolabPayload(array $data): array
+    {
+        if (array_key_exists('media', $data)) {
+            $data['media'] = $this->normalizeMediaCollection($data['media']);
+        }
+
+        if (array_key_exists('past_events', $data)) {
+            $data['past_events'] = $this->normalizePastEvents($data['past_events']);
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param  mixed  $media
+     * @return array<int, array{url: string, type: string, thumbnail_url: string|null, sort_order: int}>
+     */
+    private function normalizeMediaCollection(mixed $media): array
+    {
+        if (! is_array($media)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach (array_values($media) as $index => $item) {
+            if (is_string($item) && filter_var($item, FILTER_VALIDATE_URL)) {
+                $normalized[] = [
+                    'url' => $item,
+                    'type' => 'photo',
+                    'thumbnail_url' => null,
+                    'sort_order' => $index,
+                ];
+
+                continue;
+            }
+
+            if (! is_array($item) || ! isset($item['url']) || ! is_string($item['url'])) {
+                continue;
+            }
+
+            $normalized[] = [
+                'url' => $item['url'],
+                'type' => isset($item['type']) && is_string($item['type']) ? $item['type'] : 'photo',
+                'thumbnail_url' => isset($item['thumbnail_url']) && is_string($item['thumbnail_url'])
+                    ? $item['thumbnail_url']
+                    : null,
+                'sort_order' => isset($item['sort_order']) && is_numeric($item['sort_order'])
+                    ? (int) $item['sort_order']
+                    : $index,
+            ];
+        }
+
+        return array_values($normalized);
+    }
+
+    /**
+     * @param  mixed  $pastEvents
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizePastEvents(mixed $pastEvents): array
+    {
+        if (! is_array($pastEvents)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($pastEvents as $event) {
+            if (! is_array($event)) {
+                continue;
+            }
+
+            $photos = $event['photos'] ?? [];
+            unset($event['photos']);
+
+            $event['media'] = $this->normalizeMediaCollection($event['media'] ?? $photos);
+            $normalized[] = $event;
+        }
+
+        return array_values($normalized);
     }
 }

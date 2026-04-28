@@ -73,7 +73,7 @@ class OpportunityPolicy
 
     /**
      * Determine whether the user can publish the opportunity.
-     * Only creator; must be draft; business users need active subscription.
+     * Only creator; must be draft.
      */
     public function publish(Profile $user, CollabOpportunity $opportunity): bool
     {
@@ -82,10 +82,6 @@ class OpportunityPolicy
         }
 
         if (! $opportunity->isDraft()) {
-            return false;
-        }
-
-        if ($user->isBusiness() && ! $user->hasActiveSubscription()) {
             return false;
         }
 

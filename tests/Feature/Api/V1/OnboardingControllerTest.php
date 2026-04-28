@@ -230,6 +230,70 @@ class OnboardingControllerTest extends TestCase
         $this->assertCount(1, $profile->businessProfile->primary_venue['photos']);
     }
 
+    public function test_business_onboarding_persists_ordered_categories_and_preserves_primary_venue_fields(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/onboarding/business', [
+                'name' => 'Cafe Barcelona',
+                'categories' => ['cafe', 'coworking', 'other'],
+                'city_id' => $this->city->id,
+                'primary_venue' => [
+                    'name' => 'Cafe Barcelona Terrace',
+                    'venue_type' => 'cafe',
+                    'capacity' => 80,
+                    'place_id' => 'google-place-id',
+                    'formatted_address' => 'Passeig de Gracia 1, Barcelona',
+                    'city' => 'Barcelona',
+                    'country' => 'Spain',
+                    'photos' => [],
+                ],
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.business_profile.business_type', 'cafe')
+            ->assertJsonPath('data.business_profile.categories', ['cafe', 'coworking', 'other'])
+            ->assertJsonPath('data.business_profile.primary_venue.formatted_address', 'Passeig de Gracia 1, Barcelona')
+            ->assertJsonPath('data.business_profile.primary_venue.place_id', 'google-place-id');
+
+        $profile->refresh();
+        $profile->load('businessProfile');
+
+        $this->assertSame('cafe', $profile->businessProfile->business_type);
+        $this->assertSame(['cafe', 'coworking', 'other'], $profile->businessProfile->categories);
+        $this->assertSame('Passeig de Gracia 1, Barcelona', $profile->businessProfile->primary_venue['formatted_address']);
+        $this->assertSame('google-place-id', $profile->businessProfile->primary_venue['place_id']);
+    }
+
+    public function test_business_onboarding_validates_categories_limit(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/onboarding/business', [
+                'name' => 'Cafe Barcelona',
+                'categories' => ['cafe', 'coworking', 'other', 'gym'],
+                'city_id' => $this->city->id,
+                'primary_venue' => [
+                    'name' => 'Cafe Barcelona Terrace',
+                    'venue_type' => 'cafe',
+                    'capacity' => 80,
+                    'formatted_address' => 'Passeig de Gracia 1, Barcelona',
+                    'city' => 'Barcelona',
+                    'country' => 'Spain',
+                    'photos' => [],
+                ],
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['categories']);
+    }
+
     public function test_business_onboarding_requires_primary_venue_fields(): void
     {
         $profile = Profile::factory()->business()->create();

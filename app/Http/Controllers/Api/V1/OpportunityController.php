@@ -165,6 +165,15 @@ class OpportunityController extends Controller
                 'requires_subscription' => true,
             ], 402);
         } catch (InvalidArgumentException $e) {
+            if (str_contains($e->getMessage(), 'subscription')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'requires_subscription' => true,
+                    'code' => 'subscription_required',
+                ], 402);
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -199,6 +208,15 @@ class OpportunityController extends Controller
                 'data' => new OpportunityResource($opportunity),
             ]);
         } catch (InvalidArgumentException $e) {
+            if (str_contains($e->getMessage(), 'subscription')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'requires_subscription' => true,
+                    'code' => 'subscription_required',
+                ], 402);
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -231,6 +249,15 @@ class OpportunityController extends Controller
                 'message' => __('Opportunity deleted successfully.'),
             ]);
         } catch (InvalidArgumentException $e) {
+            if (str_contains($e->getMessage(), 'subscription')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'requires_subscription' => true,
+                    'code' => 'subscription_required',
+                ], 402);
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -265,6 +292,15 @@ class OpportunityController extends Controller
                 'data' => new OpportunityResource($opportunity),
             ]);
         } catch (InvalidArgumentException $e) {
+            if (str_contains($e->getMessage(), 'subscription')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'requires_subscription' => true,
+                    'code' => 'subscription_required',
+                ], 402);
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),

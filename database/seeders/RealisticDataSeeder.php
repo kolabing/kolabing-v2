@@ -7,6 +7,7 @@ namespace Database\Seeders;
 use App\Enums\OfferStatus;
 use App\Enums\UserType;
 use App\Models\BusinessProfile;
+use App\Models\BusinessSubscription;
 use App\Models\City;
 use App\Models\CollabOpportunity;
 use App\Models\CommunityProfile;
@@ -19,6 +20,8 @@ use Illuminate\Support\Str;
 
 class RealisticDataSeeder extends Seeder
 {
+    private const QA_PASSWORD = 'password123';
+
     /**
      * Global counters for unique picsum seeds.
      */
@@ -161,6 +164,7 @@ class RealisticDataSeeder extends Seeder
         foreach ($businesses as $biz) {
             $profile = Profile::query()->create([
                 'email' => $biz['email'],
+                'password' => self::QA_PASSWORD,
                 'user_type' => UserType::Business,
                 'google_id' => 'google_'.Str::random(21),
                 'avatar_url' => 'https://picsum.photos/seed/profile-'.Str::slug($biz['name']).'/400/400',
@@ -172,10 +176,15 @@ class RealisticDataSeeder extends Seeder
                 'name' => $biz['name'],
                 'about' => $biz['about'],
                 'business_type' => $biz['business_type'],
+                'categories' => [$biz['business_type']],
                 'city_id' => $cities[$biz['city']] ?? null,
                 'instagram' => $biz['instagram'],
                 'website' => $biz['website'],
                 'profile_photo' => 'https://picsum.photos/seed/biz-'.Str::slug($biz['name']).'/400/400',
+            ]);
+
+            BusinessSubscription::factory()->create([
+                'profile_id' => $profile->id,
             ]);
 
             $results[] = [
@@ -292,6 +301,7 @@ class RealisticDataSeeder extends Seeder
         foreach ($communities as $comm) {
             $profile = Profile::query()->create([
                 'email' => $comm['email'],
+                'password' => self::QA_PASSWORD,
                 'user_type' => UserType::Community,
                 'google_id' => 'google_'.Str::random(21),
                 'avatar_url' => 'https://picsum.photos/seed/profile-'.Str::slug($comm['name']).'/400/400',

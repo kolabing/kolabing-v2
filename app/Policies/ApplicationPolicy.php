@@ -64,6 +64,10 @@ class ApplicationPolicy
             return false;
         }
 
+        if ($application->isAccepted() && $application->collaboration !== null) {
+            return true;
+        }
+
         if (! $application->canBeAccepted()) {
             return false;
         }

@@ -20,6 +20,21 @@ class UpdateProfileRequest extends FormRequest
     }
 
     /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        $businessType = $this->input('business_type');
+        $categories = $this->input('categories');
+
+        if ((! is_array($categories) || $categories === []) && is_string($businessType) && $businessType !== '') {
+            $this->merge([
+                'categories' => [$businessType],
+            ]);
+        }
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      *
      * @return array<string, mixed>
@@ -50,7 +65,9 @@ class UpdateProfileRequest extends FormRequest
         return [
             'name' => ['nullable', 'string', 'max:255'],
             'about' => ['nullable', 'string', 'max:2000'],
-            'business_type' => ['nullable', 'string', 'max:100', Rule::exists('business_types', 'name')],
+            'business_type' => ['nullable', 'string', 'max:100', Rule::in(BusinessOnboardingRequest::BUSINESS_TYPES)],
+            'categories' => ['sometimes', 'array', 'min:1', 'max:3'],
+            'categories.*' => ['string', 'distinct', Rule::in(BusinessOnboardingRequest::BUSINESS_TYPES)],
             'city_id' => ['nullable', 'uuid', Rule::exists('cities', 'id')],
             'instagram' => ['nullable', 'string', 'max:255'],
             'website' => ['nullable', 'string', 'max:255', 'url'],
@@ -94,14 +111,24 @@ class UpdateProfileRequest extends FormRequest
      */
     public function getBusinessProfileData(): array
     {
-        return $this->only([
+        $data = $this->only([
             'name',
             'about',
             'business_type',
+            'categories',
             'city_id',
             'instagram',
             'website',
         ]);
+
+        $categories = $this->normalizeBusinessCategories($data);
+
+        if ($categories !== []) {
+            $data['categories'] = $categories;
+            $data['business_type'] = $categories[0];
+        }
+
+        return $data;
     }
 
     /**
@@ -120,5 +147,26 @@ class UpdateProfileRequest extends FormRequest
             'tiktok',
             'website',
         ]);
+    }
+
+    /**
+     * Normalize the ordered business categories for updates.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<int, string>
+     */
+    private function normalizeBusinessCategories(array $data): array
+    {
+        $categories = $data['categories'] ?? [];
+
+        if (! is_array($categories) || $categories === []) {
+            $businessType = $data['business_type'] ?? null;
+
+            return is_string($businessType) && $businessType !== ''
+                ? [$businessType]
+                : [];
+        }
+
+        return array_values($categories);
     }
 }

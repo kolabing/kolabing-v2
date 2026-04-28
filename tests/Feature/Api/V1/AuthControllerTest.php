@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use Database\Seeders\RealisticDataSeeder;
 use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
 use App\Models\City;
@@ -123,6 +124,8 @@ class AuthControllerTest extends TestCase
                 'data' => [
                     'token',
                     'token_type',
+                    'refresh_token',
+                    'refresh_token_expires_at',
                     'is_new_user',
                     'user' => [
                         'id',
@@ -187,6 +190,8 @@ class AuthControllerTest extends TestCase
                 'data' => [
                     'token',
                     'token_type',
+                    'refresh_token',
+                    'refresh_token_expires_at',
                     'is_new_user',
                     'user' => [
                         'id',
@@ -544,6 +549,8 @@ class AuthControllerTest extends TestCase
                 'data' => [
                     'token',
                     'token_type',
+                    'refresh_token',
+                    'refresh_token_expires_at',
                     'is_new_user',
                     'user' => [
                         'id',
@@ -672,6 +679,33 @@ class AuthControllerTest extends TestCase
             ]);
     }
 
+    public function test_register_business_accepts_ordered_categories(): void
+    {
+        $city = City::factory()->create();
+
+        $response = $this->postJson('/api/v1/auth/register/business', [
+            'email' => 'multicategory@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Multi Category Business',
+            'categories' => ['coworking', 'cafe', 'other'],
+            'city_id' => $city->id,
+            'primary_venue' => [
+                'name' => 'Shared Clubhouse',
+                'venue_type' => 'coworking',
+                'capacity' => 120,
+                'formatted_address' => 'Carrer de Mallorca 1, Barcelona',
+                'city' => $city->name,
+                'country' => $city->country,
+                'photos' => [],
+            ],
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.user.business_profile.business_type', 'coworking')
+            ->assertJsonPath('data.user.business_profile.categories', ['coworking', 'cafe', 'other']);
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Community Registration Tests
@@ -751,6 +785,8 @@ class AuthControllerTest extends TestCase
                 'data' => [
                     'token',
                     'token_type',
+                    'refresh_token',
+                    'refresh_token_expires_at',
                     'is_new_user',
                     'user' => [
                         'id',
@@ -939,6 +975,8 @@ class AuthControllerTest extends TestCase
                 'data' => [
                     'token',
                     'token_type',
+                    'refresh_token',
+                    'refresh_token_expires_at',
                     'user' => [
                         'id',
                         'email',
@@ -993,6 +1031,8 @@ class AuthControllerTest extends TestCase
                 'data' => [
                     'token',
                     'token_type',
+                    'refresh_token',
+                    'refresh_token_expires_at',
                     'user' => [
                         'id',
                         'email',
@@ -1001,6 +1041,84 @@ class AuthControllerTest extends TestCase
                     ],
                 ],
             ]);
+    }
+
+    public function test_refresh_returns_new_access_token_and_complete_user_payload(): void
+    {
+        $city = City::factory()->create();
+
+        $login = $this->postJson('/api/v1/auth/register/business', [
+            'email' => 'refreshable@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Refreshable Business',
+            'business_type' => 'cafe',
+            'city_id' => $city->id,
+            'primary_venue' => [
+                'name' => 'Refreshable Venue',
+                'venue_type' => 'cafe',
+                'capacity' => 100,
+                'formatted_address' => 'Gran Via 1, Madrid',
+                'city' => $city->name,
+                'country' => $city->country,
+                'photos' => [],
+            ],
+        ]);
+
+        $login->assertCreated();
+
+        $response = $this->postJson('/api/v1/auth/refresh', [
+            'refresh_token' => $login->json('data.refresh_token'),
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Token refreshed successfully')
+            ->assertJsonPath('data.token_type', 'Bearer')
+            ->assertJsonPath('data.user.email', 'refreshable@example.com')
+            ->assertJsonPath('data.user.user_type', 'business')
+            ->assertJsonStructure([
+                'success',
+                'message',
+                'data' => [
+                    'token',
+                    'token_type',
+                    'refresh_token',
+                    'refresh_token_expires_at',
+                    'user' => [
+                        'id',
+                        'email',
+                        'phone_number',
+                        'user_type',
+                        'avatar_url',
+                        'email_verified_at',
+                        'onboarding_completed',
+                        'created_at',
+                        'updated_at',
+                        'business_profile',
+                        'subscription',
+                    ],
+                ],
+            ]);
+
+        $this->assertNotSame(
+            $login->json('data.token'),
+            $response->json('data.token')
+        );
+        $this->assertNotSame(
+            $login->json('data.refresh_token'),
+            $response->json('data.refresh_token')
+        );
+    }
+
+    public function test_seeded_profile_has_password_credentials_for_login_flow(): void
+    {
+        $this->seed(RealisticDataSeeder::class);
+
+        $profile = Profile::query()->firstOrFail();
+
+        $this->assertNotNull($profile->password);
+        $this->assertTrue(Hash::check('password123', $profile->password));
     }
 
     private function tinyPngDataUri(): string

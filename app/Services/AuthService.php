@@ -15,16 +15,26 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use InvalidArgumentException;
+use Laravel\Sanctum\PersonalAccessToken;
 
 /**
  * @phpstan-type AuthResult array{
  *     profile: Profile,
  *     is_new_user: bool,
- *     token: string
+ *     token: string,
+ *     refresh_token: string,
+ *     refresh_token_expires_at: string
  * }
  * @phpstan-type LoginResult array{
  *     profile: Profile,
- *     token: string
+ *     token: string,
+ *     refresh_token: string,
+ *     refresh_token_expires_at: string
+ * }
+ * @phpstan-type TokenPair array{
+ *     token: string,
+ *     refresh_token: string,
+ *     refresh_token_expires_at: string
  * }
  * @phpstan-type GoogleUserData array{
  *     google_id: string,
@@ -39,7 +49,8 @@ use InvalidArgumentException;
  * @phpstan-type BusinessProfileData array{
  *     name: string,
  *     about: string|null,
- *     business_type: string,
+ *     business_type: string|null,
+ *     categories: array<int, string>,
  *     city_id: string|null,
  *     city_name: string|null,
  *     instagram: string|null,
@@ -98,12 +109,10 @@ class AuthService
 
         $this->loadProfileRelationships($profile);
 
-        $token = $this->createToken($profile);
-
         return [
             'profile' => $profile,
             'is_new_user' => false,
-            'token' => $token,
+            ...$this->issueTokenPair($profile),
         ];
     }
 
@@ -168,13 +177,10 @@ class AuthService
         // Load relationships
         $this->loadProfileRelationships($profile);
 
-        // Generate token with 30-day expiration
-        $token = $this->createToken($profile);
-
         return [
             'profile' => $profile,
             'is_new_user' => false,
-            'token' => $token,
+            ...$this->issueTokenPair($profile),
         ];
     }
 
@@ -223,13 +229,10 @@ class AuthService
         // Load relationships
         $this->loadProfileRelationships($profile);
 
-        // Generate token with 30-day expiration
-        $token = $this->createToken($profile);
-
         return [
             'profile' => $profile,
             'is_new_user' => true,
-            'token' => $token,
+            ...$this->issueTokenPair($profile),
         ];
     }
 
@@ -248,20 +251,32 @@ class AuthService
     }
 
     /**
-     * Create a Sanctum token for the profile with 30-day expiration.
+     * Issue a new access token and refresh token pair.
+     *
+     * @return TokenPair
      */
-    private function createToken(Profile $profile): string
+    private function issueTokenPair(Profile $profile): array
     {
-        $abilities = [$profile->user_type->value];
-        $expiresAt = now()->addDays(30);
+        $accessTokenExpiresAt = now()->addDays(30);
+        $refreshTokenExpiresAt = now()->addDays(90);
 
-        $token = $profile->createToken(
-            name: 'mobile-app',
-            abilities: $abilities,
-            expiresAt: $expiresAt
+        $accessToken = $profile->createToken(
+            name: 'mobile-access',
+            abilities: [$profile->user_type->value],
+            expiresAt: $accessTokenExpiresAt
         );
 
-        return $token->plainTextToken;
+        $refreshToken = $profile->createToken(
+            name: 'mobile-refresh',
+            abilities: ['refresh'],
+            expiresAt: $refreshTokenExpiresAt
+        );
+
+        return [
+            'token' => $accessToken->plainTextToken,
+            'refresh_token' => $refreshToken->plainTextToken,
+            'refresh_token_expires_at' => $refreshTokenExpiresAt->toIso8601String(),
+        ];
     }
 
     /**
@@ -313,7 +328,8 @@ class AuthService
                 'profile_id' => $profile->id,
                 'name' => $businessProfileData['name'],
                 'about' => $businessProfileData['about'],
-                'business_type' => $businessProfileData['business_type'],
+                'business_type' => $businessProfileData['categories'][0] ?? $businessProfileData['business_type'],
+                'categories' => $businessProfileData['categories'],
                 'city_id' => $resolvedCity?->id,
                 'city_name' => $resolvedCity?->name ?? $businessProfileData['city_name'] ?? $primaryVenue['city'],
                 'city_country' => $resolvedCity?->country ?? $primaryVenue['country'],
@@ -335,13 +351,10 @@ class AuthService
         // Load relationships
         $this->loadProfileRelationships($profile);
 
-        // Generate token with 30-day expiration
-        $token = $this->createToken($profile);
-
         return [
             'profile' => $profile,
             'is_new_user' => true,
-            'token' => $token,
+            ...$this->issueTokenPair($profile),
         ];
     }
 
@@ -402,13 +415,10 @@ class AuthService
         // Load relationships
         $this->loadProfileRelationships($profile);
 
-        // Generate token with 30-day expiration
-        $token = $this->createToken($profile);
-
         return [
             'profile' => $profile,
             'is_new_user' => true,
-            'token' => $token,
+            ...$this->issueTokenPair($profile),
         ];
     }
 
@@ -436,12 +446,10 @@ class AuthService
 
         $this->loadProfileRelationships($profile);
 
-        $token = $this->createToken($profile);
-
         return [
             'profile' => $profile,
             'is_new_user' => true,
-            'token' => $token,
+            ...$this->issueTokenPair($profile),
         ];
     }
 
@@ -482,12 +490,44 @@ class AuthService
         // Load relationships
         $this->loadProfileRelationships($profile);
 
-        // Generate token with 30-day expiration
-        $token = $this->createToken($profile);
-
         return [
             'profile' => $profile,
-            'token' => $token,
+            ...$this->issueTokenPair($profile),
+        ];
+    }
+
+    /**
+     * Refresh an access token using a refresh token.
+     *
+     * @return LoginResult|array{error: string, code: int}
+     */
+    public function refresh(string $refreshToken): array
+    {
+        $storedToken = PersonalAccessToken::findToken($refreshToken);
+
+        if (! $storedToken || ! in_array('refresh', $storedToken->abilities, true) || $storedToken->expires_at?->isPast()) {
+            return [
+                'error' => __('Invalid refresh token'),
+                'code' => 401,
+            ];
+        }
+
+        $tokenable = $storedToken->tokenable;
+
+        if (! $tokenable instanceof Profile) {
+            return [
+                'error' => __('Invalid refresh token'),
+                'code' => 401,
+            ];
+        }
+
+        $this->loadProfileRelationships($tokenable);
+
+        $storedToken->delete();
+
+        return [
+            'profile' => $tokenable,
+            ...$this->issueTokenPair($tokenable),
         ];
     }
 

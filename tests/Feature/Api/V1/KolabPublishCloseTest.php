@@ -47,7 +47,8 @@ class KolabPublishCloseTest extends TestCase
 
         $response->assertStatus(402)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('requires_subscription', true);
+            ->assertJsonPath('requires_subscription', true)
+            ->assertJsonPath('code', 'subscription_required');
     }
 
     public function test_product_promotion_requires_subscription_to_publish(): void
@@ -60,7 +61,8 @@ class KolabPublishCloseTest extends TestCase
 
         $response->assertStatus(402)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('requires_subscription', true);
+            ->assertJsonPath('requires_subscription', true)
+            ->assertJsonPath('code', 'subscription_required');
     }
 
     public function test_business_with_subscription_can_publish_venue_promotion(): void

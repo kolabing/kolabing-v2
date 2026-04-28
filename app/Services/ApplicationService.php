@@ -61,6 +61,25 @@ class ApplicationService
      */
     public function accept(Application $application, array $data = []): array
     {
+        $application->loadMissing([
+            'collaboration',
+            'collabOpportunity.creatorProfile',
+            'applicantProfile.businessProfile',
+            'applicantProfile.communityProfile',
+        ]);
+
+        if ($application->isAccepted() && $application->collaboration !== null) {
+            return [
+                'application' => $application->fresh([
+                    'collaboration',
+                    'applicantProfile.businessProfile',
+                    'applicantProfile.communityProfile',
+                    'collabOpportunity.creatorProfile',
+                ]),
+                'collaboration' => $application->collaboration->fresh(),
+            ];
+        }
+
         $this->validateCanAccept($application);
 
         return DB::transaction(function () use ($application, $data): array {

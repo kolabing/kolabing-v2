@@ -34,7 +34,9 @@ class OpportunityPublishTest extends TestCase
         $response = $this->actingAs($business)
             ->postJson("/api/v1/opportunities/{$opportunity->id}/publish");
 
-        $response->assertStatus(403);
+        $response->assertStatus(402)
+            ->assertJsonPath('requires_subscription', true)
+            ->assertJsonPath('code', 'subscription_required');
     }
 
     public function test_user_cannot_publish_another_users_opportunity(): void

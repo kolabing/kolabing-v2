@@ -24,6 +24,9 @@ class PublicProfileResource extends JsonResource
     public function toArray(Request $request): array
     {
         $extendedProfile = $this->getExtendedProfile();
+        $businessCategories = $this->isBusiness()
+            ? $this->businessProfile?->normalizedCategories() ?? []
+            : [];
 
         return [
             'id' => $this->id,
@@ -32,8 +35,10 @@ class PublicProfileResource extends JsonResource
             'avatar_url' => $this->avatar_url,
             'about' => $extendedProfile?->about,
             'type' => $this->user_type === UserType::Business
-                ? $extendedProfile?->business_type
+                ? $this->businessProfile?->primaryCategory()
                 : $extendedProfile?->community_type,
+            'business_type' => $this->when($this->user_type === UserType::Business, fn () => $this->businessProfile?->primaryCategory()),
+            'categories' => $this->when($this->user_type === UserType::Business, fn () => $businessCategories),
             'city_name' => $extendedProfile?->city?->name,
             'instagram' => $extendedProfile?->instagram,
             'tiktok' => $this->user_type === UserType::Community

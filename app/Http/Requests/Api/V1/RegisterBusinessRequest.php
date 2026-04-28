@@ -38,6 +38,21 @@ class RegisterBusinessRequest extends FormRequest
     }
 
     /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        $businessType = $this->input('business_type');
+        $categories = $this->input('categories');
+
+        if ((! is_array($categories) || $categories === []) && is_string($businessType) && $businessType !== '') {
+            $this->merge([
+                'categories' => [$businessType],
+            ]);
+        }
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      *
      * @return array<string, array<int, mixed>>
@@ -49,7 +64,9 @@ class RegisterBusinessRequest extends FormRequest
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'name' => ['required', 'string', 'max:255'],
             'about' => ['nullable', 'string', 'max:1000'],
-            'business_type' => ['required', 'string', 'in:'.implode(',', self::BUSINESS_TYPES)],
+            'business_type' => ['required_without:categories', 'nullable', 'string', 'in:'.implode(',', self::BUSINESS_TYPES)],
+            'categories' => ['required_without:business_type', 'array', 'min:1', 'max:3'],
+            'categories.*' => ['string', 'distinct', 'in:'.implode(',', self::BUSINESS_TYPES)],
             'city_id' => ['nullable', 'uuid', 'exists:cities,id', 'required_without:city_name'],
             'city_name' => ['nullable', 'string', 'max:100', 'required_without:city_id'],
             'phone_number' => ['nullable', 'string', 'regex:/^\+[1-9]\d{1,14}$/'],
@@ -90,6 +107,12 @@ class RegisterBusinessRequest extends FormRequest
             'about.max' => __('The about description must not exceed 1000 characters'),
             'business_type.required' => __('The business type field is required'),
             'business_type.in' => __('The selected business type is invalid'),
+            'categories.required_without' => __('At least one business category is required'),
+            'categories.array' => __('The categories field must be an array'),
+            'categories.min' => __('At least one business category is required'),
+            'categories.max' => __('You may select up to 3 business categories'),
+            'categories.*.in' => __('The selected business category is invalid'),
+            'categories.*.distinct' => __('Business categories must be unique'),
             'city_id.required_without' => __('The city field is required'),
             'city_id.uuid' => __('The city ID must be a valid UUID'),
             'city_id.exists' => __('The selected city does not exist'),
@@ -140,7 +163,8 @@ class RegisterBusinessRequest extends FormRequest
      * @return array{
      *     name: string,
      *     about: string|null,
-     *     business_type: string,
+     *     business_type: string|null,
+     *     categories: array<int, string>,
      *     city_id: string|null,
      *     city_name: string|null,
      *     instagram: string|null,
@@ -152,11 +176,13 @@ class RegisterBusinessRequest extends FormRequest
     public function getBusinessProfileData(): array
     {
         $validated = $this->validated();
+        $categories = $this->normalizeCategories($validated);
 
         return [
             'name' => $validated['name'],
             'about' => $validated['about'] ?? null,
-            'business_type' => $validated['business_type'],
+            'business_type' => $categories[0] ?? null,
+            'categories' => $categories,
             'city_id' => $validated['city_id'] ?? null,
             'city_name' => $validated['city_name'] ?? null,
             'instagram' => $validated['instagram'] ?? null,
@@ -164,5 +190,26 @@ class RegisterBusinessRequest extends FormRequest
             'profile_photo' => $validated['profile_photo'] ?? null,
             'primary_venue' => $validated['primary_venue'],
         ];
+    }
+
+    /**
+     * Normalize the ordered business categories.
+     *
+     * @param  array<string, mixed>  $validated
+     * @return array<int, string>
+     */
+    private function normalizeCategories(array $validated): array
+    {
+        $categories = $validated['categories'] ?? [];
+
+        if (! is_array($categories) || $categories === []) {
+            $businessType = $validated['business_type'] ?? null;
+
+            return is_string($businessType) && $businessType !== ''
+                ? [$businessType]
+                : [];
+        }
+
+        return array_values($categories);
     }
 }

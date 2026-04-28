@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\AppleLoginRequest;
 use App\Http\Requests\Api\V1\ForgotPasswordRequest;
 use App\Http\Requests\Api\V1\GoogleLoginRequest;
 use App\Http\Requests\Api\V1\LoginRequest;
+use App\Http\Requests\Api\V1\RefreshTokenRequest;
 use App\Http\Requests\Api\V1\RegisterAttendeeRequest;
 use App\Http\Requests\Api\V1\RegisterBusinessRequest;
 use App\Http\Requests\Api\V1\RegisterCommunityRequest;
@@ -81,6 +82,8 @@ class AuthController extends Controller
             'data' => [
                 'token' => $result['token'],
                 'token_type' => 'Bearer',
+                'refresh_token' => $result['refresh_token'],
+                'refresh_token_expires_at' => $result['refresh_token_expires_at'],
                 'is_new_user' => $result['is_new_user'],
                 'user' => new UserResource($result['profile']),
             ],
@@ -124,6 +127,8 @@ class AuthController extends Controller
             'data' => [
                 'token' => $result['token'],
                 'token_type' => 'Bearer',
+                'refresh_token' => $result['refresh_token'],
+                'refresh_token_expires_at' => $result['refresh_token_expires_at'],
                 'is_new_user' => false,
                 'user' => new UserResource($result['profile']),
             ],
@@ -167,6 +172,38 @@ class AuthController extends Controller
     }
 
     /**
+     * Refresh a token pair using a refresh token.
+     *
+     * POST /api/v1/auth/refresh
+     */
+    public function refresh(RefreshTokenRequest $request): JsonResponse
+    {
+        $result = $this->authService->refresh($request->getRefreshToken());
+
+        if (isset($result['error'])) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['error'],
+                'errors' => [
+                    'refresh_token' => [$result['error']],
+                ],
+            ], $result['code']);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Token refreshed successfully'),
+            'data' => [
+                'token' => $result['token'],
+                'token_type' => 'Bearer',
+                'refresh_token' => $result['refresh_token'],
+                'refresh_token_expires_at' => $result['refresh_token_expires_at'],
+                'user' => new UserResource($result['profile']),
+            ],
+        ]);
+    }
+
+    /**
      * Register a new business user with email and password.
      *
      * POST /api/v1/auth/register/business
@@ -184,6 +221,8 @@ class AuthController extends Controller
             'data' => [
                 'token' => $result['token'],
                 'token_type' => 'Bearer',
+                'refresh_token' => $result['refresh_token'],
+                'refresh_token_expires_at' => $result['refresh_token_expires_at'],
                 'is_new_user' => $result['is_new_user'],
                 'user' => new UserResource($result['profile']),
             ],
@@ -208,6 +247,8 @@ class AuthController extends Controller
             'data' => [
                 'token' => $result['token'],
                 'token_type' => 'Bearer',
+                'refresh_token' => $result['refresh_token'],
+                'refresh_token_expires_at' => $result['refresh_token_expires_at'],
                 'is_new_user' => $result['is_new_user'],
                 'user' => new UserResource($result['profile']),
             ],
@@ -231,6 +272,8 @@ class AuthController extends Controller
             'data' => [
                 'token' => $result['token'],
                 'token_type' => 'Bearer',
+                'refresh_token' => $result['refresh_token'],
+                'refresh_token_expires_at' => $result['refresh_token_expires_at'],
                 'is_new_user' => $result['is_new_user'],
                 'user' => new UserResource($result['profile']),
             ],
@@ -266,6 +309,8 @@ class AuthController extends Controller
             'data' => [
                 'token' => $result['token'],
                 'token_type' => 'Bearer',
+                'refresh_token' => $result['refresh_token'],
+                'refresh_token_expires_at' => $result['refresh_token_expires_at'],
                 'user' => new UserResource($result['profile']),
             ],
         ]);

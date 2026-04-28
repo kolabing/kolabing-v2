@@ -29,11 +29,14 @@ class BusinessProfileFactory extends Factory
      */
     public function definition(): array
     {
+        $businessType = fake()->randomElement(BusinessOnboardingRequest::BUSINESS_TYPES);
+
         return [
             'profile_id' => Profile::factory()->business(),
             'name' => fake()->company(),
             'about' => fake()->optional()->paragraph(),
-            'business_type' => fake()->randomElement(BusinessOnboardingRequest::BUSINESS_TYPES),
+            'business_type' => $businessType,
+            'categories' => [$businessType],
             'city_id' => City::factory(),
             'city_name' => fake()->city(),
             'city_country' => fake()->country(),
@@ -53,6 +56,7 @@ class BusinessProfileFactory extends Factory
             'name' => null,
             'about' => null,
             'business_type' => null,
+            'categories' => null,
             'city_id' => null,
             'city_name' => null,
             'city_country' => null,
