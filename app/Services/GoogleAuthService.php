@@ -44,34 +44,31 @@ class GoogleAuthService
     public function verifyIdToken(string $idToken): ?array
     {
         try {
-            // Get all valid client IDs
-            $validClientIds = array_filter([
+            $validClientIds = array_values(array_filter([
                 config('services.google.client_id'),
                 config('services.google.client_id_ios'),
                 config('services.google.client_id_android'),
-            ]);
+            ]));
 
-            // Verify the token
-            $payload = $this->client->verifyIdToken($idToken);
-
-            if (! $payload) {
-                Log::warning('Google ID token verification failed: payload is null');
-
-                return null;
+            // Try each client ID because the token audience varies by platform
+            $payload = null;
+            foreach ($validClientIds as $clientId) {
+                $this->client->setClientId($clientId);
+                $result = $this->client->verifyIdToken($idToken);
+                if ($result) {
+                    $payload = $result;
+                    break;
+                }
             }
 
-            // Verify the audience (client ID) matches one of our configured client IDs
-            $tokenAudience = $payload['aud'] ?? null;
-            if (! in_array($tokenAudience, $validClientIds, true)) {
-                Log::warning('Google ID token verification failed: invalid audience', [
-                    'expected' => $validClientIds,
-                    'received' => $tokenAudience,
+            if (! $payload) {
+                Log::warning('Google ID token verification failed: no matching client ID', [
+                    'checked_client_ids' => $validClientIds,
                 ]);
 
                 return null;
             }
 
-            // Extract user data from payload
             return [
                 'google_id' => $payload['sub'],
                 'email' => $payload['email'],
