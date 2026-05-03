@@ -37,9 +37,41 @@ class KolabPublishCloseTest extends TestCase
         $this->assertNotNull($kolab->published_at);
     }
 
-    public function test_venue_promotion_requires_subscription_to_publish(): void
+    public function test_first_venue_promotion_is_free_without_subscription(): void
     {
         $business = Profile::factory()->business()->create();
+        $kolab = Kolab::factory()->venuePromotion()->forCreator($business)->create(); // draft
+
+        $response = $this->actingAs($business)
+            ->postJson("/api/v1/kolabs/{$kolab->id}/publish");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.status', 'published');
+
+        $kolab->refresh();
+        $this->assertNotNull($kolab->published_at);
+    }
+
+    public function test_first_product_promotion_is_free_without_subscription(): void
+    {
+        $business = Profile::factory()->business()->create();
+        $kolab = Kolab::factory()->productPromotion()->forCreator($business)->create(); // draft
+
+        $response = $this->actingAs($business)
+            ->postJson("/api/v1/kolabs/{$kolab->id}/publish");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.status', 'published');
+    }
+
+    public function test_venue_promotion_requires_subscription_to_publish_after_free_quota_used(): void
+    {
+        $business = Profile::factory()->business()->create();
+        // Free quota already consumed by a previously published venue-promotion kolab.
+        Kolab::factory()->venuePromotion()->published()->forCreator($business)->create();
+
         $kolab = Kolab::factory()->venuePromotion()->forCreator($business)->create(); // draft
 
         $response = $this->actingAs($business)
@@ -51,9 +83,12 @@ class KolabPublishCloseTest extends TestCase
             ->assertJsonPath('code', 'subscription_required');
     }
 
-    public function test_product_promotion_requires_subscription_to_publish(): void
+    public function test_product_promotion_requires_subscription_to_publish_after_free_quota_used(): void
     {
         $business = Profile::factory()->business()->create();
+        // Free quota already consumed by a previously published product-promotion kolab.
+        Kolab::factory()->productPromotion()->published()->forCreator($business)->create();
+
         $kolab = Kolab::factory()->productPromotion()->forCreator($business)->create(); // draft
 
         $response = $this->actingAs($business)
@@ -63,6 +98,22 @@ class KolabPublishCloseTest extends TestCase
             ->assertJsonPath('success', false)
             ->assertJsonPath('requires_subscription', true)
             ->assertJsonPath('code', 'subscription_required');
+    }
+
+    public function test_community_seeking_publish_does_not_consume_paid_tier_free_quota(): void
+    {
+        $business = Profile::factory()->business()->create();
+        // CommunitySeeking is always free and must not consume the paid-tier free quota.
+        Kolab::factory()->published()->forCreator($business)->create(); // intent_type = community_seeking by default
+
+        $kolab = Kolab::factory()->venuePromotion()->forCreator($business)->create(); // draft
+
+        $response = $this->actingAs($business)
+            ->postJson("/api/v1/kolabs/{$kolab->id}/publish");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.status', 'published');
     }
 
     public function test_business_with_subscription_can_publish_venue_promotion(): void

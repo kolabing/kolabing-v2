@@ -165,7 +165,9 @@ class KolabService
 
         $creator = $kolab->creatorProfile;
 
-        if ($kolab->intent_type !== IntentType::CommunitySeeking && ! $creator->hasActiveSubscription()) {
+        if ($kolab->intent_type !== IntentType::CommunitySeeking
+            && ! $creator->hasActiveSubscription()
+            && $creator->hasUsedFreeKolab()) {
             throw new InvalidArgumentException(
                 'A subscription is required to publish this type of kolab.'
             );
@@ -323,7 +325,6 @@ class KolabService
     }
 
     /**
-     * @param  mixed  $media
      * @return array<int, array{url: string, type: string, thumbnail_url: string|null, sort_order: int}>
      */
     private function normalizeMediaCollection(mixed $media): array
@@ -366,7 +367,6 @@ class KolabService
     }
 
     /**
-     * @param  mixed  $pastEvents
      * @return array<int, array<string, mixed>>
      */
     private function normalizePastEvents(mixed $pastEvents): array

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\IntentType;
 use App\Enums\UserType;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -377,6 +378,24 @@ class Profile extends Authenticatable
         }
 
         return $this->subscription?->isActive() ?? false;
+    }
+
+    /**
+     * Determine whether the profile has already consumed its single free
+     * non-CommunitySeeking kolab publish (the freemium quota).
+     *
+     * CommunitySeeking publishes are always free and never count toward
+     * the quota.
+     */
+    public function hasUsedFreeKolab(): bool
+    {
+        return $this->kolabs()
+            ->whereIn('intent_type', [
+                IntentType::VenuePromotion,
+                IntentType::ProductPromotion,
+            ])
+            ->whereNotNull('published_at')
+            ->exists();
     }
 
     /**
