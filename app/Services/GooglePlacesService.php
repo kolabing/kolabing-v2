@@ -20,6 +20,9 @@ class GooglePlacesService
         $response = Http::withHeaders($this->headers())
             ->post('https://places.googleapis.com/v1/places:autocomplete', [
                 'input' => $query,
+                'includedPrimaryTypes' => ['establishment'],
+                'includedRegionCodes' => ['es'],
+                'languageCode' => 'es',
             ]);
 
         if (! $response->successful()) {
