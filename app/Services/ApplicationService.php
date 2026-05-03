@@ -267,13 +267,6 @@ class ApplicationService
             );
         }
 
-        // Profile must have completed onboarding
-        if (! $applicant->onboarding_completed) {
-            throw new InvalidArgumentException(
-                'You must complete your profile before applying to opportunities.'
-            );
-        }
-
         // Check for existing application (unique constraint will also catch this)
         $existingApplication = Application::query()
             ->where('collab_opportunity_id', $opportunity->id)

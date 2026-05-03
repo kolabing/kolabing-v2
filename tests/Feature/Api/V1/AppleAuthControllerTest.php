@@ -115,7 +115,6 @@ class AppleAuthControllerTest extends TestCase
                         'id',
                         'email',
                         'user_type',
-                        'onboarding_completed',
                     ],
                 ],
             ]);

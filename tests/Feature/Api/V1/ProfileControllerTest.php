@@ -75,7 +75,6 @@ class ProfileControllerTest extends TestCase
                     'user_type',
                     'avatar_url',
                     'email_verified_at',
-                    'onboarding_completed',
                     'created_at',
                     'updated_at',
                     'business_profile' => [
@@ -165,7 +164,6 @@ class ProfileControllerTest extends TestCase
                     'phone_number',
                     'user_type',
                     'avatar_url',
-                    'onboarding_completed',
                     'community_profile' => [
                         'id',
                         'name',

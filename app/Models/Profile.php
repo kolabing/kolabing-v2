@@ -53,7 +53,6 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, EarnedBadge> $earnedBadges
  * @property-read ReferralCode|null $referralCode
  * @property-read \Illuminate\Database\Eloquent\Collection<int, WithdrawalRequest> $withdrawalRequests
- * @property-read bool $onboarding_completed
  */
 class Profile extends Authenticatable
 {
@@ -412,27 +411,5 @@ class Profile extends Authenticatable
         }
 
         return $this->communityProfile;
-    }
-
-    /**
-     * Check if onboarding is completed.
-     * Onboarding is complete when: name + city + at least one social field.
-     */
-    public function getOnboardingCompletedAttribute(): bool
-    {
-        $extendedProfile = $this->getExtendedProfile();
-
-        if (! $extendedProfile) {
-            return false;
-        }
-
-        $hasName = ! empty($extendedProfile->name);
-        $hasCity = ! empty($extendedProfile->city_id);
-        $hasSocialField = ! empty($extendedProfile->instagram)
-            || ! empty($extendedProfile->website)
-            || ! empty($this->phone_number)
-            || ($extendedProfile instanceof CommunityProfile && ! empty($extendedProfile->tiktok));
-
-        return $hasName && $hasCity && $hasSocialField;
     }
 }

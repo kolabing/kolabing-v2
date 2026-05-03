@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
-use Database\Seeders\RealisticDataSeeder;
 use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
 use App\Models\City;
 use App\Models\CommunityProfile;
 use App\Models\Profile;
 use App\Services\GoogleAuthService;
+use Database\Seeders\RealisticDataSeeder;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -117,7 +117,6 @@ class AuthControllerTest extends TestCase
             ->assertJsonPath('data.token_type', 'Bearer')
             ->assertJsonPath('data.user.email', 'newbusiness@example.com')
             ->assertJsonPath('data.user.user_type', 'business')
-            ->assertJsonPath('data.user.onboarding_completed', false)
             ->assertJsonStructure([
                 'success',
                 'message',
@@ -134,7 +133,6 @@ class AuthControllerTest extends TestCase
                         'user_type',
                         'avatar_url',
                         'email_verified_at',
-                        'onboarding_completed',
                         'created_at',
                         'updated_at',
                         'business_profile',
@@ -319,7 +317,6 @@ class AuthControllerTest extends TestCase
                     'user_type',
                     'avatar_url',
                     'email_verified_at',
-                    'onboarding_completed',
                     'created_at',
                     'updated_at',
                     'business_profile',
@@ -542,7 +539,6 @@ class AuthControllerTest extends TestCase
             ->assertJsonPath('data.token_type', 'Bearer')
             ->assertJsonPath('data.user.email', 'newbusiness@example.com')
             ->assertJsonPath('data.user.user_type', 'business')
-            ->assertJsonPath('data.user.onboarding_completed', true)
             ->assertJsonStructure([
                 'success',
                 'message',
@@ -559,7 +555,6 @@ class AuthControllerTest extends TestCase
                         'user_type',
                         'avatar_url',
                         'email_verified_at',
-                        'onboarding_completed',
                         'created_at',
                         'updated_at',
                         'business_profile',
@@ -778,7 +773,6 @@ class AuthControllerTest extends TestCase
             ->assertJsonPath('data.token_type', 'Bearer')
             ->assertJsonPath('data.user.email', 'newcommunity@example.com')
             ->assertJsonPath('data.user.user_type', 'community')
-            ->assertJsonPath('data.user.onboarding_completed', true)
             ->assertJsonStructure([
                 'success',
                 'message',
@@ -795,7 +789,6 @@ class AuthControllerTest extends TestCase
                         'user_type',
                         'avatar_url',
                         'email_verified_at',
-                        'onboarding_completed',
                         'created_at',
                         'updated_at',
                         'community_profile',
@@ -984,7 +977,6 @@ class AuthControllerTest extends TestCase
                         'user_type',
                         'avatar_url',
                         'email_verified_at',
-                        'onboarding_completed',
                         'created_at',
                         'updated_at',
                         'business_profile',
@@ -1092,7 +1084,6 @@ class AuthControllerTest extends TestCase
                         'user_type',
                         'avatar_url',
                         'email_verified_at',
-                        'onboarding_completed',
                         'created_at',
                         'updated_at',
                         'business_profile',

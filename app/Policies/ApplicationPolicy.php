@@ -31,8 +31,7 @@ class ApplicationPolicy
 
     /**
      * Determine whether the user can create an application for the opportunity.
-     * Cannot apply to own opportunity; opportunity must be published;
-     * profile must be complete.
+     * Cannot apply to own opportunity; opportunity must be published.
      */
     public function create(Profile $user, CollabOpportunity $opportunity): bool
     {
@@ -43,11 +42,6 @@ class ApplicationPolicy
 
         // Opportunity must be open for applications (published)
         if (! $opportunity->isOpenForApplications()) {
-            return false;
-        }
-
-        // Profile must have completed onboarding
-        if (! $user->onboarding_completed) {
             return false;
         }
 
