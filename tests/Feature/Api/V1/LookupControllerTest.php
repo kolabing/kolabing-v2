@@ -166,6 +166,8 @@ class LookupControllerTest extends TestCase
 
     public function test_places_autocomplete_returns_place_predictions(): void
     {
+        config()->set('services.google_places.api_key', 'test-key');
+
         Http::fake([
             '*' => Http::sequence()
                 ->push([
@@ -204,8 +206,25 @@ class LookupControllerTest extends TestCase
             ->assertJsonPath('data.0.subtitle', 'Carrer de Mallorca 1, Barcelona, Spain');
     }
 
+    public function test_places_autocomplete_returns_empty_when_api_key_missing(): void
+    {
+        config()->set('services.google_places.api_key', null);
+
+        Http::fake();
+
+        $response = $this->getJson('/api/v1/places/autocomplete?query=coffee');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data', []);
+
+        Http::assertNothingSent();
+    }
+
     public function test_places_autocomplete_request_payload_biases_to_barcelona_without_primary_type_filter(): void
     {
+        config()->set('services.google_places.api_key', 'test-key');
+
         Http::fake([
             'places.googleapis.com/v1/places:autocomplete' => Http::response([
                 'suggestions' => [],
@@ -234,6 +253,8 @@ class LookupControllerTest extends TestCase
 
     public function test_places_autocomplete_matches_existing_city_id(): void
     {
+        config()->set('services.google_places.api_key', 'test-key');
+
         $city = City::factory()->create([
             'name' => 'Barcelona',
             'country' => 'Spain',

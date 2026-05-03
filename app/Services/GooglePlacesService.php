@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class GooglePlacesService
 {
@@ -14,6 +15,14 @@ class GooglePlacesService
     public function autocomplete(string $query): array
     {
         if ($query === '') {
+            return [];
+        }
+
+        $apiKey = config('services.google_places.api_key');
+
+        if (! is_string($apiKey) || $apiKey === '') {
+            Log::warning('Google Places autocomplete skipped: GOOGLE_PLACES_API_KEY is not configured.');
+
             return [];
         }
 
@@ -34,10 +43,22 @@ class GooglePlacesService
             ]);
 
         if (! $response->successful()) {
+            Log::warning('Google Places autocomplete request failed.', [
+                'query' => $query,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
             return [];
         }
 
         $suggestions = $response->json('suggestions', []);
+
+        if (empty($suggestions)) {
+            Log::info('Google Places autocomplete returned zero suggestions.', [
+                'query' => $query,
+            ]);
+        }
 
         return array_values(array_filter(array_map(function (array $suggestion): ?array {
             $prediction = $suggestion['placePrediction'] ?? null;
@@ -73,6 +94,12 @@ class GooglePlacesService
         ]))->get("https://places.googleapis.com/v1/places/{$placeId}");
 
         if (! $response->successful()) {
+            Log::warning('Google Places details request failed.', [
+                'place_id' => $placeId,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
             return [];
         }
 
