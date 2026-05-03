@@ -204,6 +204,34 @@ class LookupControllerTest extends TestCase
             ->assertJsonPath('data.0.subtitle', 'Carrer de Mallorca 1, Barcelona, Spain');
     }
 
+    public function test_places_autocomplete_request_payload_biases_to_barcelona_without_primary_type_filter(): void
+    {
+        Http::fake([
+            'places.googleapis.com/v1/places:autocomplete' => Http::response([
+                'suggestions' => [],
+            ]),
+        ]);
+
+        $this->getJson('/api/v1/places/autocomplete?query=coffee')
+            ->assertStatus(200);
+
+        Http::assertSent(function ($request) {
+            if ($request->url() !== 'https://places.googleapis.com/v1/places:autocomplete') {
+                return false;
+            }
+
+            $body = $request->data();
+
+            return $body['input'] === 'coffee'
+                && $body['includedRegionCodes'] === ['es']
+                && $body['languageCode'] === 'es'
+                && ! array_key_exists('includedPrimaryTypes', $body)
+                && $body['locationBias']['circle']['center']['latitude'] === 41.3874
+                && $body['locationBias']['circle']['center']['longitude'] === 2.1686
+                && $body['locationBias']['circle']['radius'] === 50000.0;
+        });
+    }
+
     public function test_places_autocomplete_matches_existing_city_id(): void
     {
         $city = City::factory()->create([
