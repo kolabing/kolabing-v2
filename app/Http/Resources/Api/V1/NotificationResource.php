@@ -22,9 +22,12 @@ class NotificationResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'notification_id' => $this->id,
             'type' => $this->type->value,
             'title' => $this->title,
             'body' => $this->body,
+            'deeplink' => $this->deeplink,
+            'priority' => $this->priority->value,
             'is_read' => $this->isRead(),
             'read_at' => $this->read_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),

@@ -5,20 +5,15 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\GamificationBadgeSlug;
-use App\Enums\NotificationType;
 use App\Enums\PointEventType;
+use App\Events\Gamification\BadgeAwarded as BadgeAwardedEvent;
 use App\Models\EarnedBadge;
 use App\Models\PointLedger;
-use App\Models\Profile;
 use App\Models\Wallet;
 use Illuminate\Support\Facades\DB;
 
 class GamificationWalletService
 {
-    public function __construct(
-        private readonly NotificationService $notificationService
-    ) {}
-
     /**
      * Award points to a profile. Creates wallet if none exists.
      * Evaluates badge conditions after awarding.
@@ -124,19 +119,12 @@ class GamificationWalletService
      */
     private function notifyBadgeEarned(string $profileId, GamificationBadgeSlug $badgeSlug, string $badgeId): void
     {
-        $profile = Profile::find($profileId);
-
-        if (! $profile) {
-            return;
-        }
-
-        $this->notificationService->createNotification(
-            recipient: $profile,
-            type: NotificationType::GamificationBadgeEarned,
-            title: 'Badge Earned!',
-            body: "You earned the \"{$badgeSlug->displayName()}\" badge!",
+        event(new BadgeAwardedEvent(
+            profileId: $profileId,
+            badgeName: $badgeSlug->displayName(),
             targetId: $badgeId,
             targetType: 'earned_badge',
-        );
+            dedupeKey: "badge_awarded:{$profileId}:{$badgeId}",
+        ));
     }
 }

@@ -8,6 +8,7 @@ use App\Exceptions\CollaborationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\CancelCollaborationRequest;
 use App\Http\Requests\Api\V1\CompleteCollaborationRequest;
+use App\Http\Requests\Api\V1\RescheduleCollaborationRequest;
 use App\Http\Resources\Api\V1\CollaborationCollection;
 use App\Http\Resources\Api\V1\CollaborationResource;
 use App\Models\Collaboration;
@@ -144,6 +145,40 @@ class CollaborationController extends Controller
     }
 
     /**
+     * PATCH /api/v1/collaborations/{collaboration}/schedule
+     */
+    public function reschedule(
+        RescheduleCollaborationRequest $request,
+        Collaboration $collaboration
+    ): JsonResponse {
+        $this->authorize('reschedule', $collaboration);
+
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        try {
+            $collaboration = $this->collaborationService->reschedule(
+                $collaboration,
+                $request->validated(),
+                $profile,
+            );
+        } catch (CollaborationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error_code' => 'invalid_status_transition',
+                'errors' => $e->getContext(),
+            ], $e->getStatusCode());
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => __('collaboration.rescheduled'),
+            'data' => new CollaborationResource($collaboration),
+        ]);
+    }
+
+    /**
      * Cancel a collaboration.
      *
      * POST /api/v1/collaborations/{collaboration}/cancel
@@ -154,12 +189,15 @@ class CollaborationController extends Controller
     ): JsonResponse {
         $this->authorize('cancel', $collaboration);
 
+        /** @var Profile $profile */
+        $profile = $request->user();
         $validated = $request->validated();
 
         try {
             $collaboration = $this->collaborationService->cancel(
                 $collaboration,
-                $validated['reason']
+                $validated['reason'],
+                $profile,
             );
         } catch (CollaborationException $e) {
             return response()->json([

@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\ChallengeCompletionStatus;
+use App\Events\Gamification\ChallengeRejected as ChallengeRejectedEvent;
+use App\Events\Gamification\ChallengeVerificationRequested as ChallengeVerificationRequestedEvent;
+use App\Events\Gamification\ChallengeVerified as ChallengeVerifiedEvent;
 use App\Models\Challenge;
 use App\Models\ChallengeCompletion;
 use App\Models\Event;
@@ -17,7 +20,6 @@ class ChallengeCompletionService
 {
     public function __construct(
         private readonly BadgeService $badgeService,
-        private readonly NotificationService $notificationService
     ) {}
 
     /**
@@ -82,6 +84,8 @@ class ChallengeCompletionService
             'points_earned' => 0,
         ]);
 
+        event(new ChallengeVerificationRequestedEvent($completion->id));
+
         return $completion->load(['challenge', 'event', 'challenger', 'verifier']);
     }
 
@@ -117,8 +121,7 @@ class ChallengeCompletionService
             return $completion->load(['challenge', 'event', 'challenger', 'verifier']);
         });
 
-        // Send challenge verified notification (after transaction)
-        $this->notificationService->notifyChallengeVerified($result);
+        event(new ChallengeVerifiedEvent($result->id));
 
         // Check for badge milestones (after transaction)
         $result->challenger->attendeeProfile?->refresh();
@@ -143,6 +146,8 @@ class ChallengeCompletionService
         $completion->update([
             'status' => ChallengeCompletionStatus::Rejected,
         ]);
+
+        event(new ChallengeRejectedEvent($completion->id));
 
         return $completion->load(['challenge', 'event', 'challenger', 'verifier']);
     }

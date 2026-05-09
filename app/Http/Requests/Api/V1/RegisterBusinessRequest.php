@@ -70,6 +70,7 @@ class RegisterBusinessRequest extends FormRequest
             'city_id' => ['nullable', 'uuid', 'exists:cities,id', 'required_without:city_name'],
             'city_name' => ['nullable', 'string', 'max:100', 'required_without:city_id'],
             'phone_number' => ['nullable', 'string', 'regex:/^\+[1-9]\d{1,14}$/'],
+            'referral_code' => ['sometimes', 'nullable', 'string', 'exists:referral_codes,code'],
             'instagram' => ['nullable', 'string', 'max:255', 'regex:/^@?[a-zA-Z0-9._]+$/'],
             'website' => ['nullable', 'url', 'max:255'],
             'profile_photo' => ['nullable', 'string'],
@@ -118,6 +119,7 @@ class RegisterBusinessRequest extends FormRequest
             'city_id.exists' => __('The selected city does not exist'),
             'city_name.required_without' => __('The city field is required'),
             'phone_number.regex' => __('The phone number format is invalid. Use E.164 format (e.g., +34612345678)'),
+            'referral_code.exists' => __('The selected referral code is invalid.'),
             'instagram.regex' => __('The instagram handle format is invalid'),
             'website.url' => __('The website must be a valid URL'),
         ];
@@ -190,6 +192,11 @@ class RegisterBusinessRequest extends FormRequest
             'profile_photo' => $validated['profile_photo'] ?? null,
             'primary_venue' => $validated['primary_venue'],
         ];
+    }
+
+    public function getReferralCode(): ?string
+    {
+        return $this->validated('referral_code');
     }
 
     /**

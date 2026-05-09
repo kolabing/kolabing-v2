@@ -69,6 +69,15 @@ class CollaborationException extends Exception
         );
     }
 
+    public static function cannotReschedule(string $currentStatus): self
+    {
+        return new self(
+            __('collaboration.cannot_reschedule'),
+            Response::HTTP_UNPROCESSABLE_ENTITY,
+            ['status' => $currentStatus],
+        );
+    }
+
     public static function alreadyInTerminalState(string $currentStatus): self
     {
         return new self(

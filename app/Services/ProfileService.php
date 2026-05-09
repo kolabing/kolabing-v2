@@ -134,6 +134,14 @@ class ProfileService
                 'new_application_alerts' => true,
                 'collaboration_updates' => true,
                 'marketing_tips' => false,
+                'messages_enabled' => true,
+                'applications_enabled' => true,
+                'collaborations_enabled' => true,
+                'rewards_enabled' => true,
+                'marketing_enabled' => false,
+                'quiet_hours_start' => null,
+                'quiet_hours_end' => null,
+                'timezone' => null,
             ]
         );
     }

@@ -78,7 +78,8 @@ class AuthService
 {
     public function __construct(
         private readonly BusinessVenueService $businessVenueService,
-        private readonly FileUploadService $fileUploadService
+        private readonly FileUploadService $fileUploadService,
+        private readonly ReferralService $referralService,
     ) {}
 
     /**
@@ -122,7 +123,7 @@ class AuthService
      * @param  GoogleUserData  $googleUserData
      * @return AuthResult|array{error: string, code: int}
      */
-    public function authenticateWithGoogle(array $googleUserData, UserType $userType): array
+    public function authenticateWithGoogle(array $googleUserData, UserType $userType, ?string $referralCode = null): array
     {
         // Check if user exists by google_id or email
         $existingProfile = Profile::query()
@@ -134,7 +135,7 @@ class AuthService
             return $this->loginExistingUser($existingProfile, $googleUserData, $userType);
         }
 
-        return $this->registerNewUser($googleUserData, $userType);
+        return $this->registerNewUser($googleUserData, $userType, $referralCode);
     }
 
     /**
@@ -190,9 +191,9 @@ class AuthService
      * @param  GoogleUserData  $googleUserData
      * @return AuthResult
      */
-    private function registerNewUser(array $googleUserData, UserType $userType): array
+    private function registerNewUser(array $googleUserData, UserType $userType, ?string $referralCode = null): array
     {
-        $profile = DB::transaction(function () use ($googleUserData, $userType): Profile {
+        $profile = DB::transaction(function () use ($googleUserData, $userType, $referralCode): Profile {
             // Create profile
             $profile = Profile::query()->create([
                 'email' => $googleUserData['email'],
@@ -222,6 +223,8 @@ class AuthService
                     'profile_id' => $profile->id,
                 ]);
             }
+
+            $this->referralService->rewardConversion($referralCode, $profile);
 
             return $profile;
         });
@@ -299,9 +302,9 @@ class AuthService
      * @param  BusinessProfileData  $businessProfileData
      * @return AuthResult
      */
-    public function registerBusiness(array $profileData, array $businessProfileData): array
+    public function registerBusiness(array $profileData, array $businessProfileData, ?string $referralCode = null): array
     {
-        $profile = DB::transaction(function () use ($profileData, $businessProfileData): Profile {
+        $profile = DB::transaction(function () use ($profileData, $businessProfileData, $referralCode): Profile {
             // Create profile
             $profile = Profile::query()->create([
                 'email' => $profileData['email'],
@@ -345,6 +348,8 @@ class AuthService
                 'status' => SubscriptionStatus::Inactive,
             ]);
 
+            $this->referralService->rewardConversion($referralCode, $profile);
+
             return $profile;
         });
 
@@ -385,9 +390,9 @@ class AuthService
      * @param  CommunityProfileData  $communityProfileData
      * @return AuthResult
      */
-    public function registerCommunity(array $profileData, array $communityProfileData): array
+    public function registerCommunity(array $profileData, array $communityProfileData, ?string $referralCode = null): array
     {
-        $profile = DB::transaction(function () use ($profileData, $communityProfileData): Profile {
+        $profile = DB::transaction(function () use ($profileData, $communityProfileData, $referralCode): Profile {
             // Create profile
             $profile = Profile::query()->create([
                 'email' => $profileData['email'],
@@ -409,6 +414,8 @@ class AuthService
                 'profile_photo' => $communityProfileData['profile_photo'],
             ]);
 
+            $this->referralService->rewardConversion($referralCode, $profile);
+
             return $profile;
         });
 
@@ -428,9 +435,9 @@ class AuthService
      * @param  array{email: string, password: string}  $data
      * @return AuthResult
      */
-    public function registerAttendee(array $data): array
+    public function registerAttendee(array $data, ?string $referralCode = null): array
     {
-        $profile = DB::transaction(function () use ($data): Profile {
+        $profile = DB::transaction(function () use ($data, $referralCode): Profile {
             $profile = Profile::query()->create([
                 'email' => $data['email'],
                 'password' => $data['password'],
@@ -440,6 +447,8 @@ class AuthService
             AttendeeProfile::query()->create([
                 'profile_id' => $profile->id,
             ]);
+
+            $this->referralService->rewardConversion($referralCode, $profile);
 
             return $profile;
         });

@@ -25,8 +25,8 @@ class ApplicationCreateTest extends TestCase
                 'availability' => 'Available on weekends and evenings throughout the month.',
             ]);
 
-        $response->assertStatus(201)
-            ->assertJsonPath('success', true);
+        $this->assertSame(201, $response->status(), $response->getContent());
+        $response->assertJsonPath('success', true);
 
         $this->assertDatabaseHas('applications', [
             'collab_opportunity_id' => $opportunity->id,

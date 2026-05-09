@@ -28,6 +28,7 @@ class RegisterAttendeeRequest extends FormRequest
         return [
             'email' => ['required', 'email', 'max:255', 'unique:profiles,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'referral_code' => ['sometimes', 'nullable', 'string', 'exists:referral_codes,code'],
         ];
     }
 
@@ -45,6 +46,7 @@ class RegisterAttendeeRequest extends FormRequest
             'password.required' => __('Password is required.'),
             'password.min' => __('Password must be at least 8 characters.'),
             'password.confirmed' => __('Password confirmation does not match.'),
+            'referral_code.exists' => __('The selected referral code is invalid.'),
         ];
     }
 
@@ -60,5 +62,10 @@ class RegisterAttendeeRequest extends FormRequest
             'message' => __('Validation failed'),
             'errors' => $validator->errors(),
         ], 422));
+    }
+
+    public function getReferralCode(): ?string
+    {
+        return $this->validated('referral_code');
     }
 }

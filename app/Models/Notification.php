@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\NotificationPriority;
 use App\Enums\NotificationType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property string $id
@@ -20,11 +22,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $actor_profile_id
  * @property string|null $target_id
  * @property string|null $target_type
+ * @property string|null $deeplink
+ * @property string|null $image_url
+ * @property array<string, mixed>|null $data
+ * @property NotificationPriority $priority
+ * @property bool $is_in_app
+ * @property bool $is_push
+ * @property string|null $dedupe_key
+ * @property \Illuminate\Support\Carbon|null $queued_at
  * @property \Illuminate\Support\Carbon|null $read_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Profile $profile
  * @property-read Profile|null $actorProfile
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, NotificationDelivery> $deliveries
  */
 class Notification extends Model
 {
@@ -51,6 +62,14 @@ class Notification extends Model
         'actor_profile_id',
         'target_id',
         'target_type',
+        'deeplink',
+        'image_url',
+        'data',
+        'priority',
+        'is_in_app',
+        'is_push',
+        'dedupe_key',
+        'queued_at',
         'read_at',
     ];
 
@@ -63,6 +82,11 @@ class Notification extends Model
     {
         return [
             'type' => NotificationType::class,
+            'data' => 'array',
+            'priority' => NotificationPriority::class,
+            'is_in_app' => 'boolean',
+            'is_push' => 'boolean',
+            'queued_at' => 'datetime',
             'read_at' => 'datetime',
         ];
     }
@@ -85,6 +109,14 @@ class Notification extends Model
     public function actorProfile(): BelongsTo
     {
         return $this->belongsTo(Profile::class, 'actor_profile_id');
+    }
+
+    /**
+     * @return HasMany<NotificationDelivery, $this>
+     */
+    public function deliveries(): HasMany
+    {
+        return $this->hasMany(NotificationDelivery::class);
     }
 
     /**

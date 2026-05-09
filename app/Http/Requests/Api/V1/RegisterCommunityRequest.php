@@ -57,6 +57,7 @@ class RegisterCommunityRequest extends FormRequest
             'community_type' => ['required', 'string', 'in:'.implode(',', self::COMMUNITY_TYPES)],
             'city_id' => ['required', 'uuid', 'exists:cities,id'],
             'phone_number' => ['nullable', 'string', 'regex:/^\+[1-9]\d{1,14}$/'],
+            'referral_code' => ['sometimes', 'nullable', 'string', 'exists:referral_codes,code'],
             'instagram' => ['nullable', 'string', 'max:255', 'regex:/^@?[a-zA-Z0-9._]+$/'],
             'tiktok' => ['nullable', 'string', 'max:255', 'regex:/^@?[a-zA-Z0-9._]+$/'],
             'website' => ['nullable', 'url', 'max:255'],
@@ -87,6 +88,7 @@ class RegisterCommunityRequest extends FormRequest
             'city_id.uuid' => __('The city ID must be a valid UUID'),
             'city_id.exists' => __('The selected city does not exist'),
             'phone_number.regex' => __('The phone number format is invalid. Use E.164 format (e.g., +34612345678)'),
+            'referral_code.exists' => __('The selected referral code is invalid.'),
             'instagram.regex' => __('The instagram handle format is invalid'),
             'tiktok.regex' => __('The tiktok handle format is invalid'),
             'website.url' => __('The website must be a valid URL'),
@@ -155,5 +157,10 @@ class RegisterCommunityRequest extends FormRequest
             'website' => $validated['website'] ?? null,
             'profile_photo' => $validated['profile_photo'] ?? null,
         ];
+    }
+
+    public function getReferralCode(): ?string
+    {
+        return $this->validated('referral_code');
     }
 }

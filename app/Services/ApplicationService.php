@@ -6,6 +6,10 @@ namespace App\Services;
 
 use App\Enums\ApplicationStatus;
 use App\Enums\CollaborationStatus;
+use App\Events\Applications\ApplicationAccepted as ApplicationAcceptedEvent;
+use App\Events\Applications\ApplicationCreated as ApplicationCreatedEvent;
+use App\Events\Applications\ApplicationDeclined as ApplicationDeclinedEvent;
+use App\Events\Collaborations\CollaborationScheduled as CollaborationScheduledEvent;
 use App\Models\Application;
 use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
@@ -17,10 +21,6 @@ use RuntimeException;
 
 class ApplicationService
 {
-    public function __construct(
-        private readonly NotificationService $notificationService
-    ) {}
-
     /**
      * Apply to an opportunity.
      *
@@ -35,16 +35,20 @@ class ApplicationService
     {
         $this->validateCanApply($applicant, $opportunity);
 
-        $application = Application::create([
-            'collab_opportunity_id' => $opportunity->id,
-            'applicant_profile_id' => $applicant->id,
-            'applicant_profile_type' => $applicant->user_type,
-            'message' => $data['message'] ?? null,
-            'availability' => $data['availability'] ?? null,
-            'status' => ApplicationStatus::Pending,
-        ]);
+        $application = DB::transaction(function () use ($applicant, $data, $opportunity): Application {
+            $application = Application::create([
+                'collab_opportunity_id' => $opportunity->id,
+                'applicant_profile_id' => $applicant->id,
+                'applicant_profile_type' => $applicant->user_type,
+                'message' => $data['message'] ?? null,
+                'availability' => $data['availability'] ?? null,
+                'status' => ApplicationStatus::Pending,
+            ]);
 
-        $this->notificationService->notifyApplicationReceived($application);
+            event(new ApplicationCreatedEvent($application->id));
+
+            return $application;
+        });
 
         return $application;
     }
@@ -89,7 +93,11 @@ class ApplicationService
 
             $collaboration = $this->createCollaboration($application, $data);
 
-            $this->notificationService->notifyApplicationAccepted($application);
+            event(new ApplicationAcceptedEvent($application->id));
+            event(new CollaborationScheduledEvent(
+                $collaboration->id,
+                $application->collabOpportunity->creator_profile_id,
+            ));
 
             return [
                 'application' => $application->fresh(),
@@ -114,11 +122,15 @@ class ApplicationService
             );
         }
 
-        $application->update([
-            'status' => ApplicationStatus::Declined,
-        ]);
+        $application = DB::transaction(function () use ($application): Application {
+            $application->update([
+                'status' => ApplicationStatus::Declined,
+            ]);
 
-        $this->notificationService->notifyApplicationDeclined($application);
+            event(new ApplicationDeclinedEvent($application->id));
+
+            return $application;
+        });
 
         return $application->fresh();
     }

@@ -143,6 +143,9 @@ Route::prefix('v1')->group(function (): void {
         Route::post('me/device-token', [DeviceTokenController::class, 'store'])
             ->name('api.v1.me.device-token');
 
+        Route::delete('me/device-token', [DeviceTokenController::class, 'destroy'])
+            ->name('api.v1.me.device-token.destroy');
+
         // Get full profile with subscription
         Route::get('me/profile', [ProfileController::class, 'show'])
             ->name('api.v1.me.profile');
@@ -605,6 +608,10 @@ Route::prefix('v1')->group(function (): void {
         // Complete collaboration
         Route::post('collaborations/{collaboration}/complete', [CollaborationController::class, 'complete'])
             ->name('api.v1.collaborations.complete');
+
+        // Reschedule collaboration
+        Route::patch('collaborations/{collaboration}/schedule', [CollaborationController::class, 'reschedule'])
+            ->name('api.v1.collaborations.reschedule');
 
         // Cancel collaboration
         Route::post('collaborations/{collaboration}/cancel', [CollaborationController::class, 'cancel'])

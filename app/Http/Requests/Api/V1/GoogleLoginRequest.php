@@ -30,6 +30,7 @@ class GoogleLoginRequest extends FormRequest
         return [
             'id_token' => ['required', 'string'],
             'user_type' => ['required', 'string', Rule::in(UserType::values())],
+            'referral_code' => ['sometimes', 'nullable', 'string', 'exists:referral_codes,code'],
         ];
     }
 
@@ -44,6 +45,7 @@ class GoogleLoginRequest extends FormRequest
             'id_token.required' => __('validation.required', ['attribute' => 'id token']),
             'user_type.required' => __('validation.required', ['attribute' => 'user type']),
             'user_type.in' => __('validation.in', ['attribute' => 'user type']),
+            'referral_code.exists' => __('The selected referral code is invalid.'),
         ];
     }
 
@@ -67,5 +69,10 @@ class GoogleLoginRequest extends FormRequest
     public function getUserType(): UserType
     {
         return UserType::from($this->validated('user_type'));
+    }
+
+    public function getReferralCode(): ?string
+    {
+        return $this->validated('referral_code');
     }
 }

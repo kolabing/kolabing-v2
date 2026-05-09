@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\ChallengeCompletionStatus;
 use App\Enums\RewardClaimStatus;
+use App\Events\Gamification\RewardWon as RewardWonEvent;
 use App\Models\ChallengeCompletion;
 use App\Models\EventReward;
 use App\Models\Profile;
@@ -16,7 +17,6 @@ class SpinWheelService
 {
     public function __construct(
         private readonly BadgeService $badgeService,
-        private readonly NotificationService $notificationService
     ) {}
 
     /**
@@ -106,8 +106,7 @@ class SpinWheelService
 
         $claim->load('eventReward');
 
-        // Send reward won notification
-        $this->notificationService->notifyRewardWon($claim);
+        event(new RewardWonEvent($claim->id));
 
         // Check for badge milestones
         $this->badgeService->checkAndAwardBadges($profile);

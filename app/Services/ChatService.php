@@ -4,20 +4,18 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Events\Messages\MessageCreated;
 use App\Events\NewChatMessage;
 use App\Models\Application;
 use App\Models\ChatMessage;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class ChatService
 {
-    public function __construct(
-        private readonly NotificationService $notificationService
-    ) {}
-
     /**
      * Get chat messages for an application.
      *
@@ -45,19 +43,22 @@ class ChatService
             throw new InvalidArgumentException('You are not authorized to send messages in this chat.');
         }
 
-        $message = ChatMessage::query()->create([
-            'application_id' => $application->id,
-            'sender_profile_id' => $sender->id,
-            'content' => $data['content'],
-        ]);
+        $message = DB::transaction(function () use ($application, $data, $sender): ChatMessage {
+            $message = ChatMessage::query()->create([
+                'application_id' => $application->id,
+                'sender_profile_id' => $sender->id,
+                'content' => $data['content'],
+            ]);
+
+            event(new MessageCreated($message->id, $application->id));
+
+            return $message;
+        });
 
         $message->load('senderProfile.businessProfile', 'senderProfile.communityProfile');
 
         // Broadcast the new message event
         broadcast(new NewChatMessage($message))->toOthers();
-
-        // Create notification for the recipient
-        $this->notificationService->notifyNewMessage($message, $application);
 
         return $message;
     }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\GamificationBadgeSlug;
-use App\Enums\PointEventType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreWithdrawalRequest;
 use App\Http\Resources\Api\V1\GamificationBadgeResource;
@@ -17,16 +16,17 @@ use App\Models\EarnedBadge;
 use App\Models\PointLedger;
 use App\Models\Profile;
 use App\Models\ReferralCode;
-use App\Models\WithdrawalRequest;
 use App\Services\GamificationWalletService;
+use App\Services\WithdrawalRequestService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 class GamificationController extends Controller
 {
     public function __construct(
-        private readonly GamificationWalletService $walletService
+        private readonly GamificationWalletService $walletService,
+        private readonly WithdrawalRequestService $withdrawalRequestService,
     ) {}
 
     /**
@@ -126,50 +126,14 @@ class GamificationController extends Controller
     {
         /** @var Profile $profile */
         $profile = $request->user();
-        $validated = $request->validated();
-
-        $wallet = $this->walletService->getOrCreateWallet($profile->id);
-
-        if ($wallet->pending_withdrawal) {
+        try {
+            $withdrawalRequest = $this->withdrawalRequestService->submit($profile, $request->validated());
+        } catch (InvalidArgumentException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'A withdrawal is already pending.',
-            ], 409);
+                'message' => $e->getMessage(),
+            ], str_contains($e->getMessage(), 'pending') ? 409 : 400);
         }
-
-        $availablePoints = $wallet->getAvailablePoints();
-        if ($availablePoints < 375) {
-            return response()->json([
-                'success' => false,
-                'message' => "Insufficient points. Need 375, have {$availablePoints}.",
-            ], 400);
-        }
-
-        $withdrawalRequest = DB::transaction(function () use ($profile, $wallet, $validated): WithdrawalRequest {
-            $eurAmount = round(375 * 0.20, 2);
-
-            $withdrawalRequest = WithdrawalRequest::create([
-                'profile_id' => $profile->id,
-                'points' => 375,
-                'eur_amount' => $eurAmount,
-                'iban' => $validated['iban'],
-                'account_holder' => $validated['account_holder'],
-                'status' => 'pending',
-            ]);
-
-            PointLedger::create([
-                'profile_id' => $profile->id,
-                'points' => -375,
-                'event_type' => PointEventType::Withdrawal,
-                'reference_id' => $withdrawalRequest->id,
-                'description' => "Withdrawal of \u{20AC}".number_format($eurAmount, 2),
-            ]);
-
-            $wallet->increment('redeemed_points', 375);
-            $wallet->update(['pending_withdrawal' => true]);
-
-            return $withdrawalRequest;
-        });
 
         return response()->json([
             'success' => true,

@@ -68,6 +68,18 @@ class CollaborationPolicy
     }
 
     /**
+     * Determine whether the user can reschedule the collaboration.
+     */
+    public function reschedule(Profile $user, Collaboration $collaboration): bool
+    {
+        if (! $this->isParticipant($user, $collaboration)) {
+            return false;
+        }
+
+        return $collaboration->isScheduled() || $collaboration->isActive();
+    }
+
+    /**
      * Check if the user is a participant in the collaboration.
      * A participant is either the opportunity creator or the applicant.
      */

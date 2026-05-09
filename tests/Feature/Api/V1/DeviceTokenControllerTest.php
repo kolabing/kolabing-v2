@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Models\DeviceToken;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -93,6 +94,13 @@ class DeviceTokenControllerTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('message', 'Device token registered successfully');
 
+        $this->assertDatabaseHas('device_tokens', [
+            'profile_id' => $profile->id,
+            'token' => 'fcm-ios-token-abc123',
+            'platform' => 'ios',
+            'is_active' => true,
+        ]);
+
         $this->assertDatabaseHas('profiles', [
             'id' => $profile->id,
             'device_token' => 'fcm-ios-token-abc123',
@@ -113,6 +121,13 @@ class DeviceTokenControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
             ->assertJsonPath('message', 'Device token registered successfully');
+
+        $this->assertDatabaseHas('device_tokens', [
+            'profile_id' => $profile->id,
+            'token' => 'fcm-android-token-xyz789',
+            'platform' => 'android',
+            'is_active' => true,
+        ]);
 
         $this->assertDatabaseHas('profiles', [
             'id' => $profile->id,
@@ -140,6 +155,80 @@ class DeviceTokenControllerTest extends TestCase
         $this->assertDatabaseHas('profiles', [
             'id' => $profile->id,
             'device_token' => 'new-refreshed-token',
+        ]);
+    }
+
+    public function test_store_device_token_transfers_token_ownership_to_new_profile(): void
+    {
+        $previousOwner = Profile::factory()->business()->create([
+            'device_token' => 'shared-token',
+            'device_platform' => 'ios',
+        ]);
+        DeviceToken::factory()->create([
+            'profile_id' => $previousOwner->id,
+            'token' => 'shared-token',
+            'platform' => 'ios',
+            'is_active' => true,
+        ]);
+
+        $newOwner = Profile::factory()->community()->create();
+
+        $response = $this->actingAs($newOwner)
+            ->postJson('/api/v1/me/device-token', [
+                'token' => 'shared-token',
+                'platform' => 'android',
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('device_tokens', [
+            'profile_id' => $newOwner->id,
+            'token' => 'shared-token',
+            'platform' => 'android',
+            'is_active' => true,
+        ]);
+
+        $this->assertDatabaseHas('profiles', [
+            'id' => $previousOwner->id,
+            'device_token' => null,
+            'device_platform' => null,
+        ]);
+    }
+
+    public function test_delete_device_token_marks_token_inactive(): void
+    {
+        $profile = Profile::factory()->business()->create([
+            'device_token' => 'logout-token',
+            'device_platform' => 'ios',
+        ]);
+        DeviceToken::factory()->create([
+            'profile_id' => $profile->id,
+            'token' => 'logout-token',
+            'platform' => 'ios',
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($profile)
+            ->deleteJson('/api/v1/me/device-token', [
+                'token' => 'logout-token',
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Device token removed successfully');
+
+        $this->assertDatabaseHas('device_tokens', [
+            'profile_id' => $profile->id,
+            'token' => 'logout-token',
+            'is_active' => false,
+            'invalid_reason' => 'user_deleted',
+        ]);
+
+        $this->assertDatabaseHas('profiles', [
+            'id' => $profile->id,
+            'device_token' => null,
+            'device_platform' => null,
         ]);
     }
 }

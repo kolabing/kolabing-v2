@@ -375,7 +375,16 @@ class NotificationTest extends TestCase
     public function test_sending_message_creates_notification_for_recipient(): void
     {
         $businessCreator = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $businessCreator->id,
+            'name' => 'Business Creator',
+        ]);
+
         $communityApplicant = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $communityApplicant->id,
+            'name' => 'Community Applicant',
+        ]);
 
         $opportunity = CollabOpportunity::factory()
             ->published()
@@ -397,7 +406,7 @@ class NotificationTest extends TestCase
         $this->assertDatabaseHas('notifications', [
             'profile_id' => $businessCreator->id,
             'type' => NotificationType::NewMessage->value,
-            'title' => 'New Message',
+            'title' => 'Community Applicant sent a message',
             'target_id' => $application->id,
             'target_type' => 'application',
         ]);
@@ -430,7 +439,7 @@ class NotificationTest extends TestCase
         $this->assertDatabaseHas('notifications', [
             'profile_id' => $businessCreator->id,
             'type' => NotificationType::ApplicationReceived->value,
-            'title' => 'New Application',
+            'title' => 'New application received',
             'target_type' => 'application',
         ]);
     }
@@ -469,7 +478,7 @@ class NotificationTest extends TestCase
         $this->assertDatabaseHas('notifications', [
             'profile_id' => $communityApplicant->id,
             'type' => NotificationType::ApplicationAccepted->value,
-            'title' => 'Application Accepted',
+            'title' => 'Application accepted',
             'target_id' => $application->id,
             'target_type' => 'application',
         ]);
@@ -500,7 +509,7 @@ class NotificationTest extends TestCase
         $this->assertDatabaseHas('notifications', [
             'profile_id' => $communityApplicant->id,
             'type' => NotificationType::ApplicationDeclined->value,
-            'title' => 'Application Declined',
+            'title' => 'Application update',
             'target_id' => $application->id,
             'target_type' => 'application',
         ]);

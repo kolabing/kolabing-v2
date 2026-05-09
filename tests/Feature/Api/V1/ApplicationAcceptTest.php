@@ -56,8 +56,8 @@ class ApplicationAcceptTest extends TestCase
         $firstResponse = $this->actingAs($business)
             ->postJson("/api/v1/applications/{$application->id}/accept", $payload);
 
-        $firstResponse->assertStatus(200)
-            ->assertJsonPath('success', true)
+        $this->assertSame(200, $firstResponse->status(), $firstResponse->getContent());
+        $firstResponse->assertJsonPath('success', true)
             ->assertJsonPath('data.application.id', $application->id)
             ->assertJsonPath('data.application.status', 'accepted')
             ->assertJsonPath('data.collaboration.status', 'scheduled');
@@ -67,8 +67,8 @@ class ApplicationAcceptTest extends TestCase
         $secondResponse = $this->actingAs($business)
             ->postJson("/api/v1/applications/{$application->id}/accept", $payload);
 
-        $secondResponse->assertStatus(200)
-            ->assertJsonPath('success', true)
+        $this->assertSame(200, $secondResponse->status(), $secondResponse->getContent());
+        $secondResponse->assertJsonPath('success', true)
             ->assertJsonPath('data.application.id', $application->id)
             ->assertJsonPath('data.application.status', 'accepted')
             ->assertJsonPath('data.collaboration.id', $collaborationId)

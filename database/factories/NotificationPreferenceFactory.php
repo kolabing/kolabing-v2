@@ -34,6 +34,14 @@ class NotificationPreferenceFactory extends Factory
             'new_application_alerts' => true,
             'collaboration_updates' => true,
             'marketing_tips' => false,
+            'messages_enabled' => true,
+            'applications_enabled' => true,
+            'collaborations_enabled' => true,
+            'rewards_enabled' => true,
+            'marketing_enabled' => false,
+            'quiet_hours_start' => null,
+            'quiet_hours_end' => null,
+            'timezone' => null,
         ];
     }
 
@@ -48,6 +56,11 @@ class NotificationPreferenceFactory extends Factory
             'new_application_alerts' => true,
             'collaboration_updates' => true,
             'marketing_tips' => true,
+            'messages_enabled' => true,
+            'applications_enabled' => true,
+            'collaborations_enabled' => true,
+            'rewards_enabled' => true,
+            'marketing_enabled' => true,
         ]);
     }
 
@@ -62,6 +75,11 @@ class NotificationPreferenceFactory extends Factory
             'new_application_alerts' => false,
             'collaboration_updates' => false,
             'marketing_tips' => false,
+            'messages_enabled' => false,
+            'applications_enabled' => false,
+            'collaborations_enabled' => false,
+            'rewards_enabled' => false,
+            'marketing_enabled' => false,
         ]);
     }
 }

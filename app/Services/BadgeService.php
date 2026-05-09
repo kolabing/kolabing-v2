@@ -6,7 +6,7 @@ namespace App\Services;
 
 use App\Enums\BadgeMilestoneType;
 use App\Enums\ChallengeCompletionStatus;
-use App\Enums\NotificationType;
+use App\Events\Gamification\BadgeAwarded as BadgeAwardedEvent;
 use App\Models\Badge;
 use App\Models\BadgeAward;
 use App\Models\ChallengeCompletion;
@@ -15,10 +15,6 @@ use App\Models\RewardClaim;
 
 class BadgeService
 {
-    public function __construct(
-        private readonly NotificationService $notificationService
-    ) {}
-
     /**
      * Check all milestone conditions and award any earned badges.
      *
@@ -52,14 +48,13 @@ class BadgeService
                 ]);
                 $awarded[] = $badge;
 
-                $this->notificationService->createNotification(
-                    recipient: $profile,
-                    type: NotificationType::BadgeAwarded,
-                    title: 'Badge Earned!',
-                    body: "You earned the \"{$badge->name}\" badge!",
+                event(new BadgeAwardedEvent(
+                    profileId: $profile->id,
+                    badgeName: $badge->name,
                     targetId: $badge->id,
                     targetType: 'badge',
-                );
+                    dedupeKey: "badge_awarded:{$profile->id}:{$badge->id}",
+                ));
             }
         }
 

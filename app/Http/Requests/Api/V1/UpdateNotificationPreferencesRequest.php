@@ -29,6 +29,14 @@ class UpdateNotificationPreferencesRequest extends FormRequest
             'new_application_alerts' => ['sometimes', 'boolean'],
             'collaboration_updates' => ['sometimes', 'boolean'],
             'marketing_tips' => ['sometimes', 'boolean'],
+            'messages_enabled' => ['sometimes', 'boolean'],
+            'applications_enabled' => ['sometimes', 'boolean'],
+            'collaborations_enabled' => ['sometimes', 'boolean'],
+            'rewards_enabled' => ['sometimes', 'boolean'],
+            'marketing_enabled' => ['sometimes', 'boolean'],
+            'quiet_hours_start' => ['sometimes', 'nullable', 'date_format:H:i:s'],
+            'quiet_hours_end' => ['sometimes', 'nullable', 'date_format:H:i:s'],
+            'timezone' => ['sometimes', 'nullable', 'string', 'max:64'],
         ];
     }
 
@@ -45,6 +53,14 @@ class UpdateNotificationPreferencesRequest extends FormRequest
             'new_application_alerts',
             'collaboration_updates',
             'marketing_tips',
+            'messages_enabled',
+            'applications_enabled',
+            'collaborations_enabled',
+            'rewards_enabled',
+            'marketing_enabled',
+            'quiet_hours_start',
+            'quiet_hours_end',
+            'timezone',
         ]);
     }
 }

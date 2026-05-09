@@ -58,7 +58,8 @@ class AuthController extends Controller
         // Authenticate or register the user
         $result = $this->authService->authenticateWithGoogle(
             $googleUserData,
-            $request->getUserType()
+            $request->getUserType(),
+            $request->getReferralCode(),
         );
 
         // Check for errors
@@ -212,7 +213,8 @@ class AuthController extends Controller
     {
         $result = $this->authService->registerBusiness(
             $request->getProfileData(),
-            $request->getBusinessProfileData()
+            $request->getBusinessProfileData(),
+            $request->getReferralCode(),
         );
 
         return response()->json([
@@ -238,7 +240,8 @@ class AuthController extends Controller
     {
         $result = $this->authService->registerCommunity(
             $request->getProfileData(),
-            $request->getCommunityProfileData()
+            $request->getCommunityProfileData(),
+            $request->getReferralCode(),
         );
 
         return response()->json([
@@ -263,7 +266,8 @@ class AuthController extends Controller
     public function registerAttendee(RegisterAttendeeRequest $request): JsonResponse
     {
         $result = $this->authService->registerAttendee(
-            $request->only(['email', 'password'])
+            $request->only(['email', 'password']),
+            $request->getReferralCode(),
         );
 
         return response()->json([

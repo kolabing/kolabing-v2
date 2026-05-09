@@ -62,7 +62,6 @@ class KolabResource extends JsonResource
     }
 
     /**
-     * @param  mixed  $media
      * @return array<int, array{url: string, type: string, thumbnail_url: string|null, sort_order: int}>
      */
     private function normalizeMediaCollection(mixed $media): array
@@ -103,7 +102,6 @@ class KolabResource extends JsonResource
     }
 
     /**
-     * @param  mixed  $pastEvents
      * @return array<int, array<string, mixed>>
      */
     private function normalizePastEvents(mixed $pastEvents): array

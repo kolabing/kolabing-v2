@@ -36,6 +36,14 @@ class NotificationFactory extends Factory
             'actor_profile_id' => Profile::factory(),
             'target_id' => null,
             'target_type' => null,
+            'deeplink' => '/notifications',
+            'image_url' => null,
+            'data' => [],
+            'priority' => 'normal',
+            'is_in_app' => true,
+            'is_push' => true,
+            'dedupe_key' => fake()->uuid(),
+            'queued_at' => now(),
             'read_at' => null,
         ];
     }
@@ -47,7 +55,7 @@ class NotificationFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'type' => NotificationType::NewMessage,
-            'title' => 'New Message',
+            'title' => 'Someone sent a message',
         ]);
     }
 
@@ -58,7 +66,7 @@ class NotificationFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'type' => NotificationType::ApplicationReceived,
-            'title' => 'New Application',
+            'title' => 'New application received',
         ]);
     }
 
@@ -69,7 +77,7 @@ class NotificationFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'type' => NotificationType::ApplicationAccepted,
-            'title' => 'Application Accepted',
+            'title' => 'Application accepted',
         ]);
     }
 
@@ -80,7 +88,7 @@ class NotificationFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'type' => NotificationType::ApplicationDeclined,
-            'title' => 'Application Declined',
+            'title' => 'Application update',
         ]);
     }
 

@@ -6,6 +6,8 @@ namespace App\Services;
 
 use App\Enums\CollaborationStatus;
 use App\Enums\PointEventType;
+use App\Events\Collaborations\CollaborationCancelled as CollaborationCancelledEvent;
+use App\Events\Collaborations\CollaborationRescheduled as CollaborationRescheduledEvent;
 use App\Exceptions\CollaborationException;
 use App\Models\Application;
 use App\Models\Collaboration;
@@ -135,7 +137,7 @@ class CollaborationService
      *
      * @throws CollaborationException
      */
-    public function cancel(Collaboration $collaboration, string $reason): Collaboration
+    public function cancel(Collaboration $collaboration, string $reason, ?Profile $actor = null): Collaboration
     {
         if ($collaboration->isInTerminalState()) {
             throw CollaborationException::alreadyInTerminalState($collaboration->status->value);
@@ -149,11 +151,64 @@ class CollaborationService
             'status' => CollaborationStatus::Cancelled,
         ]);
 
+        event(new CollaborationCancelledEvent($collaboration->id, $actor?->id, $reason));
+
         return $collaboration->fresh([
             'collabOpportunity',
             'creatorProfile',
             'applicantProfile',
             'application',
+        ]);
+    }
+
+    /**
+     * @param  array{scheduled_date: string}  $data
+     *
+     * @throws CollaborationException
+     */
+    public function reschedule(Collaboration $collaboration, array $data, ?Profile $actor = null): Collaboration
+    {
+        if ($collaboration->isInTerminalState()) {
+            throw CollaborationException::alreadyInTerminalState($collaboration->status->value);
+        }
+
+        if (! $collaboration->isScheduled() && ! $collaboration->isActive()) {
+            throw CollaborationException::cannotReschedule($collaboration->status->value);
+        }
+
+        $newDate = Carbon::parse($data['scheduled_date'])->toDateString();
+        $currentDate = $collaboration->scheduled_date?->toDateString();
+
+        if ($currentDate === $newDate) {
+            return $collaboration->fresh([
+                'collabOpportunity',
+                'creatorProfile',
+                'applicantProfile',
+                'application',
+                'event',
+            ]);
+        }
+
+        DB::transaction(function () use ($collaboration, $newDate, $actor): void {
+            $collaboration->update([
+                'scheduled_date' => $newDate,
+            ]);
+
+            if ($collaboration->event_id !== null) {
+                $collaboration->event()->update([
+                    'event_date' => $newDate,
+                ]);
+            }
+
+            event(new CollaborationRescheduledEvent($collaboration->id, $actor?->id));
+        });
+
+        return $collaboration->fresh([
+            'collabOpportunity',
+            'creatorProfile',
+            'applicantProfile',
+            'application',
+            'event',
         ]);
     }
 
