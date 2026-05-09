@@ -21,6 +21,7 @@ class ReferralCodeFactory extends Factory
         return [
             'profile_id' => Profile::factory(),
             'code' => 'KOLAB-'.strtoupper(Str::random(4)),
+            'expires_at' => null,
             'total_conversions' => 0,
             'total_points_earned' => 0,
         ];
@@ -38,6 +39,13 @@ class ReferralCodeFactory extends Factory
         return $this->state(fn () => [
             'total_conversions' => $count,
             'total_points_earned' => $pointsEarned,
+        ]);
+    }
+
+    public function expired(): static
+    {
+        return $this->state(fn () => [
+            'expires_at' => now()->subDay(),
         ]);
     }
 }

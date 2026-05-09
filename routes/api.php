@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\CollaborationQrCodeController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
+use App\Http\Controllers\Api\V1\DiscoveryOpportunityController;
 use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\EventDiscoveryController;
 use App\Http\Controllers\Api\V1\EventRewardController;
@@ -30,9 +31,9 @@ use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OnboardingController;
 use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\ReferralController;
 use App\Http\Controllers\Api\V1\RewardWalletController;
 use App\Http\Controllers\Api\V1\SpinWheelController;
-use App\Http\Controllers\Api\V1\StripeWebhookController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\SystemChallengeController;
 use App\Http\Controllers\Api\V1\UploadController;
@@ -83,10 +84,6 @@ Route::prefix('v1')->group(function (): void {
 
     Route::post('auth/reset-password', [AuthController::class, 'resetPassword'])
         ->name('api.v1.auth.reset-password');
-
-    // Stripe Webhook
-    Route::post('webhooks/stripe', StripeWebhookController::class)
-        ->name('api.v1.webhooks.stripe');
 
     // Apple Server Notifications V2 Webhook (public — verified via JWS signature)
     Route::post('webhooks/apple', AppleWebhookController::class)
@@ -183,28 +180,15 @@ Route::prefix('v1')->group(function (): void {
         Route::get('me/subscription', [SubscriptionController::class, 'show'])
             ->name('api.v1.me.subscription');
 
-        // Create Stripe checkout session
-        Route::post('me/subscription/checkout', [SubscriptionController::class, 'checkout'])
-            ->name('api.v1.me.subscription.checkout');
-
-        // Get Stripe billing portal URL
-        Route::get('me/subscription/portal', [SubscriptionController::class, 'portal'])
-            ->name('api.v1.me.subscription.portal');
-
-        // Cancel subscription at period end
-        Route::post('me/subscription/cancel', [SubscriptionController::class, 'cancel'])
-            ->name('api.v1.me.subscription.cancel');
-
-        // Reactivate subscription (remove cancel_at_period_end)
-        Route::post('me/subscription/reactivate', [SubscriptionController::class, 'reactivate'])
-            ->name('api.v1.me.subscription.reactivate');
-
         // Apple IAP (iOS only)
         Route::post('me/subscription/apple-verify', [AppleIAPController::class, 'verify'])
             ->name('api.v1.me.subscription.apple-verify');
 
         Route::post('me/subscription/apple-restore', [AppleIAPController::class, 'restore'])
             ->name('api.v1.me.subscription.apple-restore');
+
+        Route::post('referrals/validate', [ReferralController::class, 'validateCode'])
+            ->name('api.v1.referrals.validate');
 
         /*
         |--------------------------------------------------------------------------
@@ -431,6 +415,10 @@ Route::prefix('v1')->group(function (): void {
         | Opportunities
         |--------------------------------------------------------------------------
         */
+
+        // Role-aware discovery feed for Explore
+        Route::get('discovery/opportunities', DiscoveryOpportunityController::class)
+            ->name('api.v1.discovery.opportunities');
 
         // Browse opportunities (public list of published)
         Route::get('opportunities', [OpportunityController::class, 'index'])

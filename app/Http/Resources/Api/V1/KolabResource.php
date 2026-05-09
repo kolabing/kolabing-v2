@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Enums\IntentType;
 use App\Models\Kolab;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -40,7 +41,7 @@ class KolabResource extends JsonResource
             'community_size' => $this->community_size,
             'typical_attendance' => $this->typical_attendance,
             'offers_in_return' => $this->offers_in_return ?? [],
-            'venue_preference' => $this->venue_preference,
+            'venue_preference' => $this->resolvedVenuePreference(),
             'venue_name' => $this->venue_name,
             'venue_type' => $this->venue_type,
             'capacity' => $this->capacity,
@@ -62,7 +63,6 @@ class KolabResource extends JsonResource
     }
 
     /**
-     * @param  mixed  $media
      * @return array<int, array{url: string, type: string, thumbnail_url: string|null, sort_order: int}>
      */
     private function normalizeMediaCollection(mixed $media): array
@@ -103,7 +103,6 @@ class KolabResource extends JsonResource
     }
 
     /**
-     * @param  mixed  $pastEvents
      * @return array<int, array<string, mixed>>
      */
     private function normalizePastEvents(mixed $pastEvents): array
@@ -126,5 +125,16 @@ class KolabResource extends JsonResource
             ->filter()
             ->values()
             ->all();
+    }
+
+    private function resolvedVenuePreference(): ?string
+    {
+        if ($this->venue_preference !== null) {
+            return $this->venue_preference;
+        }
+
+        return $this->intent_type === IntentType::CommunitySeeking
+            ? 'no_venue'
+            : null;
     }
 }

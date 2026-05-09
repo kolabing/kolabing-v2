@@ -16,13 +16,6 @@ class AppleWebhookController extends Controller
         private readonly AppleIAPService $appleIAPService
     ) {}
 
-    /**
-     * Handle incoming Apple Server Notifications V2.
-     *
-     * POST /api/v1/webhooks/apple
-     * No auth — Apple sends signed JWS payload.
-     * Must return 200 within 5 seconds or Apple retries.
-     */
     public function __invoke(Request $request): JsonResponse
     {
         $signedPayload = $request->input('signedPayload');
@@ -42,6 +35,7 @@ class AppleWebhookController extends Controller
         $notificationType = $notification['notificationType'] ?? null;
         $subtype = $notification['subtype'] ?? '';
         $signedTransactionInfo = $notification['data']['signedTransactionInfo'] ?? null;
+        $signedRenewalInfo = $notification['data']['signedRenewalInfo'] ?? null;
 
         if (! $notificationType || ! $signedTransactionInfo) {
             return response()->json([], 200);
@@ -49,7 +43,16 @@ class AppleWebhookController extends Controller
 
         try {
             $transactionData = $this->appleIAPService->decodeSignedJwt($signedTransactionInfo);
-            $this->appleIAPService->handleNotification($notificationType, $transactionData, $subtype);
+            $renewalData = is_string($signedRenewalInfo)
+                ? $this->appleIAPService->decodeSignedJwt($signedRenewalInfo)
+                : null;
+
+            $this->appleIAPService->handleNotification(
+                $notificationType,
+                $transactionData,
+                $subtype,
+                $renewalData,
+            );
 
             Log::info('Apple webhook processed', [
                 'type' => $notificationType,

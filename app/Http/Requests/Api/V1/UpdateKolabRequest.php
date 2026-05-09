@@ -153,8 +153,19 @@ class UpdateKolabRequest extends FormRequest
     public function withValidator(ValidationValidator $validator): void
     {
         $validator->after(function (ValidationValidator $validator): void {
+            $profile = $this->user();
             $intentType = $this->input('intent_type');
             $kolab = $this->route('kolab');
+
+            if ($profile?->isCommunity() && in_array($intentType, [
+                IntentType::VenuePromotion->value,
+                IntentType::ProductPromotion->value,
+            ], true)) {
+                $validator->errors()->add(
+                    'intent_type',
+                    __('Community accounts can only update kolabs within the community flow.')
+                );
+            }
 
             $isVenuePromotion = $intentType === IntentType::VenuePromotion->value
                 || ($intentType === null && $kolab?->intent_type?->value === IntentType::VenuePromotion->value);
@@ -162,8 +173,6 @@ class UpdateKolabRequest extends FormRequest
             if (! $isVenuePromotion) {
                 return;
             }
-
-            $profile = $this->user();
 
             if (! $profile?->isBusiness()) {
                 return;

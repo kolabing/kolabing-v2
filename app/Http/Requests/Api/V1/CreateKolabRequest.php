@@ -36,6 +36,23 @@ class CreateKolabRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->input('intent_type') !== IntentType::CommunitySeeking->value) {
+            return;
+        }
+
+        $venuePreference = $this->input('venue_preference');
+
+        if (is_string($venuePreference) && $venuePreference !== '') {
+            return;
+        }
+
+        $this->merge([
+            'venue_preference' => 'no_venue',
+        ]);
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -59,7 +76,7 @@ class CreateKolabRequest extends FormRequest
             'typical_attendance' => ['required_if:intent_type,community_seeking', 'nullable', 'integer', 'min:1'],
             'offers_in_return' => ['required_if:intent_type,community_seeking', 'nullable', 'array'],
             'offers_in_return.*' => ['string', 'in:social_media,event_activation,product_placement,community_reach,review_feedback'],
-            'venue_preference' => ['required_if:intent_type,community_seeking', 'nullable', 'string', 'in:business_provides,community_provides,no_venue'],
+            'venue_preference' => ['nullable', 'string', 'in:business_provides,community_provides,no_venue'],
 
             // Venue Promotion fields
             'venue_name' => ['nullable', 'string', 'max:255'],
@@ -130,7 +147,6 @@ class CreateKolabRequest extends FormRequest
             'typical_attendance.required_if' => __('validation.required_if', ['attribute' => 'typical attendance', 'other' => 'intent type', 'value' => 'community_seeking']),
             'offers_in_return.required_if' => __('validation.required_if', ['attribute' => 'offers in return', 'other' => 'intent type', 'value' => 'community_seeking']),
             'offers_in_return.*.in' => __('validation.in', ['attribute' => 'offers in return item']),
-            'venue_preference.required_if' => __('validation.required_if', ['attribute' => 'venue preference', 'other' => 'intent type', 'value' => 'community_seeking']),
             'venue_preference.in' => __('validation.in', ['attribute' => 'venue preference']),
             'venue_name.required_if' => __('validation.required_if', ['attribute' => 'venue name', 'other' => 'intent type', 'value' => 'venue_promotion']),
             'venue_type.required_if' => __('validation.required_if', ['attribute' => 'venue type', 'other' => 'intent type', 'value' => 'venue_promotion']),
@@ -168,11 +184,22 @@ class CreateKolabRequest extends FormRequest
     public function withValidator(ValidationValidator $validator): void
     {
         $validator->after(function (ValidationValidator $validator): void {
-            if ($this->input('intent_type') !== IntentType::VenuePromotion->value) {
-                return;
+            $profile = $this->user();
+            $intentType = $this->input('intent_type');
+
+            if ($profile?->isCommunity() && in_array($intentType, [
+                IntentType::VenuePromotion->value,
+                IntentType::ProductPromotion->value,
+            ], true)) {
+                $validator->errors()->add(
+                    'intent_type',
+                    __('Community accounts can only create community-seeking kolabs.')
+                );
             }
 
-            $profile = $this->user();
+            if ($intentType !== IntentType::VenuePromotion->value) {
+                return;
+            }
 
             if (! $profile?->isBusiness()) {
                 return;

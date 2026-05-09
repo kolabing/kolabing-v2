@@ -11,6 +11,8 @@ use App\Models\Profile;
 use Carbon\Carbon;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -22,11 +24,10 @@ class AppleIAPService
 
     /**
      * Verify a transaction with Apple's App Store Server API.
-     * Returns the decoded transaction data array.
      *
      * @return array<string, mixed>
      *
-     * @throws \RuntimeException when Apple verification fails
+     * @throws \RuntimeException
      */
     public function verifyTransaction(string $transactionId): array
     {
@@ -46,6 +47,7 @@ class AppleIAPService
                 'status' => $response->status(),
                 'body' => $response->body(),
             ]);
+
             throw new \RuntimeException('Apple transaction verification failed');
         }
 
@@ -62,65 +64,121 @@ class AppleIAPService
         return $transaction;
     }
 
-    /**
-     * Find an existing subscription by original transaction ID, or create a new one.
-     *
-     * @param  array<string, mixed>  $transactionData
-     */
-    public function findOrCreateSubscription(Profile $profile, array $transactionData): BusinessSubscription
-    {
-        $originalTransactionId = $transactionData['originalTransactionId'];
-
-        /** @var BusinessSubscription|null $subscription */
-        $subscription = BusinessSubscription::query()
-            ->where('apple_original_transaction_id', $originalTransactionId)
-            ->first();
-
-        $periodStart = Carbon::createFromTimestampMs($transactionData['purchaseDate']);
-        $periodEnd = Carbon::createFromTimestampMs($transactionData['expiresDate']);
-
-        if ($subscription) {
-            $subscription->update([
-                'apple_transaction_id' => $transactionData['transactionId'],
-                'status' => SubscriptionStatus::Active,
-                'current_period_start' => $periodStart,
-                'current_period_end' => $periodEnd,
-                'cancel_at_period_end' => false,
-            ]);
-
-            return $subscription->fresh();
-        }
-
-        return BusinessSubscription::query()->create([
-            'profile_id' => $profile->id,
-            'source' => SubscriptionSource::AppleIap,
-            'apple_original_transaction_id' => $originalTransactionId,
-            'apple_transaction_id' => $transactionData['transactionId'],
-            'apple_product_id' => $transactionData['productId'],
-            'status' => SubscriptionStatus::Active,
-            'current_period_start' => $periodStart,
-            'current_period_end' => $periodEnd,
-            'cancel_at_period_end' => false,
-        ]);
-    }
-
-    /**
-     * Check if a transaction_id has already been recorded (idempotency).
-     */
-    public function transactionAlreadyRecorded(string $transactionId): bool
+    public function findSubscriptionByTransactionId(string $transactionId): ?BusinessSubscription
     {
         return BusinessSubscription::query()
             ->where('apple_transaction_id', $transactionId)
-            ->exists();
+            ->first();
     }
 
     /**
-     * Decode Apple's JWS (JSON Web Signature) compact notation.
-     * Used for both webhook signedPayload and signedTransactionInfo.
+     * @param  array<string, mixed>  $transactionData
+     *
+     * @throws \RuntimeException
+     */
+    public function assertTransactionMatchesRequest(
+        array $transactionData,
+        string $expectedOriginalTransactionId,
+        string $expectedProductId,
+    ): void {
+        if (($transactionData['originalTransactionId'] ?? null) !== $expectedOriginalTransactionId) {
+            throw new \RuntimeException('Apple original transaction ID mismatch');
+        }
+
+        if (($transactionData['productId'] ?? null) !== $expectedProductId) {
+            throw new \RuntimeException('Apple product ID mismatch');
+        }
+    }
+
+    /**
+     * Find an existing subscription for the profile/transaction or activate one in place.
+     *
+     * @param  array<string, mixed>  $transactionData
+     *
+     * @throws \RuntimeException
+     */
+    public function findOrCreateSubscription(Profile $profile, array $transactionData): BusinessSubscription
+    {
+        $originalTransactionId = (string) ($transactionData['originalTransactionId'] ?? '');
+        $transactionId = (string) ($transactionData['transactionId'] ?? '');
+
+        try {
+            return DB::transaction(function () use ($profile, $transactionData, $originalTransactionId, $transactionId): BusinessSubscription {
+                $subscription = BusinessSubscription::query()
+                    ->where('apple_original_transaction_id', $originalTransactionId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($subscription !== null && $subscription->profile_id !== $profile->id) {
+                    throw new \RuntimeException('Apple transaction already belongs to another profile');
+                }
+
+                $existingByTransaction = BusinessSubscription::query()
+                    ->where('apple_transaction_id', $transactionId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($existingByTransaction !== null && $existingByTransaction->profile_id !== $profile->id) {
+                    throw new \RuntimeException('Apple transaction already belongs to another profile');
+                }
+
+                if ($subscription === null) {
+                    $subscription = $existingByTransaction;
+                }
+
+                if ($subscription === null) {
+                    $subscription = BusinessSubscription::query()
+                        ->where('profile_id', $profile->id)
+                        ->lockForUpdate()
+                        ->first();
+                }
+
+                if (
+                    $subscription !== null
+                    && $subscription->apple_original_transaction_id !== null
+                    && $subscription->apple_original_transaction_id !== $originalTransactionId
+                ) {
+                    throw new \RuntimeException('Profile already linked to another Apple subscription');
+                }
+
+                $attributes = $this->activeSubscriptionAttributes($transactionData);
+
+                if ($subscription !== null) {
+                    $subscription->fill($attributes);
+                    $subscription->save();
+
+                    return $subscription->fresh();
+                }
+
+                return BusinessSubscription::query()->create([
+                    'profile_id' => $profile->id,
+                    ...$attributes,
+                ]);
+            });
+        } catch (QueryException $e) {
+            if (! $this->isUniqueConstraintViolation($e)) {
+                throw $e;
+            }
+
+            $existing = BusinessSubscription::query()
+                ->where('apple_transaction_id', $transactionId)
+                ->orWhere('apple_original_transaction_id', $originalTransactionId)
+                ->first();
+
+            if ($existing !== null && $existing->profile_id === $profile->id) {
+                return $existing;
+            }
+
+            throw new \RuntimeException('Apple transaction already belongs to another profile', previous: $e);
+        }
+    }
+
+    /**
+     * Decode Apple's JWS compact notation.
      *
      * @return array<string, mixed>
      *
-     * @throws \RuntimeException on invalid or unverifiable JWS
+     * @throws \RuntimeException
      */
     public function decodeSignedJwt(string $jws): array
     {
@@ -159,12 +217,15 @@ class AppleIAPService
     }
 
     /**
-     * Update a subscription based on Apple Server Notification type.
-     *
      * @param  array<string, mixed>  $transactionData
+     * @param  array<string, mixed>|null  $renewalData
      */
-    public function handleNotification(string $notificationType, array $transactionData, ?string $subtype = null): void
-    {
+    public function handleNotification(
+        string $notificationType,
+        array $transactionData,
+        ?string $subtype = null,
+        ?array $renewalData = null,
+    ): void {
         $originalTransactionId = $transactionData['originalTransactionId'] ?? null;
 
         if (! $originalTransactionId) {
@@ -190,18 +251,14 @@ class AppleIAPService
             'DID_CHANGE_RENEWAL_STATUS' => $subscription->update([
                 'cancel_at_period_end' => $subtype === 'AUTO_RENEW_DISABLED',
             ]),
-            'DID_FAIL_TO_RENEW' => $subscription->update(['status' => SubscriptionStatus::PastDue]),
-            'EXPIRED', 'GRACE_PERIOD_EXPIRED', 'REFUND', 'REVOKE' => $subscription->update([
-                'status' => SubscriptionStatus::Inactive,
-                'cancel_at_period_end' => false,
-            ]),
+            'DID_FAIL_TO_RENEW' => $subtype === 'GRACE_PERIOD'
+                ? $this->markGracePeriod($subscription, $transactionData, $renewalData)
+                : $this->markPastDue($subscription, $transactionData),
+            'EXPIRED', 'GRACE_PERIOD_EXPIRED', 'REFUND', 'REVOKE' => $this->deactivateSubscription($subscription, $transactionData),
             default => Log::info('Unhandled Apple notification type', ['type' => $notificationType]),
         };
     }
 
-    /**
-     * Generate a signed JWT for authenticating with App Store Server API.
-     */
     private function generateApiToken(): string
     {
         $privateKeyPath = config('services.apple.private_key_path');
@@ -223,8 +280,6 @@ class AppleIAPService
     }
 
     /**
-     * Validate that a decoded transaction belongs to this app.
-     *
      * @param  array<string, mixed>  $transaction
      */
     private function validateTransaction(array $transaction): void
@@ -241,22 +296,100 @@ class AppleIAPService
     }
 
     /**
-     * Activate or renew a subscription from transaction data.
-     *
      * @param  array<string, mixed>  $transactionData
      */
     private function activateSubscription(BusinessSubscription $subscription, array $transactionData): void
     {
-        $periodStart = Carbon::createFromTimestampMs($transactionData['purchaseDate']);
-        $periodEnd = Carbon::createFromTimestampMs($transactionData['expiresDate']);
+        $subscription->update($this->activeSubscriptionAttributes($transactionData));
+    }
 
-        $subscription->update([
-            'apple_transaction_id' => $transactionData['transactionId'],
+    /**
+     * @param  array<string, mixed>  $transactionData
+     * @param  array<string, mixed>|null  $renewalData
+     */
+    private function markGracePeriod(
+        BusinessSubscription $subscription,
+        array $transactionData,
+        ?array $renewalData = null,
+    ): void {
+        $attributes = $this->appleIdentityAttributes($transactionData);
+        $attributes['status'] = SubscriptionStatus::Active;
+        $attributes['current_period_start'] = isset($transactionData['purchaseDate'])
+            ? Carbon::createFromTimestampMs($transactionData['purchaseDate'])
+            : $subscription->current_period_start;
+        $attributes['current_period_end'] = isset($renewalData['gracePeriodExpiresDate'])
+            ? Carbon::createFromTimestampMs($renewalData['gracePeriodExpiresDate'])
+            : $this->resolveExpiresAt($transactionData);
+        $attributes['cancel_at_period_end'] = false;
+
+        $subscription->update($attributes);
+    }
+
+    /**
+     * @param  array<string, mixed>  $transactionData
+     */
+    private function markPastDue(BusinessSubscription $subscription, array $transactionData): void
+    {
+        $attributes = $this->appleIdentityAttributes($transactionData);
+        $attributes['status'] = SubscriptionStatus::PastDue;
+
+        $subscription->update($attributes);
+    }
+
+    /**
+     * @param  array<string, mixed>  $transactionData
+     */
+    private function deactivateSubscription(BusinessSubscription $subscription, array $transactionData): void
+    {
+        $attributes = $this->appleIdentityAttributes($transactionData);
+        $attributes['status'] = SubscriptionStatus::Inactive;
+        $attributes['cancel_at_period_end'] = false;
+        $attributes['current_period_end'] = $this->resolveExpiresAt($transactionData) ?? $subscription->current_period_end;
+
+        $subscription->update($attributes);
+    }
+
+    /**
+     * @param  array<string, mixed>  $transactionData
+     * @return array<string, mixed>
+     */
+    private function activeSubscriptionAttributes(array $transactionData): array
+    {
+        return [
+            ...$this->appleIdentityAttributes($transactionData),
             'status' => SubscriptionStatus::Active,
-            'current_period_start' => $periodStart,
-            'current_period_end' => $periodEnd,
+            'current_period_start' => isset($transactionData['purchaseDate'])
+                ? Carbon::createFromTimestampMs($transactionData['purchaseDate'])
+                : null,
+            'current_period_end' => $this->resolveExpiresAt($transactionData),
             'cancel_at_period_end' => false,
-        ]);
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $transactionData
+     * @return array<string, mixed>
+     */
+    private function appleIdentityAttributes(array $transactionData): array
+    {
+        return [
+            'source' => SubscriptionSource::AppleIap,
+            'stripe_customer_id' => null,
+            'stripe_subscription_id' => null,
+            'apple_original_transaction_id' => $transactionData['originalTransactionId'] ?? null,
+            'apple_transaction_id' => $transactionData['transactionId'] ?? null,
+            'apple_product_id' => $transactionData['productId'] ?? null,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $transactionData
+     */
+    private function resolveExpiresAt(array $transactionData): ?Carbon
+    {
+        return isset($transactionData['expiresDate'])
+            ? Carbon::createFromTimestampMs($transactionData['expiresDate'])
+            : null;
     }
 
     private function getApiBaseUrl(): string
@@ -264,5 +397,12 @@ class AppleIAPService
         return config('services.apple.iap_environment') === 'production'
             ? self::PRODUCTION_API
             : self::SANDBOX_API;
+    }
+
+    private function isUniqueConstraintViolation(QueryException $e): bool
+    {
+        return $e->getCode() === '23000'
+            || str_contains(strtolower($e->getMessage()), 'unique')
+            || str_contains(strtolower($e->getMessage()), 'constraint');
     }
 }

@@ -57,6 +57,38 @@ class KolabCreateTest extends TestCase
         ]);
     }
 
+    public function test_community_user_can_create_community_seeking_kolab_without_venue_preference(): void
+    {
+        $community = Profile::factory()->community()->create();
+
+        $payload = [
+            'intent_type' => 'community_seeking',
+            'title' => 'Art collective seeking host partners',
+            'description' => 'We host monthly art meetups and can bring promotion plus attendance.',
+            'preferred_city' => 'Barcelona',
+            'needs' => ['products', 'discount'],
+            'community_types' => ['art'],
+            'community_size' => 55,
+            'typical_attendance' => 77,
+            'offers_in_return' => ['social_media', 'event_activation'],
+        ];
+
+        $response = $this->actingAs($community)
+            ->postJson('/api/v1/kolabs', $payload);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.intent_type', 'community_seeking')
+            ->assertJsonPath('data.venue_preference', 'no_venue');
+
+        $this->assertDatabaseHas('kolabs', [
+            'creator_profile_id' => $community->id,
+            'intent_type' => 'community_seeking',
+            'title' => $payload['title'],
+            'venue_preference' => 'no_venue',
+        ]);
+    }
+
     public function test_business_user_can_create_venue_promotion_kolab(): void
     {
         $business = Profile::factory()->business()->create();
@@ -148,6 +180,27 @@ class KolabCreateTest extends TestCase
         ]);
     }
 
+    public function test_community_user_cannot_create_business_only_kolab_intent(): void
+    {
+        $community = Profile::factory()->community()->create();
+
+        $payload = [
+            'intent_type' => 'product_promotion',
+            'title' => 'Protein bars for local runners',
+            'description' => 'We want to introduce our product to running clubs in Barcelona.',
+            'preferred_city' => 'Barcelona',
+            'product_name' => 'Peak Fuel Bar',
+            'product_type' => 'food_product',
+            'offering' => ['products'],
+        ];
+
+        $response = $this->actingAs($community)
+            ->postJson('/api/v1/kolabs', $payload);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['intent_type']);
+    }
+
     public function test_create_kolab_requires_intent_type(): void
     {
         $profile = Profile::factory()->community()->create();
@@ -174,7 +227,7 @@ class KolabCreateTest extends TestCase
             'title' => 'Looking for a venue',
             'description' => 'We need a venue for our meetup.',
             'preferred_city' => 'Sevilla',
-            // Missing: needs, community_types, community_size, typical_attendance, offers_in_return, venue_preference
+            // Missing: needs, community_types, community_size, typical_attendance, offers_in_return
         ];
 
         $response = $this->actingAs($profile)
@@ -187,7 +240,6 @@ class KolabCreateTest extends TestCase
                 'community_size',
                 'typical_attendance',
                 'offers_in_return',
-                'venue_preference',
             ]);
     }
 

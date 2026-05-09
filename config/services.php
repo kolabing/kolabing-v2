@@ -74,21 +74,4 @@ return [
         'iap_environment' => env('APPLE_IAP_ENVIRONMENT', 'sandbox'),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Stripe Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Configure Stripe API credentials and subscription settings.
-    | Monthly subscription only - no credit system.
-    |
-    */
-
-    'stripe' => [
-        'secret' => env('STRIPE_SECRET_KEY'),
-        'publishable' => env('STRIPE_PUBLISHABLE_KEY'),
-        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
-        'monthly_price_id' => env('STRIPE_MONTHLY_PRICE_ID'),
-    ],
-
 ];

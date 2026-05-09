@@ -52,6 +52,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, PointLedger> $pointLedger
  * @property-read \Illuminate\Database\Eloquent\Collection<int, EarnedBadge> $earnedBadges
  * @property-read ReferralCode|null $referralCode
+ * @property-read ReferralRedemption|null $referralRedemption
  * @property-read \Illuminate\Database\Eloquent\Collection<int, WithdrawalRequest> $withdrawalRequests
  */
 class Profile extends Authenticatable
@@ -326,6 +327,16 @@ class Profile extends Authenticatable
     public function referralCode(): HasOne
     {
         return $this->hasOne(ReferralCode::class);
+    }
+
+    /**
+     * Get the referral redemption used by this profile.
+     *
+     * @return HasOne<ReferralRedemption, $this>
+     */
+    public function referralRedemption(): HasOne
+    {
+        return $this->hasOne(ReferralRedemption::class, 'referred_profile_id');
     }
 
     /**

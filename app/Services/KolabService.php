@@ -73,6 +73,7 @@ class KolabService
     public function create(Profile $creator, array $data): Kolab
     {
         $data = $this->normalizeKolabPayload($data);
+        $data = $this->applyCommunitySeekingDefaults($data);
 
         if ($data['intent_type'] === IntentType::VenuePromotion->value) {
             $data = $this->enrichVenuePromotionData($creator, $data);
@@ -122,6 +123,7 @@ class KolabService
         $data = $this->normalizeKolabPayload($data);
 
         $intentType = $data['intent_type'] ?? $kolab->intent_type->value;
+        $data = $this->applyCommunitySeekingDefaults($data, $intentType, $kolab->venue_preference);
 
         if ($intentType === IntentType::VenuePromotion->value) {
             $data = $this->enrichVenuePromotionData($kolab->creatorProfile, $data);
@@ -320,6 +322,31 @@ class KolabService
         if (array_key_exists('past_events', $data)) {
             $data['past_events'] = $this->normalizePastEvents($data['past_events']);
         }
+
+        return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function applyCommunitySeekingDefaults(array $data, ?string $intentType = null, ?string $currentVenuePreference = null): array
+    {
+        $resolvedIntentType = $intentType ?? $data['intent_type'] ?? null;
+
+        if ($resolvedIntentType !== IntentType::CommunitySeeking->value) {
+            return $data;
+        }
+
+        $venuePreference = $data['venue_preference'] ?? $currentVenuePreference;
+
+        if (is_string($venuePreference) && $venuePreference !== '') {
+            $data['venue_preference'] = $venuePreference;
+
+            return $data;
+        }
+
+        $data['venue_preference'] = 'no_venue';
 
         return $data;
     }

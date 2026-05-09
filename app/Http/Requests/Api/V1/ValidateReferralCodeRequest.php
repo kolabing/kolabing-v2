@@ -6,7 +6,7 @@ namespace App\Http\Requests\Api\V1;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class VerifyAppleTransactionRequest extends FormRequest
+class ValidateReferralCodeRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -19,10 +19,7 @@ class VerifyAppleTransactionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'transaction_id' => ['required', 'string'],
-            'original_transaction_id' => ['required', 'string'],
-            'product_id' => ['required', 'string'],
-            'referral_code' => ['nullable', 'string'],
+            'referral_code' => ['required', 'string'],
         ];
     }
 
@@ -37,12 +34,8 @@ class VerifyAppleTransactionRequest extends FormRequest
         ]);
     }
 
-    public function referralCode(): ?string
+    public function referralCode(): string
     {
-        $referralCode = $this->input('referral_code');
-
-        return is_string($referralCode) && $referralCode !== ''
-            ? $referralCode
-            : null;
+        return (string) $this->input('referral_code');
     }
 }

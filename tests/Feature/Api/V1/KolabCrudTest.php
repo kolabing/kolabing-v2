@@ -148,6 +148,25 @@ class KolabCrudTest extends TestCase
             ->assertJsonValidationErrors(['past_events.0.media.0.type']);
     }
 
+    public function test_community_user_cannot_update_kolab_to_business_only_intent(): void
+    {
+        $creator = Profile::factory()->community()->create();
+        $kolab = Kolab::factory()->forCreator($creator)->create([
+            'intent_type' => 'community_seeking',
+        ]);
+
+        $response = $this->actingAs($creator)
+            ->putJson("/api/v1/kolabs/{$kolab->id}", [
+                'intent_type' => 'product_promotion',
+                'product_name' => 'Peak Fuel Bar',
+                'product_type' => 'food_product',
+                'offering' => ['products'],
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['intent_type']);
+    }
+
     public function test_other_user_cannot_update_kolab(): void
     {
         $creator = Profile::factory()->business()->create();

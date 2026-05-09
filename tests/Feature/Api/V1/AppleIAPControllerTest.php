@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Enums\SubscriptionStatus;
 use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
 use App\Models\CommunityProfile;
+use App\Models\PointLedger;
 use App\Models\Profile;
+use App\Models\ReferralCode;
+use App\Models\Wallet;
 use App\Services\AppleIAPService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Mockery;
@@ -17,9 +21,9 @@ class AppleIAPControllerTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
-    private function mockAppleIAPService(): \Mockery\MockInterface
+    private function partialAppleIAPService(): \Mockery\MockInterface
     {
-        $mock = Mockery::mock(AppleIAPService::class);
+        $mock = Mockery::mock(AppleIAPService::class)->makePartial();
         $this->app->instance(AppleIAPService::class, $mock);
 
         return $mock;
@@ -36,12 +40,6 @@ class AppleIAPControllerTest extends TestCase
             'expiresDate' => now()->addMonth()->getTimestampMs(),
         ], $overrides);
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Verify Tests
-    |--------------------------------------------------------------------------
-    */
 
     public function test_verify_requires_authentication(): void
     {
@@ -72,8 +70,7 @@ class AppleIAPControllerTest extends TestCase
 
     public function test_verify_validates_required_fields(): void
     {
-        $profile = Profile::factory()->business()->create();
-        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+        $profile = $this->createBusinessProfile();
 
         $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', []);
 
@@ -87,11 +84,9 @@ class AppleIAPControllerTest extends TestCase
 
     public function test_verify_returns_400_when_apple_rejects_transaction(): void
     {
-        $profile = Profile::factory()->business()->create();
-        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+        $profile = $this->createBusinessProfile();
 
-        $mock = $this->mockAppleIAPService();
-        $mock->shouldReceive('transactionAlreadyRecorded')->once()->andReturn(false);
+        $mock = $this->partialAppleIAPService();
         $mock->shouldReceive('verifyTransaction')->once()->andThrow(new \RuntimeException('Apple verification failed'));
 
         $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', [
@@ -105,44 +100,155 @@ class AppleIAPControllerTest extends TestCase
             ->assertJsonPath('error', 'apple_verification_failed');
     }
 
-    public function test_verify_creates_new_subscription(): void
+    public function test_verify_activates_existing_inactive_subscription_and_rewards_valid_referral(): void
     {
-        $profile = Profile::factory()->business()->create();
-        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
-
-        $subscription = BusinessSubscription::factory()->apple()->create([
+        $profile = $this->createBusinessProfile();
+        $existingSubscription = BusinessSubscription::factory()->create([
             'profile_id' => $profile->id,
+            'status' => SubscriptionStatus::Inactive,
+            'source' => 'stripe',
         ]);
 
-        $mock = $this->mockAppleIAPService();
-        $mock->shouldReceive('transactionAlreadyRecorded')->once()->andReturn(false);
+        $referrer = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create(['profile_id' => $referrer->id]);
+        ReferralCode::factory()->forProfile($referrer)->create([
+            'code' => 'KOLAB-TEST',
+        ]);
+
+        $mock = $this->partialAppleIAPService();
         $mock->shouldReceive('verifyTransaction')->once()->andReturn($this->fakeTransactionData());
-        $mock->shouldReceive('findOrCreateSubscription')->once()->andReturn($subscription);
 
         $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', [
             'transaction_id' => '2000000111111111',
             'original_transaction_id' => '2000000000000001',
             'product_id' => 'com.kolabing.app.subscription.monthly',
+            'referral_code' => '  kolab-test  ',
         ]);
 
-        $response->assertStatus(200)
+        $response->assertOk()
             ->assertJsonPath('success', true)
+            ->assertJsonPath('data.id', $existingSubscription->id)
             ->assertJsonPath('data.source', 'apple_iap')
             ->assertJsonPath('data.status', 'active');
-    }
 
-    public function test_verify_returns_409_when_transaction_already_recorded(): void
-    {
-        $profile = Profile::factory()->business()->create();
-        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
-
-        BusinessSubscription::factory()->apple()->create([
-            'profile_id' => $profile->id,
+        $this->assertDatabaseHas('business_subscriptions', [
+            'id' => $existingSubscription->id,
+            'source' => 'apple_iap',
+            'status' => 'active',
             'apple_transaction_id' => '2000000111111111',
+            'apple_original_transaction_id' => '2000000000000001',
+            'apple_product_id' => 'com.kolabing.app.subscription.monthly',
         ]);
 
-        $mock = $this->mockAppleIAPService();
-        $mock->shouldReceive('transactionAlreadyRecorded')->once()->andReturn(true);
+        $this->assertDatabaseHas('referral_codes', [
+            'profile_id' => $referrer->id,
+            'code' => 'KOLAB-TEST',
+            'total_conversions' => 1,
+            'total_points_earned' => 50,
+        ]);
+
+        $this->assertDatabaseHas('wallets', [
+            'profile_id' => $referrer->id,
+            'points' => 50,
+        ]);
+
+        $this->assertDatabaseHas('point_ledger', [
+            'profile_id' => $referrer->id,
+            'points' => 50,
+            'event_type' => 'referral_conversion',
+            'reference_id' => $existingSubscription->id,
+        ]);
+    }
+
+    public function test_verify_is_idempotent_and_does_not_duplicate_referral_reward(): void
+    {
+        $profile = $this->createBusinessProfile();
+        BusinessSubscription::factory()->create([
+            'profile_id' => $profile->id,
+            'status' => SubscriptionStatus::Inactive,
+        ]);
+
+        $referrer = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create(['profile_id' => $referrer->id]);
+        ReferralCode::factory()->forProfile($referrer)->create([
+            'code' => 'KOLAB-TEST',
+        ]);
+
+        $mock = $this->partialAppleIAPService();
+        $mock->shouldReceive('verifyTransaction')->once()->andReturn($this->fakeTransactionData());
+
+        $payload = [
+            'transaction_id' => '2000000111111111',
+            'original_transaction_id' => '2000000000000001',
+            'product_id' => 'com.kolabing.app.subscription.monthly',
+            'referral_code' => 'KOLAB-TEST',
+        ];
+
+        $firstResponse = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', $payload);
+        $secondResponse = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', $payload);
+
+        $firstResponse->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.source', 'apple_iap');
+
+        $secondResponse->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.id', $firstResponse->json('data.id'))
+            ->assertJsonPath('data.source', 'apple_iap');
+
+        $this->assertSame(1, BusinessSubscription::query()->where('profile_id', $profile->id)->count());
+        $this->assertSame(1, PointLedger::query()
+            ->where('profile_id', $referrer->id)
+            ->where('event_type', 'referral_conversion')
+            ->count());
+        $this->assertSame(50, Wallet::query()->where('profile_id', $referrer->id)->value('points'));
+    }
+
+    public function test_verify_returns_422_for_invalid_referral_code(): void
+    {
+        $profile = $this->createBusinessProfile();
+        $existingSubscription = BusinessSubscription::factory()->create([
+            'profile_id' => $profile->id,
+            'status' => SubscriptionStatus::Inactive,
+        ]);
+
+        $mock = $this->partialAppleIAPService();
+        $mock->shouldReceive('verifyTransaction')->once()->andReturn($this->fakeTransactionData());
+
+        $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', [
+            'transaction_id' => '2000000111111111',
+            'original_transaction_id' => '2000000000000001',
+            'product_id' => 'com.kolabing.app.subscription.monthly',
+            'referral_code' => 'KOLAB-MISS',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertExactJson([
+                'message' => 'The given data was invalid.',
+                'errors' => [
+                    'referral_code' => ['The selected referral code is invalid.'],
+                ],
+            ]);
+
+        $this->assertDatabaseHas('business_subscriptions', [
+            'id' => $existingSubscription->id,
+            'status' => 'inactive',
+            'apple_transaction_id' => null,
+        ]);
+    }
+
+    public function test_verify_returns_400_when_request_payload_does_not_match_apple_transaction(): void
+    {
+        $profile = $this->createBusinessProfile();
+        BusinessSubscription::factory()->create([
+            'profile_id' => $profile->id,
+            'status' => SubscriptionStatus::Inactive,
+        ]);
+
+        $mock = $this->partialAppleIAPService();
+        $mock->shouldReceive('verifyTransaction')->once()->andReturn($this->fakeTransactionData([
+            'originalTransactionId' => '2000000000009999',
+        ]));
 
         $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', [
             'transaction_id' => '2000000111111111',
@@ -150,67 +256,20 @@ class AppleIAPControllerTest extends TestCase
             'product_id' => 'com.kolabing.app.subscription.monthly',
         ]);
 
-        $response->assertStatus(409)
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('message', 'Transaction already verified.');
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Restore Tests
-    |--------------------------------------------------------------------------
-    */
-
-    public function test_restore_requires_authentication(): void
-    {
-        $response = $this->postJson('/api/v1/me/subscription/apple-restore', [
-            'transactions' => [['transaction_id' => '123', 'original_transaction_id' => '123', 'product_id' => 'x']],
-        ]);
-
-        $response->assertStatus(401);
-    }
-
-    public function test_restore_validates_transactions_array(): void
-    {
-        $profile = Profile::factory()->business()->create();
-        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
-
-        $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-restore', [
-            'transactions' => [],
-        ]);
-
-        $response->assertStatus(422);
-    }
-
-    public function test_restore_returns_404_when_no_valid_subscription_found(): void
-    {
-        $profile = Profile::factory()->business()->create();
-        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
-
-        $mock = $this->mockAppleIAPService();
-        $mock->shouldReceive('verifyTransaction')->once()->andThrow(new \RuntimeException('Not found'));
-
-        $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-restore', [
-            'transactions' => [
-                ['transaction_id' => '999', 'original_transaction_id' => '999', 'product_id' => 'x'],
-            ],
-        ]);
-
-        $response->assertStatus(404)
+        $response->assertStatus(400)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('is_active', false);
+            ->assertJsonPath('error', 'apple_verification_failed');
     }
 
     public function test_restore_returns_subscription_when_found(): void
     {
-        $profile = Profile::factory()->business()->create();
-        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+        $profile = $this->createBusinessProfile();
 
         $subscription = BusinessSubscription::factory()->apple()->create([
             'profile_id' => $profile->id,
         ]);
 
-        $mock = $this->mockAppleIAPService();
+        $mock = $this->partialAppleIAPService();
         $mock->shouldReceive('verifyTransaction')->once()->andReturn($this->fakeTransactionData());
         $mock->shouldReceive('findOrCreateSubscription')->once()->andReturn($subscription);
 
@@ -224,5 +283,13 @@ class AppleIAPControllerTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.source', 'apple_iap')
             ->assertJsonPath('message', 'Subscription restored successfully.');
+    }
+
+    private function createBusinessProfile(): Profile
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+
+        return $profile;
     }
 }

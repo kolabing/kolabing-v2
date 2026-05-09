@@ -11,6 +11,7 @@ use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
 use App\Models\CommunityProfile;
 use App\Models\Profile;
+use App\Enums\SubscriptionSource;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
@@ -211,6 +212,7 @@ class AuthService
                 // Create inactive subscription for business users
                 BusinessSubscription::query()->create([
                     'profile_id' => $profile->id,
+                    'source' => SubscriptionSource::AppleIap,
                     'status' => SubscriptionStatus::Inactive,
                 ]);
             } elseif ($userType === UserType::Attendee) {
@@ -342,6 +344,7 @@ class AuthService
             // Create inactive subscription for business users
             BusinessSubscription::query()->create([
                 'profile_id' => $profile->id,
+                'source' => SubscriptionSource::AppleIap,
                 'status' => SubscriptionStatus::Inactive,
             ]);
 
