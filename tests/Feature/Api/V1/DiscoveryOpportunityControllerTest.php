@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Models\Application;
 use App\Models\BusinessProfile;
 use App\Models\City;
 use App\Models\CommunityProfile;
 use App\Models\Kolab;
 use App\Models\Profile;
+use App\Services\LegacyOpportunityBridgeService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
@@ -595,5 +597,133 @@ class DiscoveryOpportunityControllerTest extends TestCase
         $this->assertSame($olderKolab->id, $items[1]['id']);
         $this->assertContains('freshness_match', $items[0]['match']['reasons']);
         $this->assertGreaterThan($items[1]['match']['score'], $items[0]['match']['score']);
+    }
+
+    public function test_discovery_excludes_items_the_current_business_viewer_has_applied_to(): void
+    {
+        $viewer = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $viewer->id,
+            'name' => 'Casa Sol',
+            'business_type' => 'restaurant',
+            'categories' => ['restaurant'],
+            'city_name' => 'Barcelona',
+            'primary_venue' => [
+                'name' => 'Casa Sol Rooftop',
+                'venue_type' => 'restaurant',
+                'capacity' => 180,
+                'formatted_address' => 'Carrer Mallorca 12, Barcelona',
+                'city' => 'Barcelona',
+                'country' => 'Spain',
+                'photos' => [],
+            ],
+        ]);
+
+        $creator = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $creator->id,
+            'name' => 'Wellness Collective',
+            'community_type' => 'wellness_community',
+        ]);
+
+        $appliedKolab = Kolab::factory()->published()->forCreator($creator)->create([
+            'intent_type' => 'community_seeking',
+            'title' => 'Applied request',
+            'preferred_city' => 'Barcelona',
+            'needs' => ['venue'],
+            'community_types' => ['Wellness'],
+            'offers_in_return' => ['social_media'],
+            'venue_preference' => 'business_provides',
+            'availability_start' => now()->addDays(5),
+            'availability_end' => now()->addDays(6),
+        ]);
+
+        $visibleKolab = Kolab::factory()->published()->forCreator($creator)->create([
+            'intent_type' => 'community_seeking',
+            'title' => 'Visible request',
+            'preferred_city' => 'Barcelona',
+            'needs' => ['venue'],
+            'community_types' => ['Wellness'],
+            'offers_in_return' => ['social_media'],
+            'venue_preference' => 'business_provides',
+            'availability_start' => now()->addDays(7),
+            'availability_end' => now()->addDays(8),
+        ]);
+
+        $compatibilityOpportunity = app(LegacyOpportunityBridgeService::class)
+            ->resolveOrFail($appliedKolab->id, true);
+
+        Application::factory()
+            ->forOpportunity($compatibilityOpportunity)
+            ->forApplicant($viewer)
+            ->create();
+
+        $response = $this->actingAs($viewer)
+            ->getJson('/api/v1/discovery/opportunities?feed=all');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.meta.total', 1)
+            ->assertJsonPath('data.data.0.id', $visibleKolab->id);
+    }
+
+    public function test_discovery_excludes_items_the_current_community_viewer_has_applied_to(): void
+    {
+        $viewer = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $viewer->id,
+            'name' => 'Barcelona Run Club',
+            'community_type' => 'run_club',
+        ]);
+
+        $creator = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $creator->id,
+            'name' => 'Casa Sol',
+            'business_type' => 'cafe',
+            'categories' => ['cafe'],
+            'city_name' => 'Barcelona',
+            'primary_venue' => [
+                'name' => 'Casa Sol Rooftop',
+                'venue_type' => 'cafe',
+                'capacity' => 120,
+                'formatted_address' => 'Rambla 10, Barcelona',
+                'city' => 'Barcelona',
+                'country' => 'Spain',
+                'photos' => [],
+            ],
+        ]);
+
+        $appliedKolab = Kolab::factory()->published()->venuePromotion()->forCreator($creator)->create([
+            'title' => 'Applied offer',
+            'preferred_city' => 'Barcelona',
+            'offering' => ['venue_space'],
+            'expects' => ['social_media'],
+            'availability_start' => now()->addDays(5),
+            'availability_end' => now()->addDays(6),
+        ]);
+
+        $visibleKolab = Kolab::factory()->published()->productPromotion()->forCreator($creator)->create([
+            'title' => 'Visible offer',
+            'preferred_city' => 'Barcelona',
+            'offering' => ['products'],
+            'expects' => ['review_feedback'],
+            'availability_start' => now()->addDays(7),
+            'availability_end' => now()->addDays(8),
+        ]);
+
+        $compatibilityOpportunity = app(LegacyOpportunityBridgeService::class)
+            ->resolveOrFail($appliedKolab->id, true);
+
+        Application::factory()
+            ->forOpportunity($compatibilityOpportunity)
+            ->forApplicant($viewer)
+            ->create();
+
+        $response = $this->actingAs($viewer)
+            ->getJson('/api/v1/discovery/opportunities?feed=all');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.meta.total', 1)
+            ->assertJsonPath('data.data.0.id', $visibleKolab->id);
     }
 }

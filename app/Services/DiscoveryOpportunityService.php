@@ -182,8 +182,19 @@ class DiscoveryOpportunityService
 
         $this->applyRoleScope($query, $viewerRole);
         $this->applyActiveAvailabilityFilter($query);
+        $this->excludeAlreadyAppliedKolabs($query, $viewer);
 
         return $query;
+    }
+
+    private function excludeAlreadyAppliedKolabs(Builder $query, Profile $viewer): void
+    {
+        $query->whereNotExists(function ($subQuery) use ($viewer): void {
+            $subQuery->selectRaw('1')
+                ->from('applications')
+                ->whereColumn('applications.collab_opportunity_id', 'kolabs.id')
+                ->where('applications.applicant_profile_id', $viewer->id);
+        });
     }
 
     private function applyRoleScope(Builder $query, string $viewerRole): void
