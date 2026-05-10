@@ -12,9 +12,9 @@ use App\Http\Resources\Api\V1\ApplicationCollection;
 use App\Http\Resources\Api\V1\ApplicationResource;
 use App\Http\Resources\Api\V1\CollaborationResource;
 use App\Models\Application;
-use App\Models\CollabOpportunity;
 use App\Models\Profile;
 use App\Services\ApplicationService;
+use App\Services\LegacyOpportunityBridgeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
@@ -23,7 +23,8 @@ use RuntimeException;
 class ApplicationController extends Controller
 {
     public function __construct(
-        private readonly ApplicationService $applicationService
+        private readonly ApplicationService $applicationService,
+        private readonly LegacyOpportunityBridgeService $legacyOpportunityBridgeService,
     ) {}
 
     /**
@@ -31,10 +32,11 @@ class ApplicationController extends Controller
      *
      * GET /api/v1/opportunities/{opportunity}/applications
      */
-    public function forOpportunity(Request $request, CollabOpportunity $opportunity): JsonResponse
+    public function forOpportunity(Request $request, string $opportunity): JsonResponse
     {
         /** @var Profile $profile */
         $profile = $request->user();
+        $opportunity = $this->legacyOpportunityBridgeService->resolveOrFail($opportunity);
 
         if ($profile->cannot('viewApplications', $opportunity)) {
             return response()->json([
@@ -72,10 +74,11 @@ class ApplicationController extends Controller
      *
      * POST /api/v1/opportunities/{opportunity}/applications
      */
-    public function store(ApplyToOpportunityRequest $request, CollabOpportunity $opportunity): JsonResponse
+    public function store(ApplyToOpportunityRequest $request, string $opportunity): JsonResponse
     {
         /** @var Profile $profile */
         $profile = $request->user();
+        $opportunity = $this->legacyOpportunityBridgeService->resolveOrFail($opportunity, true);
 
         if ($profile->cannot('create', [Application::class, $opportunity])) {
             return response()->json([

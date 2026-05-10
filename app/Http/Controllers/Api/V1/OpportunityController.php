@@ -12,6 +12,7 @@ use App\Http\Resources\Api\V1\OpportunityCollection;
 use App\Http\Resources\Api\V1\OpportunityResource;
 use App\Models\CollabOpportunity;
 use App\Models\Profile;
+use App\Services\LegacyOpportunityBridgeService;
 use App\Services\OpportunityService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,6 +22,7 @@ class OpportunityController extends Controller
 {
     public function __construct(
         private readonly OpportunityService $opportunityService,
+        private readonly LegacyOpportunityBridgeService $legacyOpportunityBridgeService,
     ) {}
 
     /**
@@ -97,10 +99,11 @@ class OpportunityController extends Controller
      *
      * GET /api/v1/opportunities/{opportunity}
      */
-    public function show(Request $request, CollabOpportunity $opportunity): JsonResponse
+    public function show(Request $request, string $opportunity): JsonResponse
     {
         /** @var Profile $profile */
         $profile = $request->user();
+        $opportunity = $this->legacyOpportunityBridgeService->resolveOrFail($opportunity);
 
         if ($profile->cannot('view', $opportunity)) {
             return response()->json([
