@@ -13,6 +13,7 @@ use App\Models\CitySuggestion;
 use App\Models\Profile;
 use App\Services\GooglePlacesService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class LookupController extends Controller
@@ -294,5 +295,91 @@ class LookupController extends Controller
             'success' => true,
             'data' => $places,
         ]);
+    }
+
+    /**
+     * GET /api/v1/places/details
+     */
+    public function placeDetails(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'place_id' => ['required', 'string', 'max:255'],
+        ]);
+
+        $details = $this->googlePlacesService->importablePlaceDetails($validated['place_id']);
+
+        if ($details === []) {
+            return response()->json([
+                'success' => false,
+                'message' => "We couldn't import from Google, please fill in manually.",
+            ], 503);
+        }
+
+        $matchedCity = null;
+
+        if (! empty($details['city'])) {
+            $matchedCity = City::query()
+                ->whereRaw('LOWER(name) = ?', [mb_strtolower((string) $details['city'])])
+                ->first();
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'name' => $details['name'],
+                'about' => $details['about'],
+                'business_type' => $details['business_type'],
+                'categories' => $details['categories'],
+                'city_id' => $matchedCity?->id,
+                'city_name' => $details['city'],
+                'phone_number' => $details['phone_number'],
+                'website' => $details['website'],
+                'primary_venue' => [
+                    'name' => $details['name'],
+                    'venue_type' => $details['venue_type'],
+                    'capacity' => null,
+                    'place_id' => $details['place_id'],
+                    'formatted_address' => $details['formatted_address'],
+                    'city' => $details['city'],
+                    'country' => $details['country'],
+                    'latitude' => $details['latitude'],
+                    'longitude' => $details['longitude'],
+                    'phone_number' => $details['phone_number'],
+                    'website' => $details['website'],
+                    'opening_hours' => $details['opening_hours'],
+                    'description' => $details['description'],
+                    'price_level' => $details['price_level'],
+                    'rating' => $details['rating'],
+                    'user_ratings_total' => $details['user_ratings_total'],
+                    'google_place_types' => $details['google_place_types'],
+                    'photos' => $details['photos'],
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/v1/places/photo
+     */
+    public function placePhoto(Request $request): RedirectResponse|JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'max_width' => ['nullable', 'integer', 'min:1', 'max:4800'],
+        ]);
+
+        $photoUri = $this->googlePlacesService->photoUri(
+            $validated['name'],
+            (int) ($validated['max_width'] ?? 1600)
+        );
+
+        if (! is_string($photoUri) || $photoUri === '') {
+            return response()->json([
+                'success' => false,
+                'message' => "We couldn't import from Google, please fill in manually.",
+            ], 503);
+        }
+
+        return redirect()->away($photoUri);
     }
 }

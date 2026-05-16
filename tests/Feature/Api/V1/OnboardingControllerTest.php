@@ -10,6 +10,7 @@ use App\Models\City;
 use App\Models\CommunityProfile;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -319,6 +320,102 @@ class OnboardingControllerTest extends TestCase
             ]);
     }
 
+    public function test_business_onboarding_rehosts_selected_google_photos_and_persists_imported_metadata(): void
+    {
+        config(['filesystems.uploads_disk' => 'public']);
+        config()->set('services.google_places.api_key', 'test-key');
+        Storage::fake('public');
+
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $googleGif = base64_decode($this->tinyGifBase64());
+        $googleJpeg = base64_decode($this->tinyJpegBase64());
+        $uploadedPng = base64_decode(substr($this->tinyPngDataUri(), strlen('data:image/png;base64,')));
+
+        Http::fake([
+            'places.googleapis.com/v1/places/google-place-id/photos/photo-2/media*' => Http::response([
+                'name' => 'places/google-place-id/photos/photo-2/media',
+                'photoUri' => 'https://google-photos.test/photo-2.gif',
+            ]),
+            'places.googleapis.com/v1/places/google-place-id/photos/photo-1/media*' => Http::response([
+                'name' => 'places/google-place-id/photos/photo-1/media',
+                'photoUri' => 'https://google-photos.test/photo-1.jpg',
+            ]),
+            'google-photos.test/photo-2.gif' => Http::response($googleGif, 200, ['Content-Type' => 'image/gif']),
+            'google-photos.test/photo-1.jpg' => Http::response($googleJpeg, 200, ['Content-Type' => 'image/jpeg']),
+        ]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/onboarding/business', [
+                'name' => 'Cafe Barcelona',
+                'about' => 'Imported summary from Google',
+                'business_type' => 'cafe',
+                'city_name' => 'Barcelona',
+                'phone_number' => '+34612345678',
+                'website' => 'https://cafebarcelona.com',
+                'primary_venue' => [
+                    'name' => 'Cafe Barcelona Terrace',
+                    'venue_type' => 'cafe',
+                    'capacity' => 80,
+                    'place_id' => 'google-place-id',
+                    'formatted_address' => 'Passeig de Gracia 1, Barcelona',
+                    'city' => 'Barcelona',
+                    'country' => 'Spain',
+                    'latitude' => 41.3874,
+                    'longitude' => 2.1686,
+                    'phone_number' => '+34612345678',
+                    'website' => 'https://cafebarcelona.com',
+                    'opening_hours' => ['Monday: 09:00-17:00'],
+                    'description' => 'Imported summary from Google',
+                    'price_level' => 'PRICE_LEVEL_MODERATE',
+                    'rating' => 4.7,
+                    'user_ratings_total' => 128,
+                    'google_place_types' => ['cafe', 'food', 'establishment'],
+                    'photos' => [
+                        'places/google-place-id/photos/photo-2',
+                        $this->tinyPngDataUri(),
+                        'places/google-place-id/photos/photo-1',
+                    ],
+                ],
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.business_profile.primary_venue.phone_number', '+34612345678')
+            ->assertJsonPath('data.business_profile.primary_venue.website', 'https://cafebarcelona.com')
+            ->assertJsonPath('data.business_profile.primary_venue.opening_hours.0', 'Monday: 09:00-17:00')
+            ->assertJsonPath('data.business_profile.primary_venue.description', 'Imported summary from Google')
+            ->assertJsonPath('data.business_profile.primary_venue.price_level', 'PRICE_LEVEL_MODERATE')
+            ->assertJsonPath('data.business_profile.primary_venue.rating', 4.7)
+            ->assertJsonPath('data.business_profile.primary_venue.user_ratings_total', 128)
+            ->assertJsonPath('data.business_profile.primary_venue.google_place_types', ['cafe', 'food', 'establishment']);
+
+        $profile->refresh();
+        $profile->load('businessProfile');
+
+        $savedVenue = $profile->businessProfile->primary_venue;
+
+        $this->assertCount(3, $savedVenue['photos']);
+        $this->assertSame('+34612345678', $savedVenue['phone_number']);
+        $this->assertSame('https://cafebarcelona.com', $savedVenue['website']);
+        $this->assertSame(['Monday: 09:00-17:00'], $savedVenue['opening_hours']);
+        $this->assertSame('Imported summary from Google', $savedVenue['description']);
+        $this->assertSame('PRICE_LEVEL_MODERATE', $savedVenue['price_level']);
+        $this->assertSame(4.7, $savedVenue['rating']);
+        $this->assertSame(128, $savedVenue['user_ratings_total']);
+        $this->assertSame(['cafe', 'food', 'establishment'], $savedVenue['google_place_types']);
+
+        $firstPhotoPath = $this->storagePathFromUrl($savedVenue['photos'][0]);
+        $secondPhotoPath = $this->storagePathFromUrl($savedVenue['photos'][1]);
+        $thirdPhotoPath = $this->storagePathFromUrl($savedVenue['photos'][2]);
+
+        $this->assertSame($googleGif, Storage::disk('public')->get($firstPhotoPath));
+        $this->assertSame($uploadedPng, Storage::disk('public')->get($secondPhotoPath));
+        $this->assertSame($googleJpeg, Storage::disk('public')->get($thirdPhotoPath));
+    }
+
     public function test_community_onboarding_requires_authentication(): void
     {
         $response = $this->putJson('/api/v1/onboarding/community', [
@@ -430,5 +527,22 @@ class OnboardingControllerTest extends TestCase
     private function tinyPngDataUri(): string
     {
         return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9oNcamcAAAAASUVORK5CYII=';
+    }
+
+    private function tinyGifBase64(): string
+    {
+        return 'R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=';
+    }
+
+    private function tinyJpegBase64(): string
+    {
+        return '/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBxAQEBAQEBAPEA8QDw8PDw8PDw8QDw8QFREWFhURFRUYHSggGBolGxUVITEhJSkrLi4uFx8zODMsNygtLisBCgoKDg0OGxAQGy0lICUtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLf/AABEIAAEAAgMBIgACEQEDEQH/xAAXAAEBAQEAAAAAAAAAAAAAAAAAAQID/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEAMQAAAB9gD/xAAXEAEBAQEAAAAAAAAAAAAAAAABEQAh/9oACAEBAAEFAjDVl//EABQRAQAAAAAAAAAAAAAAAAAAABD/2gAIAQMBAT8BP//EABQRAQAAAAAAAAAAAAAAAAAAABD/2gAIAQIBAT8BP//EABcQAAMBAAAAAAAAAAAAAAAAAAABESH/2gAIAQEABj8CjVf/xAAXEAEBAQEAAAAAAAAAAAAAAAABEQAh/9oACAEBAAE/IeY0i6P/2gAMAwEAAgADAAAAED//xAAVEQEBAAAAAAAAAAAAAAAAAAABEP/aAAgBAwEBPxBf/8QAFBEBAAAAAAAAAAAAAAAAAAAAEP/aAAgBAgEBPxBf/8QAFxABAQEBAAAAAAAAAAAAAAAAAREAITFhcf/aAAgBAQABPxA6L1rG9xUQX//Z';
+    }
+
+    private function storagePathFromUrl(string $url): string
+    {
+        $path = parse_url($url, PHP_URL_PATH) ?? $url;
+
+        return ltrim(str_replace('/storage/', '', $path), '/');
     }
 }

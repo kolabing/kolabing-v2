@@ -300,6 +300,88 @@ class LookupControllerTest extends TestCase
             ->assertJsonPath('data.0.longitude', 2.1686);
     }
 
+    public function test_places_details_returns_business_onboarding_prefill_data(): void
+    {
+        config()->set('services.google_places.api_key', 'test-key');
+
+        $city = City::factory()->create([
+            'name' => 'Barcelona',
+            'country' => 'Spain',
+        ]);
+
+        Http::fake([
+            'places.googleapis.com/v1/places/google-place-id' => Http::response($this->googlePlaceDetailsPayload()),
+            'places.googleapis.com/v1/places/google-place-id/photos/photo-1/media*' => Http::response([
+                'name' => 'places/google-place-id/photos/photo-1/media',
+                'photoUri' => 'https://lh3.googleusercontent.com/photo-1',
+            ]),
+            'places.googleapis.com/v1/places/google-place-id/photos/photo-2/media*' => Http::response([
+                'name' => 'places/google-place-id/photos/photo-2/media',
+                'photoUri' => 'https://lh3.googleusercontent.com/photo-2',
+            ]),
+        ]);
+
+        $response = $this->getJson('/api/v1/places/details?place_id=google-place-id');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.name', 'Sol Studio Rooftop')
+            ->assertJsonPath('data.about', 'A rooftop cafe for coffee, events, and community meetups.')
+            ->assertJsonPath('data.business_type', 'cafe')
+            ->assertJsonPath('data.categories', ['cafe'])
+            ->assertJsonPath('data.city_id', $city->id)
+            ->assertJsonPath('data.city_name', 'Barcelona')
+            ->assertJsonPath('data.phone_number', '+34931234567')
+            ->assertJsonPath('data.website', 'https://solstudio.example.com')
+            ->assertJsonPath('data.primary_venue.name', 'Sol Studio Rooftop')
+            ->assertJsonPath('data.primary_venue.venue_type', 'cafe')
+            ->assertJsonPath('data.primary_venue.place_id', 'google-place-id')
+            ->assertJsonPath('data.primary_venue.formatted_address', 'Carrer de Mallorca 1, Barcelona')
+            ->assertJsonPath('data.primary_venue.opening_hours.0', 'Monday: 09:00-17:00')
+            ->assertJsonPath('data.primary_venue.price_level', 'PRICE_LEVEL_MODERATE')
+            ->assertJsonPath('data.primary_venue.rating', 4.7)
+            ->assertJsonPath('data.primary_venue.user_ratings_total', 128)
+            ->assertJsonPath('data.primary_venue.google_place_types', ['cafe', 'food', 'establishment'])
+            ->assertJsonPath('data.primary_venue.photos.0.resource_name', 'places/google-place-id/photos/photo-1')
+            ->assertJsonPath('data.primary_venue.photos.0.author_attributions.0.display_name', 'Photo One');
+
+        $this->assertStringContainsString(
+            '/api/v1/places/photo?name=places%2Fgoogle-place-id%2Fphotos%2Fphoto-1',
+            (string) $response->json('data.primary_venue.photos.0.preview_url')
+        );
+    }
+
+    public function test_places_details_returns_manual_fallback_message_when_google_import_is_unavailable(): void
+    {
+        config()->set('services.google_places.api_key', null);
+
+        Http::fake();
+
+        $response = $this->getJson('/api/v1/places/details?place_id=google-place-id');
+
+        $response->assertStatus(503)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', "We couldn't import from Google, please fill in manually.");
+
+        Http::assertNothingSent();
+    }
+
+    public function test_places_photo_proxy_redirects_to_temporary_google_photo_uri(): void
+    {
+        config()->set('services.google_places.api_key', 'test-key');
+
+        Http::fake([
+            'places.googleapis.com/v1/places/google-place-id/photos/photo-1/media*' => Http::response([
+                'name' => 'places/google-place-id/photos/photo-1/media',
+                'photoUri' => 'https://lh3.googleusercontent.com/photo-1',
+            ]),
+        ]);
+
+        $response = $this->get('/api/v1/places/photo?name=places/google-place-id/photos/photo-1');
+
+        $response->assertRedirect('https://lh3.googleusercontent.com/photo-1');
+    }
+
     // ─── Community Types ─────────────────────────────────────────
 
     public function test_community_types_endpoint_returns_all_types(): void
@@ -337,5 +419,59 @@ class LookupControllerTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function googlePlaceDetailsPayload(): array
+    {
+        return [
+            'id' => 'google-place-id',
+            'displayName' => [
+                'text' => 'Sol Studio Rooftop',
+            ],
+            'formattedAddress' => 'Carrer de Mallorca 1, Barcelona',
+            'location' => [
+                'latitude' => 41.3874,
+                'longitude' => 2.1686,
+            ],
+            'addressComponents' => [
+                ['types' => ['locality'], 'longText' => 'Barcelona'],
+                ['types' => ['country'], 'longText' => 'Spain'],
+            ],
+            'internationalPhoneNumber' => '+34931234567',
+            'websiteUri' => 'https://solstudio.example.com',
+            'regularOpeningHours' => [
+                'weekdayDescriptions' => ['Monday: 09:00-17:00'],
+            ],
+            'types' => ['cafe', 'food', 'establishment'],
+            'editorialSummary' => [
+                'text' => 'A rooftop cafe for coffee, events, and community meetups.',
+            ],
+            'priceLevel' => 'PRICE_LEVEL_MODERATE',
+            'rating' => 4.7,
+            'userRatingCount' => 128,
+            'photos' => [
+                [
+                    'name' => 'places/google-place-id/photos/photo-1',
+                    'widthPx' => 1200,
+                    'heightPx' => 800,
+                    'authorAttributions' => [
+                        [
+                            'displayName' => 'Photo One',
+                            'uri' => 'https://maps.google.com/photo-1',
+                            'photoUri' => 'https://maps.google.com/author-1',
+                        ],
+                    ],
+                ],
+                [
+                    'name' => 'places/google-place-id/photos/photo-2',
+                    'widthPx' => 1280,
+                    'heightPx' => 720,
+                    'authorAttributions' => [],
+                ],
+            ],
+        ];
     }
 }

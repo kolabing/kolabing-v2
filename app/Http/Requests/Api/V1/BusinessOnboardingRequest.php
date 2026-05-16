@@ -81,6 +81,16 @@ class BusinessOnboardingRequest extends FormRequest
             'primary_venue.country' => ['nullable', 'string', 'max:100'],
             'primary_venue.latitude' => ['nullable', 'numeric'],
             'primary_venue.longitude' => ['nullable', 'numeric'],
+            'primary_venue.phone_number' => ['nullable', 'string', 'max:30'],
+            'primary_venue.website' => ['nullable', 'url', 'max:255'],
+            'primary_venue.opening_hours' => ['nullable', 'array'],
+            'primary_venue.opening_hours.*' => ['string', 'max:255'],
+            'primary_venue.description' => ['nullable', 'string', 'max:1000'],
+            'primary_venue.price_level' => ['nullable', 'string', 'max:50'],
+            'primary_venue.rating' => ['nullable', 'numeric', 'between:0,5'],
+            'primary_venue.user_ratings_total' => ['nullable', 'integer', 'min:0'],
+            'primary_venue.google_place_types' => ['nullable', 'array'],
+            'primary_venue.google_place_types.*' => ['string', 'max:100'],
             'primary_venue.photos' => ['nullable', 'array'],
             'primary_venue.photos.*' => ['string'],
         ];
@@ -112,6 +122,7 @@ class BusinessOnboardingRequest extends FormRequest
             'phone_number.regex' => __('The phone number format is invalid. Use E.164 format (e.g., +34612345678)'),
             'instagram.regex' => __('The instagram handle format is invalid'),
             'website.url' => __('The website must be a valid URL'),
+            'primary_venue.website.url' => __('The venue website must be a valid URL'),
         ];
     }
 
