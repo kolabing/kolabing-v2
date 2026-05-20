@@ -30,6 +30,7 @@ class CommunityOnboardingRequest extends FormRequest
         'travel_community',
         'student_community',
         'professional_networking_community',
+        'business_coworking',
         'hobby_community',
         'other',
     ];

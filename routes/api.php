@@ -600,6 +600,10 @@ Route::prefix('v1')->group(function (): void {
         Route::post('collaborations/{collaboration}/complete', [CollaborationController::class, 'complete'])
             ->name('api.v1.collaborations.complete');
 
+        // Finish collaboration (either party, with rating + note)
+        Route::post('collaborations/{collaboration}/finish', [CollaborationController::class, 'finish'])
+            ->name('api.v1.collaborations.finish');
+
         // Cancel collaboration
         Route::post('collaborations/{collaboration}/cancel', [CollaborationController::class, 'cancel'])
             ->name('api.v1.collaborations.cancel');

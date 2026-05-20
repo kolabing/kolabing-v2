@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property string $id
@@ -35,6 +36,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property-read CommunityProfile $communityProfile
  * @property-read Event|null $event
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Challenge> $challenges
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, CollaborationReview> $reviews
  */
 class Collaboration extends Model
 {
@@ -155,6 +157,16 @@ class Collaboration extends Model
     {
         return $this->belongsToMany(Challenge::class, 'collaboration_challenges')
             ->withTimestamps();
+    }
+
+    /**
+     * Get the reviews submitted by participants for this collaboration.
+     *
+     * @return HasMany<CollaborationReview, $this>
+     */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(CollaborationReview::class);
     }
 
     /**

@@ -55,6 +55,19 @@ class CollaborationPolicy
     }
 
     /**
+     * Determine whether the user can finish the collaboration.
+     * Either participant may finish; only blocked once cancelled.
+     */
+    public function finish(Profile $user, Collaboration $collaboration): bool
+    {
+        if (! $this->isParticipant($user, $collaboration)) {
+            return false;
+        }
+
+        return ! $collaboration->isCancelled();
+    }
+
+    /**
      * Determine whether the user can cancel the collaboration.
      * Only participants; cannot be completed.
      */

@@ -236,6 +236,11 @@ class LookupController extends Controller
                 'description' => __('Professional and networking communities'),
             ],
             [
+                'value' => 'business_coworking',
+                'label' => __('Business / Coworking'),
+                'description' => __('Founder dinners, coworking collectives, and business groups'),
+            ],
+            [
                 'value' => 'hobby_community',
                 'label' => __('Hobby Community'),
                 'description' => __('Hobby and interest communities'),

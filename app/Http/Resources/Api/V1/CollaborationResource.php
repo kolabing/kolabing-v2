@@ -95,6 +95,14 @@ class CollaborationResource extends JsonResource
                 return $this->challenges->pluck('id')->values();
             }),
             'completed_at' => $this->completed_at?->toIso8601String(),
+            'reviews' => $this->whenLoaded('reviews', function () {
+                return $this->reviews->map(fn ($review): array => [
+                    'reviewer_role' => $review->reviewer_role,
+                    'rating' => $review->rating,
+                    'note' => $review->note,
+                    'created_at' => $review->created_at?->toIso8601String(),
+                ])->values();
+            }),
             'my_role' => $this->when($currentProfile !== null, fn () => $myRole),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

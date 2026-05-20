@@ -273,12 +273,43 @@ class FileUploadService
     /**
      * Get the full public URL for a stored file.
      *
+     * The mobile client renders every image with Image.network, which can only
+     * fetch absolute URLs. Depending on the disk and environment, the underlying
+     * driver may return either an absolute cloud URL (S3/R2 with a configured
+     * url/endpoint) or a relative path beginning with "/" (e.g. the local
+     * "public" disk, or a misconfigured cloud disk). We normalize the result so
+     * it is always an absolute, publicly fetchable URL.
+     *
      * @param  string  $path  The storage path of the file
-     * @return string The full public URL
+     * @return string The full, absolute public URL
      */
     public function getUrl(string $path): string
     {
-        return Storage::disk($this->storageDisk)->url($path);
+        $url = Storage::disk($this->storageDisk)->url($path);
+
+        return $this->toAbsoluteUrl($url);
+    }
+
+    /**
+     * Ensure a storage URL is absolute and publicly fetchable.
+     *
+     * Cloud drivers (S3/R2) with a configured url/endpoint already return an
+     * absolute "https://" URL and are left untouched. Relative paths (starting
+     * with "/") are prefixed with the application URL so mobile clients can
+     * resolve them.
+     *
+     * @param  string  $url  The URL or path produced by the storage driver
+     * @return string The absolute URL
+     */
+    private function toAbsoluteUrl(string $url): string
+    {
+        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+            return $url;
+        }
+
+        $base = rtrim((string) config('app.url'), '/');
+
+        return $base.'/'.ltrim($url, '/');
     }
 
     /**

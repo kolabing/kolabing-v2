@@ -9,4 +9,7 @@ return [
     'already_in_terminal_state' => 'Isbirligi zaten tamamlanmis veya iptal edilmis.',
     'application_not_accepted' => 'Isbirligi sadece kabul edilmis bir basvurudan olusturulabilir.',
     'already_exists' => 'Bu basvuru icin zaten bir isbirligi mevcut.',
+    'activated' => 'Isbirligi aktiflestirildi.',
+    'completed' => 'Isbirligi tamamlandi.',
+    'cancelled' => 'Isbirligi iptal edildi.',
 ];

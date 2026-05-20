@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\IntentType;
 use App\Enums\KolabStatus;
+use App\Exceptions\SubscriptionRequiredException;
 use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -170,10 +171,12 @@ class KolabService
         if ($kolab->intent_type !== IntentType::CommunitySeeking
             && ! $creator->hasActiveSubscription()
             && $creator->hasUsedFreeKolab()) {
-            throw new InvalidArgumentException(
+            throw new SubscriptionRequiredException(
                 'A subscription is required to publish this type of kolab.'
             );
         }
+
+        $this->assertMediaUrlsAreValid($kolab->media);
 
         $kolab->update([
             'status' => KolabStatus::Published,
@@ -349,6 +352,35 @@ class KolabService
         $data['venue_preference'] = 'no_venue';
 
         return $data;
+    }
+
+    /**
+     * Ensure any stored media URLs are present and absolute before publishing.
+     *
+     * Media is optional for kolabs, so an empty collection is allowed. When
+     * media is present, each item must carry a valid absolute URL. The message
+     * deliberately avoids the word "subscription" so the controller does not
+     * mis-map it to a 402 paywall response.
+     *
+     * @param  array<int, array<string, mixed>>|null  $media
+     *
+     * @throws InvalidArgumentException
+     */
+    private function assertMediaUrlsAreValid(?array $media): void
+    {
+        if (empty($media)) {
+            return;
+        }
+
+        foreach ($media as $item) {
+            $url = is_array($item) ? ($item['url'] ?? null) : $item;
+
+            if (! is_string($url) || $url === '' || ! filter_var($url, FILTER_VALIDATE_URL)) {
+                throw new InvalidArgumentException(
+                    'This kolab has an invalid or missing image URL. Please re-upload the media before publishing.'
+                );
+            }
+        }
     }
 
     /**

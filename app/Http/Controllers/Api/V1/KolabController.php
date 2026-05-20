@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exceptions\SubscriptionRequiredException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\CreateKolabRequest;
 use App\Http\Requests\Api\V1\UpdateKolabRequest;
@@ -238,6 +239,13 @@ class KolabController extends Controller
                 'message' => __('Kolab published successfully.'),
                 'data' => new KolabResource($kolab),
             ]);
+        } catch (SubscriptionRequiredException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'requires_subscription' => true,
+                'code' => 'subscription_required',
+            ], 402);
         } catch (InvalidArgumentException $e) {
             if (str_contains($e->getMessage(), 'subscription')) {
                 return response()->json([

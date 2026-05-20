@@ -47,6 +47,7 @@ class CollaborationService
                 'applicantProfile.communityProfile.city',
                 'application',
                 'challenges',
+                'reviews',
             ])
             ->orderByDesc('created_at')
             ->paginate($perPage);
@@ -68,6 +69,7 @@ class CollaborationService
                 'applicantProfile.communityProfile.city',
                 'application',
                 'challenges',
+                'reviews',
             ])
             ->findOrFail($id);
     }
@@ -128,6 +130,59 @@ class CollaborationService
             'applicantProfile',
             'application',
         ]);
+    }
+
+    /**
+     * Finish a collaboration on behalf of one participant, recording an optional
+     * rating and note. Transitions an active or scheduled collaboration to
+     * completed. Idempotent-safe: if the collaboration is already completed, the
+     * caller's review is still recorded without re-awarding points. Rejects only
+     * when the collaboration has been cancelled.
+     *
+     * @throws CollaborationException
+     */
+    public function finish(
+        Collaboration $collaboration,
+        Profile $profile,
+        ?int $rating = null,
+        ?string $note = null
+    ): Collaboration {
+        if ($collaboration->isCancelled()) {
+            throw CollaborationException::cannotComplete($collaboration->status->value);
+        }
+
+        $role = $this->getProfileRole($collaboration, $profile);
+
+        return DB::transaction(function () use ($collaboration, $profile, $role, $rating, $note): Collaboration {
+            $collaboration->reviews()->updateOrCreate(
+                ['reviewer_profile_id' => $profile->id],
+                [
+                    'reviewer_role' => $role,
+                    'rating' => $rating,
+                    'note' => $note,
+                ]
+            );
+
+            if (! $collaboration->isCompleted()) {
+                $collaboration->update([
+                    'status' => CollaborationStatus::Completed,
+                    'completed_at' => Carbon::now(),
+                ]);
+
+                $this->awardCollaborationPoints($collaboration);
+            }
+
+            return $collaboration->fresh([
+                'collabOpportunity',
+                'creatorProfile.businessProfile.city',
+                'creatorProfile.communityProfile.city',
+                'applicantProfile.businessProfile.city',
+                'applicantProfile.communityProfile.city',
+                'application',
+                'challenges',
+                'reviews',
+            ]);
+        });
     }
 
     /**

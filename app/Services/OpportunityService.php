@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Enums\OfferStatus;
 use App\Enums\UserType;
 use App\Exceptions\FreemiumLimitExceededException;
+use App\Exceptions\SubscriptionRequiredException;
 use App\Models\CollabOpportunity;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -272,10 +273,12 @@ class OpportunityService
         $creator = $opportunity->creatorProfile;
 
         if ($creator->isBusiness() && ! $creator->hasActiveSubscription()) {
-            throw new InvalidArgumentException(
+            throw new SubscriptionRequiredException(
                 'Business users must have an active subscription to publish opportunities.'
             );
         }
+
+        $this->assertOfferPhotoIsValid($opportunity->offer_photo);
 
         $opportunity->update([
             'status' => OfferStatus::Published,
@@ -285,6 +288,28 @@ class OpportunityService
         $opportunity->refresh();
 
         return $opportunity;
+    }
+
+    /**
+     * Ensure the offer photo, when set, is a valid absolute URL before publishing.
+     *
+     * The offer photo is optional, so a null/empty value is allowed. When set,
+     * it must be a valid absolute URL. The message deliberately avoids the word
+     * "subscription" so the controller does not mis-map it to a 402 paywall.
+     *
+     * @throws InvalidArgumentException
+     */
+    private function assertOfferPhotoIsValid(?string $offerPhoto): void
+    {
+        if ($offerPhoto === null || $offerPhoto === '') {
+            return;
+        }
+
+        if (! filter_var($offerPhoto, FILTER_VALIDATE_URL)) {
+            throw new InvalidArgumentException(
+                'This opportunity has an invalid offer image URL. Please re-upload the photo before publishing.'
+            );
+        }
     }
 
     /**

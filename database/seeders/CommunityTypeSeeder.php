@@ -109,6 +109,11 @@ class CommunityTypeSeeder extends Seeder
                 'icon' => 'users',
             ],
             [
+                'name' => 'Business / Coworking',
+                'slug' => 'business-coworking',
+                'icon' => 'briefcase',
+            ],
+            [
                 'name' => 'Hobby Community',
                 'slug' => 'hobby-community',
                 'icon' => 'star',

@@ -9,4 +9,7 @@ return [
     'already_in_terminal_state' => 'Collaboration is already completed or cancelled.',
     'application_not_accepted' => 'Collaboration can only be created from an accepted application.',
     'already_exists' => 'A collaboration already exists for this application.',
+    'activated' => 'Collaboration activated.',
+    'completed' => 'Collaboration completed.',
+    'cancelled' => 'Collaboration cancelled.',
 ];

@@ -8,6 +8,7 @@ use App\Exceptions\CollaborationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\CancelCollaborationRequest;
 use App\Http\Requests\Api\V1\CompleteCollaborationRequest;
+use App\Http\Requests\Api\V1\FinishCollaborationRequest;
 use App\Http\Resources\Api\V1\CollaborationCollection;
 use App\Http\Resources\Api\V1\CollaborationResource;
 use App\Models\Collaboration;
@@ -126,6 +127,45 @@ class CollaborationController extends Controller
             $collaboration = $this->collaborationService->complete(
                 $collaboration,
                 $validated['feedback'] ?? null
+            );
+        } catch (CollaborationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error_code' => 'invalid_status_transition',
+                'errors' => $e->getContext(),
+            ], $e->getStatusCode());
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => __('collaboration.completed'),
+            'data' => new CollaborationResource($collaboration),
+        ]);
+    }
+
+    /**
+     * Finish a collaboration, capturing the calling participant's rating and note.
+     *
+     * POST /api/v1/collaborations/{collaboration}/finish
+     */
+    public function finish(
+        FinishCollaborationRequest $request,
+        Collaboration $collaboration
+    ): JsonResponse {
+        $this->authorize('finish', $collaboration);
+
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        $validated = $request->validated();
+
+        try {
+            $collaboration = $this->collaborationService->finish(
+                $collaboration,
+                $profile,
+                isset($validated['rating']) ? (int) $validated['rating'] : null,
+                $validated['note'] ?? null
             );
         } catch (CollaborationException $e) {
             return response()->json([
