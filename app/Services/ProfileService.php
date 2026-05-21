@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\CollaborationStatus;
+use App\Enums\KolabStatus;
 use App\Models\Collaboration;
+use App\Models\Kolab;
 use App\Models\NotificationPreference;
 use App\Models\Profile;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
@@ -122,6 +126,51 @@ class ProfileService
     }
 
     /**
+     * Get a safe public-facing community profile payload.
+     *
+     * @throws ModelNotFoundException
+     */
+    public function getCommunityPublicProfile(Profile $profile): Profile
+    {
+        if (! $profile->isCommunity()) {
+            $exception = new ModelNotFoundException();
+            $exception->setModel(Profile::class, [$profile->id]);
+
+            throw $exception;
+        }
+
+        $profile->load([
+            'communityProfile.city',
+            'galleryPhotos',
+        ]);
+
+        $completedCollaborationsCount = Collaboration::query()
+            ->where('status', CollaborationStatus::Completed)
+            ->where(function ($query) use ($profile): void {
+                $query->where('creator_profile_id', $profile->id)
+                    ->orWhere('applicant_profile_id', $profile->id);
+            })
+            ->count();
+
+        $publishedKolabsCount = Kolab::query()
+            ->where('creator_profile_id', $profile->id)
+            ->whereIn('status', [KolabStatus::Published, KolabStatus::Closed])
+            ->count();
+
+        $pastEvents = $this->buildCommunityPastEvents($profile);
+
+        $profile->setAttribute('community_public_stats', [
+            'completed_collaborations_count' => $completedCollaborationsCount,
+            'published_kolabs_count' => $publishedKolabsCount,
+            'past_events_count' => count($pastEvents),
+        ]);
+        $profile->setAttribute('community_public_past_events', $pastEvents);
+        $profile->setAttribute('community_public_photos', $this->buildCommunityPhotos($profile, $pastEvents));
+
+        return $profile;
+    }
+
+    /**
      * Get or create notification preferences for a profile.
      */
     public function getOrCreateNotificationPreferences(Profile $profile): NotificationPreference
@@ -188,5 +237,143 @@ class ProfileService
         }
 
         return $extendedProfileData;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildCommunityPastEvents(Profile $profile): array
+    {
+        /** @var Collection<int, Kolab> $kolabs */
+        $kolabs = Kolab::query()
+            ->where('creator_profile_id', $profile->id)
+            ->whereIn('status', [KolabStatus::Published, KolabStatus::Closed])
+            ->orderByDesc('published_at')
+            ->get(['id', 'past_events']);
+
+        return $kolabs
+            ->flatMap(function (Kolab $kolab): array {
+                if (! is_array($kolab->past_events)) {
+                    return [];
+                }
+
+                return array_map(function (mixed $event) use ($kolab): ?array {
+                    if (! is_array($event)) {
+                        return null;
+                    }
+
+                    return [
+                        'source_kolab_id' => $kolab->id,
+                        'name' => isset($event['name']) && is_string($event['name']) ? $event['name'] : null,
+                        'date' => isset($event['date']) && is_string($event['date']) ? $event['date'] : null,
+                        'partner_name' => isset($event['partner_name']) && is_string($event['partner_name']) ? $event['partner_name'] : null,
+                        'media' => $this->normalizeMediaCollection($event['media'] ?? $event['photos'] ?? []),
+                    ];
+                }, $kolab->past_events);
+            })
+            ->filter(fn (?array $event): bool => $event !== null)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $pastEvents
+     * @return array<int, array{url: string, source: string}>
+     */
+    private function buildCommunityPhotos(Profile $profile, array $pastEvents): array
+    {
+        $photos = collect();
+
+        $profilePhoto = $profile->communityProfile?->profile_photo;
+        if (is_string($profilePhoto) && $profilePhoto !== '') {
+            $photos->push([
+                'url' => $profilePhoto,
+                'source' => 'profile_photo',
+            ]);
+        }
+
+        foreach ($profile->galleryPhotos as $photo) {
+            if (! is_string($photo->url) || $photo->url === '') {
+                continue;
+            }
+
+            $photos->push([
+                'url' => $photo->url,
+                'source' => 'gallery',
+            ]);
+        }
+
+        foreach ($pastEvents as $event) {
+            foreach ($event['media'] ?? [] as $media) {
+                if (! is_array($media)) {
+                    continue;
+                }
+
+                $url = $media['type'] === 'image'
+                    ? ($media['url'] ?? null)
+                    : ($media['thumbnail_url'] ?? null);
+
+                if (! is_string($url) || $url === '') {
+                    continue;
+                }
+
+                $photos->push([
+                    'url' => $url,
+                    'source' => 'past_event',
+                ]);
+            }
+        }
+
+        return $photos
+            ->unique('url')
+            ->take(10)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, array{url: string, type: string, thumbnail_url: string|null, sort_order: int}>
+     */
+    private function normalizeMediaCollection(mixed $media): array
+    {
+        if (! is_array($media)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach (array_values($media) as $index => $item) {
+            if (is_string($item) && filter_var($item, FILTER_VALIDATE_URL)) {
+                $normalized[] = [
+                    'url' => $item,
+                    'type' => 'image',
+                    'thumbnail_url' => null,
+                    'sort_order' => $index,
+                ];
+
+                continue;
+            }
+
+            if (! is_array($item) || ! isset($item['url']) || ! is_string($item['url'])) {
+                continue;
+            }
+
+            $type = isset($item['type']) && is_string($item['type']) && $item['type'] !== ''
+                ? $item['type']
+                : 'image';
+
+            $normalized[] = [
+                'url' => $item['url'],
+                'type' => $type === 'photo' ? 'image' : $type,
+                'thumbnail_url' => isset($item['thumbnail_url']) && is_string($item['thumbnail_url'])
+                    ? $item['thumbnail_url']
+                    : null,
+                'sort_order' => isset($item['sort_order']) && is_numeric($item['sort_order'])
+                    ? (int) $item['sort_order']
+                    : $index,
+            ];
+        }
+
+        return array_values($normalized);
     }
 }

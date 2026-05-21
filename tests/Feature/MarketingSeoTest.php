@@ -7,19 +7,19 @@ use Tests\TestCase;
 
 class MarketingSeoTest extends TestCase
 {
-    public function test_homepage_exposes_core_seo_metadata(): void
+    public function test_homepage_renders_the_preview_v2_landing_page(): void
     {
         $response = $this->get('/');
 
         $response->assertOk();
-        $response->assertSee('rel="canonical"', false);
-        $response->assertSee('property="og:title"', false);
-        $response->assertSee('name="twitter:card"', false);
-        $response->assertSee('application/ld+json', false);
-        $response->assertSee('/for-businesses', false);
-        $response->assertSee('/for-communities', false);
-        $response->assertSee('/privacy', false);
-        $response->assertSee('/terms', false);
+        $response->assertSee('REAL PEOPLE', false);
+        $response->assertSee('REAL GROWTH', false);
+        $response->assertSee('assets/kolabing-logo.png', false);
+        $response->assertSee('assets/hero2.mp4', false);
+        $response->assertSee('uploads/Gemini_Generated_Image_c3rghhc3rghhc3rg.png', false);
+        $response->assertSee('href="#how-it-works"', false);
+        $response->assertSee('href="#faq"', false);
+        $response->assertSee('href="#cta"', false);
     }
 
     public function test_secure_requests_receive_security_headers(): void

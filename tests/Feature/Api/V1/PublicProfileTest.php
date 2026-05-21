@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Models\CommunityProfile;
 use App\Models\Collaboration;
+use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -107,6 +109,100 @@ class PublicProfileTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('data.tiktok', null);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Community Public Profile (GET /api/v1/communities/{community}/public-profile)
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_community_public_profile_requires_authentication(): void
+    {
+        $community = Profile::factory()->community()->create();
+
+        $response = $this->getJson("/api/v1/communities/{$community->id}/public-profile");
+
+        $response->assertStatus(401);
+    }
+
+    public function test_community_public_profile_returns_safe_stats_and_past_events_portfolio(): void
+    {
+        $viewer = Profile::factory()->business()->create();
+        $community = Profile::factory()->community()->create();
+
+        CommunityProfile::factory()->create([
+            'profile_id' => $community->id,
+            'name' => 'Barcelona Food Club',
+            'about' => 'We host supper clubs and tasting nights around the city.',
+            'community_type' => 'food_community',
+            'profile_photo' => 'https://example.com/community-profile.jpg',
+        ]);
+
+        Collaboration::factory()->completed()->forCreator($community)->create();
+        Collaboration::factory()->completed()->forApplicant($community)->create();
+        Collaboration::factory()->active()->forCreator($community)->create();
+
+        Kolab::factory()->published()->forCreator($community)->create([
+            'intent_type' => 'community_seeking',
+            'past_events' => [
+                [
+                    'name' => 'Sunset Supper Club',
+                    'date' => '2026-05-01',
+                    'partner_name' => 'Casa Sol',
+                    'photos' => [
+                        'https://example.com/supper-club-1.jpg',
+                    ],
+                ],
+                [
+                    'name' => 'Tapas Tasting',
+                    'date' => '2026-04-12',
+                    'partner_name' => 'Tapas Hub',
+                    'media' => [
+                        [
+                            'url' => 'https://example.com/tapas-tasting.mp4',
+                            'type' => 'video',
+                            'thumbnail_url' => 'https://example.com/tapas-tasting-thumb.jpg',
+                            'sort_order' => 0,
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $response = $this->actingAs($viewer)
+            ->getJson("/api/v1/communities/{$community->id}/public-profile");
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.id', $community->id)
+            ->assertJsonPath('data.user_type', 'community')
+            ->assertJsonPath('data.display_name', 'Barcelona Food Club')
+            ->assertJsonPath('data.community_type', 'food_community')
+            ->assertJsonPath('data.public_stats.completed_collaborations_count', 2)
+            ->assertJsonPath('data.public_stats.past_events_count', 2)
+            ->assertJsonPath('data.photos.0.url', 'https://example.com/community-profile.jpg')
+            ->assertJsonPath('data.past_events.0.name', 'Sunset Supper Club')
+            ->assertJsonPath('data.past_events.0.media.0.type', 'image')
+            ->assertJsonPath('data.past_events.1.media.0.type', 'video');
+
+        $data = $response->json('data');
+
+        $this->assertArrayNotHasKey('email', $data);
+        $this->assertArrayNotHasKey('google_id', $data);
+        $this->assertArrayNotHasKey('apple_id', $data);
+        $this->assertArrayNotHasKey('is_featured', $data);
+    }
+
+    public function test_community_public_profile_returns_404_for_non_community_profiles(): void
+    {
+        $viewer = Profile::factory()->community()->create();
+        $business = Profile::factory()->business()->create();
+
+        $response = $this->actingAs($viewer)
+            ->getJson("/api/v1/communities/{$business->id}/public-profile");
+
+        $response->assertStatus(404);
     }
 
     /*

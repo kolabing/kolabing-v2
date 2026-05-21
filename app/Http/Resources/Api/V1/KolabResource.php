@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Models\Application;
 use App\Enums\IntentType;
 use App\Models\Kolab;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
 
 /**
  * @mixin Kolab
@@ -28,6 +30,12 @@ class KolabResource extends JsonResource
             'status' => $this->status->value,
             'title' => $this->title,
             'description' => $this->description,
+            'offer_headline' => $this->resolveOfferHeadline(),
+            'base_offer' => $this->resolveBaseOffer(),
+            'negotiation_triggers' => $this->when(
+                $this->shouldExposeNegotiationTriggers($request),
+                fn () => $this->negotiation_triggers ?? []
+            ),
             'preferred_city' => $this->preferred_city,
             'area' => $this->area,
             'media' => $this->normalizeMediaCollection($this->media),
@@ -76,7 +84,7 @@ class KolabResource extends JsonResource
                 if (is_string($item) && filter_var($item, FILTER_VALIDATE_URL)) {
                     return [
                         'url' => $item,
-                        'type' => 'photo',
+                        'type' => 'image',
                         'thumbnail_url' => null,
                         'sort_order' => $index,
                     ];
@@ -88,7 +96,7 @@ class KolabResource extends JsonResource
 
                 return [
                     'url' => $item['url'],
-                    'type' => isset($item['type']) && is_string($item['type']) ? $item['type'] : 'photo',
+                    'type' => $this->normalizeMediaType($item['type'] ?? null),
                     'thumbnail_url' => isset($item['thumbnail_url']) && is_string($item['thumbnail_url'])
                         ? $item['thumbnail_url']
                         : null,
@@ -100,6 +108,15 @@ class KolabResource extends JsonResource
             ->filter()
             ->values()
             ->all();
+    }
+
+    private function normalizeMediaType(mixed $type): string
+    {
+        if (! is_string($type) || $type === '') {
+            return 'image';
+        }
+
+        return $type === 'photo' ? 'image' : $type;
     }
 
     /**
@@ -136,5 +153,52 @@ class KolabResource extends JsonResource
         return $this->intent_type === IntentType::CommunitySeeking
             ? 'no_venue'
             : null;
+    }
+
+    private function resolveOfferHeadline(): ?string
+    {
+        if ($this->intent_type === IntentType::CommunitySeeking) {
+            return null;
+        }
+
+        if (is_string($this->offer_headline) && $this->offer_headline !== '') {
+            return $this->offer_headline;
+        }
+
+        return Str::limit($this->description, 50, '');
+    }
+
+    private function resolveBaseOffer(): ?string
+    {
+        if ($this->intent_type === IntentType::CommunitySeeking) {
+            return null;
+        }
+
+        if (is_string($this->base_offer) && $this->base_offer !== '') {
+            return $this->base_offer;
+        }
+
+        return $this->description;
+    }
+
+    private function shouldExposeNegotiationTriggers(Request $request): bool
+    {
+        if ($this->intent_type === IntentType::CommunitySeeking) {
+            return false;
+        }
+
+        $viewer = $request->user();
+        if ($viewer === null) {
+            return false;
+        }
+
+        if ($viewer->id === $this->creator_profile_id) {
+            return true;
+        }
+
+        return Application::query()
+            ->where('collab_opportunity_id', $this->id)
+            ->where('applicant_profile_id', $viewer->id)
+            ->exists();
     }
 }

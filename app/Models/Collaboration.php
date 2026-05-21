@@ -202,7 +202,7 @@ class Collaboration extends Model
      */
     public function canBeCompleted(): bool
     {
-        return $this->isActive();
+        return $this->isScheduled() || $this->isActive();
     }
 
     /**

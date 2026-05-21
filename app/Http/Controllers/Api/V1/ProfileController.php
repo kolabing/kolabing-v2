@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\FileUploadType;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Api\V1\CommunityPublicProfileResource;
 use App\Http\Requests\Api\V1\UpdateProfileRequest;
 use App\Http\Resources\Api\V1\PublicCollaborationResource;
 use App\Http\Resources\Api\V1\PublicProfileResource;
@@ -103,6 +104,21 @@ class ProfileController extends Controller
         return response()->json([
             'success' => true,
             'data' => new PublicProfileResource($profile),
+        ]);
+    }
+
+    /**
+     * Get a safe public-facing community profile.
+     *
+     * GET /api/v1/communities/{community}/public-profile
+     */
+    public function communityPublicProfile(Profile $community): JsonResponse
+    {
+        $community = $this->profileService->getCommunityPublicProfile($community);
+
+        return response()->json([
+            'success' => true,
+            'data' => new CommunityPublicProfileResource($community),
         ]);
     }
 

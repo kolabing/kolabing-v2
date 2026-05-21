@@ -7,6 +7,7 @@ namespace App\Http\Resources\Api\V1;
 use App\Models\Kolab;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Str;
 
 /**
  * @mixin Kolab
@@ -29,6 +30,7 @@ class DiscoveryOpportunityResource extends JsonResource
             'intent_type' => $this->intent_type->value,
             'title' => $this->title,
             'description' => $this->description,
+            'offer_headline' => $this->resolveOfferHeadline(),
             'preferred_city' => $this->preferred_city,
             'area' => $this->area,
             'cover_photo_url' => $this->resolveCoverPhotoUrl(),
@@ -45,6 +47,8 @@ class DiscoveryOpportunityResource extends JsonResource
                 'display_name' => $displayName,
                 'avatar_url' => $creatorProfile?->avatar_url,
             ],
+            'match_score' => (int) ($this->getAttribute('discovery_match_score') ?? 0),
+            'match_breakdown' => $this->getAttribute('discovery_match_breakdown') ?? [],
             'business_offer' => $this->getAttribute('discovery_business_offer'),
             'community_request' => $this->getAttribute('discovery_community_request'),
             'match' => $this->getAttribute('discovery_match'),
@@ -68,6 +72,19 @@ class DiscoveryOpportunityResource extends JsonResource
         return $this->creatorProfile?->avatar_url;
     }
 
+    private function resolveOfferHeadline(): ?string
+    {
+        if ($this->intent_type->value === 'community_seeking') {
+            return null;
+        }
+
+        if (is_string($this->offer_headline) && $this->offer_headline !== '') {
+            return $this->offer_headline;
+        }
+
+        return Str::limit($this->description, 50, '');
+    }
+
     /**
      * @return array<int, array{url: string, type: string, thumbnail_url: string|null, sort_order: int}>
      */
@@ -83,7 +100,7 @@ class DiscoveryOpportunityResource extends JsonResource
             if (is_string($item) && filter_var($item, FILTER_VALIDATE_URL)) {
                 $normalized[] = [
                     'url' => $item,
-                    'type' => 'photo',
+                    'type' => 'image',
                     'thumbnail_url' => null,
                     'sort_order' => $index,
                 ];
@@ -97,7 +114,7 @@ class DiscoveryOpportunityResource extends JsonResource
 
             $normalized[] = [
                 'url' => $item['url'],
-                'type' => isset($item['type']) && is_string($item['type']) ? $item['type'] : 'photo',
+                'type' => $this->normalizeMediaType($item['type'] ?? null),
                 'thumbnail_url' => isset($item['thumbnail_url']) && is_string($item['thumbnail_url'])
                     ? $item['thumbnail_url']
                     : null,
@@ -108,6 +125,15 @@ class DiscoveryOpportunityResource extends JsonResource
         }
 
         return array_values($normalized);
+    }
+
+    private function normalizeMediaType(mixed $type): string
+    {
+        if (! is_string($type) || $type === '') {
+            return 'image';
+        }
+
+        return $type === 'photo' ? 'image' : $type;
     }
 
     /**

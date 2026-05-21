@@ -337,7 +337,7 @@ class ApplicationService
             'community_profile_id' => $communityProfileId,
             'status' => CollaborationStatus::Scheduled,
             'scheduled_date' => $data['scheduled_date'] ?? null,
-            'contact_methods' => $data['contact_methods'] ?? null,
+            'contact_methods' => ! empty($data['contact_methods']) ? $data['contact_methods'] : null,
         ]);
     }
 }

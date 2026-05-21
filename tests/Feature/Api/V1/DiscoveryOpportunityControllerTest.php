@@ -178,6 +178,14 @@ class DiscoveryOpportunityControllerTest extends TestCase
             'expects' => ['social_media', 'community_reach'],
             'availability_start' => now()->addDays(10),
             'availability_end' => now()->addDays(12),
+            'offer_headline' => 'Post-run cafe takeovers in central Barcelona',
+            'base_offer' => 'Reserved cafe space plus drinks for running groups after weekend sessions.',
+            'negotiation_triggers' => [
+                [
+                    'condition' => 'Monthly recurring meetups',
+                    'additional_offer' => 'Free pastry platter for the third event onward.',
+                ],
+            ],
         ]);
 
         $largeRequirementCreator = Profile::factory()->business()->create();
@@ -247,9 +255,12 @@ class DiscoveryOpportunityControllerTest extends TestCase
             ->assertJsonPath('data.data.0.creator_type', 'business')
             ->assertJsonPath('data.data.0.creator_profile.display_name', 'Casa Sol')
             ->assertJsonPath('data.data.0.creator_profile.avatar_url', 'https://example.com/business-avatar.jpg')
+            ->assertJsonPath('data.data.0.offer_headline', 'Post-run cafe takeovers in central Barcelona')
             ->assertJsonPath('data.data.0.community_request', null)
             ->assertJsonPath('data.data.0.business_offer.venue_type', 'cafe')
-            ->assertJsonPath('data.data.0.business_offer.min_community_size', 80);
+            ->assertJsonPath('data.data.0.business_offer.min_community_size', 80)
+            ->assertJsonPath('data.data.0.business_offer.base_offer', 'Reserved cafe space plus drinks for running groups after weekend sessions.')
+            ->assertJsonMissingPath('data.data.0.business_offer.negotiation_triggers');
 
         $offerTypes = $response->json('data.data.0.business_offer.offer_types');
         $seekingCommunities = $response->json('data.data.0.business_offer.seeking_communities');
@@ -258,6 +269,8 @@ class DiscoveryOpportunityControllerTest extends TestCase
         $this->assertContains('food_drink', $offerTypes);
         $this->assertSame('run_club', $seekingCommunities[0]['key']);
         $this->assertSame('Run Club', $seekingCommunities[0]['label']);
+        $this->assertIsInt($response->json('data.data.0.match_score'));
+        $this->assertCount(4, $response->json('data.data.0.match_breakdown'));
     }
 
     public function test_recommended_feed_orders_stronger_matches_first(): void
@@ -344,6 +357,141 @@ class DiscoveryOpportunityControllerTest extends TestCase
         $this->assertContains('city_match', $items[0]['match']['reasons']);
         $this->assertContains('community_affinity_match', $items[0]['match']['reasons']);
         $this->assertGreaterThan($items[1]['match']['score'], $items[0]['match']['score']);
+    }
+
+    public function test_discovery_match_breakdown_weights_sum_to_match_score(): void
+    {
+        $viewer = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $viewer->id,
+            'name' => 'Barcelona Run Club',
+            'community_type' => 'run_club',
+        ]);
+
+        $creator = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $creator->id,
+            'name' => 'Casa Sol',
+            'business_type' => 'cafe',
+            'categories' => ['cafe'],
+            'city_name' => 'Barcelona',
+            'primary_venue' => [
+                'name' => 'Casa Sol Rooftop',
+                'venue_type' => 'cafe',
+                'capacity' => 120,
+                'formatted_address' => 'Rambla 10, Barcelona',
+                'city' => 'Barcelona',
+                'country' => 'Spain',
+                'photos' => [],
+            ],
+        ]);
+
+        Kolab::factory()->published()->venuePromotion()->forCreator($creator)->create([
+            'preferred_city' => 'Barcelona',
+            'offering' => ['venue_space', 'free_drinks'],
+            'seeking_communities' => ['Run Club'],
+            'expects' => ['social_media'],
+            'offer_headline' => 'Recovery brunches for run clubs',
+            'base_offer' => 'Reserved brunch tables and drink specials for running groups.',
+        ]);
+
+        $response = $this->actingAs($viewer)
+            ->getJson('/api/v1/discovery/opportunities');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true);
+
+        $breakdown = $response->json('data.data.0.match_breakdown');
+        $reportedScore = $response->json('data.data.0.match_score');
+
+        $calculatedScore = (int) round(collect($breakdown)->sum(
+            fn (array $signal): float => ((float) $signal['weight']) * ((float) $signal['score'])
+        ) * 100);
+
+        $this->assertSame($reportedScore, $calculatedScore);
+    }
+
+    public function test_food_community_recommended_feed_prefers_cafe_over_coworking(): void
+    {
+        $viewer = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $viewer->id,
+            'name' => 'Barcelona Food Club',
+            'community_type' => 'food_community',
+        ]);
+
+        $cafeCreator = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $cafeCreator->id,
+            'name' => 'Cafe Sol',
+            'business_type' => 'cafe',
+            'categories' => ['cafe'],
+            'city_name' => 'Barcelona',
+            'primary_venue' => [
+                'name' => 'Cafe Sol',
+                'venue_type' => 'cafe',
+                'capacity' => 90,
+                'formatted_address' => 'Rambla 10, Barcelona',
+                'city' => 'Barcelona',
+                'country' => 'Spain',
+                'photos' => [],
+            ],
+        ]);
+
+        $cafeKolab = Kolab::factory()->published()->venuePromotion()->forCreator($cafeCreator)->create([
+            'preferred_city' => 'Barcelona',
+            'venue_type' => 'cafe',
+            'offering' => ['venue_space', 'free_drinks'],
+            'seeking_communities' => ['Foodies', 'Food Community'],
+            'expects' => ['social_media'],
+            'published_at' => now()->subDays(4),
+            'offer_headline' => 'Tasting nights for food communities',
+            'base_offer' => 'Reserved cafe space and tasting flights for supper clubs.',
+        ]);
+
+        $coworkingCreator = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $coworkingCreator->id,
+            'name' => 'Workhaus Barcelona',
+            'business_type' => 'coworking',
+            'categories' => ['coworking'],
+            'city_name' => 'Barcelona',
+            'primary_venue' => [
+                'name' => 'Workhaus Barcelona',
+                'venue_type' => 'coworking',
+                'capacity' => 250,
+                'formatted_address' => 'Diagonal 22, Barcelona',
+                'city' => 'Barcelona',
+                'country' => 'Spain',
+                'photos' => [],
+            ],
+        ]);
+
+        $coworkingKolab = Kolab::factory()->published()->venuePromotion()->forCreator($coworkingCreator)->create([
+            'preferred_city' => 'Barcelona',
+            'venue_type' => 'coworking',
+            'offering' => ['venue_space', 'discount'],
+            'seeking_communities' => ['Foodies', 'Food Community'],
+            'expects' => ['social_media'],
+            'published_at' => now()->subHour(),
+            'offer_headline' => 'Workspace socials for community dinners',
+            'base_offer' => 'Large coworking lounge with discounted room hire for food gatherings.',
+        ]);
+
+        $response = $this->actingAs($viewer)
+            ->getJson('/api/v1/discovery/opportunities');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.meta.total', 2);
+
+        $ids = array_column($response->json('data.data'), 'id');
+
+        $this->assertSame([$cafeKolab->id, $coworkingKolab->id], $ids);
+        $this->assertGreaterThan(
+            $response->json('data.data.1.match_score'),
+            $response->json('data.data.0.match_score')
+        );
     }
 
     public function test_all_feed_can_sort_by_ending_soon(): void

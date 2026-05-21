@@ -455,12 +455,20 @@ class NotificationTest extends TestCase
             ->pending()
             ->create();
 
+        $scheduledDate = $opportunity->availability_start?->copy();
+        if ($scheduledDate !== null
+            && $opportunity->availability_end !== null
+            && $scheduledDate->lt($opportunity->availability_end)) {
+            $scheduledDate = $scheduledDate->addDay();
+        }
+        $scheduledDate = $scheduledDate?->toDateString() ?? now()->addWeek()->toDateString();
+
         // Clear cached relationships to pick up subscription
         $businessCreator->refresh();
 
         $response = $this->actingAs($businessCreator)
             ->postJson("/api/v1/applications/{$application->id}/accept", [
-                'scheduled_date' => now()->addWeek()->toDateString(),
+                'scheduled_date' => $scheduledDate,
                 'contact_methods' => ['email' => $businessCreator->email],
             ]);
 

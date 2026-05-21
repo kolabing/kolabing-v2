@@ -12,6 +12,7 @@ use App\Models\BusinessSubscription;
 use App\Models\CommunityProfile;
 use App\Models\Profile;
 use App\Enums\SubscriptionSource;
+use App\Support\ApiDebugLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
@@ -274,6 +275,8 @@ class AuthService
             expiresAt: $refreshTokenExpiresAt
         );
 
+        ApiDebugLogger::logTokenIssued($profile, $accessToken, $refreshToken);
+
         return [
             'token' => $accessToken->plainTextToken,
             'refresh_token' => $refreshToken->plainTextToken,
@@ -509,6 +512,8 @@ class AuthService
         $storedToken = PersonalAccessToken::findToken($refreshToken);
 
         if (! $storedToken || ! in_array('refresh', $storedToken->abilities, true) || $storedToken->expires_at?->isPast()) {
+            ApiDebugLogger::logRefreshAttempt('invalid_or_expired_refresh_token');
+
             return [
                 'error' => __('Invalid refresh token'),
                 'code' => 401,
@@ -518,6 +523,8 @@ class AuthService
         $tokenable = $storedToken->tokenable;
 
         if (! $tokenable instanceof Profile) {
+            ApiDebugLogger::logRefreshAttempt('invalid_refresh_token_owner', $storedToken);
+
             return [
                 'error' => __('Invalid refresh token'),
                 'code' => 401,
@@ -525,6 +532,8 @@ class AuthService
         }
 
         $this->loadProfileRelationships($tokenable);
+
+        ApiDebugLogger::logRefreshAttempt('success', $storedToken, $tokenable);
 
         $storedToken->delete();
 

@@ -674,6 +674,34 @@ class AuthControllerTest extends TestCase
             ]);
     }
 
+    public function test_register_business_surfaces_nested_primary_venue_photo_url_errors(): void
+    {
+        $city = City::factory()->create();
+
+        $response = $this->postJson('/api/v1/auth/register/business', [
+            'email' => 'invalid-photo@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Test Business',
+            'business_type' => 'cafe',
+            'city_id' => $city->id,
+            'primary_venue' => [
+                'name' => 'Test Business Rooftop',
+                'venue_type' => 'cafe',
+                'capacity' => 100,
+                'formatted_address' => 'Carrer de Mallorca 1, Barcelona',
+                'city' => $city->name,
+                'country' => $city->country,
+                'photos' => ['not-a-valid-url'],
+            ],
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Validation failed')
+            ->assertJsonValidationErrors(['primary_venue.photos.0']);
+    }
+
     public function test_register_business_accepts_ordered_categories(): void
     {
         $city = City::factory()->create();
@@ -1100,6 +1128,44 @@ class AuthControllerTest extends TestCase
             $login->json('data.refresh_token'),
             $response->json('data.refresh_token')
         );
+    }
+
+    public function test_login_token_can_access_protected_endpoint_immediately_after_login(): void
+    {
+        $city = City::factory()->create();
+
+        $this->postJson('/api/v1/auth/register/business', [
+            'email' => 'fresh-login@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Fresh Login Business',
+            'business_type' => 'cafe',
+            'city_id' => $city->id,
+            'primary_venue' => [
+                'name' => 'Fresh Login Venue',
+                'venue_type' => 'cafe',
+                'capacity' => 100,
+                'formatted_address' => 'Gran Via 1, Madrid',
+                'city' => $city->name,
+                'country' => $city->country,
+                'photos' => [],
+            ],
+        ])->assertCreated();
+
+        $login = $this->postJson('/api/v1/auth/login', [
+            'email' => 'fresh-login@example.com',
+            'password' => 'password123',
+        ]);
+
+        $login->assertOk()
+            ->assertJsonPath('success', true);
+
+        $me = $this->withHeader('Authorization', 'Bearer '.$login->json('data.token'))
+            ->getJson('/api/v1/auth/me');
+
+        $me->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.email', 'fresh-login@example.com');
     }
 
     public function test_seeded_profile_has_password_credentials_for_login_flow(): void

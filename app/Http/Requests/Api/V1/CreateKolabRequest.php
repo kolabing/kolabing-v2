@@ -65,6 +65,11 @@ class CreateKolabRequest extends FormRequest
             'intent_type' => ['required', 'string', 'in:community_seeking,venue_promotion,product_promotion'],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['required', 'string', 'max:5000'],
+            'offer_headline' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'base_offer' => ['sometimes', 'nullable', 'string', 'max:5000'],
+            'negotiation_triggers' => ['sometimes', 'nullable', 'array'],
+            'negotiation_triggers.*.condition' => ['required_with:negotiation_triggers', 'string', 'max:255'],
+            'negotiation_triggers.*.additional_offer' => ['required_with:negotiation_triggers', 'string', 'max:1000'],
             'preferred_city' => ['required_unless:intent_type,venue_promotion', 'nullable', 'string', 'max:100'],
 
             // Community Seeking fields
@@ -96,7 +101,7 @@ class CreateKolabRequest extends FormRequest
             'area' => ['sometimes', 'nullable', 'string', 'max:255'],
             'media' => ['required_if:intent_type,venue_promotion', 'nullable', 'array', 'min:1'],
             'media.*.url' => ['required_with:media', 'string', 'url'],
-            'media.*.type' => ['required_with:media', 'string', 'in:photo,video'],
+            'media.*.type' => ['required_with:media', 'string', 'in:image,video'],
             'media.*.thumbnail_url' => ['nullable', 'string', 'url'],
             'media.*.sort_order' => ['nullable', 'integer', 'min:0'],
             'availability_mode' => ['required_if:intent_type,venue_promotion', 'nullable', 'string', 'in:one_time,recurring,flexible,specific_dates'],
@@ -118,7 +123,7 @@ class CreateKolabRequest extends FormRequest
             'past_events.*.photos.*' => ['string', 'url'],
             'past_events.*.media' => ['nullable', 'array', 'max:3'],
             'past_events.*.media.*.url' => ['required_with:past_events.*.media', 'string', 'url'],
-            'past_events.*.media.*.type' => ['required_with:past_events.*.media', 'string', 'in:photo,video'],
+            'past_events.*.media.*.type' => ['required_with:past_events.*.media', 'string', 'in:image,video'],
             'past_events.*.media.*.thumbnail_url' => ['nullable', 'string', 'url'],
             'past_events.*.media.*.sort_order' => ['nullable', 'integer', 'min:0'],
         ];
@@ -138,6 +143,8 @@ class CreateKolabRequest extends FormRequest
             'title.max' => __('validation.max.string', ['attribute' => 'title', 'max' => 255]),
             'description.required' => __('validation.required', ['attribute' => 'description']),
             'description.max' => __('validation.max.string', ['attribute' => 'description', 'max' => 5000]),
+            'offer_headline.max' => __('validation.max.string', ['attribute' => 'offer headline', 'max' => 50]),
+            'base_offer.max' => __('validation.max.string', ['attribute' => 'base offer', 'max' => 5000]),
             'preferred_city.required_unless' => __('validation.required_unless', ['attribute' => 'preferred city', 'other' => 'intent type', 'values' => 'venue_promotion']),
             'preferred_city.max' => __('validation.max.string', ['attribute' => 'preferred city', 'max' => 100]),
             'needs.required_if' => __('validation.required_if', ['attribute' => 'needs', 'other' => 'intent type', 'value' => 'community_seeking']),

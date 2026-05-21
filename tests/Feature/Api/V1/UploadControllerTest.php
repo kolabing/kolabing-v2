@@ -51,7 +51,7 @@ class UploadControllerTest extends TestCase
                     'thumbnail_url',
                 ],
             ])
-            ->assertJsonPath('data.type', 'photo');
+            ->assertJsonPath('data.type', 'image');
 
         $this->assertStringContainsString('profiles/', (string) $response->json('data.url'));
     }

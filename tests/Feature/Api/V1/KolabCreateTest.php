@@ -116,13 +116,21 @@ class KolabCreateTest extends TestCase
             'media' => [
                 [
                     'url' => 'https://example.com/promo-photo.jpg',
-                    'type' => 'photo',
+                    'type' => 'image',
                     'sort_order' => 0,
                 ],
             ],
             'availability_mode' => 'one_time',
             'availability_start' => now()->addWeek()->format('Y-m-d'),
             'offering' => ['venue', 'food_drink', 'discount'],
+            'offer_headline' => 'Free rooftop nights for local communities',
+            'base_offer' => 'Free venue rental plus a welcome drink for communities of 25+.',
+            'negotiation_triggers' => [
+                [
+                    'condition' => 'Recurring monthly events',
+                    'additional_offer' => 'DJ support is included from the third event onward.',
+                ],
+            ],
         ];
 
         $response = $this->actingAs($business)
@@ -135,7 +143,10 @@ class KolabCreateTest extends TestCase
             ->assertJsonPath('data.venue_name', 'Sky Lounge Malaga')
             ->assertJsonPath('data.venue_type', 'bar_lounge')
             ->assertJsonPath('data.capacity', 150)
-            ->assertJsonPath('data.venue_address', 'Calle Larios 12, Malaga');
+            ->assertJsonPath('data.venue_address', 'Calle Larios 12, Malaga')
+            ->assertJsonPath('data.offer_headline', 'Free rooftop nights for local communities')
+            ->assertJsonPath('data.base_offer', 'Free venue rental plus a welcome drink for communities of 25+.')
+            ->assertJsonPath('data.negotiation_triggers.0.condition', 'Recurring monthly events');
 
         $this->assertDatabaseHas('kolabs', [
             'creator_profile_id' => $business->id,
@@ -144,7 +155,52 @@ class KolabCreateTest extends TestCase
             'venue_name' => 'Sky Lounge Malaga',
             'venue_type' => 'bar_lounge',
             'capacity' => 150,
+            'offer_headline' => 'Free rooftop nights for local communities',
+            'base_offer' => 'Free venue rental plus a welcome drink for communities of 25+.',
         ]);
+    }
+
+    public function test_business_user_cannot_create_kolab_with_legacy_photo_media_type(): void
+    {
+        $business = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $business->id,
+            'primary_venue' => [
+                'name' => 'Sky Lounge Malaga',
+                'venue_type' => 'bar_lounge',
+                'capacity' => 150,
+                'place_id' => 'sky-lounge-place-id',
+                'formatted_address' => 'Calle Larios 12, Malaga',
+                'city' => 'Malaga',
+                'country' => 'Spain',
+                'latitude' => 36.7213,
+                'longitude' => -4.4214,
+                'photos' => ['https://example.com/sky-lounge.jpg'],
+            ],
+        ]);
+
+        $payload = [
+            'intent_type' => 'venue_promotion',
+            'title' => 'Rooftop bar available for community events',
+            'description' => 'Beautiful rooftop bar in the heart of Malaga available for community events.',
+            'preferred_city' => 'Malaga',
+            'media' => [
+                [
+                    'url' => 'https://example.com/promo-photo.jpg',
+                    'type' => 'photo',
+                    'sort_order' => 0,
+                ],
+            ],
+            'availability_mode' => 'one_time',
+            'availability_start' => now()->addWeek()->format('Y-m-d'),
+            'offering' => ['venue', 'food_drink', 'discount'],
+        ];
+
+        $response = $this->actingAs($business)
+            ->postJson('/api/v1/kolabs', $payload);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['media.0.type']);
     }
 
     public function test_business_user_can_create_product_promotion_kolab(): void
@@ -304,7 +360,7 @@ class KolabCreateTest extends TestCase
             'media' => [
                 [
                     'url' => 'https://example.com/kolab-photo.jpg',
-                    'type' => 'photo',
+                    'type' => 'image',
                     'sort_order' => 0,
                 ],
             ],
@@ -351,7 +407,7 @@ class KolabCreateTest extends TestCase
             'media' => [
                 [
                     'url' => 'https://example.com/promo-photo.jpg',
-                    'type' => 'photo',
+                    'type' => 'image',
                     'sort_order' => 0,
                 ],
             ],

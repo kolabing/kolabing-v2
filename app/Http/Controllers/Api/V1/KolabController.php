@@ -12,6 +12,7 @@ use App\Http\Resources\Api\V1\KolabResource;
 use App\Models\Kolab;
 use App\Models\Profile;
 use App\Services\KolabService;
+use App\Support\ApiDebugLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
@@ -239,6 +240,8 @@ class KolabController extends Controller
                 'data' => new KolabResource($kolab),
             ]);
         } catch (InvalidArgumentException $e) {
+            ApiDebugLogger::logKolabPublishFailure($request, $kolab, $e);
+
             if (str_contains($e->getMessage(), 'subscription')) {
                 return response()->json([
                     'success' => false,

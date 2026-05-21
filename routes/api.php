@@ -114,7 +114,7 @@ Route::prefix('v1')->group(function (): void {
     |--------------------------------------------------------------------------
     */
 
-    Route::middleware('auth:sanctum')->group(function (): void {
+    Route::middleware(['auth:sanctum', 'log_auth_token_first_use'])->group(function (): void {
         // City suggestions
         Route::post('cities/suggest', [LookupController::class, 'suggestCity'])
             ->name('api.v1.cities.suggest');
@@ -411,6 +411,10 @@ Route::prefix('v1')->group(function (): void {
         // View public profile
         Route::get('profiles/{profile}', [ProfileController::class, 'publicProfile'])
             ->name('api.v1.profiles.show');
+
+        // View public-facing community profile
+        Route::get('communities/{community}/public-profile', [ProfileController::class, 'communityPublicProfile'])
+            ->name('api.v1.communities.public-profile');
 
         // View profile's completed collaborations
         Route::get('profiles/{profile}/collaborations', [ProfileController::class, 'profileCollaborations'])

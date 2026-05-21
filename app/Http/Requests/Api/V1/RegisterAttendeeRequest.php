@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Support\ApiDebugLogger;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -55,6 +56,8 @@ class RegisterAttendeeRequest extends FormRequest
      */
     protected function failedValidation(Validator $validator): never
     {
+        ApiDebugLogger::logValidationFailure($this, $validator->errors()->toArray());
+
         throw new HttpResponseException(response()->json([
             'success' => false,
             'message' => __('Validation failed'),

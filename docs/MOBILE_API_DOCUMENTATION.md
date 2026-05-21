@@ -1,8 +1,8 @@
 # Kolabing Mobile App API Documentation
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 **Base URL:** `https://api.kolabing.com/api/v1`
-**Last Updated:** 2026-01-24
+**Last Updated:** 2026-05-21
 
 ---
 
@@ -16,6 +16,17 @@
 4. [Best Practices](#best-practices)
 
 ---
+
+## 2026-05-21 Contract Updates
+
+- `POST /auth/register/business` now returns nested `errors` keys for venue validation failures, including `primary_venue.photos.*`.
+- Auth debug window logs now cover token issue, first protected use, refresh attempts, and refresh outcomes for newly created accounts.
+- Kolab media payloads now accept only `media[*].type = image | video`. Legacy `photo` is rejected on write and normalized to `image` on read.
+- `POST /applications/{application}/accept` now accepts missing or empty `contact_methods`, and `scheduled_date` is validated against the publisher availability mode.
+- `POST /collaborations/{collaboration}/complete` is live. Participants can complete `scheduled` and `active` collaborations. Repeat completion returns `422 invalid_status_transition`.
+- `GET /communities/{community}/public-profile` is live for authenticated viewers. It returns safe public community data, public stats, photos, and normalized past event portfolio items.
+- Venue and product Kolabs now expose `offer_headline`, `base_offer`, and optional `negotiation_triggers`. Public viewers do not receive `negotiation_triggers` until they have applied to that Kolab.
+- Discovery responses now include `match_score` and ordered `match_breakdown` signals, alongside public `business_offer.base_offer`.
 
 ## Authentication Flow
 

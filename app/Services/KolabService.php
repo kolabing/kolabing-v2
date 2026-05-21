@@ -12,6 +12,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 class KolabService
@@ -74,6 +75,7 @@ class KolabService
     {
         $data = $this->normalizeKolabPayload($data);
         $data = $this->applyCommunitySeekingDefaults($data);
+        $data = $this->normalizeOfferContract($data, $data['intent_type']);
 
         if ($data['intent_type'] === IntentType::VenuePromotion->value) {
             $data = $this->enrichVenuePromotionData($creator, $data);
@@ -85,6 +87,9 @@ class KolabService
             'status' => KolabStatus::Draft,
             'title' => $data['title'],
             'description' => $data['description'],
+            'offer_headline' => $data['offer_headline'] ?? null,
+            'base_offer' => $data['base_offer'] ?? null,
+            'negotiation_triggers' => $data['negotiation_triggers'] ?? [],
             'preferred_city' => $data['preferred_city'],
             'area' => $data['area'] ?? null,
             'media' => $data['media'] ?? null,
@@ -124,6 +129,7 @@ class KolabService
 
         $intentType = $data['intent_type'] ?? $kolab->intent_type->value;
         $data = $this->applyCommunitySeekingDefaults($data, $intentType, $kolab->venue_preference);
+        $data = $this->normalizeOfferContract($data, $intentType, $kolab);
 
         if ($intentType === IntentType::VenuePromotion->value) {
             $data = $this->enrichVenuePromotionData($kolab->creatorProfile, $data);
@@ -323,6 +329,18 @@ class KolabService
             $data['past_events'] = $this->normalizePastEvents($data['past_events']);
         }
 
+        if (array_key_exists('offer_headline', $data) && is_string($data['offer_headline'])) {
+            $data['offer_headline'] = trim($data['offer_headline']);
+        }
+
+        if (array_key_exists('base_offer', $data) && is_string($data['base_offer'])) {
+            $data['base_offer'] = trim($data['base_offer']);
+        }
+
+        if (array_key_exists('negotiation_triggers', $data)) {
+            $data['negotiation_triggers'] = $this->normalizeNegotiationTriggers($data['negotiation_triggers']);
+        }
+
         return $data;
     }
 
@@ -352,6 +370,47 @@ class KolabService
     }
 
     /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function normalizeOfferContract(array $data, string $intentType, ?Kolab $existingKolab = null): array
+    {
+        if ($intentType === IntentType::CommunitySeeking->value) {
+            $data['offer_headline'] = null;
+            $data['base_offer'] = null;
+            $data['negotiation_triggers'] = [];
+
+            return $data;
+        }
+
+        $description = isset($data['description']) && is_string($data['description']) && trim($data['description']) !== ''
+            ? trim($data['description'])
+            : trim((string) $existingKolab?->description);
+
+        $existingHeadline = is_string($existingKolab?->offer_headline) && $existingKolab->offer_headline !== ''
+            ? $existingKolab->offer_headline
+            : null;
+
+        $existingBaseOffer = is_string($existingKolab?->base_offer) && $existingKolab->base_offer !== ''
+            ? $existingKolab->base_offer
+            : null;
+
+        if (! array_key_exists('offer_headline', $data) || ! is_string($data['offer_headline']) || $data['offer_headline'] === '') {
+            $data['offer_headline'] = $existingHeadline ?? ($description !== '' ? Str::limit($description, 50, '') : null);
+        }
+
+        if (! array_key_exists('base_offer', $data) || ! is_string($data['base_offer']) || $data['base_offer'] === '') {
+            $data['base_offer'] = $existingBaseOffer ?? ($description !== '' ? $description : null);
+        }
+
+        if (! array_key_exists('negotiation_triggers', $data) && $existingKolab === null) {
+            $data['negotiation_triggers'] = [];
+        }
+
+        return $data;
+    }
+
+    /**
      * @return array<int, array{url: string, type: string, thumbnail_url: string|null, sort_order: int}>
      */
     private function normalizeMediaCollection(mixed $media): array
@@ -366,7 +425,7 @@ class KolabService
             if (is_string($item) && filter_var($item, FILTER_VALIDATE_URL)) {
                 $normalized[] = [
                     'url' => $item,
-                    'type' => 'photo',
+                    'type' => 'image',
                     'thumbnail_url' => null,
                     'sort_order' => $index,
                 ];
@@ -380,7 +439,7 @@ class KolabService
 
             $normalized[] = [
                 'url' => $item['url'],
-                'type' => isset($item['type']) && is_string($item['type']) ? $item['type'] : 'photo',
+                'type' => $this->normalizeMediaType($item['type'] ?? null),
                 'thumbnail_url' => isset($item['thumbnail_url']) && is_string($item['thumbnail_url'])
                     ? $item['thumbnail_url']
                     : null,
@@ -391,6 +450,15 @@ class KolabService
         }
 
         return array_values($normalized);
+    }
+
+    private function normalizeMediaType(mixed $type): string
+    {
+        if (! is_string($type) || $type === '') {
+            return 'image';
+        }
+
+        return $type === 'photo' ? 'image' : $type;
     }
 
     /**
@@ -414,6 +482,42 @@ class KolabService
 
             $event['media'] = $this->normalizeMediaCollection($event['media'] ?? $photos);
             $normalized[] = $event;
+        }
+
+        return array_values($normalized);
+    }
+
+    /**
+     * @return array<int, array{condition: string, additional_offer: string}>
+     */
+    private function normalizeNegotiationTriggers(mixed $triggers): array
+    {
+        if (! is_array($triggers)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($triggers as $trigger) {
+            if (! is_array($trigger)) {
+                continue;
+            }
+
+            $condition = isset($trigger['condition']) && is_string($trigger['condition'])
+                ? trim($trigger['condition'])
+                : '';
+            $additionalOffer = isset($trigger['additional_offer']) && is_string($trigger['additional_offer'])
+                ? trim($trigger['additional_offer'])
+                : '';
+
+            if ($condition === '' || $additionalOffer === '') {
+                continue;
+            }
+
+            $normalized[] = [
+                'condition' => $condition,
+                'additional_offer' => $additionalOffer,
+            ];
         }
 
         return array_values($normalized);

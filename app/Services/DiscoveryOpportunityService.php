@@ -9,10 +9,12 @@ use App\Enums\KolabStatus;
 use App\Enums\UserType;
 use App\Models\Kolab;
 use App\Models\Profile;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator as LengthAwarePaginatorContract;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -57,8 +59,74 @@ class DiscoveryOpportunityService
     ];
 
     /**
+     * @var array<int, array{key: string, label: string, weight: float}>
+     */
+    private const MATCH_SIGNALS = [
+        ['key' => 'category_fit', 'label' => 'Category fit', 'weight' => 0.45],
+        ['key' => 'location', 'label' => 'Location', 'weight' => 0.20],
+        ['key' => 'value_fit', 'label' => 'Value fit', 'weight' => 0.20],
+        ['key' => 'past_activity', 'label' => 'Past activity', 'weight' => 0.15],
+    ];
+
+    /**
+     * @var array<string, array<string, float>>
+     */
+    private const COMMUNITY_BUSINESS_CATEGORY_SCORES = [
+        'food_community' => [
+            'cafe' => 1.0,
+            'restaurant' => 0.98,
+            'food_truck' => 0.95,
+            'bakery' => 0.9,
+            'bar' => 0.72,
+            'bar_lounge' => 0.72,
+            'beverage' => 0.88,
+            'food_product' => 0.86,
+            'coworking' => 0.22,
+        ],
+        'run_club' => [
+            'sports_facility' => 1.0,
+            'gym' => 0.96,
+            'cafe' => 0.87,
+            'restaurant' => 0.7,
+            'hotel' => 0.55,
+            'retail' => 0.42,
+        ],
+        'fitness_community' => [
+            'sports_facility' => 1.0,
+            'gym' => 0.96,
+            'cafe' => 0.82,
+            'restaurant' => 0.68,
+            'health_beauty' => 0.75,
+        ],
+        'wellness_community' => [
+            'health_beauty' => 0.95,
+            'salon' => 0.92,
+            'cafe' => 0.78,
+            'hotel' => 0.74,
+            'gym' => 0.72,
+        ],
+        'tech_startup_community' => [
+            'coworking' => 1.0,
+            'hotel' => 0.76,
+            'cafe' => 0.7,
+            'tech_gadget' => 0.85,
+        ],
+        'professional_networking_community' => [
+            'coworking' => 0.98,
+            'hotel' => 0.82,
+            'cafe' => 0.74,
+        ],
+        'student_community' => [
+            'coworking' => 0.84,
+            'cafe' => 0.8,
+            'restaurant' => 0.72,
+            'retail' => 0.66,
+        ],
+    ];
+
+    /**
      * @return array{
-     *     paginator: LengthAwarePaginator,
+     *     paginator: LengthAwarePaginatorContract,
      *     meta: array<string, mixed>
      * }
      */
@@ -79,26 +147,36 @@ class DiscoveryOpportunityService
 
         $this->applyCommonFilters($query, $normalizedFilters);
         $this->applyRoleAwareFilters($query, $normalizedFilters, $viewerRole);
+        $scoredResults = $query
+            ->get()
+            ->map(function (Kolab $kolab) use ($viewer, $normalizedFilters, $viewerRole): Kolab {
+                $matchPayload = $this->buildMatchPayload($kolab, $viewer, $normalizedFilters, $viewerRole);
 
-        [$scoreSql, $scoreBindings] = $this->buildScoreExpression($viewer, $normalizedFilters, $viewerRole);
-
-        $query->select('kolabs.*')
-            ->selectRaw("{$scoreSql} as discovery_match_score", $scoreBindings);
-
-        $this->applySorting($query, $normalizedFilters['sort'], $normalizedFilters['feed']);
-
-        $paginator = $query->paginate($normalizedFilters['per_page']);
-        $paginator->setCollection(
-            $paginator->getCollection()->map(function (Kolab $kolab) use ($viewer, $normalizedFilters, $viewerRole): Kolab {
+                $kolab->setAttribute('discovery_match_score', $matchPayload['score']);
+                $kolab->setAttribute('discovery_match_breakdown', $matchPayload['breakdown']);
                 $kolab->setAttribute('discovery_business_offer', $this->buildBusinessOfferBlock($kolab));
                 $kolab->setAttribute('discovery_community_request', $this->buildCommunityRequestBlock($kolab));
-                $kolab->setAttribute(
-                    'discovery_match',
-                    $this->buildMatchPayload($kolab, $viewer, $normalizedFilters, $viewerRole)
-                );
+                $kolab->setAttribute('discovery_match', $matchPayload);
 
                 return $kolab;
-            })
+            });
+
+        $sortedResults = $this->sortScoredResults($scoredResults, $normalizedFilters['sort'], $normalizedFilters['feed']);
+        $currentPage = $normalizedFilters['page'];
+        $total = $sortedResults->count();
+        $pageItems = $sortedResults
+            ->forPage($currentPage, $normalizedFilters['per_page'])
+            ->values();
+
+        $paginator = new LengthAwarePaginator(
+            $pageItems,
+            $total,
+            $normalizedFilters['per_page'],
+            $currentPage,
+            [
+                'path' => LengthAwarePaginator::resolveCurrentPath(),
+                'pageName' => 'page',
+            ]
         );
 
         return [
@@ -145,6 +223,7 @@ class DiscoveryOpportunityService
         return [
             'feed' => $feed,
             'sort' => $sort,
+            'page' => max((int) ($filters['page'] ?? 1), 1),
             'per_page' => min(max($perPage, 1), 100),
             'search' => $this->normalizeNullableString($filters['search'] ?? null),
             'city' => $this->normalizeNullableString($filters['city'] ?? null),
@@ -174,8 +253,8 @@ class DiscoveryOpportunityService
                 'creatorProfile' => function ($query): void {
                     $query->select('id', 'user_type', 'avatar_url')
                         ->with([
-                            'businessProfile:profile_id,name',
-                            'communityProfile:profile_id,name,community_type',
+                            'businessProfile:profile_id,name,business_type,categories,city_name,primary_venue',
+                            'communityProfile:profile_id,name,community_type,city_id',
                         ]);
                 },
             ]);
@@ -527,6 +606,52 @@ class DiscoveryOpportunityService
         $query->orderByDesc('published_at');
     }
 
+    /**
+     * @param  Collection<int, Kolab>  $results
+     * @return Collection<int, Kolab>
+     */
+    private function sortScoredResults(Collection $results, string $sort, string $feed): Collection
+    {
+        $resolvedSort = $sort !== '' ? $sort : ($feed === 'recommended' ? 'recommended' : 'recent');
+
+        if ($resolvedSort === 'ending_soon') {
+            return $results
+                ->sort(function (Kolab $left, Kolab $right): int {
+                    $leftHasNoEnd = $left->availability_end === null && $left->availability_start === null;
+                    $rightHasNoEnd = $right->availability_end === null && $right->availability_start === null;
+
+                    if ($leftHasNoEnd !== $rightHasNoEnd) {
+                        return $leftHasNoEnd <=> $rightHasNoEnd;
+                    }
+
+                    $leftDate = ($left->availability_end ?? $left->availability_start)?->toDateString() ?? '9999-12-31';
+                    $rightDate = ($right->availability_end ?? $right->availability_start)?->toDateString() ?? '9999-12-31';
+
+                    if ($leftDate !== $rightDate) {
+                        return $leftDate <=> $rightDate;
+                    }
+
+                    return ($right->published_at?->timestamp ?? 0) <=> ($left->published_at?->timestamp ?? 0);
+                })
+                ->values();
+        }
+
+        if ($resolvedSort === 'recommended') {
+            return $results
+                ->sortByDesc(function (Kolab $kolab): string {
+                    $score = str_pad((string) ((int) $kolab->getAttribute('discovery_match_score')), 3, '0', STR_PAD_LEFT);
+                    $publishedAt = str_pad((string) (($kolab->published_at?->timestamp) ?? 0), 12, '0', STR_PAD_LEFT);
+
+                    return $score.$publishedAt;
+                })
+                ->values();
+        }
+
+        return $results
+            ->sortByDesc(fn (Kolab $kolab): int => $kolab->published_at?->timestamp ?? 0)
+            ->values();
+    }
+
     private function resolveViewerCity(Profile $viewer): ?string
     {
         if ($viewer->isBusiness()) {
@@ -543,7 +668,7 @@ class DiscoveryOpportunityService
     private function buildAppliedFilters(array $filters): array
     {
         return Arr::where($filters, static function (mixed $value, string $key): bool {
-            if ($key === 'per_page') {
+            if (in_array($key, ['page', 'per_page'], true)) {
                 return false;
             }
 
@@ -577,6 +702,12 @@ class DiscoveryOpportunityService
         }
 
         return [
+            'offer_headline' => is_string($kolab->offer_headline) && $kolab->offer_headline !== ''
+                ? $kolab->offer_headline
+                : Str::limit($kolab->description, 50, ''),
+            'base_offer' => is_string($kolab->base_offer) && $kolab->base_offer !== ''
+                ? $kolab->base_offer
+                : $kolab->description,
             'offer_types' => $this->normalizeOfferTypes($kolab->offering),
             'venue_type' => $kolab->venue_type,
             'product_type' => $kolab->product_type,
@@ -604,106 +735,51 @@ class DiscoveryOpportunityService
 
     private function buildMatchPayload(Kolab $kolab, Profile $viewer, array $filters, string $viewerRole): array
     {
-        $score = 0;
-        $reasons = [];
-        $viewerCity = $this->resolveViewerCity($viewer);
+        $locationScore = $this->resolveLocationScore($kolab, $viewer);
+        $pastActivityScore = $this->resolvePastActivitySignal($kolab->published_at);
+        $components = $viewerRole === 'business'
+            ? $this->resolveBusinessViewerMatchComponents($kolab, $viewer, $filters)
+            : $this->resolveCommunityViewerMatchComponents($kolab, $viewer, $filters);
+        $reasons = $components['reasons'];
 
-        if ($viewerCity !== null && $kolab->preferred_city === $viewerCity) {
-            $score += 40;
+        if ($locationScore >= 1.0) {
             $reasons[] = 'city_match';
         }
 
-        $freshnessScore = $this->resolveFreshnessScore($kolab->published_at);
-        if ($freshnessScore > 0) {
-            $score += $freshnessScore;
+        if ($pastActivityScore >= 0.65) {
             $reasons[] = 'freshness_match';
         }
 
-        if ($viewerRole === 'business') {
-            $needs = $this->normalizeNeedTypes($kolab->needs);
-            $capabilities = $this->inferBusinessCapabilities($viewer);
+        $breakdown = collect(self::MATCH_SIGNALS)
+            ->map(function (array $signal) use ($components, $locationScore, $pastActivityScore): array {
+                $score = match ($signal['key']) {
+                    'category_fit' => $components['category_fit'],
+                    'location' => $locationScore,
+                    'value_fit' => $components['value_fit'],
+                    'past_activity' => $pastActivityScore,
+                    default => 0.0,
+                };
 
-            if ($this->hasAnyOverlap($needs, $capabilities)) {
-                $score += 30;
-                $reasons[] = 'need_type_match';
-            }
+                return [
+                    'key' => $signal['key'],
+                    'label' => $signal['label'],
+                    'weight' => $signal['weight'],
+                    'score' => round($score, 2),
+                ];
+            })
+            ->values()
+            ->all();
 
-            $offersInReturn = $this->normalizeDeliverables($kolab->offers_in_return);
-            $desiredReturns = $filters['offers_in_return'] !== []
-                ? $filters['offers_in_return']
-                : $this->inferBusinessDesiredReturns($viewer);
-
-            if ($this->hasAnyOverlap($offersInReturn, $desiredReturns)) {
-                $score += 15;
-                $reasons[] = 'offers_in_return_match';
-            }
-
-            $communityTypes = $this->extractTagKeys($this->normalizeTagObjects($kolab->community_types));
-            $affinityTerms = $this->normalizeTagKeys(
-                $this->inferBusinessCommunityAffinityTerms($viewer, $filters['community_types'])
-            );
-
-            if ($this->hasAnyOverlap($communityTypes, $affinityTerms)) {
-                $score += 20;
-                $reasons[] = 'community_type_match';
-            }
-
-            if ($this->viewerHasUsableVenue($viewer) && in_array($kolab->venue_preference, ['business_provides', 'no_venue'], true)) {
-                $score += 10;
-                $reasons[] = 'venue_preference_match';
-            }
-
-            $capacity = $this->resolveViewerVenueCapacity($viewer);
-            $audience = $kolab->typical_attendance ?? $kolab->community_size;
-
-            if ($capacity !== null && $audience !== null && $audience > 0 && $audience <= $capacity) {
-                $score += 10;
-                $reasons[] = 'audience_size_match';
-            }
-        } else {
-            $seekingCommunities = $this->extractTagKeys($this->normalizeTagObjects($kolab->seeking_communities));
-            $affinityTerms = $this->normalizeTagKeys($this->inferCommunityAffinityTerms($viewer));
-
-            if ($this->hasAnyOverlap($seekingCommunities, $affinityTerms)) {
-                $score += 30;
-                $reasons[] = 'community_affinity_match';
-            }
-
-            $offerTypes = $this->normalizeOfferTypes($kolab->offering);
-            $desiredOfferTypes = $filters['offer_types'] !== []
-                ? $filters['offer_types']
-                : $this->inferCommunityDesiredOfferTypes($viewer);
-
-            if ($this->hasAnyOverlap($offerTypes, $desiredOfferTypes)) {
-                $score += 20;
-                $reasons[] = 'offer_type_match';
-            }
-
-            $expectedDeliverables = $this->normalizeDeliverables($kolab->expects);
-            $desiredDeliverables = $filters['expected_deliverables'] !== []
-                ? $filters['expected_deliverables']
-                : ['social_media', 'community_reach', 'event_activation'];
-
-            if ($this->hasAnyOverlap($expectedDeliverables, $desiredDeliverables)) {
-                $score += 15;
-                $reasons[] = 'expected_deliverable_match';
-            }
-
-            $preferredIntents = $filters['intent_types'] !== []
-                ? $filters['intent_types']
-                : $this->inferCommunityPreferredIntents($viewer);
-
-            if (in_array($kolab->intent_type->value, $preferredIntents, true)) {
-                $score += 10;
-                $reasons[] = 'intent_type_match';
-            }
-        }
+        $score = (int) round(collect($breakdown)->sum(
+            fn (array $signal): float => $signal['weight'] * $signal['score']
+        ) * 100);
 
         return [
             'feed' => $filters['feed'],
             'score' => $score,
             'tier' => $this->resolveScoreTier($score),
             'reasons' => array_values(array_unique($reasons)),
+            'breakdown' => $breakdown,
         ];
     }
 
@@ -722,6 +798,234 @@ class DiscoveryOpportunityService
         }
 
         return 0;
+    }
+
+    private function resolveLocationScore(Kolab $kolab, Profile $viewer): float
+    {
+        $viewerCity = $this->resolveViewerCity($viewer);
+
+        if ($viewerCity !== null && $kolab->preferred_city === $viewerCity) {
+            return 1.0;
+        }
+
+        return 0.0;
+    }
+
+    private function resolvePastActivitySignal(?Carbon $publishedAt): float
+    {
+        if ($publishedAt === null) {
+            return 0.2;
+        }
+
+        if ($publishedAt->greaterThanOrEqualTo(Carbon::now()->subDays(7))) {
+            return 1.0;
+        }
+
+        if ($publishedAt->greaterThanOrEqualTo(Carbon::now()->subDays(30))) {
+            return 0.65;
+        }
+
+        return 0.3;
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array{category_fit: float, value_fit: float, reasons: array<int, string>}
+     */
+    private function resolveBusinessViewerMatchComponents(Kolab $kolab, Profile $viewer, array $filters): array
+    {
+        $reasons = [];
+        $needs = $this->normalizeNeedTypes($kolab->needs);
+        $capabilities = $this->inferBusinessCapabilities($viewer);
+        $needScore = $this->hasAnyOverlap($needs, $capabilities) ? 1.0 : 0.0;
+
+        if ($needScore === 1.0) {
+            $reasons[] = 'need_type_match';
+        }
+
+        $communityTypes = $this->extractTagKeys($this->normalizeTagObjects($kolab->community_types));
+        $affinityTerms = $this->normalizeTagKeys(
+            $this->inferBusinessCommunityAffinityTerms($viewer, $filters['community_types'])
+        );
+        $communityAffinityScore = $this->hasAnyOverlap($communityTypes, $affinityTerms) ? 1.0 : 0.0;
+
+        if ($communityAffinityScore === 1.0) {
+            $reasons[] = 'community_type_match';
+        }
+
+        $offersInReturn = $this->normalizeDeliverables($kolab->offers_in_return);
+        $desiredReturns = $filters['offers_in_return'] !== []
+            ? $filters['offers_in_return']
+            : $this->inferBusinessDesiredReturns($viewer);
+        $offersInReturnScore = $this->hasAnyOverlap($offersInReturn, $desiredReturns) ? 1.0 : 0.0;
+
+        if ($offersInReturnScore === 1.0) {
+            $reasons[] = 'offers_in_return_match';
+        }
+
+        $venueScore = 0.5;
+        if ($this->viewerHasUsableVenue($viewer)) {
+            $venueScore = in_array($kolab->venue_preference, ['business_provides', 'no_venue'], true)
+                ? 1.0
+                : 0.25;
+
+            if ($venueScore === 1.0) {
+                $reasons[] = 'venue_preference_match';
+            }
+        }
+
+        $capacityScore = 0.5;
+        $capacity = $this->resolveViewerVenueCapacity($viewer);
+        $audience = $kolab->typical_attendance ?? $kolab->community_size;
+        if ($capacity !== null && $audience !== null && $audience > 0) {
+            $capacityScore = min(1.0, round($capacity / $audience, 2));
+
+            if ($capacityScore >= 1.0) {
+                $reasons[] = 'audience_size_match';
+            }
+        }
+
+        return [
+            'category_fit' => $this->averageScores([$needScore, $communityAffinityScore]),
+            'value_fit' => $this->averageScores([$offersInReturnScore, $venueScore, $capacityScore]),
+            'reasons' => $reasons,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array{category_fit: float, value_fit: float, reasons: array<int, string>}
+     */
+    private function resolveCommunityViewerMatchComponents(Kolab $kolab, Profile $viewer, array $filters): array
+    {
+        $reasons = [];
+        $communityType = Str::of((string) $viewer->communityProfile?->community_type)
+            ->lower()
+            ->trim()
+            ->value();
+
+        $categoryFit = $this->resolveCommunityCategoryFit($communityType, $kolab);
+        if ($categoryFit >= 0.75) {
+            $reasons[] = 'community_affinity_match';
+        }
+
+        $offerTypes = $this->normalizeOfferTypes($kolab->offering);
+        $desiredOfferTypes = $filters['offer_types'] !== []
+            ? $filters['offer_types']
+            : $this->inferCommunityDesiredOfferTypes($viewer);
+        $offerTypeScore = $this->hasAnyOverlap($offerTypes, $desiredOfferTypes) ? 1.0 : 0.0;
+
+        if ($offerTypeScore === 1.0) {
+            $reasons[] = 'offer_type_match';
+        }
+
+        $expectedDeliverables = $this->normalizeDeliverables($kolab->expects);
+        $desiredDeliverables = $filters['expected_deliverables'] !== []
+            ? $filters['expected_deliverables']
+            : ['social_media', 'community_reach', 'event_activation'];
+        $deliverableScore = $this->hasAnyOverlap($expectedDeliverables, $desiredDeliverables) ? 1.0 : 0.35;
+
+        if ($deliverableScore === 1.0) {
+            $reasons[] = 'expected_deliverable_match';
+        }
+
+        $seekingCommunities = $this->extractTagKeys($this->normalizeTagObjects($kolab->seeking_communities));
+        $affinityTerms = $this->normalizeTagKeys($this->inferCommunityAffinityTerms($viewer));
+        $seekingCommunityScore = $this->hasAnyOverlap($seekingCommunities, $affinityTerms) ? 1.0 : 0.3;
+
+        if ($seekingCommunityScore === 1.0) {
+            $reasons[] = 'community_affinity_match';
+        }
+
+        $preferredIntents = $filters['intent_types'] !== []
+            ? $filters['intent_types']
+            : $this->inferCommunityPreferredIntents($viewer);
+        if (in_array($kolab->intent_type->value, $preferredIntents, true)) {
+            $reasons[] = 'intent_type_match';
+        }
+
+        return [
+            'category_fit' => round(min(1.0, $categoryFit + ($seekingCommunityScore === 1.0 ? 0.1 : 0.0)), 2),
+            'value_fit' => $this->averageScores([$offerTypeScore, $deliverableScore, $seekingCommunityScore]),
+            'reasons' => $reasons,
+        ];
+    }
+
+    private function resolveCommunityCategoryFit(string $communityType, Kolab $kolab): float
+    {
+        $businessCategories = $this->resolveKolabBusinessCategories($kolab);
+
+        if ($businessCategories === []) {
+            return 0.25;
+        }
+
+        $scores = array_map(
+            fn (string $category): float => $this->resolveCategoryAffinityScore($communityType, $category),
+            $businessCategories
+        );
+
+        return round(max($scores), 2);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function resolveKolabBusinessCategories(Kolab $kolab): array
+    {
+        $categories = [];
+
+        foreach ($kolab->creatorProfile?->businessProfile?->normalizedCategories() ?? [] as $category) {
+            $categories[] = $this->normalizeCategoryValue($category);
+        }
+
+        if (is_string($kolab->venue_type) && $kolab->venue_type !== '') {
+            $categories[] = $this->normalizeCategoryValue($kolab->venue_type);
+        }
+
+        if (is_string($kolab->product_type) && $kolab->product_type !== '') {
+            $categories[] = $this->normalizeCategoryValue($kolab->product_type);
+        }
+
+        return array_values(array_unique(array_filter($categories)));
+    }
+
+    private function resolveCategoryAffinityScore(string $communityType, string $businessCategory): float
+    {
+        $mappedScore = self::COMMUNITY_BUSINESS_CATEGORY_SCORES[$communityType][$businessCategory] ?? null;
+        if ($mappedScore !== null) {
+            return $mappedScore;
+        }
+
+        return match ($businessCategory) {
+            'cafe', 'restaurant', 'bar', 'bar_lounge', 'bakery' => 0.65,
+            'hotel', 'event_space', 'rooftop', 'beach_club' => 0.55,
+            'coworking' => 0.35,
+            'retail', 'fashion' => 0.45,
+            default => 0.4,
+        };
+    }
+
+    private function normalizeCategoryValue(string $value): string
+    {
+        return Str::of($value)
+            ->trim()
+            ->lower()
+            ->replace([' ', '-'], '_')
+            ->value();
+    }
+
+    /**
+     * @param  array<int, float>  $scores
+     */
+    private function averageScores(array $scores): float
+    {
+        $filtered = array_values(array_filter($scores, static fn (float $score): bool => $score >= 0.0));
+
+        if ($filtered === []) {
+            return 0.0;
+        }
+
+        return round(array_sum($filtered) / count($filtered), 2);
     }
 
     private function resolveScoreTier(int $score): string
