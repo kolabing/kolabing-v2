@@ -30,7 +30,10 @@
 - Accept application payloads may omit `contact_methods`, and backend date validation now mirrors `one_time`, `recurring`, and `flexible` availability rules.
 - Collaboration completion is available at `POST /collaborations/{id}/complete`.
 - Community public profiles are available at `GET /communities/{id}/public-profile`.
+- Community public profiles now also include `avatar_url`, `type`, `gallery[]`, and `past_collaborations[]` so the FE can reuse the legacy public-profile reader without adapter glue.
 - Venue and product promotion Kolabs now support `offer_headline`, `base_offer`, and `negotiation_triggers[] = { condition, additional_offer }`.
+- `POST /kolabs/{id}/publish` accepts optional `recipient_community_id` for direct community proposals. Direct proposals are private to the targeted community.
+- `GET /applications/{id}` returns both `collab_opportunity` and `opportunity` blocks, and Kolab-backed proposal details now include unlocked `negotiation_triggers` after apply.
 - Discovery cards now return `match_score`, `match_breakdown[]`, public `offer_headline`, and public `business_offer.base_offer`.
 
 ## Overview

@@ -29,7 +29,15 @@ class KolabPolicy
             return true;
         }
 
-        return $kolab->isPublished();
+        if (! $kolab->isPublished()) {
+            return false;
+        }
+
+        if (is_string($kolab->recipient_community_id) && $kolab->recipient_community_id !== '') {
+            return $user->id === $kolab->recipient_community_id;
+        }
+
+        return true;
     }
 
     /**

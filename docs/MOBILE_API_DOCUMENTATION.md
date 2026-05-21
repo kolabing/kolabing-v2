@@ -25,7 +25,10 @@
 - `POST /applications/{application}/accept` now accepts missing or empty `contact_methods`, and `scheduled_date` is validated against the publisher availability mode.
 - `POST /collaborations/{collaboration}/complete` is live. Participants can complete `scheduled` and `active` collaborations. Repeat completion returns `422 invalid_status_transition`.
 - `GET /communities/{community}/public-profile` is live for authenticated viewers. It returns safe public community data, public stats, photos, and normalized past event portfolio items.
+- Community public profiles now also mirror the legacy public-profile shape with `avatar_url`, `type`, `gallery[]`, and `past_collaborations[]`.
 - Venue and product Kolabs now expose `offer_headline`, `base_offer`, and optional `negotiation_triggers`. Public viewers do not receive `negotiation_triggers` until they have applied to that Kolab.
+- `POST /kolabs/{kolab}/publish` accepts optional `recipient_community_id`. When a subscribed business sends a direct proposal, that Kolab is only visible to the targeted community.
+- `GET /applications/{application}` now includes both `collab_opportunity` and `opportunity` objects with unlocked `negotiation_triggers` for Kolab-backed venue/product proposals.
 - Discovery responses now include `match_score` and ordered `match_breakdown` signals, alongside public `business_offer.base_offer`.
 
 ## Authentication Flow

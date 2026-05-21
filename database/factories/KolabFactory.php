@@ -35,6 +35,7 @@ class KolabFactory extends Factory
 
         return [
             'creator_profile_id' => Profile::factory()->business(),
+            'recipient_community_id' => null,
             'intent_type' => IntentType::CommunitySeeking,
             'status' => KolabStatus::Draft,
             'title' => fake()->sentence(6),
@@ -169,6 +170,16 @@ class KolabFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'creator_profile_id' => $profile->id,
+        ]);
+    }
+
+    /**
+     * Set a specific recipient community for a direct proposal.
+     */
+    public function forRecipientCommunity(Profile $profile): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'recipient_community_id' => $profile->id,
         ]);
     }
 }

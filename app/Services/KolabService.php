@@ -30,12 +30,13 @@ class KolabService
      *     search?: string,
      * }  $filters
      */
-    public function browse(array $filters, int $perPage = 15): LengthAwarePaginator
+    public function browse(Profile $viewer, array $filters, int $perPage = 15): LengthAwarePaginator
     {
         $query = Kolab::query()
             ->where('status', KolabStatus::Published)
             ->with('creatorProfile');
 
+        $this->applyRecipientVisibilityScope($query, $viewer);
         $this->applyFilters($query, $filters);
 
         return $query
@@ -161,9 +162,10 @@ class KolabService
      * Publish a kolab. Only draft kolabs can be published.
      * Community seeking intent is free; other intents require subscription.
      *
+     * @param  array{recipient_community_id?: string|null}  $data
      * @throws InvalidArgumentException
      */
-    public function publish(Kolab $kolab): Kolab
+    public function publish(Kolab $kolab, array $data = []): Kolab
     {
         if (! $kolab->isDraft()) {
             throw new InvalidArgumentException(
@@ -181,7 +183,10 @@ class KolabService
             );
         }
 
+        $recipientCommunityId = $this->resolveRecipientCommunityId($kolab, $data);
+
         $kolab->update([
+            'recipient_community_id' => $recipientCommunityId,
             'status' => KolabStatus::Published,
             'published_at' => Carbon::now(),
         ]);
@@ -278,6 +283,17 @@ class KolabService
                 }
             });
         }
+    }
+
+    /**
+     * @param  Builder<Kolab>  $query
+     */
+    private function applyRecipientVisibilityScope(Builder $query, Profile $viewer): void
+    {
+        $query->where(function (Builder $visibilityQuery) use ($viewer): void {
+            $visibilityQuery->whereNull('recipient_community_id')
+                ->orWhere('recipient_community_id', $viewer->id);
+        });
     }
 
     /**
@@ -521,5 +537,38 @@ class KolabService
         }
 
         return array_values($normalized);
+    }
+
+    /**
+     * @param  array{recipient_community_id?: string|null}  $data
+     */
+    private function resolveRecipientCommunityId(Kolab $kolab, array $data): ?string
+    {
+        $recipientCommunityId = $data['recipient_community_id'] ?? null;
+        if (! is_string($recipientCommunityId) || $recipientCommunityId === '') {
+            return null;
+        }
+
+        $creator = $kolab->creatorProfile;
+        if (! $creator->isBusiness() || $kolab->intent_type === IntentType::CommunitySeeking) {
+            throw new InvalidArgumentException(
+                'Direct community proposals are only available for business venue and product kolabs.'
+            );
+        }
+
+        if (! $creator->hasActiveSubscription()) {
+            throw new InvalidArgumentException(
+                'An active subscription is required to send a direct community proposal.'
+            );
+        }
+
+        $recipient = Profile::query()->find($recipientCommunityId);
+        if ($recipient === null || ! $recipient->isCommunity()) {
+            throw new InvalidArgumentException(
+                'The recipient community must reference a community profile.'
+            );
+        }
+
+        return $recipient->id;
     }
 }

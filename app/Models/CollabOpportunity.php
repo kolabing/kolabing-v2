@@ -15,9 +15,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * @property string $id
  * @property string $creator_profile_id
+ * @property string|null $recipient_community_id
  * @property UserType $creator_profile_type
  * @property string $title
  * @property string|null $description
+ * @property string|null $offer_headline
+ * @property string|null $base_offer
+ * @property array<int, array{condition: string, additional_offer: string}>|null $negotiation_triggers
  * @property OfferStatus $status
  * @property array<string, mixed>|null $business_offer
  * @property array<string, mixed>|null $community_deliverables
@@ -57,9 +61,13 @@ class CollabOpportunity extends Model
      */
     protected $fillable = [
         'creator_profile_id',
+        'recipient_community_id',
         'creator_profile_type',
         'title',
         'description',
+        'offer_headline',
+        'base_offer',
+        'negotiation_triggers',
         'status',
         'business_offer',
         'community_deliverables',
@@ -86,6 +94,7 @@ class CollabOpportunity extends Model
         return [
             'creator_profile_type' => UserType::class,
             'status' => OfferStatus::class,
+            'negotiation_triggers' => 'array',
             'business_offer' => 'array',
             'community_deliverables' => 'array',
             'categories' => 'array',
@@ -104,6 +113,16 @@ class CollabOpportunity extends Model
     public function creatorProfile(): BelongsTo
     {
         return $this->belongsTo(Profile::class, 'creator_profile_id');
+    }
+
+    /**
+     * Get the explicitly targeted recipient community, if any.
+     *
+     * @return BelongsTo<Profile, $this>
+     */
+    public function recipientCommunity(): BelongsTo
+    {
+        return $this->belongsTo(Profile::class, 'recipient_community_id');
     }
 
     /**

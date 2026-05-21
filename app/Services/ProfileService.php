@@ -158,6 +158,7 @@ class ProfileService
             ->count();
 
         $pastEvents = $this->buildCommunityPastEvents($profile);
+        $pastCollaborations = $this->buildCommunityPastCollaborations($profile);
 
         $profile->setAttribute('community_public_stats', [
             'completed_collaborations_count' => $completedCollaborationsCount,
@@ -166,6 +167,8 @@ class ProfileService
         ]);
         $profile->setAttribute('community_public_past_events', $pastEvents);
         $profile->setAttribute('community_public_photos', $this->buildCommunityPhotos($profile, $pastEvents));
+        $profile->setAttribute('community_public_gallery', $this->buildCommunityGallery($profile));
+        $profile->setAttribute('community_public_past_collaborations', $pastCollaborations);
 
         return $profile;
     }
@@ -328,6 +331,60 @@ class ProfileService
             ->unique('url')
             ->take(10)
             ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, array{id: string, url: string}>
+     */
+    private function buildCommunityGallery(Profile $profile): array
+    {
+        return $profile->galleryPhotos
+            ->filter(fn ($photo): bool => is_string($photo->url) && $photo->url !== '')
+            ->sortBy('sort_order')
+            ->values()
+            ->map(fn ($photo): array => [
+                'id' => $photo->id,
+                'url' => $photo->url,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildCommunityPastCollaborations(Profile $profile): array
+    {
+        return Collaboration::query()
+            ->where('status', CollaborationStatus::Completed)
+            ->where(function ($query) use ($profile): void {
+                $query->where('creator_profile_id', $profile->id)
+                    ->orWhere('applicant_profile_id', $profile->id);
+            })
+            ->with([
+                'collabOpportunity',
+                'creatorProfile.businessProfile',
+                'creatorProfile.communityProfile',
+                'applicantProfile.businessProfile',
+                'applicantProfile.communityProfile',
+            ])
+            ->orderByDesc('completed_at')
+            ->limit(10)
+            ->get()
+            ->map(function (Collaboration $collaboration) use ($profile): array {
+                $partner = $collaboration->creator_profile_id === $profile->id
+                    ? $collaboration->applicantProfile
+                    : $collaboration->creatorProfile;
+
+                return [
+                    'id' => $collaboration->id,
+                    'title' => $collaboration->collabOpportunity?->title,
+                    'partner_name' => $partner?->getExtendedProfile()?->name,
+                    'partner_avatar_url' => $partner?->avatar_url,
+                    'completed_at' => $collaboration->completed_at?->toIso8601String(),
+                    'status' => $collaboration->status->value,
+                ];
+            })
             ->all();
     }
 

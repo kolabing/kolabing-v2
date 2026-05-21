@@ -51,6 +51,8 @@ class OpportunityService
                 },
             ]);
 
+        $this->applyRecipientVisibilityScope($query, $viewer);
+
         if (! isset($filters['creator_type']) || $filters['creator_type'] === '') {
             $oppositeType = $viewer->user_type === UserType::Business
                 ? UserType::Community
@@ -69,6 +71,17 @@ class OpportunityService
         return $query
             ->orderByDesc('published_at')
             ->paginate($perPage);
+    }
+
+    /**
+     * @param  Builder<CollabOpportunity>  $query
+     */
+    private function applyRecipientVisibilityScope(Builder $query, Profile $viewer): void
+    {
+        $query->where(function (Builder $visibilityQuery) use ($viewer): void {
+            $visibilityQuery->whereNull('recipient_community_id')
+                ->orWhere('recipient_community_id', $viewer->id);
+        });
     }
 
     /**

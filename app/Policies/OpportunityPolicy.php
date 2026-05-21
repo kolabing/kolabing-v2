@@ -29,7 +29,15 @@ class OpportunityPolicy
             return true;
         }
 
-        return $opportunity->isPublished();
+        if (! $opportunity->isPublished()) {
+            return false;
+        }
+
+        if (is_string($opportunity->recipient_community_id) && $opportunity->recipient_community_id !== '') {
+            return $user->id === $opportunity->recipient_community_id;
+        }
+
+        return true;
     }
 
     /**

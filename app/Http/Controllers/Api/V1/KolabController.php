@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\CreateKolabRequest;
+use App\Http\Requests\Api\V1\PublishKolabRequest;
 use App\Http\Requests\Api\V1\UpdateKolabRequest;
 use App\Http\Resources\Api\V1\KolabCollection;
 use App\Http\Resources\Api\V1\KolabResource;
@@ -30,6 +31,9 @@ class KolabController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
         $filters = [
             'intent_type' => $request->query('intent_type'),
             'city' => $request->query('city'),
@@ -43,7 +47,7 @@ class KolabController extends Controller
         $perPage = (int) $request->query('per_page', 15);
         $perPage = min(max($perPage, 1), 100);
 
-        $kolabs = $this->kolabService->browse($filters, $perPage);
+        $kolabs = $this->kolabService->browse($profile, $filters, $perPage);
 
         return response()->json([
             'success' => true,
@@ -218,7 +222,7 @@ class KolabController extends Controller
      *
      * POST /api/v1/kolabs/{kolab}/publish
      */
-    public function publish(Request $request, Kolab $kolab): JsonResponse
+    public function publish(PublishKolabRequest $request, Kolab $kolab): JsonResponse
     {
         /** @var Profile $profile */
         $profile = $request->user();
@@ -231,7 +235,7 @@ class KolabController extends Controller
         }
 
         try {
-            $kolab = $this->kolabService->publish($kolab);
+            $kolab = $this->kolabService->publish($kolab, $request->validated());
             $kolab->load('creatorProfile');
 
             return response()->json([

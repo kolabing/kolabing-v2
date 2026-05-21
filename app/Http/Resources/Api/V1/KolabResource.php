@@ -30,6 +30,10 @@ class KolabResource extends JsonResource
             'status' => $this->status->value,
             'title' => $this->title,
             'description' => $this->description,
+            'recipient_community_id' => $this->when(
+                $this->shouldExposeRecipientCommunityId($request),
+                fn () => $this->recipient_community_id
+            ),
             'offer_headline' => $this->resolveOfferHeadline(),
             'base_offer' => $this->resolveBaseOffer(),
             'negotiation_triggers' => $this->when(
@@ -200,5 +204,16 @@ class KolabResource extends JsonResource
             ->where('collab_opportunity_id', $this->id)
             ->where('applicant_profile_id', $viewer->id)
             ->exists();
+    }
+
+    private function shouldExposeRecipientCommunityId(Request $request): bool
+    {
+        $viewer = $request->user();
+        if ($viewer === null) {
+            return false;
+        }
+
+        return $viewer->id === $this->creator_profile_id
+            || $viewer->id === $this->recipient_community_id;
     }
 }

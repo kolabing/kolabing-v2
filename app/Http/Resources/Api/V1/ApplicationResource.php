@@ -35,15 +35,18 @@ class ApplicationResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $opportunityResource = $this->when(
+            $this->includeOpportunity,
+            fn () => $this->whenLoaded('collabOpportunity', function () {
+                return new OpportunitySummaryResource($this->collabOpportunity);
+            })
+        );
+
         return [
             'id' => $this->id,
             'collab_opportunity_id' => $this->collab_opportunity_id,
-            'collab_opportunity' => $this->when(
-                $this->includeOpportunity,
-                fn () => $this->whenLoaded('collabOpportunity', function () {
-                    return new OpportunitySummaryResource($this->collabOpportunity);
-                })
-            ),
+            'collab_opportunity' => $opportunityResource,
+            'opportunity' => $opportunityResource,
             'applicant_profile' => $this->whenLoaded('applicantProfile', function () {
                 return new ProfileSummaryResource($this->applicantProfile);
             }),

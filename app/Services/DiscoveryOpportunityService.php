@@ -259,6 +259,7 @@ class DiscoveryOpportunityService
                 },
             ]);
 
+        $this->applyRecipientVisibilityScope($query, $viewer);
         $this->applyRoleScope($query, $viewerRole);
         $this->applyActiveAvailabilityFilter($query);
         $this->excludeAlreadyAppliedKolabs($query, $viewer);
@@ -273,6 +274,17 @@ class DiscoveryOpportunityService
                 ->from('applications')
                 ->whereColumn('applications.collab_opportunity_id', 'kolabs.id')
                 ->where('applications.applicant_profile_id', $viewer->id);
+        });
+    }
+
+    /**
+     * @param  Builder<Kolab>  $query
+     */
+    private function applyRecipientVisibilityScope(Builder $query, Profile $viewer): void
+    {
+        $query->where(function (Builder $visibilityQuery) use ($viewer): void {
+            $visibilityQuery->whereNull('recipient_community_id')
+                ->orWhere('recipient_community_id', $viewer->id);
         });
     }
 

@@ -267,6 +267,14 @@ class ApplicationService
             );
         }
 
+        if (is_string($opportunity->recipient_community_id)
+            && $opportunity->recipient_community_id !== ''
+            && $opportunity->recipient_community_id !== $applicant->id) {
+            throw new InvalidArgumentException(
+                'This direct proposal is only available to the selected community.'
+            );
+        }
+
         // Check for existing application (unique constraint will also catch this)
         $existingApplication = Application::query()
             ->where('collab_opportunity_id', $opportunity->id)

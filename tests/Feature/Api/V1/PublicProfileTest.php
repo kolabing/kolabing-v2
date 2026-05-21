@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Models\BusinessProfile;
 use App\Models\CommunityProfile;
 use App\Models\Collaboration;
 use App\Models\Kolab;
 use App\Models\Profile;
+use App\Models\ProfileGalleryPhoto;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
@@ -130,17 +132,36 @@ class PublicProfileTest extends TestCase
     {
         $viewer = Profile::factory()->business()->create();
         $community = Profile::factory()->community()->create();
+        $partner = Profile::factory()->business()->create([
+            'avatar_url' => 'https://example.com/partner-avatar.jpg',
+        ]);
 
         CommunityProfile::factory()->create([
             'profile_id' => $community->id,
             'name' => 'Barcelona Food Club',
             'about' => 'We host supper clubs and tasting nights around the city.',
             'community_type' => 'food_community',
+            'instagram' => 'barcelonafoodclub',
+            'tiktok' => 'barcelonafoodclubtok',
+            'website' => 'https://barcelonafoodclub.test',
             'profile_photo' => 'https://example.com/community-profile.jpg',
         ]);
+        BusinessProfile::factory()->create([
+            'profile_id' => $partner->id,
+            'name' => 'Casa Sol',
+        ]);
 
-        Collaboration::factory()->completed()->forCreator($community)->create();
-        Collaboration::factory()->completed()->forApplicant($community)->create();
+        ProfileGalleryPhoto::factory()->forProfile($community)->create([
+            'url' => 'https://example.com/gallery-1.jpg',
+            'sort_order' => 0,
+        ]);
+
+        Collaboration::factory()->completed()->forCreator($community)->forApplicant($partner)->create([
+            'completed_at' => now()->subDay(),
+        ]);
+        Collaboration::factory()->completed()->forApplicant($community)->forCreator($partner)->create([
+            'completed_at' => now()->subDays(2),
+        ]);
         Collaboration::factory()->active()->forCreator($community)->create();
 
         Kolab::factory()->published()->forCreator($community)->create([
@@ -178,13 +199,20 @@ class PublicProfileTest extends TestCase
             ->assertJsonPath('data.id', $community->id)
             ->assertJsonPath('data.user_type', 'community')
             ->assertJsonPath('data.display_name', 'Barcelona Food Club')
+            ->assertJsonPath('data.type', 'food_community')
             ->assertJsonPath('data.community_type', 'food_community')
+            ->assertJsonPath('data.instagram', 'barcelonafoodclub')
+            ->assertJsonPath('data.tiktok', 'barcelonafoodclubtok')
+            ->assertJsonPath('data.website', 'https://barcelonafoodclub.test')
             ->assertJsonPath('data.public_stats.completed_collaborations_count', 2)
             ->assertJsonPath('data.public_stats.past_events_count', 2)
+            ->assertJsonPath('data.gallery.0.url', 'https://example.com/gallery-1.jpg')
             ->assertJsonPath('data.photos.0.url', 'https://example.com/community-profile.jpg')
             ->assertJsonPath('data.past_events.0.name', 'Sunset Supper Club')
             ->assertJsonPath('data.past_events.0.media.0.type', 'image')
-            ->assertJsonPath('data.past_events.1.media.0.type', 'video');
+            ->assertJsonPath('data.past_events.1.media.0.type', 'video')
+            ->assertJsonPath('data.past_collaborations.0.partner_name', 'Casa Sol')
+            ->assertJsonPath('data.past_collaborations.0.partner_avatar_url', 'https://example.com/partner-avatar.jpg');
 
         $data = $response->json('data');
 
@@ -192,6 +220,7 @@ class PublicProfileTest extends TestCase
         $this->assertArrayNotHasKey('google_id', $data);
         $this->assertArrayNotHasKey('apple_id', $data);
         $this->assertArrayNotHasKey('is_featured', $data);
+        $this->assertArrayHasKey('avatar_url', $data);
     }
 
     public function test_community_public_profile_returns_404_for_non_community_profiles(): void
