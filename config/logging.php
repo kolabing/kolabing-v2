@@ -55,7 +55,10 @@ return [
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),
-            'ignore_exceptions' => false,
+            // A failing log handler (e.g. an unreachable Papertrail/socket
+            // endpoint timing out) must never turn into a request 500. Swallow
+            // handler failures so logging is best-effort, not request-critical.
+            'ignore_exceptions' => true,
         ],
 
         'single' => [
