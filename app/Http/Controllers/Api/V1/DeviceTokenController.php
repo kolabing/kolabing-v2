@@ -12,9 +12,7 @@ use Illuminate\Http\JsonResponse;
 class DeviceTokenController extends Controller
 {
     /**
-     * Register or update the authenticated user's FCM device token.
-     *
-     * POST /api/v1/me/device-token
+     * Store legacy mobile token metadata for the authenticated user.
      */
     public function store(StoreDeviceTokenRequest $request): JsonResponse
     {

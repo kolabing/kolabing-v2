@@ -1,5 +1,7 @@
 # Firebase Push Notifications (FCM) — Flutter Integration Guide
 
+> Legacy note (2026-05-22): backend transactional push delivery now uses OneSignal `external_id` targeting. This document remains as historical FCM/mobile reference only and no longer reflects the active backend delivery path.
+
 **Platform:** Flutter (iOS & Android)
 **Backend:** Kolabing Laravel API v1
 **Last Updated:** 2026-02-27

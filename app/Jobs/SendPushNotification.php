@@ -9,6 +9,7 @@ use App\Models\Profile;
 use App\Services\PushNotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Config;
 
 class SendPushNotification implements ShouldQueue
 {
@@ -26,7 +27,11 @@ class SendPushNotification implements ShouldQueue
         public readonly string $body,
         public readonly NotificationType $type,
         public readonly ?string $targetId = null,
-    ) {}
+    ) {
+        if (Config::get('queue.default') === 'sync') {
+            $this->onConnection('database');
+        }
+    }
 
     public function handle(PushNotificationService $pushService): void
     {

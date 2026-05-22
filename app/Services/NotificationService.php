@@ -64,7 +64,7 @@ class NotificationService
     }
 
     /**
-     * Create a notification record and dispatch a push notification if the recipient has a device token.
+     * Create a notification record and dispatch a push notification for the recipient.
      */
     public function createNotification(
         Profile $recipient,
@@ -85,9 +85,7 @@ class NotificationService
             'target_type' => $targetType,
         ]);
 
-        if (! empty($recipient->device_token)) {
-            SendPushNotification::dispatch($recipient, $title, $body, $type, $targetId);
-        }
+        SendPushNotification::dispatch($recipient, $title, $body, $type, $targetId);
 
         return $notification;
     }

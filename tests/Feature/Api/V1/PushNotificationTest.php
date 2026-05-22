@@ -24,7 +24,7 @@ class PushNotificationTest extends TestCase
         $this->notificationService = app(NotificationService::class);
     }
 
-    public function test_push_job_dispatched_when_recipient_has_device_token(): void
+    public function test_push_job_dispatched_when_notification_is_created(): void
     {
         Queue::fake();
 
@@ -54,7 +54,7 @@ class PushNotificationTest extends TestCase
         });
     }
 
-    public function test_push_job_not_dispatched_when_recipient_has_no_device_token(): void
+    public function test_push_job_dispatched_even_when_recipient_has_no_device_token(): void
     {
         Queue::fake();
 
@@ -69,7 +69,13 @@ class PushNotificationTest extends TestCase
             body: 'Someone applied.',
         );
 
-        Queue::assertNotPushed(SendPushNotification::class);
+        Queue::assertPushed(SendPushNotification::class, function (SendPushNotification $job) use ($recipient): bool {
+            return $job->recipient->id === $recipient->id
+                && $job->title === 'New Application'
+                && $job->body === 'Someone applied.'
+                && $job->type === NotificationType::ApplicationReceived
+                && $job->targetId === null;
+        });
     }
 
     public function test_notification_db_record_created_regardless_of_device_token(): void

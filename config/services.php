@@ -74,4 +74,10 @@ return [
         'iap_environment' => env('APPLE_IAP_ENVIRONMENT', 'sandbox'),
     ],
 
+    'onesignal' => [
+        'app_id' => env('ONESIGNAL_APP_ID'),
+        'rest_api_key' => env('ONESIGNAL_REST_API_KEY'),
+        'base_url' => env('ONESIGNAL_BASE_URL', 'https://api.onesignal.com'),
+    ],
+
 ];

@@ -7,21 +7,15 @@ namespace App\Services;
 use App\Enums\NotificationType;
 use App\Models\Profile;
 use Illuminate\Support\Facades\Log;
-use Kreait\Firebase\Contract\Messaging;
-use Kreait\Firebase\Exception\MessagingException;
-use Kreait\Firebase\Messaging\CloudMessage;
-use Kreait\Firebase\Messaging\Notification;
 
 class PushNotificationService
 {
     public function __construct(
-        private readonly Messaging $messaging
+        private readonly OneSignalService $oneSignalService
     ) {}
 
     /**
-     * Send a push notification to a profile via FCM.
-     *
-     * @param  array<string, string>  $data  Extra data payload for Flutter navigation.
+     * Send a transactional push notification to a single profile via OneSignal.
      */
     public function send(
         Profile $recipient,
@@ -30,70 +24,67 @@ class PushNotificationService
         NotificationType $type,
         ?string $targetId = null,
     ): bool {
-        if (empty($recipient->device_token)) {
-            return false;
-        }
-
-        try {
-            $data = array_filter([
-                'type' => $type->value,
-                'id' => $targetId ?? '',
-            ]);
-
-            $message = CloudMessage::withTarget('token', $recipient->device_token)
-                ->withNotification(Notification::create($title, $body))
-                ->withData($data);
-
-            $this->messaging->send($message);
-
-            return true;
-        } catch (MessagingException $e) {
-            // Token expired / unregistered — clear it so we don't keep trying
-            if ($this->isTokenInvalid($e)) {
-                $recipient->update([
-                    'device_token' => null,
-                    'device_platform' => null,
-                ]);
-
-                Log::info('FCM: cleared invalid device token', [
-                    'profile_id' => $recipient->id,
-                    'error' => $e->getMessage(),
-                ]);
-            } else {
-                Log::warning('FCM: failed to send push notification', [
-                    'profile_id' => $recipient->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-
-            return false;
-        } catch (\Throwable $e) {
-            Log::error('FCM: unexpected error', [
-                'profile_id' => $recipient->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            return false;
-        }
+        return $this->sendToUsers([$recipient->id], $title, $body, $type, $targetId);
     }
 
     /**
-     * Check whether the FCM exception indicates an invalid/expired token.
+     * Send a transactional push notification to one or more profile ids.
+     *
+     * @param  array<int, int|string>  $profileIds
      */
-    private function isTokenInvalid(MessagingException $e): bool
-    {
-        $invalidMessages = [
-            'UNREGISTERED',
-            'INVALID_ARGUMENT',
-            'registration-token-not-registered',
-        ];
+    public function sendToUsers(
+        array $profileIds,
+        string $title,
+        string $body,
+        NotificationType $type,
+        ?string $targetId = null,
+    ): bool {
+        $response = $this->oneSignalService->sendPushToUsers(
+            userIds: $profileIds,
+            title: $title,
+            body: $body,
+            data: $this->buildDataPayload($type, $targetId),
+        );
 
-        foreach ($invalidMessages as $message) {
-            if (str_contains($e->getMessage(), $message)) {
-                return true;
-            }
+        if (! array_key_exists('id', $response)) {
+            Log::warning('OneSignal: no message created for transactional push', [
+                'profile_ids' => $profileIds,
+                'type' => $type->value,
+                'target_id' => $targetId,
+                'response' => $response,
+            ]);
+
+            return false;
         }
 
-        return false;
+        return true;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function buildDataPayload(NotificationType $type, ?string $targetId): array
+    {
+        return [
+            'type' => $type->value,
+            'id' => $targetId ?? '',
+            'deeplink' => $this->resolveDeeplink($type, $targetId),
+        ];
+    }
+
+    private function resolveDeeplink(NotificationType $type, ?string $targetId): string
+    {
+        return match ($type) {
+            NotificationType::NewMessage => $targetId ? "/chat/{$targetId}" : '/chat',
+            NotificationType::ApplicationReceived,
+            NotificationType::ApplicationAccepted,
+            NotificationType::ApplicationDeclined => $targetId ? "/application/{$targetId}" : '/application',
+            NotificationType::BadgeAwarded,
+            NotificationType::GamificationBadgeEarned => '/badges',
+            NotificationType::ChallengeVerified,
+            NotificationType::RewardWon,
+            NotificationType::PointsEarned,
+            NotificationType::WithdrawalProcessed => '/me/rewards',
+        };
     }
 }
