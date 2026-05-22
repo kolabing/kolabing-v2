@@ -253,21 +253,32 @@ class FileUploadService
             return false;
         }
 
-        if (! Storage::disk($this->storageDisk)->exists($storagePath)) {
-            Log::warning('Attempted to delete non-existent file', ['path' => $storagePath]);
+        try {
+            if (! Storage::disk($this->storageDisk)->exists($storagePath)) {
+                Log::warning('Attempted to delete non-existent file', ['path' => $storagePath]);
+
+                return false;
+            }
+
+            $deleted = Storage::disk($this->storageDisk)->delete($storagePath);
+
+            if ($deleted) {
+                Log::info('File deleted', ['path' => $storagePath]);
+            } else {
+                Log::error('Failed to delete file', ['path' => $storagePath]);
+            }
+
+            return $deleted;
+        } catch (\Throwable $e) {
+            // Best-effort: deleting an old/legacy photo (e.g. a malformed value
+            // or unreachable storage) must NEVER break the request replacing it.
+            Log::warning('Failed to delete old file (ignored)', [
+                'path' => $storagePath,
+                'error' => $e->getMessage(),
+            ]);
 
             return false;
         }
-
-        $deleted = Storage::disk($this->storageDisk)->delete($storagePath);
-
-        if ($deleted) {
-            Log::info('File deleted', ['path' => $storagePath]);
-        } else {
-            Log::error('Failed to delete file', ['path' => $storagePath]);
-        }
-
-        return $deleted;
     }
 
     /**
@@ -476,6 +487,14 @@ class FileUploadService
      */
     private function extractStoragePath(string $path): string
     {
+        // A base64 data URI is a legacy bad value still held by some
+        // profile_photo columns (from the old base64 upload). It is NOT a
+        // storage object — never treat it as a key, or an exists()/delete()
+        // HEAD against R2 with this giant string throws and 500s the request.
+        if (str_starts_with($path, 'data:')) {
+            return '';
+        }
+
         // If it's a full URL, extract the path after /storage/
         if (filter_var($path, FILTER_VALIDATE_URL)) {
             $parsed = parse_url($path);
