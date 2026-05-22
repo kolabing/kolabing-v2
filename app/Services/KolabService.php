@@ -168,7 +168,8 @@ class KolabService
 
         $creator = $kolab->creatorProfile;
 
-        if ($kolab->intent_type !== IntentType::CommunitySeeking
+        if ($creator->isBusiness()
+            && $kolab->intent_type !== IntentType::CommunitySeeking
             && ! $creator->hasActiveSubscription()
             && $creator->hasUsedFreeKolab()) {
             throw new SubscriptionRequiredException(

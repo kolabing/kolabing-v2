@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## MUST READ — Roles & Permissions (before planning OR executing changes)
+
+Before planning or writing any code that touches **user roles, permissions, the paywall, the Explore feed, profiles, onboarding, or the create/apply flows**, read BOTH:
+1. [`docs/ROLES-AND-PERMISSIONS.md`](docs/ROLES-AND-PERMISSIONS.md) — the authoritative *what* (exactly what Business and Community users can see and do).
+2. [`docs/ROLES-BACKEND-DB-MAP.md`](docs/ROLES-BACKEND-DB-MAP.md) — the authoritative *where* (how each rule maps to backend code + DB tables/columns, plus every known role-handling mistake).
+
+Most regressions come from applying one role's rules to the other (for example paywalling a community, which must never happen). Do not change role behaviour without checking both documents first; if a fix seems to contradict them, ask before proceeding.
+
 ## Project Overview
 
 Kolabing is a B2B/B2C collaboration platform connecting businesses with community organizers in Spain. This repository contains the **Laravel 12 backend API** for the Mobile MVP. The frontend mobile app is in a separate repository.

@@ -1,0 +1,186 @@
+# Kolabing — Roles, Permissions & Features (Canonical Reference)
+
+**Last updated:** 2026-05-22
+**Status:** Authoritative. This document overrides assumptions.
+**Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical. When role behaviour changes, update both.
+
+> **Read this before touching any code that affects Explore, profiles, the paywall, permissions, onboarding, or the create/apply flows.**
+>
+> Kolabing has two live user roles with very different permissions. Most regressions in this app come from applying one role's rules to the other. If a fix seems to require changing what a role can see or do, STOP and re-read this document. If the fix still seems to contradict it, ask Daniel before changing role behaviour. Do not "improve" role logic on your own initiative.
+
+---
+
+## 0. User roles
+
+Kolabing has three user types. Only two are in launch scope.
+
+| Role | In launch scope | Pays? | One-line definition |
+|---|---|---|---|
+| Business | Yes | Yes, €29/month or €96 per 4-month plan | A venue or a product/service sponsor that wants community foot traffic and exposure. |
+| Community | Yes | No, free always | A real-life community (running club, yoga group, book club, and so on) that hosts events and needs venues or sponsors. |
+| Attendee | No (deferred) | n/a | An individual who attends events. Gamification feature, NOT in launch scope. Do not modify attendee code unless explicitly asked. |
+
+---
+
+## 1. The golden rules (most violated, read twice)
+
+1. **Communities are 100% free. They are NEVER paywalled, gated, or blocked from any feature.** If you see a community blocked from creating, applying, chatting, or anything else, that is a bug. The paywall belongs to the Business role only.
+2. **The paywall applies ONLY to the Business role, and ONLY on two actions:** creating a collaboration, and applying to a Kolab. Nothing else is paywalled. Registration, onboarding, profile creation, and browsing Explore are always free, including for businesses.
+3. **The marketplace is bidirectional. Both roles post, and both roles apply.** Communities post Kolabs and can apply to business offers. Businesses post offers and can apply to community Kolabs. Never remove either role's ability to post or to apply.
+4. **A free (non-subscribed) business sees Explore with the community name and logo BLURRED — not hidden, not hard-blocked.** They see the Kolab and all its details; only the community's identity is blurred. Subscribing reveals it.
+5. **Never hard-block or full-screen-overlay a screen the user is allowed to be on.** Gating means: blur the protected element, or disable the specific action button. It does not mean a full-screen block.
+6. **"Opportunity" and "collaboration" both exist and are both valid.** The app uses "opportunity" for community-created posts and "collaboration" for business-created posts ("Kolab" is used loosely for either). Do not delete, merge, or rename one into the other.
+
+---
+
+## 2. Business role
+
+### 2.1 Identity and pricing
+Businesses are venues (café, restaurant, bar, bakery, coworking, coliving, gym, salon, retail, hotel) or product/service sponsors. They are the paying side. Price: €29/month, or €96 per 4-month plan. Registration and exploration are free; the subscription unlocks the two gated actions only.
+
+### 2.2 Onboarding
+- Path: "I'm a Business."
+- Choose to promote a Venue or a Product/Service.
+- Venue businesses use the Google Maps lookup: the first onboarding screen finds the venue on Google Maps and the API pre-populates name, photos, and details. The user must see a preview and be able to delete individual imported photos.
+- A business profile can also be pre-created by the Kolabing team (the pre-launch catalogue) and activated by the owner via an emailed link (review, edit, set password).
+- Onboarding must stay under roughly 5 minutes.
+
+### 2.3 Explore — what a business sees
+The business Explore feed shows COMMUNITY Kolabs (the posts communities created, that is, what communities are looking for). For each Kolab the business sees:
+- The Kolab name (e.g. "Training & Brunch")
+- Fit % and its breakdown
+- What the community is looking for
+- What the community offers, shown concretely (e.g. "Social Media, 30+ people"), never the abstract word "match"
+- The community size / number of people expected at the event
+- The available dates
+
+Business Explore shows Kolabs, NOT community profiles. A community profile is reached by tapping into a Kolab (subscribed businesses only).
+
+### 2.4 Profile — what a business has
+- Logo, business name, venue or product type (formatted tag, e.g. "Coffee Shop", never "coffee_shop")
+- Photo gallery
+- Past events
+- Contact info
+- The offering the business makes to communities
+- Home / Dashboard: performance statistics from past collaborations (revenue generated, Instagram followers gained)
+
+### 2.5 Free (non-subscribed) business — exact capabilities
+A free business CAN:
+- Register, complete onboarding, and build its profile
+- Browse the Explore feed
+- See every Kolab's details: type, community size, what is needed, what is offered, available dates, Fit %
+
+A free business CANNOT (the protected element is blurred, or the action is gated):
+- See the community NAME — blurred
+- See the community LOGO — blurred
+- Open a community's full profile or contact
+- Create a collaboration (offer) — gated, shows the paywall
+- Apply to a Kolab — gated, shows the paywall
+- Chat — not reachable (chat exists only after an accepted application)
+
+The free state is BLUR, not block. The business stays on Explore and sees the marketplace; only the community identity is blurred and the two actions are gated. Never replace this with a full-screen block or overlay.
+
+### 2.6 Subscribed business — exact capabilities
+Everything a free business can do, plus:
+- See community names and logos
+- Open full community profiles, including the past events carousel
+- Create collaborations (offers)
+- Apply to community Kolabs, choosing only from the dates the community marked available
+- Chat with a matched community
+- Run collaborations, edit them, finish them, leave reviews, give feedback
+
+### 2.7 What is paywalled for a business
+ONLY these two actions. Nothing else:
+- Creating a collaboration
+- Applying to a Kolab
+
+As a consequence of not subscribing, the community identity in Explore is blurred and chat is unreachable (because chat requires an accepted application). Those are downstream effects of the two gates, not separate paywalls. Do not add any other paywall, except the subscription-lapse re-gate in §2.8.
+
+### 2.8 Subscription lapse (re-gating) — decided 2026-05-22
+If a business's subscription lapses (expires or is cancelled), the business is **re-gated**: it loses access to its ongoing collaborations and chats until it resubscribes — in addition to the two create/apply gates. This is the one and only case where access beyond create/apply is withdrawn from a business.
+
+The **community counterparty is NEVER affected**: communities keep full access to the shared collaboration and chat regardless of the business's subscription state. Re-gating is one-sided (business only). This refines §2.7: create/apply are the only first-contact paywalls, but a lapse additionally withdraws ongoing business-side access.
+
+---
+
+## 3. Community role
+
+### 3.1 Identity and pricing
+Communities are real-life groups: running clubs, yoga groups, book clubs, cycling teams, creative collectives, social meetups, and so on. They are the free side. **Communities pay nothing and are never gated. Full stop.**
+
+### 3.2 Onboarding
+- Path: "I'm a Community."
+- Community type, size, photos, description.
+- Free and fast.
+
+### 3.3 Explore — what a community sees
+The community Explore feed shows BUSINESSES and business offers. For each, the community sees:
+- The business name (never blurred; communities have full access)
+- The neighbourhood / area the business is in
+- What the business offers, shown concretely (e.g. "-10% discount", "Free space"), never the abstract word "match"
+- Business details and photos
+
+Communities see everything in Explore. No blurring, no gating, ever.
+
+### 3.4 Profile — what a community has
+- Logo, community name, community type (formatted tag, e.g. "Run Club", never "Run_Club")
+- Community size
+- Photo gallery
+- Past events
+- Contact info, Instagram link
+- Home / Dashboard: gamified. Credits earned, a progress slider toward the withdrawal threshold, and a "Next goal" call-to-action block (e.g. "Post a Kolab, +5 points", "Give feedback, +10 points")
+
+### 3.5 What a community can do — everything, free
+- Register, onboard, build profile
+- Create Kolabs (opportunities). This is their core action and is NEVER gated.
+- Browse Explore and apply to business offers
+- When applying, choose dates only from what the business marked available
+- Chat with matched businesses
+- Run collaborations, edit them, finish them
+- Leave reviews, give feedback
+- Earn credits, refer businesses and communities, withdraw earnings (€0.25 per point, €75 withdrawal threshold)
+
+### 3.6 What is blocked for a community
+Nothing. There is no paywall and no gated action on the community side. If code blocks a community from anything, it is a bug. The known current bug "create opportunity blocked for communities" must be fixed: communities must always be able to create.
+
+---
+
+## 4. Shared features (both roles, around a match)
+
+- **Applications.** Either role applies to the other's post. The applying side picks dates only from the dates the posting side marked available.
+- **Chat.** Unlocked once an application is accepted. The other party's name is shown in chat.
+- **Collaboration.** Created when an application is accepted. Either side can edit the date or time. Either side can mark it finished; it also closes when the date passes. Both sides confirm.
+- **Two-way reviews.** After a collaboration, the business reviews the community and the community reviews the business. Ratings are visible on profiles and affect positioning.
+- **Feedback.** A mini feedback modal on completion. Business feedback captures star rating, stories posted, posts/reels, revenue, expectation match, and "would you recommend this community." Community feedback captures star rating, benefits received, posts/reels, expectation match, and "would you recommend this business."
+
+---
+
+## 5. Permission matrix
+
+| Capability | Free Business | Subscribed Business | Community |
+|---|---|---|---|
+| Register and onboard | Yes | Yes | Yes |
+| Browse Explore | Yes | Yes | Yes |
+| See the other side's post details | Yes | Yes | Yes |
+| See the other side's name and logo | No, blurred | Yes | Yes |
+| Open the other side's full profile | No | Yes | Yes |
+| Create a post (collaboration / Kolab) | No, paywall | Yes | Yes, free |
+| Apply to a post | No, paywall | Yes | Yes, free |
+| Chat | No | Yes | Yes |
+| Reviews and feedback | No | Yes | Yes |
+| Earn credits, refer, withdraw | n/a | Business referral perks exist, tracked separately | Yes |
+
+---
+
+## 6. Common mistakes to avoid
+
+These are specific errors that have happened in past fixes. Do not repeat them.
+
+- **Do not apply the business paywall to communities.** Communities create and apply for free. If a community hits a paywall or a block, the gate is the bug. Fix the gate; do not gate the community.
+- **Do not block communities from creating opportunities.** Creating a Kolab is the community's core, free action.
+- **Do not hard-block or full-screen-overlay a free business.** Blur the community name and logo; disable the create and apply buttons. The business stays on Explore.
+- **Do not remove either role's ability to post.** Both businesses and communities post. Both apply.
+- **Do not merge, delete, or rename "opportunity" versus "collaboration."** Both exist and are distinct.
+- **Do not change what a free business sees in Explore beyond the blur.** They see all Kolab details; only the community identity is blurred.
+- **Do not paywall registration, onboarding, or browsing.** Only creating and applying are paywalled, and only for the Business role.
+- **When a fix touches Explore, profiles, the paywall, or onboarding, re-read sections 1, 2, and 3 of this document before writing code.**

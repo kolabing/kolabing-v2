@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\ApplicationStatus;
 use App\Enums\CollaborationStatus;
+use App\Exceptions\SubscriptionRequiredException;
 use App\Models\Application;
 use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
@@ -251,7 +252,7 @@ class ApplicationService
      * Validate that a profile can apply to an opportunity.
      *
      * @throws InvalidArgumentException When validation fails
-     * @throws RuntimeException When subscription requirements are not met
+     * @throws SubscriptionRequiredException When a business applicant lacks an active subscription
      */
     private function validateCanApply(Profile $applicant, CollabOpportunity $opportunity): void
     {
@@ -276,6 +277,14 @@ class ApplicationService
         if ($existingApplication) {
             throw new InvalidArgumentException(
                 'You have already applied to this opportunity.'
+            );
+        }
+
+        // Paywall is Business-only. Communities are NEVER gated when applying.
+        // A free (non-subscribed) business must subscribe to apply to a Kolab.
+        if ($applicant->isBusiness() && ! $applicant->hasActiveSubscription()) {
+            throw new SubscriptionRequiredException(
+                'An active subscription is required to apply to this opportunity.'
             );
         }
     }

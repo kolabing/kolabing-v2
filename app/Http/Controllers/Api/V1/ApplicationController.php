@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exceptions\SubscriptionRequiredException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\AcceptApplicationRequest;
 use App\Http\Requests\Api\V1\ApplyToOpportunityRequest;
@@ -105,6 +106,12 @@ class ApplicationController extends Controller
                 'message' => __('Application submitted successfully'),
                 'data' => new ApplicationResource($application),
             ], 201);
+        } catch (SubscriptionRequiredException $e) {
+            // Business-only paywall on apply. Map to 402 so the client shows the paywall.
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 402);
         } catch (InvalidArgumentException $e) {
             return response()->json([
                 'success' => false,

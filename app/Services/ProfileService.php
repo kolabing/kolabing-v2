@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\CollaborationStatus;
+use App\Enums\KolabStatus;
+use App\Enums\NotificationType;
+use App\Enums\OfferStatus;
 use App\Models\Collaboration;
 use App\Models\NotificationPreference;
 use App\Models\Profile;
@@ -13,6 +16,10 @@ use Illuminate\Support\Facades\DB;
 
 class ProfileService
 {
+    public function __construct(
+        private readonly NotificationService $notificationService
+    ) {}
+
     /**
      * Get the authenticated user with all related profile data.
      */
@@ -84,17 +91,90 @@ class ProfileService
     }
 
     /**
-     * Soft delete the profile and revoke all tokens.
+     * Delete the user's account with full data-integrity cleanup.
+     *
+     * Runs inside a transaction and, in order:
+     *   1. Frees the email by scrubbing it to a non-conflicting placeholder so
+     *      the address can be re-registered (the unique index on profiles.email
+     *      survives the soft delete, so the live value must be released).
+     *   2. Closes the user's open posts (draft/published kolabs and
+     *      collab_opportunities) so they no longer surface anywhere.
+     *   3. Cancels the user's scheduled/active collaborations and notifies the
+     *      counterparty in-app. Completed collaborations are left intact.
+     *   4. Revokes all tokens.
+     *   5. Soft deletes the profile.
      */
     public function deleteProfile(Profile $profile): bool
     {
         return DB::transaction(function () use ($profile): bool {
-            // Revoke all tokens
+            // 1. Free the email so it can be re-registered. The unique index on
+            //    profiles.email is not deleted_at-aware, so the soft-deleted row
+            //    would otherwise keep the address locked forever.
+            $profile->forceFill([
+                'email' => "deleted+{$profile->id}@kolabing.invalid",
+            ])->save();
+
+            // 2. Close the user's open posts (both post systems).
+            $profile->kolabs()
+                ->whereIn('status', [KolabStatus::Draft, KolabStatus::Published])
+                ->update(['status' => KolabStatus::Closed]);
+
+            $profile->createdOpportunities()
+                ->whereIn('status', [OfferStatus::Draft, OfferStatus::Published])
+                ->update(['status' => OfferStatus::Closed]);
+
+            // 3. Cancel scheduled/active collaborations and notify the counterparty.
+            $this->cancelActiveCollaborations($profile);
+
+            // 4. Revoke all tokens.
             $profile->tokens()->delete();
 
-            // Soft delete the profile
+            // 5. Soft delete the profile.
             return $profile->delete();
         });
+    }
+
+    /**
+     * Cancel the deleting profile's scheduled/active collaborations and send an
+     * in-app notification to the other participant. Completed and already
+     * cancelled collaborations are skipped.
+     */
+    private function cancelActiveCollaborations(Profile $profile): void
+    {
+        $collaborations = Collaboration::query()
+            ->whereIn('status', [CollaborationStatus::Scheduled, CollaborationStatus::Active])
+            ->where(function ($q) use ($profile): void {
+                $q->where('creator_profile_id', $profile->id)
+                    ->orWhere('applicant_profile_id', $profile->id);
+            })
+            ->with(['creatorProfile', 'applicantProfile', 'collabOpportunity'])
+            ->get();
+
+        foreach ($collaborations as $collaboration) {
+            $collaboration->update([
+                'status' => CollaborationStatus::Cancelled,
+            ]);
+
+            // Resolve the counterparty (the participant who is NOT deleting).
+            $counterparty = $collaboration->creator_profile_id === $profile->id
+                ? $collaboration->applicantProfile
+                : $collaboration->creatorProfile;
+
+            if ($counterparty === null) {
+                continue;
+            }
+
+            $title = $collaboration->collabOpportunity?->title ?? 'a collaboration';
+
+            $this->notificationService->createNotification(
+                recipient: $counterparty,
+                type: NotificationType::ApplicationDeclined,
+                title: 'Collaboration Cancelled',
+                body: "\"{$title}\" was cancelled because the other participant deleted their account.",
+                targetId: $collaboration->id,
+                targetType: 'collaboration',
+            );
+        }
     }
 
     /**
@@ -112,6 +192,7 @@ class ProfileService
             })
             ->with([
                 'collabOpportunity',
+                'event',
                 'creatorProfile.businessProfile',
                 'creatorProfile.communityProfile',
                 'applicantProfile.businessProfile',

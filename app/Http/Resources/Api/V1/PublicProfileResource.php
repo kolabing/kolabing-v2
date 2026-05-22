@@ -8,6 +8,7 @@ use App\Enums\UserType;
 use App\Models\Profile;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Str;
 
 /**
  * Flat public profile resource - no sensitive data (email, phone).
@@ -28,15 +29,23 @@ class PublicProfileResource extends JsonResource
             ? $this->businessProfile?->normalizedCategories() ?? []
             : [];
 
+        $rawType = $this->user_type === UserType::Business
+            ? $this->businessProfile?->primaryCategory()
+            : $extendedProfile?->community_type;
+
+        // Logo: prefer the extended profile photo column, fall back to the base
+        // avatar_url. Always serialize as an absolute URL.
+        $logo = $this->absoluteUrl($extendedProfile?->profile_photo ?? $this->avatar_url);
+
         return [
             'id' => $this->id,
             'user_type' => $this->user_type->value,
             'display_name' => $extendedProfile?->name,
-            'avatar_url' => $this->avatar_url,
+            'avatar_url' => $logo,
+            'logo_url' => $logo,
             'about' => $extendedProfile?->about,
-            'type' => $this->user_type === UserType::Business
-                ? $this->businessProfile?->primaryCategory()
-                : $extendedProfile?->community_type,
+            'type' => $rawType,
+            'type_label' => $this->formatTypeLabel($rawType),
             'business_type' => $this->when($this->user_type === UserType::Business, fn () => $this->businessProfile?->primaryCategory()),
             'categories' => $this->when($this->user_type === UserType::Business, fn () => $businessCategories),
             'city_name' => $extendedProfile?->city?->name,
@@ -45,7 +54,44 @@ class PublicProfileResource extends JsonResource
                 ? $extendedProfile?->tiktok
                 : null,
             'website' => $extendedProfile?->website,
-            'profile_photo' => $extendedProfile?->profile_photo,
+            'profile_photo' => $logo,
         ];
+    }
+
+    /**
+     * Convert a stored logo/avatar value into an absolute URL. Relative paths
+     * are prefixed with the configured app URL. Already-absolute URLs and null
+     * values are returned unchanged.
+     */
+    private function absoluteUrl(?string $value): ?string
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+
+        if (filter_var($value, FILTER_VALIDATE_URL)) {
+            return $value;
+        }
+
+        return rtrim((string) config('app.url'), '/').'/'.ltrim($value, '/');
+    }
+
+    /**
+     * Format a raw business/community type slug into a human label.
+     * Single source of truth for profile type formatting (e.g. run_club ->
+     * "Run Club", food_drink -> "Food & Drink").
+     */
+    private function formatTypeLabel(?string $value): ?string
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+
+        $key = Str::of($value)->lower()->replace([' ', '-'], '_')->trim('_')->value();
+
+        return match ($key) {
+            'food_drink', 'food_and_drink' => 'Food & Drink',
+            default => Str::of($key)->replace('_', ' ')->title()->value(),
+        };
     }
 }
