@@ -273,6 +273,119 @@ class DiscoveryOpportunityControllerTest extends TestCase
         $this->assertCount(4, $response->json('data.data.0.match_breakdown'));
     }
 
+    public function test_community_viewer_receives_business_activity_metadata_and_neighborhood_area_for_dense_cards(): void
+    {
+        $viewer = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $viewer->id,
+            'name' => 'Barcelona Run Club',
+            'community_type' => 'run_club',
+        ]);
+
+        $creator = Profile::factory()->business()->create([
+            'avatar_url' => 'https://example.com/business-avatar.jpg',
+        ]);
+        BusinessProfile::factory()->create([
+            'profile_id' => $creator->id,
+            'name' => 'Casa Sol',
+            'business_type' => 'cafe',
+            'categories' => ['cafe'],
+            'city_name' => 'Barcelona',
+            'primary_venue' => [
+                'name' => 'Casa Sol Rooftop',
+                'venue_type' => 'cafe',
+                'capacity' => 120,
+                'formatted_address' => 'Rambla 10, Barcelona',
+                'city' => 'Barcelona',
+                'country' => 'Spain',
+                'neighborhood' => 'Gracia',
+                'photos' => [],
+            ],
+        ]);
+
+        Kolab::factory()->published()->venuePromotion()->forCreator($creator)->create([
+            'preferred_city' => 'Barcelona',
+            'area' => 'Barcelona',
+            'offering' => ['venue_space', 'free_drinks'],
+            'seeking_communities' => ['Run Club'],
+            'expects' => ['social_media'],
+            'offer_headline' => 'Post-run cafe takeovers in central Barcelona',
+            'base_offer' => 'Reserved cafe space plus drinks for running groups after weekend sessions.',
+            'published_at' => now()->subDays(2),
+            'past_events' => [
+                [
+                    'name' => 'Rooftop Shakeout',
+                    'date' => now()->format('Y-m-d'),
+                    'partner_name' => 'Barcelona Run Club',
+                ],
+                [
+                    'name' => 'Sunday Brunch Social',
+                    'date' => now()->subMonth()->format('Y-m-d'),
+                    'partner_name' => 'City Pacers',
+                ],
+            ],
+        ]);
+
+        $response = $this->actingAs($viewer)
+            ->getJson('/api/v1/discovery/opportunities');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.meta.total', 1)
+            ->assertJsonPath('data.data.0.creator_profile.display_name', 'Casa Sol')
+            ->assertJsonPath('data.data.0.offer_headline', 'Post-run cafe takeovers in central Barcelona')
+            ->assertJsonPath('data.data.0.area', 'Gracia')
+            ->assertJsonPath('data.data.0.past_events_count', 2)
+            ->assertJsonPath('data.data.0.active_this_month', true)
+            ->assertJsonPath('data.data.0.active_this_month_label', 'Active this month');
+
+        $this->assertCount(4, $response->json('data.data.0.match_breakdown'));
+    }
+
+    public function test_discovery_omits_area_when_it_only_duplicates_the_city(): void
+    {
+        $viewer = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $viewer->id,
+            'name' => 'Barcelona Food Club',
+            'community_type' => 'food_community',
+        ]);
+
+        $creator = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $creator->id,
+            'name' => 'Tapas Hub',
+            'business_type' => 'restaurant',
+            'categories' => ['restaurant'],
+            'city_name' => 'Barcelona',
+            'primary_venue' => [
+                'name' => 'Tapas Hub',
+                'venue_type' => 'restaurant',
+                'capacity' => 90,
+                'formatted_address' => 'Carrer Mallorca 12, Barcelona',
+                'city' => 'Barcelona',
+                'country' => 'Spain',
+                'photos' => [],
+            ],
+        ]);
+
+        Kolab::factory()->published()->venuePromotion()->forCreator($creator)->create([
+            'preferred_city' => 'Barcelona',
+            'area' => 'Barcelona',
+            'offer_headline' => 'Tasting nights for food communities',
+            'offering' => ['venue_space', 'free_drinks'],
+            'seeking_communities' => ['Food Community'],
+            'expects' => ['social_media'],
+        ]);
+
+        $response = $this->actingAs($viewer)
+            ->getJson('/api/v1/discovery/opportunities');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.data.0.area', null);
+    }
+
     public function test_recommended_feed_orders_stronger_matches_first(): void
     {
         $barcelona = City::factory()->create([

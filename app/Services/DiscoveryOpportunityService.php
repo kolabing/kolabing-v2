@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\CollaborationStatus;
 use App\Enums\IntentType;
 use App\Enums\KolabStatus;
 use App\Enums\UserType;
+use App\Models\Collaboration;
 use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator as LengthAwarePaginatorContract;
@@ -160,6 +162,7 @@ class DiscoveryOpportunityService
 
                 return $kolab;
             });
+        $scoredResults = $this->enrichDiscoveryCardMetadata($scoredResults);
 
         $sortedResults = $this->sortScoredResults($scoredResults, $normalizedFilters['sort'], $normalizedFilters['feed']);
         $currentPage = $normalizedFilters['page'];
@@ -207,6 +210,267 @@ class DiscoveryOpportunityService
                 'Discovery is only available for business and community profiles.'
             ),
         };
+    }
+
+    /**
+     * @param  Collection<int, Kolab>  $results
+     * @return Collection<int, Kolab>
+     */
+    private function enrichDiscoveryCardMetadata(Collection $results): Collection
+    {
+        $businessCreatorIds = $results
+            ->filter(fn (Kolab $kolab): bool => $kolab->creatorProfile?->isBusiness() ?? false)
+            ->pluck('creator_profile_id')
+            ->unique()
+            ->values()
+            ->all();
+
+        $activityByCreator = $this->buildBusinessActivityMetadata($businessCreatorIds);
+
+        return $results->map(function (Kolab $kolab) use ($activityByCreator): Kolab {
+            $kolab->setAttribute('discovery_area', $this->resolveDiscoveryArea($kolab));
+
+            if (! ($kolab->creatorProfile?->isBusiness() ?? false)) {
+                $kolab->setAttribute('discovery_past_events_count', null);
+                $kolab->setAttribute('discovery_active_this_month', null);
+                $kolab->setAttribute('discovery_active_this_month_label', null);
+
+                return $kolab;
+            }
+
+            $activity = $activityByCreator[$kolab->creator_profile_id] ?? [
+                'past_events_count' => null,
+                'active_this_month' => null,
+                'active_this_month_label' => null,
+            ];
+
+            $kolab->setAttribute('discovery_past_events_count', $activity['past_events_count']);
+            $kolab->setAttribute('discovery_active_this_month', $activity['active_this_month']);
+            $kolab->setAttribute('discovery_active_this_month_label', $activity['active_this_month_label']);
+
+            return $kolab;
+        });
+    }
+
+    /**
+     * @param  array<int, string>  $businessCreatorIds
+     * @return array<string, array{
+     *     past_events_count: int|null,
+     *     active_this_month: bool|null,
+     *     active_this_month_label: string|null
+     * }>
+     */
+    private function buildBusinessActivityMetadata(array $businessCreatorIds): array
+    {
+        if ($businessCreatorIds === []) {
+            return [];
+        }
+
+        $monthStart = Carbon::now()->startOfMonth();
+        $monthEnd = Carbon::now()->endOfMonth();
+        $activityByCreator = [];
+
+        foreach ($businessCreatorIds as $businessCreatorId) {
+            $activityByCreator[$businessCreatorId] = [
+                'past_events_count' => 0,
+                'active_this_month' => false,
+                'active_this_month_label' => null,
+            ];
+        }
+
+        $creatorKolabs = Kolab::query()
+            ->whereIn('creator_profile_id', $businessCreatorIds)
+            ->whereIn('status', [KolabStatus::Published, KolabStatus::Closed])
+            ->get([
+                'creator_profile_id',
+                'published_at',
+                'past_events',
+            ]);
+
+        foreach ($creatorKolabs as $creatorKolab) {
+            $creatorId = $creatorKolab->creator_profile_id;
+
+            if (! array_key_exists($creatorId, $activityByCreator)) {
+                continue;
+            }
+
+            if ($creatorKolab->published_at?->betweenIncluded($monthStart, $monthEnd) ?? false) {
+                $activityByCreator[$creatorId]['active_this_month'] = true;
+            }
+
+            $pastEvents = $this->normalizePastEventActivityPayload($creatorKolab->past_events);
+            $activityByCreator[$creatorId]['past_events_count'] += count($pastEvents);
+
+            foreach ($pastEvents as $pastEvent) {
+                if ($this->isCurrentMonthDateString($pastEvent['date'] ?? null, $monthStart, $monthEnd)) {
+                    $activityByCreator[$creatorId]['active_this_month'] = true;
+
+                    break;
+                }
+            }
+        }
+
+        $recentCollaborations = Collaboration::query()
+            ->where('status', CollaborationStatus::Completed)
+            ->whereBetween('completed_at', [$monthStart, $monthEnd])
+            ->where(function (Builder $query) use ($businessCreatorIds): void {
+                $query->whereIn('creator_profile_id', $businessCreatorIds)
+                    ->orWhereIn('applicant_profile_id', $businessCreatorIds);
+            })
+            ->get([
+                'creator_profile_id',
+                'applicant_profile_id',
+            ]);
+
+        foreach ($recentCollaborations as $collaboration) {
+            foreach ([$collaboration->creator_profile_id, $collaboration->applicant_profile_id] as $profileId) {
+                if ($profileId !== null && array_key_exists($profileId, $activityByCreator)) {
+                    $activityByCreator[$profileId]['active_this_month'] = true;
+                }
+            }
+        }
+
+        foreach ($activityByCreator as &$activity) {
+            $pastEventsCount = $activity['past_events_count'];
+
+            $activity['past_events_count'] = $pastEventsCount > 0 ? $pastEventsCount : null;
+            $activity['active_this_month'] = $activity['active_this_month'] ? true : null;
+            $activity['active_this_month_label'] = $activity['active_this_month'] ? 'Active this month' : null;
+        }
+        unset($activity);
+
+        return $activityByCreator;
+    }
+
+    private function resolveDiscoveryArea(Kolab $kolab): ?string
+    {
+        $area = $this->sanitizeDiscoveryArea($kolab->area, $kolab->preferred_city);
+
+        if ($area !== null) {
+            return $area;
+        }
+
+        if (! ($kolab->creatorProfile?->isBusiness() ?? false)) {
+            return null;
+        }
+
+        $primaryVenue = $kolab->creatorProfile?->businessProfile?->primary_venue;
+
+        return is_array($primaryVenue)
+            ? $this->resolveNeighborhoodFromPrimaryVenue($primaryVenue, $kolab->preferred_city)
+            : null;
+    }
+
+    private function resolveNeighborhoodFromPrimaryVenue(array $primaryVenue, ?string $preferredCity): ?string
+    {
+        foreach (['neighborhood', 'neighbourhood', 'district', 'area', 'borough', 'sublocality', 'suburb'] as $key) {
+            $value = $primaryVenue[$key] ?? null;
+
+            if (! is_string($value) || $value === '') {
+                continue;
+            }
+
+            $area = $this->sanitizeDiscoveryArea($value, $preferredCity);
+
+            if ($area !== null) {
+                return $area;
+            }
+        }
+
+        return null;
+    }
+
+    private function sanitizeDiscoveryArea(?string $area, ?string $preferredCity): ?string
+    {
+        $normalizedArea = $this->normalizeNullableString($area);
+
+        if ($normalizedArea === null) {
+            return null;
+        }
+
+        $normalizedCity = $this->normalizeComparableLocationLabel($preferredCity);
+
+        if ($normalizedCity === null) {
+            return $normalizedArea;
+        }
+
+        $segments = preg_split('/\s*(?:,|\/|\|)\s*/', $normalizedArea) ?: [$normalizedArea];
+        $keptSegments = [];
+
+        foreach ($segments as $segment) {
+            $trimmedSegment = trim($segment);
+
+            if ($trimmedSegment === '') {
+                continue;
+            }
+
+            $candidate = $this->normalizeComparableLocationLabel($trimmedSegment);
+
+            if ($candidate === null || $candidate === $normalizedCity) {
+                continue;
+            }
+
+            if (preg_match('/\b'.preg_quote($normalizedCity, '/').'\b/u', $candidate) === 1) {
+                continue;
+            }
+
+            $keptSegments[] = $trimmedSegment;
+        }
+
+        if ($keptSegments !== []) {
+            return implode(', ', $keptSegments);
+        }
+
+        $candidate = $this->normalizeComparableLocationLabel($normalizedArea);
+
+        if ($candidate === null || $candidate === $normalizedCity) {
+            return null;
+        }
+
+        if (preg_match('/\b'.preg_quote($normalizedCity, '/').'\b/u', $candidate) === 1) {
+            return null;
+        }
+
+        return $normalizedArea;
+    }
+
+    private function normalizeComparableLocationLabel(?string $value): ?string
+    {
+        $normalizedValue = $this->normalizeNullableString($value);
+
+        if ($normalizedValue === null) {
+            return null;
+        }
+
+        return (string) Str::of(Str::lower($normalizedValue))
+            ->ascii()
+            ->replaceMatches('/[^a-z0-9]+/', ' ')
+            ->squish();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizePastEventActivityPayload(mixed $pastEvents): array
+    {
+        if (! is_array($pastEvents)) {
+            return [];
+        }
+
+        return array_values(array_filter($pastEvents, static fn (mixed $event): bool => is_array($event)));
+    }
+
+    private function isCurrentMonthDateString(mixed $value, Carbon $monthStart, Carbon $monthEnd): bool
+    {
+        if (! is_string($value) || $value === '') {
+            return false;
+        }
+
+        try {
+            return Carbon::parse($value)->betweenIncluded($monthStart, $monthEnd);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**

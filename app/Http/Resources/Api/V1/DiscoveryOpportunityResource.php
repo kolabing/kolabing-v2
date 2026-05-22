@@ -32,7 +32,7 @@ class DiscoveryOpportunityResource extends JsonResource
             'description' => $this->description,
             'offer_headline' => $this->resolveOfferHeadline(),
             'preferred_city' => $this->preferred_city,
-            'area' => $this->area,
+            'area' => $this->resolveArea(),
             'cover_photo_url' => $this->resolveCoverPhotoUrl(),
             'published_at' => $this->published_at?->toIso8601String(),
             'availability' => [
@@ -49,6 +49,9 @@ class DiscoveryOpportunityResource extends JsonResource
             ],
             'match_score' => (int) ($this->getAttribute('discovery_match_score') ?? 0),
             'match_breakdown' => $this->getAttribute('discovery_match_breakdown') ?? [],
+            'past_events_count' => $this->getAttribute('discovery_past_events_count'),
+            'active_this_month' => $this->getAttribute('discovery_active_this_month'),
+            'active_this_month_label' => $this->getAttribute('discovery_active_this_month_label'),
             'business_offer' => $this->getAttribute('discovery_business_offer'),
             'community_request' => $this->getAttribute('discovery_community_request'),
             'match' => $this->getAttribute('discovery_match'),
@@ -83,6 +86,15 @@ class DiscoveryOpportunityResource extends JsonResource
         }
 
         return Str::limit($this->description, 50, '');
+    }
+
+    private function resolveArea(): ?string
+    {
+        $area = $this->getAttribute('discovery_area');
+
+        return is_string($area) || $area === null
+            ? $area
+            : $this->area;
     }
 
     /**
