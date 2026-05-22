@@ -73,6 +73,33 @@ class GamificationCollaborationIntegrationTest extends TestCase
         ]);
     }
 
+    public function test_scheduled_collaboration_can_be_completed_once_and_then_returns_422(): void
+    {
+        $creator = $this->createBusinessProfile();
+        $applicant = $this->createCommunityProfile();
+
+        $collaboration = Collaboration::factory()
+            ->forCreator($creator)
+            ->forApplicant($applicant)
+            ->scheduled()
+            ->create();
+
+        $firstResponse = $this->actingAs($creator)
+            ->postJson("/api/v1/collaborations/{$collaboration->id}/complete");
+
+        $firstResponse->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.status', 'completed');
+
+        $secondResponse = $this->actingAs($creator)
+            ->postJson("/api/v1/collaborations/{$collaboration->id}/complete");
+
+        $secondResponse->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('error_code', 'invalid_status_transition')
+            ->assertJsonPath('errors.status', 'completed');
+    }
+
     public function test_completing_collaboration_evaluates_badges(): void
     {
         $creator = $this->createBusinessProfile();

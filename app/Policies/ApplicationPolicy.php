@@ -40,6 +40,11 @@ class ApplicationPolicy
             return false;
         }
 
+        if (is_string($opportunity->recipient_community_id) && $opportunity->recipient_community_id !== '') {
+            return $user->id === $opportunity->recipient_community_id
+                && $opportunity->isOpenForApplications();
+        }
+
         // Opportunity must be open for applications (published)
         if (! $opportunity->isOpenForApplications()) {
             return false;

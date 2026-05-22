@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Api\V1;
 
 use App\Models\BusinessSubscription;
+use App\Models\BusinessProfile;
+use App\Models\CommunityProfile;
 use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -133,6 +135,83 @@ class KolabPublishCloseTest extends TestCase
 
         $kolab->refresh();
         $this->assertNotNull($kolab->published_at);
+    }
+
+    public function test_subscribed_business_can_publish_a_direct_proposal_for_a_single_community(): void
+    {
+        $business = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $business->id,
+            'name' => 'Casa Sol',
+            'business_type' => 'cafe',
+            'categories' => ['cafe'],
+            'city_name' => 'Barcelona',
+            'primary_venue' => [
+                'name' => 'Casa Sol Rooftop',
+                'venue_type' => 'cafe',
+                'capacity' => 120,
+                'formatted_address' => 'Rambla 10, Barcelona',
+                'city' => 'Barcelona',
+                'country' => 'Spain',
+                'photos' => [],
+            ],
+        ]);
+        BusinessSubscription::factory()->active()->create([
+            'profile_id' => $business->id,
+        ]);
+
+        $targetCommunity = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $targetCommunity->id,
+            'name' => 'Barcelona Run Club',
+            'community_type' => 'run_club',
+        ]);
+
+        $otherCommunity = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $otherCommunity->id,
+            'name' => 'Barcelona Food Club',
+            'community_type' => 'food_community',
+        ]);
+
+        $kolab = Kolab::factory()->venuePromotion()->forCreator($business)->create([
+            'preferred_city' => 'Barcelona',
+        ]);
+
+        $response = $this->actingAs($business)
+            ->postJson("/api/v1/kolabs/{$kolab->id}/publish", [
+                'recipient_community_id' => $targetCommunity->id,
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.status', 'published')
+            ->assertJsonPath('data.recipient_community_id', $targetCommunity->id);
+
+        $this->assertDatabaseHas('kolabs', [
+            'id' => $kolab->id,
+            'status' => 'published',
+            'recipient_community_id' => $targetCommunity->id,
+        ]);
+
+        $this->actingAs($targetCommunity)
+            ->getJson("/api/v1/kolabs/{$kolab->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $kolab->id);
+
+        $this->actingAs($otherCommunity)
+            ->getJson("/api/v1/kolabs/{$kolab->id}")
+            ->assertStatus(403);
+
+        $this->actingAs($targetCommunity)
+            ->getJson('/api/v1/discovery/opportunities?feed=all')
+            ->assertOk()
+            ->assertJsonPath('data.meta.total', 1)
+            ->assertJsonPath('data.data.0.id', $kolab->id);
+
+        $this->actingAs($otherCommunity)
+            ->getJson('/api/v1/discovery/opportunities?feed=all')
+            ->assertOk()
+            ->assertJsonPath('data.meta.total', 0);
     }
 
     public function test_cannot_publish_already_published_kolab(): void

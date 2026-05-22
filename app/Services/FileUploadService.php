@@ -235,7 +235,7 @@ class FileUploadService
     {
         $mimeType = $file->getMimeType() ?? '';
 
-        return str_starts_with($mimeType, 'video/') ? 'video' : 'photo';
+        return str_starts_with($mimeType, 'video/') ? 'video' : 'image';
     }
 
     /**

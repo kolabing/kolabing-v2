@@ -1,9 +1,9 @@
 # Kolabing Mobile App API Integration Guide
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 **API Version:** v1
 **Base URL:** `https://api.kolabing.com/api/v1`
-**Last Updated:** 2026-01-24
+**Last Updated:** 2026-05-21
 
 ---
 
@@ -21,6 +21,20 @@
 10. [Best Practices](#best-practices)
 
 ---
+
+## 2026-05-21 Backend Alignment
+
+- Business registration now surfaces nested field errors all the way down to `primary_venue.photos.*`, so mobile error banners can show exact failing inputs.
+- Fresh login tokens and refresh tokens are now instrumented for issue, first-use, and refresh debugging. Mobile auth logs can be correlated directly with backend token lifecycle logs.
+- Kolab media writes must use `image` or `video`. Do not send legacy `photo`.
+- Accept application payloads may omit `contact_methods`, and backend date validation now mirrors `one_time`, `recurring`, and `flexible` availability rules.
+- Collaboration completion is available at `POST /collaborations/{id}/complete`.
+- Community public profiles are available at `GET /communities/{id}/public-profile`.
+- Community public profiles now also include `avatar_url`, `type`, `gallery[]`, and `past_collaborations[]` so the FE can reuse the legacy public-profile reader without adapter glue.
+- Venue and product promotion Kolabs now support `offer_headline`, `base_offer`, and `negotiation_triggers[] = { condition, additional_offer }`.
+- `POST /kolabs/{id}/publish` accepts optional `recipient_community_id` for direct community proposals. Direct proposals are private to the targeted community.
+- `GET /applications/{id}` returns both `collab_opportunity` and `opportunity` blocks, and Kolab-backed proposal details now include unlocked `negotiation_triggers` after apply.
+- Discovery cards now return `match_score`, `match_breakdown[]`, public `offer_headline`, and public `business_offer.base_offer`.
 
 ## Overview
 

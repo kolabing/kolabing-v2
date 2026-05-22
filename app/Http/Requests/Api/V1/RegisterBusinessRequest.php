@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Support\ApiDebugLogger;
 use App\Enums\VenueType;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\Validator as ValidationValidator;
 
 class RegisterBusinessRequest extends FormRequest
 {
@@ -131,7 +133,47 @@ class RegisterBusinessRequest extends FormRequest
             'instagram.regex' => __('The instagram handle format is invalid'),
             'website.url' => __('The website must be a valid URL'),
             'primary_venue.website.url' => __('The venue website must be a valid URL'),
+            'primary_venue.photos.*.url' => __('The venue photo must be a valid URL'),
         ];
+    }
+
+    /**
+     * Configure the validator instance.
+     */
+    public function withValidator(ValidationValidator $validator): void
+    {
+        $validator->after(function (ValidationValidator $validator): void {
+            $photos = $this->input('primary_venue.photos', []);
+
+            if (! is_array($photos)) {
+                return;
+            }
+
+            foreach ($photos as $index => $photo) {
+                if (! is_string($photo) || $photo === '') {
+                    $validator->errors()->add(
+                        "primary_venue.photos.{$index}",
+                        __('The venue photo must be a valid URL')
+                    );
+
+                    continue;
+                }
+
+                if (
+                    filter_var($photo, FILTER_VALIDATE_URL)
+                    || preg_match('#^places/[^/]+/photos/[^/]+$#', $photo) === 1
+                    || preg_match('/^data:image\/(jpeg|jpg|png|gif|webp);base64,/i', $photo) === 1
+                    || base64_decode($photo, true) !== false
+                ) {
+                    continue;
+                }
+
+                $validator->errors()->add(
+                    "primary_venue.photos.{$index}",
+                    __('The venue photo must be a valid URL')
+                );
+            }
+        });
     }
 
     /**
@@ -141,6 +183,8 @@ class RegisterBusinessRequest extends FormRequest
      */
     protected function failedValidation(Validator $validator): never
     {
+        ApiDebugLogger::logValidationFailure($this, $validator->errors()->toArray());
+
         throw new HttpResponseException(response()->json([
             'success' => false,
             'message' => __('Validation failed'),

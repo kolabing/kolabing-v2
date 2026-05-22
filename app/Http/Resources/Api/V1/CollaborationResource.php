@@ -126,6 +126,11 @@ class CollaborationResource extends JsonResource
             // Communities NEVER receive this flag (always false).
             'viewer_must_resubscribe' => $this->viewerMustResubscribe($currentProfile),
             'my_role' => $this->when($currentProfile !== null, fn () => $myRole),
+            'actions' => $this->when($currentProfile !== null, [
+                'can_activate' => $this->canBeActivated(),
+                'can_complete' => $this->canBeCompleted(),
+                'can_cancel' => $this->canBeCancelled(),
+            ]),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

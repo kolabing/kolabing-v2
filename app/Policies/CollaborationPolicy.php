@@ -42,16 +42,12 @@ class CollaborationPolicy
 
     /**
      * Determine whether the user can complete the collaboration.
-     * Only participants; must be scheduled or active.
+     * Only participants; state validation happens in the service so repeat
+     * completion attempts return 422 instead of a policy-level 403.
      */
     public function complete(Profile $user, Collaboration $collaboration): bool
     {
-        if (! $this->isParticipant($user, $collaboration)) {
-            return false;
-        }
-
-        // Can complete from scheduled or active status
-        return $collaboration->isScheduled() || $collaboration->isActive();
+        return $this->isParticipant($user, $collaboration);
     }
 
     /**

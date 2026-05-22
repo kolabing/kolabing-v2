@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AddSecurityHeaders;
 use App\Http\Middleware\EnsureUserType;
+use App\Http\Middleware\LogAuthTokenFirstUse;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'abilities' => CheckAbilities::class,
             'ability' => CheckForAnyAbility::class,
+            'log_auth_token_first_use' => LogAuthTokenFirstUse::class,
             'user_type' => EnsureUserType::class,
         ]);
 

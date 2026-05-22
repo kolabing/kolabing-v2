@@ -31,13 +31,18 @@ class KolabFactory extends Factory
     {
         $availabilityStart = fake()->dateTimeBetween('+1 week', '+3 months');
         $availabilityEnd = fake()->dateTimeBetween($availabilityStart, '+6 months');
+        $description = fake()->paragraphs(2, true);
 
         return [
             'creator_profile_id' => Profile::factory()->business(),
+            'recipient_community_id' => null,
             'intent_type' => IntentType::CommunitySeeking,
             'status' => KolabStatus::Draft,
             'title' => fake()->sentence(6),
-            'description' => fake()->paragraphs(2, true),
+            'description' => $description,
+            'offer_headline' => null,
+            'base_offer' => null,
+            'negotiation_triggers' => [],
             'preferred_city' => fake()->randomElement(['Sevilla', 'Malaga', 'Granada', 'Cordoba', 'Cadiz']),
             'area' => fake()->optional(0.5)->streetName(),
             'media' => null,
@@ -89,6 +94,9 @@ class KolabFactory extends Factory
             'venue_type' => fake()->randomElement(['restaurant', 'cafe', 'bar_lounge', 'hotel', 'event_space']),
             'capacity' => fake()->numberBetween(20, 500),
             'venue_address' => fake()->address(),
+            'offer_headline' => fake()->sentence(6),
+            'base_offer' => fake()->sentence(18),
+            'negotiation_triggers' => [],
             'offering' => [
                 'venue_space' => true,
                 'food_drink' => fake()->boolean(70),
@@ -114,6 +122,9 @@ class KolabFactory extends Factory
             'intent_type' => IntentType::ProductPromotion,
             'product_name' => fake()->words(3, true),
             'product_type' => fake()->randomElement(['food_product', 'beverage', 'health_beauty', 'fashion']),
+            'offer_headline' => fake()->sentence(6),
+            'base_offer' => fake()->sentence(18),
+            'negotiation_triggers' => [],
             'offering' => [
                 'free_samples' => true,
                 'discount_code' => fake()->boolean(60),
@@ -159,6 +170,16 @@ class KolabFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'creator_profile_id' => $profile->id,
+        ]);
+    }
+
+    /**
+     * Set a specific recipient community for a direct proposal.
+     */
+    public function forRecipientCommunity(Profile $profile): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'recipient_community_id' => $profile->id,
         ]);
     }
 }

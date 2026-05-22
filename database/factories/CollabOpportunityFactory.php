@@ -34,9 +34,13 @@ class CollabOpportunityFactory extends Factory
 
         return [
             'creator_profile_id' => Profile::factory()->business(),
+            'recipient_community_id' => null,
             'creator_profile_type' => UserType::Business,
             'title' => fake()->sentence(6),
             'description' => fake()->paragraphs(2, true),
+            'offer_headline' => null,
+            'base_offer' => null,
+            'negotiation_triggers' => [],
             'status' => OfferStatus::Draft,
             'business_offer' => [
                 'venue' => fake()->boolean(70),

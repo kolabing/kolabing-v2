@@ -15,10 +15,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * @property string $id
  * @property string $creator_profile_id
+ * @property string|null $recipient_community_id
  * @property IntentType $intent_type
  * @property KolabStatus $status
  * @property string $title
  * @property string $description
+ * @property string|null $offer_headline
+ * @property string|null $base_offer
+ * @property array<int, array{condition: string, additional_offer: string}>|null $negotiation_triggers
  * @property string $preferred_city
  * @property string|null $area
  * @property array<string, mixed>|null $media
@@ -68,10 +72,14 @@ class Kolab extends Model
      */
     protected $fillable = [
         'creator_profile_id',
+        'recipient_community_id',
         'intent_type',
         'status',
         'title',
         'description',
+        'offer_headline',
+        'base_offer',
+        'negotiation_triggers',
         'preferred_city',
         'area',
         'media',
@@ -110,6 +118,7 @@ class Kolab extends Model
         return [
             'intent_type' => IntentType::class,
             'status' => KolabStatus::class,
+            'negotiation_triggers' => 'array',
             'media' => 'array',
             'availability_start' => 'date',
             'availability_end' => 'date',
@@ -133,6 +142,16 @@ class Kolab extends Model
     public function creatorProfile(): BelongsTo
     {
         return $this->belongsTo(Profile::class, 'creator_profile_id');
+    }
+
+    /**
+     * Get the explicitly targeted recipient community, if any.
+     *
+     * @return BelongsTo<Profile, $this>
+     */
+    public function recipientCommunity(): BelongsTo
+    {
+        return $this->belongsTo(Profile::class, 'recipient_community_id');
     }
 
     /**

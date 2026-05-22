@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Models\Application;
+use App\Models\CollabOpportunity;
 use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -45,14 +47,59 @@ class KolabCrudTest extends TestCase
     {
         $creator = Profile::factory()->business()->create();
         $viewer = Profile::factory()->community()->create();
-        $kolab = Kolab::factory()->published()->forCreator($creator)->create();
+        $kolab = Kolab::factory()->published()->venuePromotion()->forCreator($creator)->create([
+            'offer_headline' => 'Free coffee tastings for local food groups',
+            'base_offer' => 'Complimentary tasting flights for food communities visiting on weekdays.',
+            'negotiation_triggers' => [
+                [
+                    'condition' => 'Groups of 20+',
+                    'additional_offer' => 'Add a dessert pairing for the first visit.',
+                ],
+            ],
+        ]);
 
         $response = $this->actingAs($viewer)
             ->getJson("/api/v1/kolabs/{$kolab->id}");
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.id', $kolab->id);
+            ->assertJsonPath('data.id', $kolab->id)
+            ->assertJsonPath('data.offer_headline', 'Free coffee tastings for local food groups')
+            ->assertJsonPath('data.base_offer', 'Complimentary tasting flights for food communities visiting on weekdays.')
+            ->assertJsonMissingPath('data.negotiation_triggers');
+    }
+
+    public function test_published_kolab_shows_negotiation_triggers_after_viewer_has_applied(): void
+    {
+        $creator = Profile::factory()->business()->create();
+        $viewer = Profile::factory()->community()->create();
+
+        $kolab = Kolab::factory()->published()->venuePromotion()->forCreator($creator)->create([
+            'offer_headline' => 'Free coffee tastings for local food groups',
+            'base_offer' => 'Complimentary tasting flights for food communities visiting on weekdays.',
+            'negotiation_triggers' => [
+                [
+                    'condition' => 'Groups of 20+',
+                    'additional_offer' => 'Add a dessert pairing for the first visit.',
+                ],
+            ],
+        ]);
+
+        $opportunity = CollabOpportunity::factory()->published()->forCreator($creator)->create([
+            'id' => $kolab->id,
+        ]);
+
+        Application::factory()
+            ->forOpportunity($opportunity)
+            ->forApplicant($viewer)
+            ->create();
+
+        $response = $this->actingAs($viewer)
+            ->getJson("/api/v1/kolabs/{$kolab->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('data.negotiation_triggers.0.condition', 'Groups of 20+')
+            ->assertJsonPath('data.negotiation_triggers.0.additional_offer', 'Add a dessert pairing for the first visit.');
     }
 
     public function test_show_normalizes_media_and_past_event_photos_for_editing(): void
@@ -95,10 +142,10 @@ class KolabCrudTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.media.0.url', 'https://example.com/hero.jpg')
-            ->assertJsonPath('data.media.0.type', 'photo')
+            ->assertJsonPath('data.media.0.type', 'image')
             ->assertJsonPath('data.media.0.thumbnail_url', null)
             ->assertJsonPath('data.past_events.0.media.0.url', 'https://example.com/legacy-photo-1.jpg')
-            ->assertJsonPath('data.past_events.0.media.0.type', 'photo')
+            ->assertJsonPath('data.past_events.0.media.0.type', 'image')
             ->assertJsonPath('data.past_events.0.media.0.thumbnail_url', null)
             ->assertJsonPath('data.past_events.1.media.0.thumbnail_url', 'https://example.com/editable-thumb.jpg')
             ->assertJsonMissingPath('data.past_events.0.photos');

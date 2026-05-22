@@ -65,9 +65,13 @@ class LegacyOpportunityBridgeService
         $opportunity->id = $kolab->id;
         $opportunity->forceFill([
             'creator_profile_id' => $kolab->creator_profile_id,
+            'recipient_community_id' => $kolab->recipient_community_id,
             'creator_profile_type' => $creator->user_type,
             'title' => $kolab->title,
             'description' => $kolab->description,
+            'offer_headline' => $kolab->offer_headline,
+            'base_offer' => $kolab->base_offer,
+            'negotiation_triggers' => $kolab->negotiation_triggers,
             'status' => $this->mapStatus($kolab->status),
             'business_offer' => $creator->isBusiness() ? $kolab->offering : $kolab->needs,
             'community_deliverables' => $creator->isBusiness() ? $kolab->expects : $kolab->offers_in_return,
