@@ -369,7 +369,12 @@ class LookupController extends Controller
     public function placePhoto(Request $request): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            // Google Places (New) photo resource names are long (commonly
+            // 400-1000+ chars: "places/{id}/photos/{token}"). The old max:255
+            // rejected every real photo with a 422 before photoUri() ran, so
+            // imports silently failed. The resource-name FORMAT is still
+            // enforced by GooglePlacesService::isPhotoResourceName().
+            'name' => ['required', 'string', 'max:2048'],
             'max_width' => ['nullable', 'integer', 'min:1', 'max:4800'],
         ]);
 
