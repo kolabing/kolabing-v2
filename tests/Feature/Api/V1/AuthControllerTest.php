@@ -376,6 +376,45 @@ class AuthControllerTest extends TestCase
         ]);
     }
 
+    public function test_logout_endpoint_revokes_mobile_refresh_tokens(): void
+    {
+        $city = City::factory()->create();
+
+        $login = $this->postJson('/api/v1/auth/register/business', [
+            'email' => 'logout-refresh@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Logout Refresh Business',
+            'business_type' => 'cafe',
+            'city_id' => $city->id,
+            'primary_venue' => [
+                'name' => 'Logout Refresh Venue',
+                'venue_type' => 'cafe',
+                'capacity' => 100,
+                'formatted_address' => 'Gran Via 1, Madrid',
+                'city' => $city->name,
+                'country' => $city->country,
+                'photos' => [],
+            ],
+        ]);
+
+        $login->assertCreated();
+
+        $logout = $this->withHeader('Authorization', 'Bearer '.$login->json('data.token'))
+            ->postJson('/api/v1/auth/logout');
+
+        $logout->assertOk()
+            ->assertJsonPath('success', true);
+
+        $refresh = $this->postJson('/api/v1/auth/refresh', [
+            'refresh_token' => $login->json('data.refresh_token'),
+        ]);
+
+        $refresh->assertStatus(401)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Invalid refresh token');
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Business Registration Tests
@@ -1061,6 +1100,69 @@ class AuthControllerTest extends TestCase
                     ],
                 ],
             ]);
+    }
+
+    public function test_new_login_revokes_previous_mobile_token_pair_for_the_same_account(): void
+    {
+        $city = City::factory()->create();
+
+        $this->postJson('/api/v1/auth/register/business', [
+            'email' => 'rotating-login@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Rotating Login Business',
+            'business_type' => 'cafe',
+            'city_id' => $city->id,
+            'primary_venue' => [
+                'name' => 'Rotating Login Venue',
+                'venue_type' => 'cafe',
+                'capacity' => 100,
+                'formatted_address' => 'Gran Via 1, Madrid',
+                'city' => $city->name,
+                'country' => $city->country,
+                'photos' => [],
+            ],
+        ])->assertCreated();
+
+        $firstLogin = $this->postJson('/api/v1/auth/login', [
+            'email' => 'rotating-login@example.com',
+            'password' => 'password123',
+        ]);
+
+        $firstLogin->assertOk()
+            ->assertJsonPath('success', true);
+
+        $secondLogin = $this->postJson('/api/v1/auth/login', [
+            'email' => 'rotating-login@example.com',
+            'password' => 'password123',
+        ]);
+
+        $secondLogin->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertNotSame($firstLogin->json('data.token'), $secondLogin->json('data.token'));
+        $this->assertNotSame($firstLogin->json('data.refresh_token'), $secondLogin->json('data.refresh_token'));
+
+        $staleProtectedRequest = $this->withHeader('Authorization', 'Bearer '.$firstLogin->json('data.token'))
+            ->getJson('/api/v1/auth/me');
+
+        $staleProtectedRequest->assertStatus(401)
+            ->assertJsonPath('success', false);
+
+        $staleRefresh = $this->postJson('/api/v1/auth/refresh', [
+            'refresh_token' => $firstLogin->json('data.refresh_token'),
+        ]);
+
+        $staleRefresh->assertStatus(401)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Invalid refresh token');
+
+        $freshProtectedRequest = $this->withHeader('Authorization', 'Bearer '.$secondLogin->json('data.token'))
+            ->getJson('/api/v1/auth/me');
+
+        $freshProtectedRequest->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.email', 'rotating-login@example.com');
     }
 
     public function test_refresh_returns_new_access_token_and_complete_user_payload(): void

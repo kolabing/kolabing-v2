@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\SubscriptionSource;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserType;
 use App\Models\AttendeeProfile;
@@ -11,7 +12,6 @@ use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
 use App\Models\CommunityProfile;
 use App\Models\Profile;
-use App\Enums\SubscriptionSource;
 use App\Support\ApiDebugLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -103,6 +103,8 @@ class AuthService
             return null;
         }
 
+        $this->revokeExistingMobileTokens($profile);
+
         // Link apple_id if signing in by email for the first time with Apple
         if (! $profile->apple_id) {
             $profile->update(['apple_id' => $appleUserData['apple_id']]);
@@ -175,6 +177,8 @@ class AuthService
             $profile->update($updates);
             $profile->refresh();
         }
+
+        $this->revokeExistingMobileTokens($profile);
 
         // Load relationships
         $this->loadProfileRelationships($profile);
@@ -295,6 +299,8 @@ class AuthService
         if ($currentToken) {
             $currentToken->delete();
         }
+
+        $this->revokeExistingMobileTokens($profile);
     }
 
     /**
@@ -493,6 +499,8 @@ class AuthService
             ];
         }
 
+        $this->revokeExistingMobileTokens($profile);
+
         // Load relationships
         $this->loadProfileRelationships($profile);
 
@@ -541,6 +549,13 @@ class AuthService
             'profile' => $tokenable,
             ...$this->issueTokenPair($tokenable),
         ];
+    }
+
+    private function revokeExistingMobileTokens(Profile $profile): void
+    {
+        $profile->tokens()
+            ->where('name', 'like', 'mobile-%')
+            ->delete();
     }
 
     /**
