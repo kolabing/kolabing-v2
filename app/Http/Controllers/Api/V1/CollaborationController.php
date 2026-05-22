@@ -164,8 +164,7 @@ class CollaborationController extends Controller
             $collaboration = $this->collaborationService->finish(
                 $collaboration,
                 $profile,
-                isset($validated['rating']) ? (int) $validated['rating'] : null,
-                $validated['note'] ?? null
+                $validated
             );
         } catch (CollaborationException $e) {
             return response()->json([
