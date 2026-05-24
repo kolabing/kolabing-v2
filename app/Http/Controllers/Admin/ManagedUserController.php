@@ -42,7 +42,7 @@ class ManagedUserController extends Controller
     {
         $profile = $this->managedProfileService->create($request->validated());
 
-        return redirect("/admin/users/{$profile->id}/edit")
+        return redirect()->route('admin.users.edit', $profile)
             ->with('status', __('User created successfully.'));
     }
 
@@ -59,7 +59,7 @@ class ManagedUserController extends Controller
     {
         $profile = $this->managedProfileService->update($profile, $request->validated());
 
-        return redirect("/admin/users/{$profile->id}/edit")
+        return redirect()->route('admin.users.edit', $profile)
             ->with('status', __('User updated successfully.'));
     }
 }

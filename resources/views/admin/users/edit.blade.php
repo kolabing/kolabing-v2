@@ -1,24 +1,29 @@
 @extends('admin.layout', ['title' => 'Edit User'])
 
-@section('content')
-    <div class="page-head">
-        <div>
-            <h1>Edit User</h1>
-            <p>Update the selected application profile without touching API-side workflows.</p>
-        </div>
-    </div>
+@section('page_title', 'Edit User')
+@section('page_subtitle', 'Update the selected application profile without changing API-side workflows.')
 
-    <div class="card">
-        <form method="post" action="/admin/users/{{ $profile->id }}">
+@section('page_actions')
+    <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left mr-1"></i>
+        Back to Users
+    </a>
+@endsection
+
+@section('admin_content')
+    <div class="card card-primary card-outline">
+        <form method="post" action="{{ route('admin.users.update', $profile) }}">
             @csrf
             @method('PUT')
-            @php($isEdit = true)
-            @php($userTypes = [])
-            @include('admin.users.form')
+            <div class="card-body">
+                @php($isEdit = true)
+                @php($userTypes = [])
+                @include('admin.users.form')
+            </div>
 
-            <div class="actions">
-                <button type="submit">Save Changes</button>
-                <a class="button secondary" href="/admin/users">Back</a>
+            <div class="card-footer">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <a href="{{ route('admin.users.index') }}" class="btn btn-default">Back</a>
             </div>
         </form>
     </div>

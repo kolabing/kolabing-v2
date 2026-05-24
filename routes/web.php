@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\ManagedUserController;
 use Illuminate\Support\Facades\Route;
@@ -8,21 +9,20 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
-Route::redirect('/admin', '/admin/users');
-
 Route::middleware('guest:admin')->group(function (): void {
     Route::get('/admin/login', [AdminAuthController::class, 'create'])->name('login');
     Route::post('/admin/login', [AdminAuthController::class, 'store']);
 });
 
-Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->group(function (): void {
-    Route::post('/logout', [AdminAuthController::class, 'destroy']);
+Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->group(function (): void {
+    Route::get('/', DashboardController::class)->name('dashboard');
+    Route::post('/logout', [AdminAuthController::class, 'destroy'])->name('logout');
 
-    Route::get('/users', [ManagedUserController::class, 'index']);
-    Route::get('/users/create', [ManagedUserController::class, 'create']);
-    Route::post('/users', [ManagedUserController::class, 'store']);
-    Route::get('/users/{profile}/edit', [ManagedUserController::class, 'edit']);
-    Route::put('/users/{profile}', [ManagedUserController::class, 'update']);
+    Route::get('/users', [ManagedUserController::class, 'index'])->name('users.index');
+    Route::get('/users/create', [ManagedUserController::class, 'create'])->name('users.create');
+    Route::post('/users', [ManagedUserController::class, 'store'])->name('users.store');
+    Route::get('/users/{profile}/edit', [ManagedUserController::class, 'edit'])->name('users.edit');
+    Route::put('/users/{profile}', [ManagedUserController::class, 'update'])->name('users.update');
 });
 
 Route::view('/for-businesses', 'pages.for-businesses')->name('for-businesses');

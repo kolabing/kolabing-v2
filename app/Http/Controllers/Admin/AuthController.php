@@ -42,7 +42,7 @@ class AuthController extends Controller
                 ->onlyInput('email');
         }
 
-        return redirect()->intended('/admin/users');
+        return redirect()->intended(route('admin.users.index'));
     }
 
     public function destroy(): RedirectResponse
@@ -51,6 +51,6 @@ class AuthController extends Controller
         request()->session()->invalidate();
         request()->session()->regenerateToken();
 
-        return redirect('/admin/login');
+        return redirect()->route('login');
     }
 }

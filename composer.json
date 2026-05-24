@@ -8,6 +8,7 @@
     "require": {
         "php": "^8.2",
         "google/apiclient": "*",
+        "jeroennoten/laravel-adminlte": "^3.16",
         "kreait/laravel-firebase": "^7.0",
         "laravel/framework": "^12.0",
         "laravel/reverb": "^1.7",
@@ -57,7 +58,8 @@
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
-            "@php artisan package:discover --ansi"
+            "@php artisan package:discover --ansi",
+            "@php artisan adminlte:install --only=assets --force --no-interaction"
         ],
         "post-update-cmd": [
             "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
