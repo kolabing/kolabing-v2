@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AddSecurityHeaders;
 use App\Http\Middleware\EnsureUserType;
+use App\Http\Middleware\EnsureAdminUserIsMaintainer;
 use App\Http\Middleware\LogAuthTokenFirstUse;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'ability' => CheckForAnyAbility::class,
             'log_auth_token_first_use' => LogAuthTokenFirstUse::class,
             'user_type' => EnsureUserType::class,
+            'maintainer' => EnsureAdminUserIsMaintainer::class,
         ]);
 
         // Sanctum stateful domains for API

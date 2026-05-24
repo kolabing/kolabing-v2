@@ -21,6 +21,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'is_maintainer',
     ];
 
     /**
@@ -43,6 +44,12 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_maintainer' => 'boolean',
         ];
+    }
+
+    public function isMaintainer(): bool
+    {
+        return $this->is_maintainer;
     }
 }
