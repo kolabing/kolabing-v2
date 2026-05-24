@@ -100,9 +100,9 @@ class GamificationWalletService
         return match ($badge) {
             GamificationBadgeSlug::FirstKolab => $this->countLedgerEvents($profileId, [PointEventType::CollaborationComplete]) >= 1,
             GamificationBadgeSlug::ContentCreator => $this->countLedgerEvents($profileId, [PointEventType::ReviewPosted, PointEventType::UgcPosted]) >= 3,
-            GamificationBadgeSlug::CommunityEarner => ($wallet?->points ?? 0) >= 100,
+            GamificationBadgeSlug::CommunityEarner => ($wallet?->points ?? 0) >= 250,
             GamificationBadgeSlug::ReferralPioneer => $this->countLedgerEvents($profileId, [PointEventType::ReferralConversion]) >= 1,
-            GamificationBadgeSlug::PowerPartner => $this->countLedgerEvents($profileId, [PointEventType::CollaborationComplete]) >= 5,
+            GamificationBadgeSlug::PowerPartner => $this->countLedgerEvents($profileId, [PointEventType::CollaborationComplete]) >= 10,
         };
     }
 

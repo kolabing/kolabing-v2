@@ -36,9 +36,9 @@ enum GamificationBadgeSlug: string
         return match ($this) {
             self::FirstKolab => 'Completed your first collaboration',
             self::ContentCreator => 'Posted 3 reviews or pieces of content',
-            self::CommunityEarner => 'Earned your first 100 points',
+            self::CommunityEarner => 'Earned your first 250 points',
             self::ReferralPioneer => 'Referred a business that converted',
-            self::PowerPartner => 'Completed 5 collaborations',
+            self::PowerPartner => 'Completed 10 collaborations',
         };
     }
 }

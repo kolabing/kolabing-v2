@@ -21,8 +21,8 @@ class ReferralCodeResource extends JsonResource
         return [
             'code' => $this->code,
             'referral_link' => config('app.url').'/ref/'.$this->code,
-            'total_conversions' => $this->total_conversions,
-            'total_points_earned' => $this->total_points_earned,
+            'total_conversions' => (int) ($this->total_conversions ?? 0),
+            'total_points_earned' => (int) ($this->total_points_earned ?? 0),
         ];
     }
 }

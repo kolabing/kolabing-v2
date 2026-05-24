@@ -226,7 +226,8 @@ class GamificationWalletTest extends TestCase
             ->assertJsonStructure([
                 'data' => ['code', 'referral_link', 'total_conversions', 'total_points_earned'],
             ])
-            ->assertJsonPath('data.total_conversions', 0);
+            ->assertJsonPath('data.total_conversions', 0)
+            ->assertJsonPath('data.total_points_earned', 0);
 
         $this->assertStringStartsWith('KOLAB-', $response->json('data.code'));
         $this->assertDatabaseHas('referral_codes', ['profile_id' => $profile->id]);
@@ -242,6 +243,27 @@ class GamificationWalletTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.code', 'KOLAB-TEST');
+    }
+
+    public function test_referral_code_returns_numeric_zero_counters_for_existing_code(): void
+    {
+        $profile = $this->createCommunityProfile();
+        ReferralCode::factory()->forProfile($profile)->create([
+            'code' => 'KOLAB-ZERO',
+            'total_conversions' => 0,
+            'total_points_earned' => 0,
+        ]);
+
+        $response = $this->actingAs($profile)
+            ->getJson('/api/v1/gamification/referral-code');
+
+        $response->assertOk()
+            ->assertJsonPath('data.code', 'KOLAB-ZERO')
+            ->assertJsonPath('data.total_conversions', 0)
+            ->assertJsonPath('data.total_points_earned', 0);
+
+        $this->assertSame(0, $response->json('data.total_conversions'));
+        $this->assertSame(0, $response->json('data.total_points_earned'));
     }
 
     /*

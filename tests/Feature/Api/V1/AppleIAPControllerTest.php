@@ -202,6 +202,12 @@ class AppleIAPControllerTest extends TestCase
             ->where('event_type', 'referral_conversion')
             ->count());
         $this->assertSame(50, Wallet::query()->where('profile_id', $referrer->id)->value('points'));
+        $this->assertDatabaseHas('referral_codes', [
+            'profile_id' => $referrer->id,
+            'code' => 'KOLAB-TEST',
+            'total_conversions' => 1,
+            'total_points_earned' => 50,
+        ]);
     }
 
     public function test_verify_returns_422_for_invalid_referral_code(): void

@@ -48,26 +48,28 @@ class GamificationCollaborationIntegrationTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('success', true);
 
-        // Both parties should have received 1 point
+        // Both parties should have received 10 points
         $this->assertDatabaseHas('wallets', [
             'profile_id' => $creator->id,
-            'points' => 1,
+            'points' => 10,
         ]);
 
         $this->assertDatabaseHas('wallets', [
             'profile_id' => $applicant->id,
-            'points' => 1,
+            'points' => 10,
         ]);
 
         // Ledger entries for both parties
         $this->assertDatabaseHas('point_ledger', [
             'profile_id' => $creator->id,
+            'points' => 10,
             'event_type' => 'collaboration_complete',
             'reference_id' => $collaboration->id,
         ]);
 
         $this->assertDatabaseHas('point_ledger', [
             'profile_id' => $applicant->id,
+            'points' => 10,
             'event_type' => 'collaboration_complete',
             'reference_id' => $collaboration->id,
         ]);

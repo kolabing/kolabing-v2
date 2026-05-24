@@ -26,9 +26,9 @@ enum PointEventType: string
     public function defaultPoints(): int
     {
         return match ($this) {
-            self::CollaborationComplete => 1,
-            self::ReviewPosted => 1,
-            self::UgcPosted => 1,
+            self::CollaborationComplete => 10,
+            self::ReviewPosted => 10,
+            self::UgcPosted => 10,
             self::ReferralConversion => 50,
             self::Withdrawal => 0,
         };

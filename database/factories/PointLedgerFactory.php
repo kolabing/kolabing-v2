@@ -36,7 +36,7 @@ class PointLedgerFactory extends Factory
     public function collaborationComplete(): static
     {
         return $this->state(fn () => [
-            'points' => 1,
+            'points' => PointEventType::CollaborationComplete->defaultPoints(),
             'event_type' => PointEventType::CollaborationComplete,
         ]);
     }
@@ -44,7 +44,7 @@ class PointLedgerFactory extends Factory
     public function reviewPosted(): static
     {
         return $this->state(fn () => [
-            'points' => 1,
+            'points' => PointEventType::ReviewPosted->defaultPoints(),
             'event_type' => PointEventType::ReviewPosted,
         ]);
     }
@@ -52,7 +52,7 @@ class PointLedgerFactory extends Factory
     public function ugcPosted(): static
     {
         return $this->state(fn () => [
-            'points' => 1,
+            'points' => PointEventType::UgcPosted->defaultPoints(),
             'event_type' => PointEventType::UgcPosted,
         ]);
     }
