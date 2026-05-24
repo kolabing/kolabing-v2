@@ -27,6 +27,7 @@ class SendPushNotification implements ShouldQueue
         public readonly string $body,
         public readonly NotificationType $type,
         public readonly ?string $targetId = null,
+        public readonly array $messageOptions = [],
     ) {
         if (Config::get('queue.default') === 'sync') {
             $this->onConnection('database');
@@ -41,6 +42,7 @@ class SendPushNotification implements ShouldQueue
             body: $this->body,
             type: $this->type,
             targetId: $this->targetId,
+            messageOptions: $this->messageOptions,
         );
     }
 }

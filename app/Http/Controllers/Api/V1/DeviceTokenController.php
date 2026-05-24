@@ -13,6 +13,8 @@ class DeviceTokenController extends Controller
 {
     /**
      * Store legacy mobile token metadata for the authenticated user.
+     * OneSignal delivery uses external_id targeting, but this stays for
+     * backward compatibility with older mobile builds.
      */
     public function store(StoreDeviceTokenRequest $request): JsonResponse
     {

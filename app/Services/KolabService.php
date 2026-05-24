@@ -18,6 +18,10 @@ use InvalidArgumentException;
 
 class KolabService
 {
+    public function __construct(
+        private readonly NotificationReminderService $notificationReminderService,
+    ) {}
+
     /**
      * Browse published kolabs with filters.
      *
@@ -83,7 +87,7 @@ class KolabService
             $data = $this->enrichVenuePromotionData($creator, $data);
         }
 
-        return Kolab::query()->create([
+        $kolab = Kolab::query()->create([
             'creator_profile_id' => $creator->id,
             'intent_type' => $data['intent_type'],
             'status' => KolabStatus::Draft,
@@ -118,6 +122,10 @@ class KolabService
             'expects' => $data['expects'] ?? null,
             'past_events' => $data['past_events'] ?? null,
         ]);
+
+        $this->notificationReminderService->syncKolabDraftReminder($kolab);
+
+        return $kolab;
     }
 
     /**
@@ -139,6 +147,7 @@ class KolabService
 
         $kolab->update($data);
         $kolab->refresh();
+        $this->notificationReminderService->syncKolabDraftReminder($kolab);
 
         return $kolab;
     }
@@ -156,6 +165,7 @@ class KolabService
             );
         }
 
+        $this->notificationReminderService->cancelKolabDraftReminder($kolab);
         $kolab->delete();
     }
 
@@ -164,6 +174,7 @@ class KolabService
      * Community seeking intent is free; other intents require subscription.
      *
      * @param  array{recipient_community_id?: string|null}  $data
+     *
      * @throws InvalidArgumentException
      */
     public function publish(Kolab $kolab, array $data = []): Kolab
@@ -196,6 +207,7 @@ class KolabService
         ]);
 
         $kolab->refresh();
+        $this->notificationReminderService->syncKolabDraftReminder($kolab);
 
         return $kolab;
     }
@@ -218,6 +230,7 @@ class KolabService
         ]);
 
         $kolab->refresh();
+        $this->notificationReminderService->syncKolabDraftReminder($kolab);
 
         return $kolab;
     }

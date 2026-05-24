@@ -54,6 +54,39 @@ class PushNotificationTest extends TestCase
         });
     }
 
+    public function test_push_job_dispatch_preserves_structured_push_options(): void
+    {
+        Queue::fake();
+
+        $recipient = Profile::factory()->business()->create();
+
+        $this->notificationService->createNotification(
+            recipient: $recipient,
+            type: NotificationType::NewMessage,
+            title: 'New Message',
+            body: 'Someone sent a photo preview.',
+            targetId: 'application-uuid',
+            targetType: 'application',
+            pushOptions: [
+                'subtitle' => 'Messages',
+                'ios_attachments' => [
+                    'image' => 'https://cdn.kolabing.com/push/chat-preview.jpg',
+                ],
+                'data' => [
+                    'preview_variant' => 'image',
+                ],
+            ],
+        );
+
+        Queue::assertPushed(SendPushNotification::class, function (SendPushNotification $job) use ($recipient): bool {
+            return $job->recipient->id === $recipient->id
+                && $job->type === NotificationType::NewMessage
+                && $job->messageOptions['subtitle'] === 'Messages'
+                && $job->messageOptions['ios_attachments']['image'] === 'https://cdn.kolabing.com/push/chat-preview.jpg'
+                && $job->messageOptions['data']['preview_variant'] === 'image';
+        });
+    }
+
     public function test_push_job_dispatched_even_when_recipient_has_no_device_token(): void
     {
         Queue::fake();

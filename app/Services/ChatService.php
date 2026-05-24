@@ -15,7 +15,8 @@ use InvalidArgumentException;
 class ChatService
 {
     public function __construct(
-        private readonly NotificationService $notificationService
+        private readonly NotificationService $notificationService,
+        private readonly NotificationReminderService $notificationReminderService,
     ) {}
 
     /**
@@ -59,6 +60,13 @@ class ChatService
         // Create notification for the recipient
         $this->notificationService->notifyNewMessage($message, $application);
 
+        $recipient = $this->getOtherParticipant($sender, $application);
+        if ($recipient !== null) {
+            $this->notificationReminderService->syncUnreadMessageReminder($application, $recipient);
+        }
+
+        $this->notificationReminderService->syncUnreadMessageReminder($application, $sender);
+
         return $message;
     }
 
@@ -67,11 +75,15 @@ class ChatService
      */
     public function markMessagesAsRead(Profile $reader, Application $application): int
     {
-        return ChatMessage::query()
+        $updated = ChatMessage::query()
             ->where('application_id', $application->id)
             ->where('sender_profile_id', '!=', $reader->id)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
+
+        $this->notificationReminderService->syncUnreadMessageReminder($application, $reader);
+
+        return $updated;
     }
 
     /**

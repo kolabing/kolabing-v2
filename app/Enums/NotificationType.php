@@ -16,6 +16,9 @@ enum NotificationType: string
     case PointsEarned = 'points_earned';
     case GamificationBadgeEarned = 'gamification_badge_earned';
     case WithdrawalProcessed = 'withdrawal_processed';
+    case KolabCreateIncomplete = 'kolab_create_incomplete';
+    case ApplicationPending = 'application_pending';
+    case UnreadMessage = 'unread_message';
 
     /**
      * @return array<string>

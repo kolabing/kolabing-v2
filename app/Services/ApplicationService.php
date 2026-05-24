@@ -19,7 +19,8 @@ use RuntimeException;
 class ApplicationService
 {
     public function __construct(
-        private readonly NotificationService $notificationService
+        private readonly NotificationService $notificationService,
+        private readonly NotificationReminderService $notificationReminderService,
     ) {}
 
     /**
@@ -46,6 +47,7 @@ class ApplicationService
         ]);
 
         $this->notificationService->notifyApplicationReceived($application);
+        $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['collabOpportunity']));
 
         return $application;
     }
@@ -87,6 +89,7 @@ class ApplicationService
             $application->update([
                 'status' => ApplicationStatus::Accepted,
             ]);
+            $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['collabOpportunity']));
 
             $collaboration = $this->createCollaboration($application, $data);
 
@@ -118,6 +121,7 @@ class ApplicationService
         $application->update([
             'status' => ApplicationStatus::Declined,
         ]);
+        $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['collabOpportunity']));
 
         $this->notificationService->notifyApplicationDeclined($application);
 
@@ -142,6 +146,7 @@ class ApplicationService
         $application->update([
             'status' => ApplicationStatus::Withdrawn,
         ]);
+        $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['collabOpportunity']));
 
         return $application->fresh();
     }

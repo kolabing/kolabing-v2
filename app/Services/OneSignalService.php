@@ -11,14 +11,36 @@ use RuntimeException;
 class OneSignalService
 {
     /**
+     * @var list<string>
+     */
+    private const MESSAGE_OPTION_KEYS = [
+        'subtitle',
+        'ios_category',
+        'ios_attachments',
+        'ios_interruption_level',
+        'ios_relevance_score',
+        'ios_badgeType',
+        'ios_badgeCount',
+        'buttons',
+    ];
+
+    /**
      * Send a transactional push notification to one or more app users.
      *
      * @param  array<int, int|string>  $userIds
-     * @param  array<string, string>  $data
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $messageOptions
      * @return array<string, mixed>
      */
-    public function sendPushToUsers(array $userIds, string $title, string $body, array $data = []): array
-    {
+    public function sendPushToUsers(
+        array $userIds,
+        string $title,
+        string $body,
+        array $data = [],
+        array $messageOptions = [],
+    ): array {
+        $messageOptions = $this->filterMessageOptions($messageOptions);
+
         $normalizedUserIds = collect($userIds)
             ->filter(static fn (int|string|null $userId): bool => filled($userId))
             ->map(static fn (int|string $userId): string => (string) $userId)
@@ -53,11 +75,16 @@ class OneSignalService
             'data' => $data,
         ];
 
+        foreach ($messageOptions as $key => $value) {
+            $payload[$key] = $value;
+        }
+
         Log::info('OneSignal: sending transactional push', [
             'external_ids' => $normalizedUserIds,
             'title' => $title,
             'body' => $body,
             'data' => $data,
+            'message_options' => $messageOptions,
         ]);
 
         $response = Http::baseUrl(rtrim($baseUrl, '/'))
@@ -98,5 +125,16 @@ class OneSignalService
         }
 
         return $responseData;
+    }
+
+    /**
+     * @param  array<string, mixed>  $messageOptions
+     * @return array<string, mixed>
+     */
+    private function filterMessageOptions(array $messageOptions): array
+    {
+        return collect($messageOptions)
+            ->filter(fn (mixed $value, string $key): bool => in_array($key, self::MESSAGE_OPTION_KEYS, true) && $value !== null)
+            ->all();
     }
 }

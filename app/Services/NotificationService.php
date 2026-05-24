@@ -74,6 +74,7 @@ class NotificationService
         ?Profile $actor = null,
         ?string $targetId = null,
         ?string $targetType = null,
+        array $pushOptions = [],
     ): Notification {
         $notification = Notification::create([
             'profile_id' => $recipient->id,
@@ -85,7 +86,7 @@ class NotificationService
             'target_type' => $targetType,
         ]);
 
-        SendPushNotification::dispatch($recipient, $title, $body, $type, $targetId);
+        SendPushNotification::dispatch($recipient, $title, $body, $type, $targetId, $pushOptions);
 
         return $notification;
     }
