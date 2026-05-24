@@ -390,7 +390,7 @@ class LookupControllerTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
-            ->assertJsonPath('meta.total', 16)
+            ->assertJsonPath('meta.total', 17)
             ->assertJsonStructure([
                 'success',
                 'data' => [
@@ -409,6 +409,7 @@ class LookupControllerTest extends TestCase
         $this->assertContains('run_club', $values);
         $this->assertContains('fitness_community', $values);
         $this->assertContains('photography_community', $values);
+        $this->assertContains('business_coworking', $values);
         $this->assertContains('student_community', $values);
         $this->assertContains('other', $values);
     }
