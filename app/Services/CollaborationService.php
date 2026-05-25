@@ -167,8 +167,9 @@ class CollaborationService
 
         $role = $this->getProfileRole($collaboration, $profile);
         $reviewerType = $profile->isBusiness() ? 'business' : 'community';
+        $reviewedProfileId = $this->resolveReviewedProfileId($collaboration, $profile);
 
-        return DB::transaction(function () use ($collaboration, $profile, $role, $reviewerType, $feedback): Collaboration {
+        return DB::transaction(function () use ($collaboration, $profile, $role, $reviewerType, $feedback, $reviewedProfileId): Collaboration {
             // One rich feedback row per side, unique on (collaboration, reviewer).
             CollaborationFeedback::query()->updateOrCreate(
                 [
@@ -199,9 +200,11 @@ class CollaborationService
             $collaboration->reviews()->updateOrCreate(
                 ['reviewer_profile_id' => $profile->id],
                 [
+                    'reviewed_profile_id' => $reviewedProfileId,
                     'reviewer_role' => $role,
                     'rating' => (int) $feedback['rating'],
                     'note' => $feedback['note'] ?? null,
+                    'body' => $feedback['note'] ?? null,
                 ]
             );
 
@@ -359,6 +362,19 @@ class CollaborationService
 
         if ($collaboration->applicant_profile_id === $profile->id) {
             return 'applicant';
+        }
+
+        return null;
+    }
+
+    private function resolveReviewedProfileId(Collaboration $collaboration, Profile $profile): ?string
+    {
+        if ($profile->id === $collaboration->business_profile_id) {
+            return $collaboration->community_profile_id;
+        }
+
+        if ($profile->id === $collaboration->community_profile_id) {
+            return $collaboration->business_profile_id;
         }
 
         return null;

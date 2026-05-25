@@ -6,6 +6,7 @@ namespace App\Http\Resources\Api\V1;
 
 use App\Enums\CollaborationStatus;
 use App\Models\Collaboration;
+use App\Models\CollaborationReview;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -100,7 +101,9 @@ class CollaborationResource extends JsonResource
                 return $this->reviews->map(fn ($review): array => [
                     'reviewer_role' => $review->reviewer_role,
                     'rating' => $review->rating,
-                    'note' => $review->note,
+                    'note' => $review->body ?? $review->note,
+                    'body' => $review->body ?? $review->note,
+                    'would_collaborate_again' => $review->would_collaborate_again,
                     'created_at' => $review->created_at?->toIso8601String(),
                 ])->values();
             }),
@@ -131,6 +134,13 @@ class CollaborationResource extends JsonResource
                 'can_complete' => $this->canBeCompleted(),
                 'can_cancel' => $this->canBeCancelled(),
             ]),
+            'has_reviewed' => $this->when(
+                $currentProfile !== null && $this->isCompleted(),
+                fn () => CollaborationReview::query()
+                    ->where('collaboration_id', $this->id)
+                    ->where('reviewer_profile_id', $currentProfile->id)
+                    ->exists()
+            ),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

@@ -4,23 +4,28 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\PointEventType;
 use App\Exceptions\CollaborationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\CancelCollaborationRequest;
 use App\Http\Requests\Api\V1\CompleteCollaborationRequest;
 use App\Http\Requests\Api\V1\FinishCollaborationRequest;
+use App\Http\Requests\Api\V1\StoreCollaborationReviewRequest;
 use App\Http\Resources\Api\V1\CollaborationCollection;
 use App\Http\Resources\Api\V1\CollaborationResource;
 use App\Models\Collaboration;
+use App\Models\CollaborationReview;
 use App\Models\Profile;
 use App\Services\CollaborationService;
+use App\Services\GamificationWalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class CollaborationController extends Controller
 {
     public function __construct(
-        private readonly CollaborationService $collaborationService
+        private readonly CollaborationService $collaborationService,
+        private readonly GamificationWalletService $gamificationService,
     ) {}
 
     /**
@@ -214,5 +219,107 @@ class CollaborationController extends Controller
             'message' => __('collaboration.cancelled'),
             'data' => new CollaborationResource($collaboration),
         ]);
+    }
+
+    /**
+     * Submit a lightweight review for a completed collaboration.
+     *
+     * POST /api/v1/collaborations/{collaboration}/review
+     *
+     * Rules:
+     * - Collaboration must be completed
+     * - Reviewer must be a participant
+     * - One review per reviewer per collaboration (idempotent: returns 200 on duplicate)
+     * - reviewed_profile_id is derived from business/community profile columns,
+     *   NOT from who submitted — ensuring correct cross-party attribution
+     * - XP awarded only on first creation (not on duplicate)
+     */
+    public function review(
+        StoreCollaborationReviewRequest $request,
+        Collaboration $collaboration,
+    ): JsonResponse {
+        /** @var Profile $reviewer */
+        $reviewer = $request->user();
+
+        $this->authorize('view', $collaboration);
+
+        if (! $collaboration->isCompleted()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Reviews can only be left for completed collaborations.',
+                'error_code' => 'collaboration_not_completed',
+            ], 422);
+        }
+
+        // Determine which profile is being reviewed (the OTHER party).
+        // business_profile_id / community_profile_id are dedicated FK columns
+        // that are always set regardless of creator/applicant assignment order.
+        $reviewedProfileId = $reviewer->id === $collaboration->business_profile_id
+            ? $collaboration->community_profile_id
+            : $collaboration->business_profile_id;
+
+        if ($reviewedProfileId === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not determine the profile to be reviewed.',
+                'error_code' => 'missing_participant',
+            ], 422);
+        }
+
+        $reviewerRole = match (true) {
+            $reviewer->id === $collaboration->creator_profile_id => 'creator',
+            $reviewer->id === $collaboration->applicant_profile_id => 'applicant',
+            default => null,
+        };
+
+        if ($reviewerRole === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not a participant in this collaboration.',
+                'error_code' => 'not_a_participant',
+            ], 403);
+        }
+
+        // Idempotency: if a review already exists, return it without awarding XP again.
+        $existing = CollaborationReview::query()
+            ->where('collaboration_id', $collaboration->id)
+            ->where('reviewer_profile_id', $reviewer->id)
+            ->first();
+
+        if ($existing !== null) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Review already submitted.',
+                'data' => $existing,
+            ]);
+        }
+
+        $validated = $request->validated();
+
+        $review = CollaborationReview::create([
+            'collaboration_id' => $collaboration->id,
+            'reviewer_profile_id' => $reviewer->id,
+            'reviewed_profile_id' => $reviewedProfileId,
+            'reviewer_role' => $reviewerRole,
+            'rating' => $validated['rating'],
+            'note' => isset($validated['body']) ? mb_substr((string) $validated['body'], 0, 200) : null,
+            'body' => $validated['body'] ?? null,
+            'would_collaborate_again' => $validated['would_collaborate_again'] ?? null,
+        ]);
+
+        // Award XP once for leaving a review — uses existing ReviewPosted event type.
+        $this->gamificationService->awardPoints(
+            $reviewer->id,
+            PointEventType::ReviewPosted->defaultPoints(),
+            PointEventType::ReviewPosted,
+            $collaboration->id,
+            'Left a review for a completed Kolab',
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Review submitted successfully.',
+            'data' => $review,
+        ], 201);
     }
 }

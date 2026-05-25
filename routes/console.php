@@ -11,3 +11,9 @@ Artisan::command('inspire', function () {
 Schedule::command('notifications:send-reminders')
     ->everyFifteenMinutes()
     ->withoutOverlapping();
+
+// Send collab-day reminders at 08:00 every morning.
+// The command handles both day-of ("Today's your Kolab!") and
+// follow-up ("Did it happen?") in one pass; dedup is done via
+// the notifications table so re-runs are safe.
+Schedule::command('app:send-collab-reminders')->dailyAt('08:00');

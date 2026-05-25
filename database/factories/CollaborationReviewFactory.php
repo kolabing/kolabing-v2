@@ -31,9 +31,12 @@ class CollaborationReviewFactory extends Factory
         return [
             'collaboration_id' => Collaboration::factory(),
             'reviewer_profile_id' => Profile::factory(),
+            'reviewed_profile_id' => Profile::factory(),
             'reviewer_role' => fake()->randomElement(['creator', 'applicant']),
             'rating' => fake()->numberBetween(1, 5),
             'note' => fake()->optional()->sentence(),
+            'body' => fake()->optional()->paragraph(),
+            'would_collaborate_again' => fake()->optional()->boolean(),
         ];
     }
 }

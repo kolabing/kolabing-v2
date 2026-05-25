@@ -612,6 +612,10 @@ Route::prefix('v1')->group(function (): void {
         Route::post('collaborations/{collaboration}/cancel', [CollaborationController::class, 'cancel'])
             ->name('api.v1.collaborations.cancel');
 
+        // Leave a review for a completed collaboration (one per reviewer, idempotent)
+        Route::post('collaborations/{collaboration}/review', [CollaborationController::class, 'review'])
+            ->name('api.v1.collaborations.review');
+
         // Sync selected challenges for a collaboration
         Route::put('collaborations/{collaboration}/challenges', [CollaborationChallengeController::class, 'sync'])
             ->name('api.v1.collaborations.challenges.sync');

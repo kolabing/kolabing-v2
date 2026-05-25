@@ -14,12 +14,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $collaboration_id
  * @property string $reviewer_profile_id
  * @property string $reviewer_role
+ * @property string|null $reviewed_profile_id
  * @property int|null $rating
  * @property string|null $note
+ * @property string|null $body
+ * @property bool|null $would_collaborate_again
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Collaboration $collaboration
  * @property-read Profile $reviewerProfile
+ * @property-read Profile $reviewer
+ * @property-read Profile $reviewed
  */
 class CollaborationReview extends Model
 {
@@ -27,33 +32,31 @@ class CollaborationReview extends Model
     use HasUuids;
 
     /**
-     * The attributes that are mass assignable.
-     *
      * @var list<string>
      */
     protected $fillable = [
         'collaboration_id',
         'reviewer_profile_id',
+        'reviewed_profile_id',
         'reviewer_role',
         'rating',
         'note',
+        'body',
+        'would_collaborate_again',
     ];
 
     /**
-     * Get the attributes that should be cast.
-     *
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
             'rating' => 'integer',
+            'would_collaborate_again' => 'boolean',
         ];
     }
 
     /**
-     * Get the collaboration this review belongs to.
-     *
      * @return BelongsTo<Collaboration, $this>
      */
     public function collaboration(): BelongsTo
@@ -62,12 +65,26 @@ class CollaborationReview extends Model
     }
 
     /**
-     * Get the profile that submitted this review.
-     *
      * @return BelongsTo<Profile, $this>
      */
     public function reviewerProfile(): BelongsTo
     {
         return $this->belongsTo(Profile::class, 'reviewer_profile_id');
+    }
+
+    /**
+     * @return BelongsTo<Profile, $this>
+     */
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(Profile::class, 'reviewer_profile_id');
+    }
+
+    /**
+     * @return BelongsTo<Profile, $this>
+     */
+    public function reviewed(): BelongsTo
+    {
+        return $this->belongsTo(Profile::class, 'reviewed_profile_id');
     }
 }

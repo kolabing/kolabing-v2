@@ -9,6 +9,7 @@ use App\Jobs\SendPushNotification;
 use App\Models\Application;
 use App\Models\ChallengeCompletion;
 use App\Models\ChatMessage;
+use App\Models\Collaboration;
 use App\Models\Notification;
 use App\Models\Profile;
 use App\Models\RewardClaim;
@@ -228,6 +229,72 @@ class NotificationService
             targetId: $completion->id,
             targetType: 'challenge_completion',
         );
+    }
+
+    /**
+     * Send "Today's your Kolab 🎉" reminder to both parties.
+     * Idempotent: skips a party if a reminder of this type was already sent
+     * for this collaboration (checked via existing notifications rows).
+     */
+    public function notifyCollabDayReminder(Collaboration $collaboration): void
+    {
+        $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'collabOpportunity']);
+
+        $title = "Today's your Kolab! 🎉";
+        $body = "Your collaboration is happening today. Have a great Kolab!";
+
+        foreach ([$collaboration->creatorProfile, $collaboration->applicantProfile] as $profile) {
+            if ($this->reminderAlreadySent($profile->id, NotificationType::CollabDayReminder, $collaboration->id)) {
+                continue;
+            }
+            $this->createNotification(
+                recipient: $profile,
+                type: NotificationType::CollabDayReminder,
+                title: $title,
+                body: $body,
+                targetId: $collaboration->id,
+                targetType: 'collaboration',
+            );
+        }
+    }
+
+    /**
+     * Send "Did your Kolab happen? Mark it complete." follow-up to both parties.
+     * Idempotent: skips a party if a follow-up of this type was already sent.
+     */
+    public function notifyCollabFollowUpReminder(Collaboration $collaboration): void
+    {
+        $collaboration->loadMissing(['creatorProfile', 'applicantProfile']);
+
+        $title = 'Did your Kolab happen?';
+        $body = 'Mark it complete to earn your XP and keep your history up to date.';
+
+        foreach ([$collaboration->creatorProfile, $collaboration->applicantProfile] as $profile) {
+            if ($this->reminderAlreadySent($profile->id, NotificationType::CollabFollowUpReminder, $collaboration->id)) {
+                continue;
+            }
+            $this->createNotification(
+                recipient: $profile,
+                type: NotificationType::CollabFollowUpReminder,
+                title: $title,
+                body: $body,
+                targetId: $collaboration->id,
+                targetType: 'collaboration',
+            );
+        }
+    }
+
+    /**
+     * Check whether a reminder of the given type has already been sent
+     * to this profile for this collaboration.
+     */
+    private function reminderAlreadySent(string $profileId, NotificationType $type, string $targetId): bool
+    {
+        return Notification::query()
+            ->where('profile_id', $profileId)
+            ->where('type', $type)
+            ->where('target_id', $targetId)
+            ->exists();
     }
 
     /**

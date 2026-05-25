@@ -46,6 +46,21 @@ class GamificationWalletService
 
             $wallet->increment('points', $points);
 
+            // Award first-kolab bonus on the profile's very first completion
+            if ($eventType === PointEventType::CollaborationComplete) {
+                $completedCount = $this->countLedgerEvents($profileId, [PointEventType::CollaborationComplete]);
+                if ($completedCount === 1) {
+                    PointLedger::create([
+                        'profile_id' => $profileId,
+                        'points' => PointEventType::FirstKolabBonus->defaultPoints(),
+                        'event_type' => PointEventType::FirstKolabBonus,
+                        'reference_id' => $referenceId,
+                        'description' => 'First Kolab bonus!',
+                    ]);
+                    $wallet->increment('points', PointEventType::FirstKolabBonus->defaultPoints());
+                }
+            }
+
             $this->evaluateBadges($profileId);
 
             return $ledgerEntry;
@@ -100,9 +115,9 @@ class GamificationWalletService
         return match ($badge) {
             GamificationBadgeSlug::FirstKolab => $this->countLedgerEvents($profileId, [PointEventType::CollaborationComplete]) >= 1,
             GamificationBadgeSlug::ContentCreator => $this->countLedgerEvents($profileId, [PointEventType::ReviewPosted, PointEventType::UgcPosted]) >= 3,
-            GamificationBadgeSlug::CommunityEarner => ($wallet?->points ?? 0) >= 250,
+            GamificationBadgeSlug::CommunityEarner => ($wallet?->points ?? 0) >= 100,
             GamificationBadgeSlug::ReferralPioneer => $this->countLedgerEvents($profileId, [PointEventType::ReferralConversion]) >= 1,
-            GamificationBadgeSlug::PowerPartner => $this->countLedgerEvents($profileId, [PointEventType::CollaborationComplete]) >= 10,
+            GamificationBadgeSlug::PowerPartner => $this->countLedgerEvents($profileId, [PointEventType::CollaborationComplete]) >= 5,
         };
     }
 

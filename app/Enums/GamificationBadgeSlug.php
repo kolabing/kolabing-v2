@@ -24,10 +24,10 @@ enum GamificationBadgeSlug: string
     {
         return match ($this) {
             self::FirstKolab => 'First Kolab',
-            self::ContentCreator => 'Content Creator',
-            self::CommunityEarner => 'Community Earner',
+            self::ContentCreator => 'Storyteller',
+            self::CommunityEarner => 'Momentum Club',
             self::ReferralPioneer => 'Referral Pioneer',
-            self::PowerPartner => 'Power Partner',
+            self::PowerPartner => 'Trusted Voice',
         };
     }
 
@@ -35,10 +35,10 @@ enum GamificationBadgeSlug: string
     {
         return match ($this) {
             self::FirstKolab => 'Completed your first collaboration',
-            self::ContentCreator => 'Posted 3 reviews or pieces of content',
-            self::CommunityEarner => 'Earned your first 250 points',
-            self::ReferralPioneer => 'Referred a business that converted',
-            self::PowerPartner => 'Completed 10 collaborations',
+            self::ContentCreator => 'Share your story - post 3 collaboration reviews',
+            self::CommunityEarner => 'Keep the momentum - reach 100 XP',
+            self::ReferralPioneer => 'Grow the community - refer your first partner',
+            self::PowerPartner => 'A trusted voice - complete 5 Kolabs',
         };
     }
 }

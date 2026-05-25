@@ -19,6 +19,8 @@ enum NotificationType: string
     case KolabCreateIncomplete = 'kolab_create_incomplete';
     case ApplicationPending = 'application_pending';
     case UnreadMessage = 'unread_message';
+    case CollabDayReminder = 'collab_day_reminder';
+    case CollabFollowUpReminder = 'collab_followup_reminder';
 
     /**
      * @return array<string>
