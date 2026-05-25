@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Enums\CollaborationStatus;
 use App\Enums\UserType;
+use App\Models\Collaboration;
+use App\Models\CollaborationReview;
 use App\Models\Profile;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -41,6 +44,34 @@ class PublicProfileResource extends JsonResource
                 : null,
             'website' => $extendedProfile?->website,
             'profile_photo' => $extendedProfile?->profile_photo,
+            'completed_kolabs_count' => Collaboration::query()
+                ->where('status', CollaborationStatus::Completed)
+                ->where(fn ($q) => $q
+                    ->where('creator_profile_id', $this->id)
+                    ->orWhere('applicant_profile_id', $this->id)
+                )
+                ->count(),
+            'review_stats' => $this->buildReviewStats(),
+        ];
+    }
+
+    /**
+     * @return array{average_rating: float|null, review_count: int}
+     */
+    private function buildReviewStats(): array
+    {
+        $stats = CollaborationReview::query()
+            ->where('reviewed_profile_id', $this->id)
+            ->selectRaw('COUNT(*) as review_count, AVG(rating) as average_rating')
+            ->first();
+
+        $count = (int) ($stats?->review_count ?? 0);
+
+        return [
+            'review_count' => $count,
+            'average_rating' => $count > 0
+                ? round((float) $stats->average_rating, 1)
+                : null,
         ];
     }
 }

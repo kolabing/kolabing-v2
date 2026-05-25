@@ -16,6 +16,8 @@ enum NotificationType: string
     case PointsEarned = 'points_earned';
     case GamificationBadgeEarned = 'gamification_badge_earned';
     case WithdrawalProcessed = 'withdrawal_processed';
+    case CollabDayReminder = 'collab_day_reminder';
+    case CollabFollowUpReminder = 'collab_followup_reminder';
 
     /**
      * @return array<string>

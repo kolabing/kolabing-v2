@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources\Api\V1;
 
 use App\Models\Collaboration;
+use App\Models\CollaborationReview;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -96,6 +97,13 @@ class CollaborationResource extends JsonResource
             }),
             'completed_at' => $this->completed_at?->toIso8601String(),
             'my_role' => $this->when($currentProfile !== null, fn () => $myRole),
+            'has_reviewed' => $this->when(
+                $currentProfile !== null && $this->isCompleted(),
+                fn () => CollaborationReview::query()
+                    ->where('collaboration_id', $this->id)
+                    ->where('reviewer_profile_id', $currentProfile->id)
+                    ->exists()
+            ),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

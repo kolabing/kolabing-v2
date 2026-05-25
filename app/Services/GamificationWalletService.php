@@ -46,6 +46,21 @@ class GamificationWalletService
 
             $wallet->increment('points', $points);
 
+            // Award first-kolab bonus on the profile's very first completion
+            if ($eventType === PointEventType::CollaborationComplete) {
+                $completedCount = $this->countLedgerEvents($profileId, [PointEventType::CollaborationComplete]);
+                if ($completedCount === 1) {
+                    PointLedger::create([
+                        'profile_id' => $profileId,
+                        'points' => PointEventType::FirstKolabBonus->defaultPoints(),
+                        'event_type' => PointEventType::FirstKolabBonus,
+                        'reference_id' => $referenceId,
+                        'description' => 'First Kolab bonus!',
+                    ]);
+                    $wallet->increment('points', PointEventType::FirstKolabBonus->defaultPoints());
+                }
+            }
+
             $this->evaluateBadges($profileId);
 
             return $ledgerEntry;
