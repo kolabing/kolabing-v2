@@ -107,22 +107,6 @@ class CollaborationResource extends JsonResource
                     'created_at' => $review->created_at?->toIso8601String(),
                 ])->values();
             }),
-            'feedback' => $this->when(
-                $this->relationLoaded('feedback'),
-                fn () => $this->feedback->map(fn ($feedback): array => [
-                    'reviewer_profile_id' => $feedback->reviewer_profile_id,
-                    'reviewer_type' => $feedback->reviewer_type,
-                    'reviewer_role' => $feedback->reviewer_role,
-                    'rating' => $feedback->rating,
-                    'posts_reels' => $feedback->posts_reels,
-                    'expectation_match' => $feedback->expectation_match,
-                    'would_recommend' => $feedback->would_recommend,
-                    'stories_posted' => $feedback->stories_posted,
-                    'revenue' => $feedback->revenue,
-                    'benefits' => $feedback->benefits,
-                    'created_at' => $feedback->created_at?->toIso8601String(),
-                ])->values()
-            ),
             // True only when the VIEWING profile is a business whose subscription
             // has lapsed while this collaboration is still ongoing, so the client
             // blurs the business side until it resubscribes (decision §2.8).

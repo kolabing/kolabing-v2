@@ -412,6 +412,10 @@ Route::prefix('v1')->group(function (): void {
         Route::get('profiles/{profile}', [ProfileController::class, 'publicProfile'])
             ->name('api.v1.profiles.show');
 
+        // View profile's received reviews
+        Route::get('profiles/{profile}/reviews', [ProfileController::class, 'profileReviews'])
+            ->name('api.v1.profiles.reviews');
+
         // View public-facing community profile
         Route::get('communities/{community}/public-profile', [ProfileController::class, 'communityPublicProfile'])
             ->name('api.v1.communities.public-profile');
@@ -603,10 +607,6 @@ Route::prefix('v1')->group(function (): void {
         // Complete collaboration
         Route::post('collaborations/{collaboration}/complete', [CollaborationController::class, 'complete'])
             ->name('api.v1.collaborations.complete');
-
-        // Finish collaboration (either party, with rating + note)
-        Route::post('collaborations/{collaboration}/finish', [CollaborationController::class, 'finish'])
-            ->name('api.v1.collaborations.finish');
 
         // Cancel collaboration
         Route::post('collaborations/{collaboration}/cancel', [CollaborationController::class, 'cancel'])

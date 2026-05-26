@@ -7,6 +7,7 @@ namespace Tests\Feature\Api\V1;
 use App\Models\BusinessProfile;
 use App\Models\CommunityProfile;
 use App\Models\Collaboration;
+use App\Models\CollaborationReview;
 use App\Models\Kolab;
 use App\Models\Profile;
 use App\Models\ProfileGalleryPhoto;
@@ -58,6 +59,7 @@ class PublicProfileTest extends TestCase
                     'tiktok',
                     'website',
                     'profile_photo',
+                    'recent_reviews',
                 ],
             ]);
     }
@@ -89,6 +91,57 @@ class PublicProfileTest extends TestCase
         $this->assertArrayNotHasKey('phone_number', $data);
         $this->assertArrayNotHasKey('google_id', $data);
         $this->assertArrayNotHasKey('password', $data);
+        $this->assertArrayNotHasKey('review_stats', $data);
+    }
+
+    public function test_public_profile_returns_recent_reviews_preview(): void
+    {
+        $viewer = Profile::factory()->business()->create();
+        $target = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $target->id,
+            'name' => 'Target Community',
+        ]);
+
+        for ($i = 1; $i <= 4; $i++) {
+            $reviewer = Profile::factory()->business()->create([
+                'avatar_url' => "https://example.com/reviewer-{$i}.jpg",
+            ]);
+            BusinessProfile::factory()->create([
+                'profile_id' => $reviewer->id,
+                'name' => "Reviewer {$i}",
+            ]);
+
+            $collaboration = Collaboration::factory()
+                ->completed()
+                ->forCreator($reviewer)
+                ->forApplicant($target)
+                ->create();
+
+            $body = "Review body {$i}";
+            CollaborationReview::query()->forceCreate([
+                'collaboration_id' => $collaboration->id,
+                'reviewer_profile_id' => $reviewer->id,
+                'reviewed_profile_id' => $target->id,
+                'reviewer_role' => 'creator',
+                'rating' => 5,
+                'note' => $body,
+                'body' => $body,
+                'would_collaborate_again' => true,
+                'created_at' => now()->addMinutes($i),
+                'updated_at' => now()->addMinutes($i),
+            ]);
+        }
+
+        $response = $this->actingAs($viewer)
+            ->getJson("/api/v1/profiles/{$target->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('data.recent_reviews.0.body', 'Review body 4')
+            ->assertJsonPath('data.recent_reviews.1.body', 'Review body 3')
+            ->assertJsonPath('data.recent_reviews.2.body', 'Review body 2')
+            ->assertJsonCount(3, 'data.recent_reviews')
+            ->assertJsonPath('data.recent_reviews.0.reviewer.display_name', 'Reviewer 4');
     }
 
     public function test_public_profile_returns_404_for_nonexistent(): void
@@ -247,6 +300,63 @@ class PublicProfileTest extends TestCase
         $response = $this->getJson("/api/v1/profiles/{$profile->id}/collaborations");
 
         $response->assertStatus(401);
+    }
+
+    public function test_profile_reviews_requires_authentication(): void
+    {
+        $profile = Profile::factory()->business()->create();
+
+        $response = $this->getJson("/api/v1/profiles/{$profile->id}/reviews");
+
+        $response->assertStatus(401);
+    }
+
+    public function test_profile_reviews_returns_paginated_received_reviews(): void
+    {
+        $viewer = Profile::factory()->community()->create();
+        $target = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $target->id,
+            'name' => 'Target Business',
+        ]);
+
+        for ($i = 1; $i <= 12; $i++) {
+            $reviewer = Profile::factory()->community()->create();
+            CommunityProfile::factory()->create([
+                'profile_id' => $reviewer->id,
+                'name' => "Community Reviewer {$i}",
+            ]);
+
+            $collaboration = Collaboration::factory()
+                ->completed()
+                ->forCreator($target)
+                ->forApplicant($reviewer)
+                ->create();
+
+            CollaborationReview::query()->forceCreate([
+                'collaboration_id' => $collaboration->id,
+                'reviewer_profile_id' => $reviewer->id,
+                'reviewed_profile_id' => $target->id,
+                'reviewer_role' => 'applicant',
+                'rating' => 4,
+                'note' => "Review {$i}",
+                'body' => "Review {$i}",
+                'would_collaborate_again' => $i % 2 === 0,
+                'created_at' => now()->addMinutes($i),
+                'updated_at' => now()->addMinutes($i),
+            ]);
+        }
+
+        $response = $this->actingAs($viewer)
+            ->getJson("/api/v1/profiles/{$target->id}/reviews?per_page=10");
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('meta.total', 12)
+            ->assertJsonPath('meta.per_page', 10)
+            ->assertJsonCount(10, 'data')
+            ->assertJsonPath('data.0.body', 'Review 12')
+            ->assertJsonPath('data.0.reviewer.display_name', 'Community Reviewer 12');
     }
 
     public function test_profile_collaborations_returns_only_completed(): void

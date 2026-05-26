@@ -10,6 +10,7 @@ use App\Http\Resources\Api\V1\CommunityPublicProfileResource;
 use App\Http\Requests\Api\V1\UpdateProfileRequest;
 use App\Http\Resources\Api\V1\PublicCollaborationResource;
 use App\Http\Resources\Api\V1\PublicProfileResource;
+use App\Http\Resources\Api\V1\PublicProfileReviewResource;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\Profile;
 use App\Services\FileUploadService;
@@ -145,6 +146,29 @@ class ProfileController extends Controller
                 'last_page' => $collaborations->lastPage(),
                 'per_page' => $collaborations->perPage(),
                 'total' => $collaborations->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Get received reviews for a profile.
+     *
+     * GET /api/v1/profiles/{profile}/reviews
+     */
+    public function profileReviews(Request $request, Profile $profile): JsonResponse
+    {
+        $perPage = min((int) $request->query('per_page', 10), 100);
+
+        $reviews = $this->profileService->getReceivedReviews($profile, $perPage);
+
+        return response()->json([
+            'success' => true,
+            'data' => PublicProfileReviewResource::collection($reviews->getCollection())->resolve(),
+            'meta' => [
+                'current_page' => $reviews->currentPage(),
+                'last_page' => $reviews->lastPage(),
+                'per_page' => $reviews->perPage(),
+                'total' => $reviews->total(),
             ],
         ]);
     }

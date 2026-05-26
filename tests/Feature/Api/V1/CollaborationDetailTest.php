@@ -74,4 +74,50 @@ class CollaborationDetailTest extends TestCase
             ->assertJsonPath('data.actions.can_complete', true)
             ->assertJsonPath('data.actions.can_cancel', true);
     }
+
+    public function test_collaboration_detail_does_not_expose_legacy_feedback_payload(): void
+    {
+        $business = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $business->id,
+            'name' => 'Business Creator',
+        ]);
+
+        $community = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $community->id,
+            'name' => 'Community Applicant',
+        ]);
+
+        $collaboration = Collaboration::factory()
+            ->completed()
+            ->forCreator($business)
+            ->forApplicant($community)
+            ->create();
+
+        $response = $this->actingAs($business)
+            ->getJson("/api/v1/collaborations/{$collaboration->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertArrayNotHasKey('feedback', $response->json('data'));
+    }
+
+    public function test_legacy_finish_endpoint_is_not_available(): void
+    {
+        $business = Profile::factory()->business()->create();
+        $community = Profile::factory()->community()->create();
+
+        $collaboration = Collaboration::factory()
+            ->active()
+            ->forCreator($business)
+            ->forApplicant($community)
+            ->create();
+
+        $response = $this->actingAs($business)
+            ->postJson("/api/v1/collaborations/{$collaboration->id}/finish");
+
+        $response->assertNotFound();
+    }
 }

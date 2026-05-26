@@ -9,6 +9,7 @@ use App\Enums\KolabStatus;
 use App\Enums\NotificationType;
 use App\Enums\OfferStatus;
 use App\Models\Collaboration;
+use App\Models\CollaborationReview;
 use App\Models\Kolab;
 use App\Models\NotificationPreference;
 use App\Models\Profile;
@@ -202,6 +203,24 @@ class ProfileService
                 'applicantProfile.communityProfile',
             ])
             ->orderByDesc('completed_at')
+            ->paginate($perPage);
+    }
+
+    /**
+     * Get reviews received by a profile (public view).
+     *
+     * @return LengthAwarePaginator<CollaborationReview>
+     */
+    public function getReceivedReviews(Profile $profile, int $perPage = 10): LengthAwarePaginator
+    {
+        return CollaborationReview::query()
+            ->where('reviewed_profile_id', $profile->id)
+            ->whereNotNull('rating')
+            ->with([
+                'reviewerProfile.businessProfile',
+                'reviewerProfile.communityProfile',
+            ])
+            ->orderByDesc('created_at')
             ->paginate($perPage);
     }
 

@@ -65,29 +65,27 @@ class PublicProfileResource extends JsonResource
                     ->orWhere('applicant_profile_id', $this->id)
                 )
                 ->count(),
-            'review_stats' => $this->buildReviewStats(),
+            'recent_reviews' => $this->buildRecentReviews(),
         ];
     }
 
     /**
-     * @return array{average_rating: float|null, review_count: int}
+     * @return array<int, array<string, mixed>>
      */
-    private function buildReviewStats(): array
+    private function buildRecentReviews(): array
     {
-        $stats = CollaborationReview::query()
+        return PublicProfileReviewResource::collection(
+            CollaborationReview::query()
             ->where('reviewed_profile_id', $this->id)
             ->whereNotNull('rating')
-            ->selectRaw('COUNT(*) as review_count, AVG(rating) as average_rating')
-            ->first();
-
-        $count = (int) ($stats?->review_count ?? 0);
-
-        return [
-            'review_count' => $count,
-            'average_rating' => $count > 0
-                ? round((float) $stats->average_rating, 1)
-                : null,
-        ];
+            ->with([
+                'reviewerProfile.businessProfile',
+                'reviewerProfile.communityProfile',
+            ])
+            ->orderByDesc('created_at')
+            ->limit(3)
+            ->get()
+        )->resolve();
     }
 
     /**

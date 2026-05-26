@@ -9,7 +9,6 @@ use App\Enums\PointEventType;
 use App\Exceptions\CollaborationException;
 use App\Models\Application;
 use App\Models\Collaboration;
-use App\Models\CollaborationFeedback;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -53,8 +52,6 @@ class CollaborationService
             ->orderByDesc('created_at')
             ->paginate($perPage);
 
-        $paginator->getCollection()->each(fn (Collaboration $collaboration) => $this->loadFeedback($collaboration));
-
         return $paginator;
     }
 
@@ -78,7 +75,7 @@ class CollaborationService
             ])
             ->findOrFail($id);
 
-        return $this->loadFeedback($collaboration);
+        return $collaboration;
     }
 
     /**
@@ -113,7 +110,7 @@ class CollaborationService
      *
      * @throws CollaborationException
      */
-    public function complete(Collaboration $collaboration, ?string $feedback = null): Collaboration
+    public function complete(Collaboration $collaboration): Collaboration
     {
         if ($collaboration->isInTerminalState()) {
             throw CollaborationException::alreadyInTerminalState($collaboration->status->value);
@@ -137,119 +134,6 @@ class CollaborationService
             'applicantProfile',
             'application',
         ]);
-    }
-
-    /**
-     * Finish a collaboration on behalf of one participant. Feedback is REQUIRED
-     * to finish (ROLES-AND-PERMISSIONS.md §4): the validated, role-specific
-     * feedback payload is persisted as exactly one collaboration_feedback row per
-     * (collaboration, reviewer) and the public star rating + note are mirrored
-     * onto collaboration_reviews. Transitions a scheduled/active collaboration to
-     * completed (the date-passed path closes it the same way). Idempotent-safe:
-     * if already completed, the caller's feedback is still recorded without
-     * re-awarding points. Rejects only when the collaboration has been cancelled.
-     *
-     * The controller guarantees a non-empty $feedback via FinishCollaborationRequest,
-     * so reaching finish() without feedback is impossible through the API.
-     *
-     * @param  array<string, mixed>  $feedback  Validated payload from FinishCollaborationRequest.
-     *
-     * @throws CollaborationException
-     */
-    public function finish(
-        Collaboration $collaboration,
-        Profile $profile,
-        array $feedback
-    ): Collaboration {
-        if ($collaboration->isCancelled()) {
-            throw CollaborationException::cannotComplete($collaboration->status->value);
-        }
-
-        $role = $this->getProfileRole($collaboration, $profile);
-        $reviewerType = $profile->isBusiness() ? 'business' : 'community';
-        $reviewedProfileId = $this->resolveReviewedProfileId($collaboration, $profile);
-
-        return DB::transaction(function () use ($collaboration, $profile, $role, $reviewerType, $feedback, $reviewedProfileId): Collaboration {
-            // One rich feedback row per side, unique on (collaboration, reviewer).
-            CollaborationFeedback::query()->updateOrCreate(
-                [
-                    'collaboration_id' => $collaboration->id,
-                    'reviewer_profile_id' => $profile->id,
-                ],
-                [
-                    'reviewer_type' => $reviewerType,
-                    'reviewer_role' => $role,
-                    'rating' => (int) $feedback['rating'],
-                    'posts_reels' => isset($feedback['posts_reels']) ? (int) $feedback['posts_reels'] : null,
-                    'expectation_match' => (bool) $feedback['expectation_match'],
-                    'would_recommend' => (bool) $feedback['would_recommend'],
-                    'stories_posted' => $reviewerType === 'business' && isset($feedback['stories_posted'])
-                        ? (int) $feedback['stories_posted']
-                        : null,
-                    'revenue' => $reviewerType === 'business' && isset($feedback['revenue'])
-                        ? $feedback['revenue']
-                        : null,
-                    'benefits' => $reviewerType === 'community'
-                        ? ($feedback['benefits'] ?? null)
-                        : null,
-                ]
-            );
-
-            // Mirror the public star rating + optional note onto the review row,
-            // which feeds profile ratings and positioning.
-            $collaboration->reviews()->updateOrCreate(
-                ['reviewer_profile_id' => $profile->id],
-                [
-                    'reviewed_profile_id' => $reviewedProfileId,
-                    'reviewer_role' => $role,
-                    'rating' => (int) $feedback['rating'],
-                    'note' => $feedback['note'] ?? null,
-                    'body' => $feedback['note'] ?? null,
-                ]
-            );
-
-            if (! $collaboration->isCompleted()) {
-                $collaboration->update([
-                    'status' => CollaborationStatus::Completed,
-                    'completed_at' => Carbon::now(),
-                ]);
-
-                $this->awardCollaborationPoints($collaboration);
-            }
-
-            $fresh = $collaboration->fresh([
-                'collabOpportunity',
-                'creatorProfile.businessProfile.city',
-                'creatorProfile.communityProfile.city',
-                'applicantProfile.businessProfile.city',
-                'applicantProfile.communityProfile.city',
-                'application',
-                'challenges',
-                'reviews',
-            ]);
-
-            $this->loadFeedback($fresh);
-
-            return $fresh;
-        });
-    }
-
-    /**
-     * Attach the collaboration_feedback rows onto the model as a "feedback"
-     * relation. Done here (rather than via a relationship method on the model)
-     * to keep the change inside CollaborationService ownership; the resource
-     * reads it through whenLoaded('feedback').
-     */
-    public function loadFeedback(Collaboration $collaboration): Collaboration
-    {
-        $feedback = CollaborationFeedback::query()
-            ->where('collaboration_id', $collaboration->id)
-            ->orderBy('created_at')
-            ->get();
-
-        $collaboration->setRelation('feedback', $feedback);
-
-        return $collaboration;
     }
 
     /**
@@ -362,19 +246,6 @@ class CollaborationService
 
         if ($collaboration->applicant_profile_id === $profile->id) {
             return 'applicant';
-        }
-
-        return null;
-    }
-
-    private function resolveReviewedProfileId(Collaboration $collaboration, Profile $profile): ?string
-    {
-        if ($profile->id === $collaboration->business_profile_id) {
-            return $collaboration->community_profile_id;
-        }
-
-        if ($profile->id === $collaboration->community_profile_id) {
-            return $collaboration->business_profile_id;
         }
 
         return null;

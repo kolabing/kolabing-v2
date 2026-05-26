@@ -25,21 +25,7 @@ class CompleteCollaborationRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
-            'feedback' => ['nullable', 'string', 'max:1000'],
-        ];
-    }
-
-    /**
-     * Get custom messages for validator errors.
-     *
-     * @return array<string, string>
-     */
-    public function messages(): array
-    {
-        return [
-            'feedback.max' => __('validation.max.string', ['attribute' => 'feedback', 'max' => 1000]),
-        ];
+        return [];
     }
 
     /**

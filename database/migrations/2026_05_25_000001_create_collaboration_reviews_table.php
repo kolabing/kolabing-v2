@@ -37,16 +37,16 @@ return new class extends Migration
                 'collaboration_reviews.reviewer_profile_id',
                 'collaboration_reviews.note',
                 'collaboration_reviews.body',
-                'collaborations.business_profile_id',
-                'collaborations.community_profile_id',
+                'collaborations.creator_profile_id',
+                'collaborations.applicant_profile_id',
             ])
             ->whereNull('collaboration_reviews.reviewed_profile_id')
             ->orderBy('collaboration_reviews.id')
             ->get()
             ->each(function (object $review): void {
-                $reviewedProfileId = $review->reviewer_profile_id === $review->business_profile_id
-                    ? $review->community_profile_id
-                    : $review->business_profile_id;
+                $reviewedProfileId = $review->reviewer_profile_id === $review->creator_profile_id
+                    ? $review->applicant_profile_id
+                    : $review->creator_profile_id;
 
                 DB::table('collaboration_reviews')
                     ->where('id', $review->id)
