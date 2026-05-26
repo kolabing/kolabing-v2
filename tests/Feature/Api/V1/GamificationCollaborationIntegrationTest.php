@@ -48,15 +48,15 @@ class GamificationCollaborationIntegrationTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('success', true);
 
-        // Both parties should have received 10 points
+        // Both parties receive 10 XP plus the 50 XP first-kolab bonus.
         $this->assertDatabaseHas('wallets', [
             'profile_id' => $creator->id,
-            'points' => 10,
+            'points' => 60,
         ]);
 
         $this->assertDatabaseHas('wallets', [
             'profile_id' => $applicant->id,
-            'points' => 10,
+            'points' => 60,
         ]);
 
         // Ledger entries for both parties

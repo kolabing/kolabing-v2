@@ -45,7 +45,7 @@ class GamificationWalletServiceTest extends TestCase
 
         $this->assertDatabaseHas('wallets', [
             'profile_id' => $profile->id,
-            'points' => 10,
+            'points' => 60,
         ]);
     }
 
@@ -90,7 +90,7 @@ class GamificationWalletServiceTest extends TestCase
 
         $this->assertDatabaseHas('wallets', [
             'profile_id' => $profile->id,
-            'points' => 20,
+            'points' => 70,
         ]);
     }
 
@@ -235,10 +235,10 @@ class GamificationWalletServiceTest extends TestCase
         ]);
     }
 
-    public function test_community_earner_badge_not_awarded_at_249_points(): void
+    public function test_community_earner_badge_not_awarded_below_100_points(): void
     {
         $profile = Profile::factory()->community()->create();
-        Wallet::factory()->create(['profile_id' => $profile->id, 'points' => 239]);
+        Wallet::factory()->create(['profile_id' => $profile->id, 'points' => 39]);
         $points = PointEventType::CollaborationComplete->defaultPoints();
 
         $this->service->awardPoints(
@@ -255,10 +255,10 @@ class GamificationWalletServiceTest extends TestCase
         ]);
     }
 
-    public function test_community_earner_badge_awarded_at_250_points(): void
+    public function test_community_earner_badge_awarded_at_100_points(): void
     {
         $profile = Profile::factory()->community()->create();
-        Wallet::factory()->create(['profile_id' => $profile->id, 'points' => 240]);
+        Wallet::factory()->create(['profile_id' => $profile->id, 'points' => 40]);
         $points = PointEventType::CollaborationComplete->defaultPoints();
 
         $this->service->awardPoints(
@@ -294,13 +294,13 @@ class GamificationWalletServiceTest extends TestCase
         ]);
     }
 
-    public function test_power_partner_badge_not_awarded_after_9_collaborations(): void
+    public function test_power_partner_badge_not_awarded_after_4_collaborations(): void
     {
         $profile = Profile::factory()->community()->create();
         Wallet::factory()->create(['profile_id' => $profile->id, 'points' => 0]);
         $points = PointEventType::CollaborationComplete->defaultPoints();
 
-        for ($i = 1; $i <= 9; $i++) {
+        for ($i = 1; $i <= 4; $i++) {
             $this->service->awardPoints(
                 $profile->id,
                 $points,
@@ -316,13 +316,13 @@ class GamificationWalletServiceTest extends TestCase
         ]);
     }
 
-    public function test_power_partner_badge_awarded_after_10_collaborations(): void
+    public function test_power_partner_badge_awarded_after_5_collaborations(): void
     {
         $profile = Profile::factory()->community()->create();
         Wallet::factory()->create(['profile_id' => $profile->id, 'points' => 0]);
         $points = PointEventType::CollaborationComplete->defaultPoints();
 
-        for ($i = 1; $i <= 10; $i++) {
+        for ($i = 1; $i <= 5; $i++) {
             $this->service->awardPoints(
                 $profile->id,
                 $points,
