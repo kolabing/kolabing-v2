@@ -95,6 +95,7 @@ class CollaborationService
 
         $collaboration->update([
             'status' => CollaborationStatus::Active,
+            'activated_at' => Carbon::now(),
         ]);
 
         return $collaboration->fresh([
@@ -141,7 +142,7 @@ class CollaborationService
      *
      * @throws CollaborationException
      */
-    public function cancel(Collaboration $collaboration, string $reason): Collaboration
+    public function cancel(Collaboration $collaboration, string $reason, ?Profile $cancelledBy = null): Collaboration
     {
         if ($collaboration->isInTerminalState()) {
             throw CollaborationException::alreadyInTerminalState($collaboration->status->value);
@@ -153,6 +154,9 @@ class CollaborationService
 
         $collaboration->update([
             'status' => CollaborationStatus::Cancelled,
+            'cancelled_at' => Carbon::now(),
+            'cancellation_reason' => $reason,
+            'cancelled_by_profile_id' => $cancelledBy?->id,
         ]);
 
         return $collaboration->fresh([
