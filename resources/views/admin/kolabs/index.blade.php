@@ -7,12 +7,12 @@
     <div class="card mb-3">
         <div class="card-body">
             <form method="GET" action="{{ route('admin.kolabs.index') }}" class="form-row align-items-end">
-                <div class="form-group col-md-5">
+                <div class="form-group col-md-4">
                     <label for="q" class="small text-muted mb-1">Search</label>
                     <input type="text" name="q" id="q" value="{{ $filters['q'] }}" class="form-control" placeholder="Title or city…">
                 </div>
-                <div class="form-group col-md-4">
-                    <label for="status" class="small text-muted mb-1">Status</label>
+                <div class="form-group col-md-3">
+                    <label for="status" class="small text-muted mb-1">Creator status</label>
                     <select name="status" id="status" class="form-control">
                         <option value="">All</option>
                         @foreach ($statuses as $status)
@@ -23,6 +23,17 @@
                     </select>
                 </div>
                 <div class="form-group col-md-3">
+                    <label for="lifecycle" class="small text-muted mb-1">Lifecycle</label>
+                    <select name="lifecycle" id="lifecycle" class="form-control">
+                        <option value="">All</option>
+                        @foreach ($lifecycleOptions as $lifecycle)
+                            <option value="{{ $lifecycle }}" {{ $filters['lifecycle'] === $lifecycle ? 'selected' : '' }}>
+                                {{ \App\Services\Admin\KolabLifecycleService::label($lifecycle) }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="form-group col-md-2">
                     <button type="submit" class="btn btn-primary btn-block">Filter</button>
                 </div>
             </form>
@@ -40,6 +51,8 @@
                             <th>City</th>
                             <th>Intent</th>
                             <th>Status</th>
+                            <th>Lifecycle</th>
+                            <th class="text-center">Apps <small class="text-muted">(pending · accepted)</small></th>
                             <th>Created</th>
                             <th class="text-right pr-4">Actions</th>
                         </tr>
@@ -57,6 +70,9 @@
                                     'closed' => 'badge-secondary',
                                     default => 'badge-warning',
                                 };
+                                $summary = $lifecycles[$kolab->id] ?? ['lifecycle' => 'open', 'pending' => 0, 'accepted' => 0];
+                                $lifecycleClass = \App\Services\Admin\KolabLifecycleService::badgeClass($summary['lifecycle']);
+                                $lifecycleLabel = \App\Services\Admin\KolabLifecycleService::label($summary['lifecycle']);
                             @endphp
                             <tr>
                                 <td>
@@ -71,6 +87,12 @@
                                 <td>
                                     <span class="badge {{ $statusClass }} text-uppercase">{{ $kolab->status->value }}</span>
                                 </td>
+                                <td>
+                                    <span class="badge {{ $lifecycleClass }} text-uppercase">{{ $lifecycleLabel }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="text-muted">{{ $summary['pending'] }} · {{ $summary['accepted'] }}</span>
+                                </td>
                                 <td>{{ $kolab->created_at?->toDateString() ?? '—' }}</td>
                                 <td class="text-right pr-4">
                                     <a href="{{ route('admin.kolabs.edit', $kolab) }}" class="btn btn-sm btn-outline-primary">Edit</a>
@@ -83,7 +105,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="text-center text-muted py-4">No Kolabs found.</td>
+                                <td colspan="9" class="text-center text-muted py-4">No Kolabs found.</td>
                             </tr>
                         @endforelse
                     </tbody>

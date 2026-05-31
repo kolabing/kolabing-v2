@@ -32,6 +32,7 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::get('/kolabs/{kolab}/edit', [AdminKolabController::class, 'edit'])->name('kolabs.edit');
     Route::put('/kolabs/{kolab}', [AdminKolabController::class, 'update'])->name('kolabs.update');
     Route::delete('/kolabs/{kolab}', [AdminKolabController::class, 'destroy'])->name('kolabs.destroy');
+    Route::post('/kolabs/{kolab}/collaboration/cancel', [AdminKolabController::class, 'cancelCollaboration'])->name('kolabs.collaboration.cancel');
 });
 
 Route::view('/for-businesses', 'pages.for-businesses')->name('for-businesses');

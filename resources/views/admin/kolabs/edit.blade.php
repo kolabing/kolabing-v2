@@ -40,6 +40,8 @@
         </div>
     </div>
 
+    @include('admin.kolabs._lifecycle', ['summary' => $summary, 'kolab' => $kolab])
+
     <form method="POST" action="{{ route('admin.kolabs.update', $kolab) }}">
         @csrf
         @method('PUT')
