@@ -48,9 +48,28 @@
                                     </span>
                                 </td>
                                 <td class="text-right pr-4">
-                                    <a href="{{ route('admin.users.edit', $profile) }}" class="btn btn-sm btn-outline-primary">
-                                        Edit
-                                    </a>
+                                    <a href="{{ route('admin.users.edit', $profile) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+
+                                    @if ($profile->user_type->value === 'business')
+                                        @php $subActive = $profile->subscription?->status?->value === 'active'; @endphp
+                                        @if ($subActive)
+                                            <form method="POST" action="{{ route('admin.users.subscription.revoke', $profile) }}" class="d-inline" onsubmit="return confirm('Revoke subscription access for this user?');">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-outline-warning" title="Revoke subscription">Revoke sub</button>
+                                            </form>
+                                        @else
+                                            <form method="POST" action="{{ route('admin.users.subscription.grant', $profile) }}" class="d-inline">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-outline-success" title="Grant 12 months of access">Grant sub</button>
+                                            </form>
+                                        @endif
+                                    @endif
+
+                                    <form method="POST" action="{{ route('admin.users.destroy', $profile) }}" class="d-inline" onsubmit="return confirm('Delete this user? They will be soft-deleted.');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                    </form>
                                 </td>
                             </tr>
                         @empty

@@ -319,6 +319,13 @@ return [
             'icon' => 'fas fa-fw fa-user-plus',
             'active' => ['admin/users/create'],
         ],
+        ['header' => 'CONTENT'],
+        [
+            'text' => 'Kolabs',
+            'route' => 'admin.kolabs.index',
+            'icon' => 'fas fa-fw fa-handshake',
+            'active' => ['admin/kolabs', 'admin/kolabs/*'],
+        ],
     ],
 
     /*

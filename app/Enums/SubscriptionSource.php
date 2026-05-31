@@ -8,4 +8,5 @@ enum SubscriptionSource: string
 {
     case Stripe = 'stripe';
     case AppleIap = 'apple_iap';
+    case Maintainer = 'maintainer';
 }

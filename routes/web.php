@@ -1,7 +1,8 @@
 <?php
 
-use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
+use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\KolabController as AdminKolabController;
 use App\Http\Controllers\Admin\ManagedUserController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,6 +24,14 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::post('/users', [ManagedUserController::class, 'store'])->name('users.store');
     Route::get('/users/{profile}/edit', [ManagedUserController::class, 'edit'])->name('users.edit');
     Route::put('/users/{profile}', [ManagedUserController::class, 'update'])->name('users.update');
+    Route::delete('/users/{profile}', [ManagedUserController::class, 'destroy'])->name('users.destroy');
+    Route::post('/users/{profile}/subscription/grant', [ManagedUserController::class, 'grantSubscription'])->name('users.subscription.grant');
+    Route::post('/users/{profile}/subscription/revoke', [ManagedUserController::class, 'revokeSubscription'])->name('users.subscription.revoke');
+
+    Route::get('/kolabs', [AdminKolabController::class, 'index'])->name('kolabs.index');
+    Route::get('/kolabs/{kolab}/edit', [AdminKolabController::class, 'edit'])->name('kolabs.edit');
+    Route::put('/kolabs/{kolab}', [AdminKolabController::class, 'update'])->name('kolabs.update');
+    Route::delete('/kolabs/{kolab}', [AdminKolabController::class, 'destroy'])->name('kolabs.destroy');
 });
 
 Route::view('/for-businesses', 'pages.for-businesses')->name('for-businesses');
