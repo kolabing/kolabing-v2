@@ -86,6 +86,7 @@ class Profile extends Authenticatable
         'email_verified_at',
         'device_token',
         'device_platform',
+        'last_active_at',
     ];
 
     /**
@@ -114,6 +115,7 @@ class Profile extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_test_user' => 'boolean',
+            'last_active_at' => 'datetime',
         ];
     }
 

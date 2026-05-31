@@ -326,6 +326,13 @@ return [
             'icon' => 'fas fa-fw fa-handshake',
             'active' => ['admin/kolabs', 'admin/kolabs/*'],
         ],
+        ['header' => 'INSIGHTS'],
+        [
+            'text' => 'Statistics',
+            'route' => 'admin.stats.index',
+            'icon' => 'fas fa-fw fa-chart-line',
+            'active' => ['admin/stats', 'admin/stats/*'],
+        ],
     ],
 
     /*

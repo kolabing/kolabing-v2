@@ -45,6 +45,9 @@ class Application extends Model
         'message',
         'availability',
         'status',
+        'accepted_at',
+        'declined_at',
+        'withdrawn_at',
     ];
 
     /**
@@ -57,6 +60,9 @@ class Application extends Model
         return [
             'applicant_profile_type' => UserType::class,
             'status' => ApplicationStatus::class,
+            'accepted_at' => 'datetime',
+            'declined_at' => 'datetime',
+            'withdrawn_at' => 'datetime',
         ];
     }
 

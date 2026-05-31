@@ -1,9 +1,10 @@
 <?php
 
 use App\Http\Middleware\AddSecurityHeaders;
-use App\Http\Middleware\EnsureUserType;
 use App\Http\Middleware\EnsureAdminUserIsMaintainer;
+use App\Http\Middleware\EnsureUserType;
 use App\Http\Middleware\LogAuthTokenFirstUse;
+use App\Http\Middleware\TouchProfileActivity;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -28,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'log_auth_token_first_use' => LogAuthTokenFirstUse::class,
             'user_type' => EnsureUserType::class,
             'maintainer' => EnsureAdminUserIsMaintainer::class,
+            'touch_profile_activity' => TouchProfileActivity::class,
         ]);
 
         // Sanctum stateful domains for API

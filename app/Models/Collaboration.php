@@ -57,7 +57,11 @@ class Collaboration extends Model
         'community_profile_id',
         'status',
         'scheduled_date',
+        'activated_at',
         'completed_at',
+        'cancelled_at',
+        'cancellation_reason',
+        'cancelled_by_profile_id',
         'contact_methods',
         'event_id',
         'qr_code_url',
@@ -73,7 +77,9 @@ class Collaboration extends Model
         return [
             'status' => CollaborationStatus::class,
             'scheduled_date' => 'date',
+            'activated_at' => 'datetime',
             'completed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
             'contact_methods' => 'array',
         ];
     }

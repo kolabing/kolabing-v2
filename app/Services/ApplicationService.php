@@ -88,6 +88,7 @@ class ApplicationService
         return DB::transaction(function () use ($application, $data): array {
             $application->update([
                 'status' => ApplicationStatus::Accepted,
+                'accepted_at' => now(),
             ]);
             $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['collabOpportunity']));
 
@@ -120,6 +121,7 @@ class ApplicationService
 
         $application->update([
             'status' => ApplicationStatus::Declined,
+            'declined_at' => now(),
         ]);
         $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['collabOpportunity']));
 
@@ -145,6 +147,7 @@ class ApplicationService
 
         $application->update([
             'status' => ApplicationStatus::Withdrawn,
+            'withdrawn_at' => now(),
         ]);
         $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['collabOpportunity']));
 
