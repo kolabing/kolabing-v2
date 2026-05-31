@@ -616,6 +616,12 @@ Route::prefix('v1')->group(function (): void {
         Route::post('collaborations/{collaboration}/review', [CollaborationController::class, 'review'])
             ->name('api.v1.collaborations.review');
 
+        // Rich, role-specific completion feedback (gates the /complete endpoint).
+        Route::post('collaborations/{collaboration}/feedback', [CollaborationController::class, 'feedback'])
+            ->name('api.v1.collaborations.feedback.store');
+        Route::put('collaborations/{collaboration}/feedback', [CollaborationController::class, 'updateFeedback'])
+            ->name('api.v1.collaborations.feedback.update');
+
         // Sync selected challenges for a collaboration
         Route::put('collaborations/{collaboration}/challenges', [CollaborationChallengeController::class, 'sync'])
             ->name('api.v1.collaborations.challenges.sync');

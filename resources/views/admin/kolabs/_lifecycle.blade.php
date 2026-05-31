@@ -153,6 +153,23 @@
                         </div>
                     </div>
                 </form>
+
+                <form method="POST" action="{{ route('admin.kolabs.collaboration.complete', $kolab) }}" class="mt-2"
+                      onsubmit="return confirm('Force-complete this collaboration? Bypasses the feedback gate; participants can still submit feedback after.');">
+                    @csrf
+                    <div class="form-row align-items-end">
+                        <div class="form-group col-md-9 mb-0">
+                            <label for="complete-reason" class="small text-muted mb-1">Completion reason (required)</label>
+                            <input type="text" name="reason" id="complete-reason" class="form-control" minlength="3" maxlength="500" required placeholder="Why is this being force-completed?">
+                        </div>
+                        <div class="form-group col-md-3 mb-0">
+                            <button type="submit" class="btn btn-outline-success btn-block">
+                                <i class="fas fa-check mr-1"></i>
+                                Force-complete
+                            </button>
+                        </div>
+                    </div>
+                </form>
             @endif
         @endif
 

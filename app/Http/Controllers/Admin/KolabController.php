@@ -8,6 +8,7 @@ use App\Enums\ApplicationStatus;
 use App\Enums\KolabStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\CancelKolabCollaborationRequest;
+use App\Http\Requests\Admin\CompleteKolabCollaborationRequest;
 use App\Http\Requests\Admin\UpdateKolabRequest;
 use App\Models\Application;
 use App\Models\Collaboration;
@@ -122,5 +123,20 @@ class KolabController extends Controller
         return redirect()
             ->route('admin.kolabs.edit', $kolab)
             ->with('status', __('Collaboration cancelled.'));
+    }
+
+    public function completeCollaboration(CompleteKolabCollaborationRequest $request, Kolab $kolab): RedirectResponse
+    {
+        $collaboration = Collaboration::query()
+            ->where('collab_opportunity_id', $kolab->id)
+            ->first();
+
+        abort_if($collaboration === null, 404, 'No collaboration to complete for this Kolab.');
+
+        $this->collaborations->adminForceComplete($collaboration, $request->validated('reason'));
+
+        return redirect()
+            ->route('admin.kolabs.edit', $kolab)
+            ->with('status', __('Collaboration force-completed.'));
     }
 }

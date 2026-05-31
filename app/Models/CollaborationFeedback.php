@@ -20,11 +20,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $reviewer_role
  * @property int $rating
  * @property int|null $posts_reels
- * @property bool $expectation_match
- * @property bool $would_recommend
+ * @property bool|null $expectation_match
+ * @property bool|null $would_recommend
  * @property int|null $stories_posted
  * @property string|null $revenue
  * @property string|null $benefits
+ * @property bool $mirrored_from_review
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Collaboration $collaboration
@@ -60,6 +61,7 @@ class CollaborationFeedback extends Model
         'stories_posted',
         'revenue',
         'benefits',
+        'mirrored_from_review',
     ];
 
     /**
@@ -76,6 +78,22 @@ class CollaborationFeedback extends Model
             'would_recommend' => 'boolean',
             'stories_posted' => 'integer',
             'revenue' => 'decimal:2',
+            'mirrored_from_review' => 'boolean',
+        ];
+    }
+
+    /**
+     * Cross-visible subset of the feedback that the partner can see once both
+     * rows exist. See ROLES-AND-PERMISSIONS.md §4 (Q10 in the design plan).
+     *
+     * @return array<string, mixed>
+     */
+    public function publicSubset(): array
+    {
+        return [
+            'rating' => $this->rating,
+            'expectation_match' => $this->expectation_match,
+            'would_recommend' => $this->would_recommend,
         ];
     }
 
