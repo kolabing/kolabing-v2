@@ -58,6 +58,22 @@ class PlatformStatsService
     }
 
     /**
+     * Build a driver-portable SQL expression that returns the number of seconds
+     * between two timestamp columns. SQLite has no EXTRACT(EPOCH FROM ...) and
+     * PostgreSQL has no julianday(), so we branch per active connection.
+     */
+    private function secondsBetween(string $laterCol, string $earlierCol): string
+    {
+        $driver = (new Profile)->getConnection()->getDriverName();
+
+        return match ($driver) {
+            'sqlite' => "(julianday({$laterCol}) - julianday({$earlierCol})) * 86400",
+            'mysql', 'mariadb' => "TIMESTAMPDIFF(SECOND, {$earlierCol}, {$laterCol})",
+            default => "EXTRACT(EPOCH FROM ({$laterCol} - {$earlierCol}))",
+        };
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function audience(?CarbonImmutable $since): array
@@ -104,7 +120,7 @@ class PlatformStatsService
         $publishedDelaysSeconds = Kolab::query()
             ->whereNotNull('published_at')
             ->when($since, fn ($q) => $q->where('published_at', '>=', $since))
-            ->selectRaw('AVG((julianday(published_at) - julianday(created_at)) * 86400) as avg_delay')
+            ->selectRaw('AVG('.$this->secondsBetween('published_at', 'created_at').') as avg_delay')
             ->value('avg_delay');
 
         $weeklyPublished = $this->weeklyCounts(
@@ -187,7 +203,7 @@ class PlatformStatsService
         $avgTimeToAcceptSeconds = Application::query()
             ->whereNotNull('accepted_at')
             ->when($since, fn ($q) => $q->where('accepted_at', '>=', $since))
-            ->selectRaw('AVG((julianday(accepted_at) - julianday(created_at)) * 86400) as avg_seconds')
+            ->selectRaw('AVG('.$this->secondsBetween('accepted_at', 'created_at').') as avg_seconds')
             ->value('avg_seconds');
 
         return [
@@ -226,7 +242,7 @@ class PlatformStatsService
         $avgTimeToCompleteSeconds = Collaboration::query()
             ->whereNotNull('completed_at')
             ->when($since, fn ($q) => $q->where('completed_at', '>=', $since))
-            ->selectRaw('AVG((julianday(completed_at) - julianday(created_at)) * 86400) as avg_seconds')
+            ->selectRaw('AVG('.$this->secondsBetween('completed_at', 'created_at').') as avg_seconds')
             ->value('avg_seconds');
 
         $chatPerCollab = ChatMessage::query()->toBase()
