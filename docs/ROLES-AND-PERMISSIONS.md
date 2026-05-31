@@ -1,8 +1,8 @@
 # Kolabing — Roles, Permissions & Features (Canonical Reference)
 
-**Last updated:** 2026-05-22
+**Last updated:** 2026-06-01
 **Status:** Authoritative. This document overrides assumptions.
-**Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical. When role behaviour changes, update both.
+**Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical. When role behaviour changes, update both **and bump the Last updated date** in both.
 
 > **Read this before touching any code that affects Explore, profiles, the paywall, permissions, onboarding, or the create/apply flows.**
 >
@@ -18,7 +18,7 @@ Kolabing has three user types. Only two are in launch scope.
 |---|---|---|---|
 | Business | Yes | Yes, €29/month or €96 per 4-month plan | A venue or a product/service sponsor that wants community foot traffic and exposure. |
 | Community | Yes | No, free always | A real-life community (running club, yoga group, book club, and so on) that hosts events and needs venues or sponsors. |
-| Attendee | No (deferred) | n/a | An individual who attends events. Gamification feature, NOT in launch scope. Do not modify attendee code unless explicitly asked. |
+| Attendee | **[VERIFY]** code-live but spec-unconfirmed | Free for now | An individual who attends events. Gamification track (check-ins, challenges, badges, leaderboards, reward wallet) is **shipped in the backend**; see §7 and the backend map's §11. Whether attendees are formally part of launch and what the pricing/withdrawal model is needs to be confirmed with Daniel before any client-facing changes. |
 
 ---
 
@@ -37,6 +37,8 @@ Kolabing has three user types. Only two are in launch scope.
 
 ### 2.1 Identity and pricing
 Businesses are venues (café, restaurant, bar, bakery, coworking, coliving, gym, salon, retail, hotel) or product/service sponsors. They are the paying side. Price: €29/month, or €96 per 4-month plan. Registration and exploration are free; the subscription unlocks the two gated actions only.
+
+> **Backend note:** `coliving` is part of the spec list but is **not currently in `BusinessOnboardingRequest::BUSINESS_TYPES`**. Adding it is tracked in the backend map's mistakes-to-fix checklist. Until added, a `coliving` business onboarding payload will fail server-side validation.
 
 ### 2.2 Onboarding
 - Path: "I'm a Business."
@@ -101,6 +103,16 @@ If a business's subscription lapses (expires or is cancelled), the business is *
 
 The **community counterparty is NEVER affected**: communities keep full access to the shared collaboration and chat regardless of the business's subscription state. Re-gating is one-sided (business only). This refines §2.7: create/apply are the only first-contact paywalls, but a lapse additionally withdraws ongoing business-side access.
 
+### 2.9 Maintainer-granted access — added 2026-06-01
+A Kolabing maintainer can grant a business **12 months of subscription access** from the admin panel (`/admin/users/{profile}/subscription/grant`). This produces a `business_subscriptions` row with `status = active` and **`source = maintainer`**. The grant bypasses Stripe/Apple IAP but is identical to a paid subscription as far as the paywall and re-gating logic are concerned — the business gets full subscribed-business capabilities until the period ends or a maintainer revokes it.
+
+A revoke (`/subscription/revoke`) flips the row to `status = inactive` with `cancel_at_period_end = true`. After revoke, the standard subscription-lapse re-gate (§2.8) kicks in.
+
+**Maintainer grants are auditable** via the `source = maintainer` value. There is no other way for an active subscription row to appear without payment.
+
+### 2.10 Test users — back-channel
+A profile with `profiles.is_test_user = true` is treated as having an active subscription regardless of whether a `business_subscriptions` row exists. This is reserved for Kolabing internal QA accounts. Never set this flag on real customer profiles.
+
 ---
 
 ## 3. Community role
@@ -157,18 +169,19 @@ Nothing. There is no paywall and no gated action on the community side. If code 
 
 ## 5. Permission matrix
 
-| Capability | Free Business | Subscribed Business | Community |
-|---|---|---|---|
-| Register and onboard | Yes | Yes | Yes |
-| Browse Explore | Yes | Yes | Yes |
-| See the other side's post details | Yes | Yes | Yes |
-| See the other side's name and logo | No, blurred | Yes | Yes |
-| Open the other side's full profile | No | Yes | Yes |
-| Create a post (collaboration / Kolab) | No, paywall | Yes | Yes, free |
-| Apply to a post | No, paywall | Yes | Yes, free |
-| Chat | No | Yes | Yes |
-| Reviews and feedback | No | Yes | Yes |
-| Earn credits, refer, withdraw | n/a | Business referral perks exist, tracked separately | Yes |
+| Capability | Free Business | Subscribed Business | Community | Attendee |
+|---|---|---|---|---|
+| Register and onboard | Yes | Yes | Yes | Yes |
+| Browse Explore (marketplace feed) | Yes | Yes | Yes | **No** — attendees do not use the marketplace |
+| See the other side's post details | Yes | Yes | Yes | n/a |
+| See the other side's name and logo | No, blurred | Yes | Yes | n/a |
+| Open the other side's full profile | No | Yes | Yes | n/a |
+| Create a post (collaboration / Kolab) | No, paywall | Yes | Yes, free | **No** |
+| Apply to a post | No, paywall | Yes | Yes, free | **No** |
+| Chat | No | Yes | Yes | **No** |
+| Reviews and feedback | No | Yes | Yes | n/a |
+| Check into events, complete challenges, earn badges | n/a | n/a | n/a | **Yes** — gamification track |
+| Earn credits, refer, withdraw | n/a | Business referral perks exist, tracked separately | Yes (€0.25/pt, €75 threshold) | **[VERIFY]** whether attendee wallet redeems to cash |
 
 ---
 
@@ -184,3 +197,46 @@ These are specific errors that have happened in past fixes. Do not repeat them.
 - **Do not change what a free business sees in Explore beyond the blur.** They see all Kolab details; only the community identity is blurred.
 - **Do not paywall registration, onboarding, or browsing.** Only creating and applying are paywalled, and only for the Business role.
 - **When a fix touches Explore, profiles, the paywall, or onboarding, re-read sections 1, 2, and 3 of this document before writing code.**
+
+---
+
+## 7. Attendee role — first pass (added 2026-06-01, scope [VERIFY] with Daniel)
+
+The attendee role's backend track has shipped and the canonical position that attendees are "deferred / out of scope" is no longer accurate. This section captures what the code currently allows pending product confirmation.
+
+### 7.1 What an attendee can do today (verified against `routes/api.php` and the gamification services)
+- Register via email/password (`POST /api/v1/auth/register/attendee`) or Google / Apple OAuth.
+- Be a member of an `attendee_profiles` row (`total_points`, `total_challenges_completed`, `total_events_attended`, `global_rank`).
+- Check into events by scanning the organiser-generated QR (`POST /checkin`). Each check-in increments `total_events_attended`.
+- Take part in challenges per event: list, initiate peer-to-peer, verify / reject, see own completion history.
+- Earn points (`point_ledger` — append-only) and badges (`BadgeService` awards on milestones like `LoyalAttendee = total_events_attended >= N`).
+- See per-event and global leaderboards.
+- Hold a reward wallet and redeem rewards.
+
+### 7.2 What an attendee CANNOT do (confirmed at the service layer)
+- Create or publish kolabs / opportunities — neither service path accepts an attendee creator.
+- Apply to kolabs — `applications.applicant_profile_type` enum is business / community only.
+- Subscribe — the paywall and the admin grant route both reject non-business profiles.
+- Chat — chat is bound to an accepted application between a business and a community.
+
+### 7.3 Decisions still needed
+- Is the attendee role part of launch, or held back?
+- Do attendee points convert to real money through the wallet / withdrawal flow (the way §3.5 describes for communities — €0.25/point, €75 threshold) or is the wallet community-only?
+- Should this section grow into a full §4-equivalent (Identity, Onboarding, Explore, Profile, Capabilities matrix) once those decisions land?
+
+Until those are resolved, treat **§0 attendee row as the stale legacy** and this §7 as the working reference, in sync with the backend map's §11.
+
+---
+
+## 8. Maintaining this document
+
+This file and `docs/ROLES-BACKEND-DB-MAP.md` are read by every Claude session that touches role-affecting code (see the project `CLAUDE.md`). They are also duplicated in the `kolabing-app` repo.
+
+**When you change role behaviour, paywalling, or admin operator capabilities:**
+1. Update this document — adjust the affected section, the permission matrix in §5, and the golden rules if they shift.
+2. Update `docs/ROLES-BACKEND-DB-MAP.md` — update the line numbers, schema map, and mistakes-to-fix checklist.
+3. Bump the **Last updated** date at the top of both files.
+4. Mirror the change into the `kolabing-app` copy of both files.
+5. If the change adds or removes a role surface entirely, update the project `CLAUDE.md` "MUST READ" block too.
+
+Treat this maintenance as part of the change, not optional.

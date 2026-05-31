@@ -4,9 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## MUST READ — Roles & Permissions (before planning OR executing changes)
 
-Before planning or writing any code that touches **user roles, permissions, the paywall, the Explore feed, profiles, onboarding, or the create/apply flows**, read BOTH:
-1. [`docs/ROLES-AND-PERMISSIONS.md`](docs/ROLES-AND-PERMISSIONS.md) — the authoritative *what* (exactly what Business and Community users can see and do).
+Before planning or writing any code that touches **user roles, permissions, the paywall, the Explore feed, profiles, onboarding, the create/apply flows, the admin operator surfaces, the attendee gamification track, or subscription state**, read BOTH:
+1. [`docs/ROLES-AND-PERMISSIONS.md`](docs/ROLES-AND-PERMISSIONS.md) — the authoritative *what* (Business, Community, and the attendee §7 first-pass).
 2. [`docs/ROLES-BACKEND-DB-MAP.md`](docs/ROLES-BACKEND-DB-MAP.md) — the authoritative *where* (how each rule maps to backend code + DB tables/columns, plus every known role-handling mistake).
+
+These docs cover the Business / Community / Attendee taxonomy, the two-action paywall, the subscription-lapse re-gate, **maintainer-granted subscriptions** (`source = maintainer`), the **admin operator routes** under `/admin/*`, the lifecycle-observability timestamps, and the open mistakes-to-fix checklist.
+
+**Update rule (non-optional, applies to every role-affecting PR):** when you change any of the surfaces above, you MUST update both docs in the same change — adjust the affected sections, bump the *Last updated* date at the top of each file, and tick / add items in the mistakes-to-fix checklist. If the change adds or removes a role surface entirely, also update this `CLAUDE.md` block and mirror everything into the `kolabing-app` repo's copy of the same two files. Treat this as part of the change, not optional housekeeping.
 
 Most regressions come from applying one role's rules to the other (for example paywalling a community, which must never happen). Do not change role behaviour without checking both documents first; if a fix seems to contradict them, ask before proceeding.
 
