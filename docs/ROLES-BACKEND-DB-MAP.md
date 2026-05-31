@@ -19,7 +19,8 @@
 5. ✅ **Profile logos serialize as absolute URLs from the correct column.** `PublicProfileResource::absoluteUrl()` resolves the URL from the extended profile's `profile_photo` first, falling back to `profiles.avatar_url`. See §5.
 6. ⚠️ **NEW — attendee gamification track has shipped** but the canonical permissions doc still describes attendees as "deferred / out of scope". `AttendeeProfile`, `Wallet`, `EarnedBadge`, `EventCheckin`, `ChallengeCompletion`, and ~40 gamification endpoints are live. See §11.
 7. ⚠️ **NEW — `coliving` is in the canonical role spec (`ROLES-AND-PERMISSIONS.md` §2.1) but missing from `BusinessOnboardingRequest::BUSINESS_TYPES`.** A `coliving` onboarding payload is rejected server-side. Trivial fix; see §8 checklist.
-8. ⚠️ **NEW — admin operator surfaces.** Maintainers can grant a 12-month subscription with `source = maintainer` and force-cancel collaborations from `/admin/*`. Make sure new gate code accounts for `source = maintainer` (still an `active` row; behaves identically to a Stripe-paid sub). See §9.
+8. ⚠️ **NEW — admin operator surfaces.** Maintainers can grant a 12-month subscription with `source = maintainer`, force-cancel collaborations, and (since 2026-06-01) **force-complete** collaborations from `/admin/*`. Make sure new gate code accounts for `source = maintainer` (still an `active` row; behaves identically to a Stripe-paid sub). See §9.
+9. ✅ **Feedback gate on `/complete` is live** (2026-06-01). `CollaborationService::complete()` refuses until both participants have a `collaboration_feedback` row; per-party CollaborationComplete XP fires on `/feedback` not `/complete`; legacy `/review` calls auto-mirror a stub feedback row so the gate succeeds during mobile rollout. Soft-rollout knob: `config('collaborations.complete_requires_feedback')`. See §3 and §10.
 
 ---
 
@@ -180,6 +181,7 @@ Fixed since the last revision:
 - [x] Account deletion frees the email + closes posts on both systems + cancels active collaborations. (§6)
 - [x] Profile logo returns an absolute URL via `PublicProfileResource::absoluteUrl()` from the correct column. (§5)
 - [x] Collaboration cancellation now persists `cancellation_reason`, `cancelled_at`, and `cancelled_by_profile_id` (§10).
+- [x] **Feedback gate on `/complete` shipped** with admin force-complete, auto-timeout scheduler, and a `/review`→`/feedback` mirror for legacy clients (§3, §9, §10). XP moved from `/complete` to `/feedback` per Q7. PR #9, 2026-06-01.
 
 Still open:
 
