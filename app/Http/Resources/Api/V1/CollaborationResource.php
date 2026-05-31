@@ -6,7 +6,9 @@ namespace App\Http\Resources\Api\V1;
 
 use App\Enums\CollaborationStatus;
 use App\Models\Collaboration;
+use App\Models\CollaborationFeedback;
 use App\Models\CollaborationReview;
+use App\Services\CollaborationFeedbackService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -97,6 +99,13 @@ class CollaborationResource extends JsonResource
                 return $this->challenges->pluck('id')->values();
             }),
             'completed_at' => $this->completed_at?->toIso8601String(),
+            'completion_reason' => $this->completion_reason,
+            'completed_by_profile_id' => $this->completed_by_profile_id,
+            'auto_completed_at' => $this->auto_completed_at?->toIso8601String(),
+            'pending_feedback_from' => $this->pendingFeedbackFrom(),
+            'viewer_must_submit_feedback' => $this->viewerMustSubmitFeedback($currentProfile),
+            'own_feedback' => $this->ownFeedback($currentProfile),
+            'partner_feedback' => $this->partnerFeedback($currentProfile),
             'reviews' => $this->whenLoaded('reviews', function () {
                 return $this->reviews->map(fn ($review): array => [
                     'reviewer_role' => $review->reviewer_role,
@@ -180,5 +189,111 @@ class CollaborationResource extends JsonResource
         }
 
         return null;
+    }
+
+    /**
+     * Cache and return the feedback rows for this collaboration.
+     *
+     * @return \Illuminate\Support\Collection<int, CollaborationFeedback>
+     */
+    private function feedbackRows(): \Illuminate\Support\Collection
+    {
+        /** @var \Illuminate\Support\Collection<int, CollaborationFeedback>|null $cached */
+        static $cache = [];
+
+        if (! isset($cache[$this->id])) {
+            $cache[$this->id] = CollaborationFeedback::query()
+                ->where('collaboration_id', $this->id)
+                ->get();
+        }
+
+        return $cache[$this->id];
+    }
+
+    /**
+     * Reviewer types ('business' | 'community') of participants who have NOT
+     * yet submitted feedback. Mirrored stubs count as submitted.
+     *
+     * @return array<int, string>
+     */
+    private function pendingFeedbackFrom(): array
+    {
+        /** @var Collaboration $collab */
+        $collab = $this->resource;
+
+        return app(CollaborationFeedbackService::class)->pendingFeedbackFrom($collab);
+    }
+
+    /**
+     * @param  \App\Models\Profile|null  $profile
+     */
+    private function viewerMustSubmitFeedback($profile): bool
+    {
+        if ($profile === null) {
+            return false;
+        }
+
+        return in_array($profile->user_type->value, $this->pendingFeedbackFrom(), true);
+    }
+
+    /**
+     * The caller's own feedback row, in full (including private fields).
+     *
+     * @param  \App\Models\Profile|null  $profile
+     * @return array<string, mixed>|null
+     */
+    private function ownFeedback($profile): ?array
+    {
+        if ($profile === null) {
+            return null;
+        }
+
+        $row = $this->feedbackRows()->firstWhere('reviewer_profile_id', $profile->id);
+        if ($row === null) {
+            return null;
+        }
+
+        return [
+            'id' => $row->id,
+            'reviewer_role' => $row->reviewer_role,
+            'reviewer_type' => $row->reviewer_type,
+            'rating' => $row->rating,
+            'expectation_match' => $row->expectation_match,
+            'would_recommend' => $row->would_recommend,
+            'posts_reels' => $row->posts_reels,
+            'stories_posted' => $row->stories_posted,
+            'revenue' => $row->revenue,
+            'benefits' => $row->benefits,
+            'mirrored_from_review' => $row->mirrored_from_review,
+            'created_at' => $row->created_at?->toIso8601String(),
+            'updated_at' => $row->updated_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * The partner's feedback — public subset only — and only when BOTH parties
+     * have a non-mirrored row (Q10). Mirrored stubs do not unlock cross-visibility.
+     *
+     * @param  \App\Models\Profile|null  $profile
+     * @return array<string, mixed>|null
+     */
+    private function partnerFeedback($profile): ?array
+    {
+        if ($profile === null) {
+            return null;
+        }
+
+        $rows = $this->feedbackRows();
+        $real = $rows->where('mirrored_from_review', false);
+        if ($real->count() < 2) {
+            return null;
+        }
+
+        $partner = $real->first(fn (CollaborationFeedback $row): bool => $row->reviewer_profile_id !== $profile->id);
+        if ($partner === null) {
+            return null;
+        }
+
+        return $partner->publicSubset();
     }
 }

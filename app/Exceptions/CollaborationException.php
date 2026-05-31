@@ -93,4 +93,61 @@ class CollaborationException extends Exception
             Response::HTTP_CONFLICT,
         );
     }
+
+    public static function notAParticipant(): self
+    {
+        return new self(
+            __('You are not a participant in this collaboration.'),
+            Response::HTTP_FORBIDDEN,
+            ['error_code' => 'not_a_participant'],
+        );
+    }
+
+    public static function feedbackAlreadySubmitted(): self
+    {
+        return new self(
+            __('Feedback already submitted for this collaboration.'),
+            Response::HTTP_CONFLICT,
+            ['error_code' => 'feedback_already_submitted'],
+        );
+    }
+
+    public static function feedbackNotYetSubmitted(): self
+    {
+        return new self(
+            __('No feedback row exists to update for this collaboration.'),
+            Response::HTTP_NOT_FOUND,
+            ['error_code' => 'feedback_not_yet_submitted'],
+        );
+    }
+
+    public static function feedbackLocked(): self
+    {
+        return new self(
+            __('Feedback can no longer be edited because the partner has submitted theirs.'),
+            Response::HTTP_LOCKED,
+            ['error_code' => 'feedback_locked'],
+        );
+    }
+
+    public static function awaitingOwnFeedback(): self
+    {
+        return new self(
+            __('Submit your feedback before completing the collaboration.'),
+            Response::HTTP_UNPROCESSABLE_ENTITY,
+            ['error_code' => 'awaiting_own_feedback'],
+        );
+    }
+
+    /**
+     * @param  array<int, string>  $pendingRoles
+     */
+    public static function awaitingPartnerFeedback(array $pendingRoles): self
+    {
+        return new self(
+            __('Waiting on the other party to submit their feedback.'),
+            Response::HTTP_UNPROCESSABLE_ENTITY,
+            ['error_code' => 'awaiting_partner_feedback', 'pending_feedback_from' => $pendingRoles],
+        );
+    }
 }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\CollaborationStatus;
-use App\Enums\PointEventType;
 use App\Exceptions\CollaborationException;
 use App\Models\Application;
 use App\Models\Collaboration;
@@ -19,7 +18,8 @@ use Illuminate\Support\Facades\DB;
 class CollaborationService
 {
     public function __construct(
-        private readonly GamificationWalletService $walletService
+        private readonly GamificationWalletService $walletService,
+        private readonly CollaborationFeedbackService $feedbackService,
     ) {}
 
     /**
@@ -107,11 +107,17 @@ class CollaborationService
     }
 
     /**
-     * Complete an active collaboration.
+     * Complete an active collaboration. The caller must have submitted their
+     * own feedback row and the partner must have too. XP is NOT awarded here
+     * — each party's CollaborationComplete XP fires when they POST /feedback.
+     *
+     * Gating can be disabled via the `collaborations.complete_requires_feedback`
+     * config (true by default) — provides a soft-rollout knob if a mobile
+     * cutover regresses.
      *
      * @throws CollaborationException
      */
-    public function complete(Collaboration $collaboration): Collaboration
+    public function complete(Collaboration $collaboration, ?Profile $caller = null): Collaboration
     {
         if ($collaboration->isInTerminalState()) {
             throw CollaborationException::alreadyInTerminalState($collaboration->status->value);
@@ -121,13 +127,14 @@ class CollaborationService
             throw CollaborationException::cannotComplete($collaboration->status->value);
         }
 
+        if (config('collaborations.complete_requires_feedback', true) === true) {
+            $this->enforceFeedbackGate($collaboration, $caller);
+        }
+
         $collaboration->update([
             'status' => CollaborationStatus::Completed,
             'completed_at' => Carbon::now(),
         ]);
-
-        // Award points to both parties
-        $this->awardCollaborationPoints($collaboration);
 
         return $collaboration->fresh([
             'collabOpportunity',
@@ -135,6 +142,77 @@ class CollaborationService
             'applicantProfile',
             'application',
         ]);
+    }
+
+    /**
+     * Maintainer-only escape hatch. Force-completes a collaboration without
+     * the feedback gate, recording the reason for the admin audit trail.
+     * No XP is awarded — by design, force-complete bypasses the participation
+     * reward path.
+     */
+    public function adminForceComplete(Collaboration $collaboration, string $reason): Collaboration
+    {
+        if ($collaboration->isInTerminalState()) {
+            throw CollaborationException::alreadyInTerminalState($collaboration->status->value);
+        }
+
+        $collaboration->update([
+            'status' => CollaborationStatus::Completed,
+            'completed_at' => Carbon::now(),
+            'completion_reason' => $reason,
+            'completed_by_profile_id' => null,
+        ]);
+
+        return $collaboration->fresh([
+            'collabOpportunity',
+            'creatorProfile',
+            'applicantProfile',
+            'application',
+        ]);
+    }
+
+    /**
+     * Scheduled-command path. Used by app:auto-complete-stale-collaborations
+     * when scheduled_date + threshold has passed AND at least one feedback
+     * row exists. Sets auto_completed_at as the audit marker.
+     */
+    public function autoComplete(Collaboration $collaboration): Collaboration
+    {
+        if ($collaboration->isInTerminalState()) {
+            throw CollaborationException::alreadyInTerminalState($collaboration->status->value);
+        }
+
+        $now = Carbon::now();
+        $collaboration->update([
+            'status' => CollaborationStatus::Completed,
+            'completed_at' => $now,
+            'auto_completed_at' => $now,
+        ]);
+
+        return $collaboration->fresh([
+            'collabOpportunity',
+            'creatorProfile',
+            'applicantProfile',
+            'application',
+        ]);
+    }
+
+    /**
+     * @throws CollaborationException
+     */
+    private function enforceFeedbackGate(Collaboration $collaboration, ?Profile $caller): void
+    {
+        $pending = $this->feedbackService->pendingFeedbackFrom($collaboration);
+
+        if ($pending === []) {
+            return;
+        }
+
+        if ($caller !== null && in_array($caller->user_type->value, $pending, true)) {
+            throw CollaborationException::awaitingOwnFeedback();
+        }
+
+        throw CollaborationException::awaitingPartnerFeedback($pending);
     }
 
     /**
@@ -308,30 +386,5 @@ class CollaborationService
         }
 
         return null;
-    }
-
-    /**
-     * Award collaboration completion points to both parties.
-     */
-    private function awardCollaborationPoints(Collaboration $collaboration): void
-    {
-        $collaboration->loadMissing(['collabOpportunity']);
-        $title = $collaboration->collabOpportunity?->title ?? 'a collaboration';
-
-        $this->walletService->awardPoints(
-            $collaboration->creator_profile_id,
-            PointEventType::CollaborationComplete->defaultPoints(),
-            PointEventType::CollaborationComplete,
-            $collaboration->id,
-            "Collaboration completed: {$title}"
-        );
-
-        $this->walletService->awardPoints(
-            $collaboration->applicant_profile_id,
-            PointEventType::CollaborationComplete->defaultPoints(),
-            PointEventType::CollaborationComplete,
-            $collaboration->id,
-            "Collaboration completed: {$title}"
-        );
     }
 }

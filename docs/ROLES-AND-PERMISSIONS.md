@@ -1,6 +1,6 @@
 # Kolabing — Roles, Permissions & Features (Canonical Reference)
 
-**Last updated:** 2026-06-01
+**Last updated:** 2026-06-01 (feedback gate + admin force-complete shipped same day)
 **Status:** Authoritative. This document overrides assumptions.
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical. When role behaviour changes, update both **and bump the Last updated date** in both.
 
@@ -103,14 +103,21 @@ If a business's subscription lapses (expires or is cancelled), the business is *
 
 The **community counterparty is NEVER affected**: communities keep full access to the shared collaboration and chat regardless of the business's subscription state. Re-gating is one-sided (business only). This refines §2.7: create/apply are the only first-contact paywalls, but a lapse additionally withdraws ongoing business-side access.
 
-### 2.9 Maintainer-granted access — added 2026-06-01
+### 2.9 Maintainer admin actions — added 2026-06-01
+
+The admin panel (`/admin/*`, `auth:admin + maintainer` guard) exposes these collaboration-level actions:
+- **Force-cancel** (`POST /admin/kolabs/{kolab}/collaboration/cancel`): persists `cancellation_reason` and stamps `cancelled_at`. `cancelled_by_profile_id = null` indicates maintainer action.
+- **Force-complete** (`POST /admin/kolabs/{kolab}/collaboration/complete`): bypasses the feedback gate. Persists `completion_reason` and stamps `completed_at`. `completed_by_profile_id = null` indicates maintainer action. No XP is awarded.
+- **Auto-complete (system)**: a scheduled job (`app:auto-complete-stale-collaborations`, default `dailyAt('03:00')`) completes collaborations whose `scheduled_date` is more than `config('collaborations.auto_complete_threshold_days', 7)` days in the past **and** that have at least one feedback row. Stamps `auto_completed_at`.
+
+### 2.10 Maintainer-granted subscription access — added 2026-06-01
 A Kolabing maintainer can grant a business **12 months of subscription access** from the admin panel (`/admin/users/{profile}/subscription/grant`). This produces a `business_subscriptions` row with `status = active` and **`source = maintainer`**. The grant bypasses Stripe/Apple IAP but is identical to a paid subscription as far as the paywall and re-gating logic are concerned — the business gets full subscribed-business capabilities until the period ends or a maintainer revokes it.
 
 A revoke (`/subscription/revoke`) flips the row to `status = inactive` with `cancel_at_period_end = true`. After revoke, the standard subscription-lapse re-gate (§2.8) kicks in.
 
 **Maintainer grants are auditable** via the `source = maintainer` value. There is no other way for an active subscription row to appear without payment.
 
-### 2.10 Test users — back-channel
+### 2.11 Test users — back-channel
 A profile with `profiles.is_test_user = true` is treated as having an active subscription regardless of whether a `business_subscriptions` row exists. This is reserved for Kolabing internal QA accounts. Never set this flag on real customer profiles.
 
 ---
@@ -162,8 +169,11 @@ Nothing. There is no paywall and no gated action on the community side. If code 
 - **Applications.** Either role applies to the other's post. The applying side picks dates only from the dates the posting side marked available.
 - **Chat.** Unlocked once an application is accepted. The other party's name is shown in chat.
 - **Collaboration.** Created when an application is accepted. Either side can edit the date or time. Either side can mark it finished; it also closes when the date passes. Both sides confirm.
-- **Two-way reviews.** After a collaboration, the business reviews the community and the community reviews the business. Ratings are visible on profiles and affect positioning.
-- **Feedback.** A mini feedback modal on completion. Business feedback captures star rating, stories posted, posts/reels, revenue, expectation match, and "would you recommend this community." Community feedback captures star rating, benefits received, posts/reels, expectation match, and "would you recommend this business."
+- **Two-way reviews (public).** After a collaboration, the business reviews the community and the community reviews the business via `POST /collaborations/{id}/review`. Ratings are visible on profiles via `PublicProfileReviewResource` and affect positioning.
+- **Rich feedback (private + gates completion).** A non-dismissible feedback step on completion via `POST /collaborations/{id}/feedback`. Required fields: rating (1–5), expectation match, would recommend. Optional shared: posts/reels. Business-only: stories posted, revenue. Community-only: benefits. **A collaboration only transitions to `completed` once both parties have a feedback row** (server-enforced via `config('collaborations.complete_requires_feedback')`, default true). XP fires per party on feedback submission, not on `/complete`. Editing your row via `PUT /feedback` is allowed until the partner submits — after that, both lock.
+  - Visibility (Q10 in the 2026-06-01 plan): rating + expectation_match + would_recommend are cross-visible to participants once both feedbacks land; revenue / stories_posted / posts_reels / benefits stay private to the submitter (and to maintainers).
+  - Re-gate exemption: a lapsed business can still submit `/feedback` on a past collab — feedback is post-mortem and unblocked even when `/collaborations` index is re-gated.
+  - **Backend mirror (rollout aid):** while the legacy app still POSTs to `/review`, the server transparently writes a stub `/feedback` row (mirror) so the gate succeeds. Mirrored rows carry `mirrored_from_review = true` and are excluded from the rich admin-stats aggregates.
 
 ---
 

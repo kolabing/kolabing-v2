@@ -17,3 +17,7 @@ Schedule::command('notifications:send-reminders')
 // follow-up ("Did it happen?") in one pass; dedup is done via
 // the notifications table so re-runs are safe.
 Schedule::command('app:send-collab-reminders')->dailyAt('08:00');
+
+// Auto-complete collaborations stuck waiting on the second party's feedback
+// past the configured threshold. See config/collaborations.php.
+Schedule::command('app:auto-complete-stale-collaborations')->dailyAt('03:00');

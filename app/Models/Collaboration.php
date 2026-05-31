@@ -59,6 +59,9 @@ class Collaboration extends Model
         'scheduled_date',
         'activated_at',
         'completed_at',
+        'completion_reason',
+        'completed_by_profile_id',
+        'auto_completed_at',
         'cancelled_at',
         'cancellation_reason',
         'cancelled_by_profile_id',
@@ -79,6 +82,7 @@ class Collaboration extends Model
             'scheduled_date' => 'date',
             'activated_at' => 'datetime',
             'completed_at' => 'datetime',
+            'auto_completed_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'contact_methods' => 'array',
         ];
@@ -173,6 +177,16 @@ class Collaboration extends Model
     public function reviews(): HasMany
     {
         return $this->hasMany(CollaborationReview::class);
+    }
+
+    /**
+     * Get the rich feedback rows submitted by participants for this collaboration.
+     *
+     * @return HasMany<CollaborationFeedback, $this>
+     */
+    public function feedbacks(): HasMany
+    {
+        return $this->hasMany(CollaborationFeedback::class);
     }
 
     /**

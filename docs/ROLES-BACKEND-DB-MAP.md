@@ -1,6 +1,6 @@
 # Kolabing — Roles → Backend → Database Map (Ground-Truth)
 
-**Last updated:** 2026-06-01
+**Last updated:** 2026-06-01 (feedback gate + admin force-complete + auto-timeout shipped same day)
 **Status:** Authoritative companion to [`ROLES-AND-PERMISSIONS.md`](./ROLES-AND-PERMISSIONS.md). Read that first (the *what*), then this (the *where*).
 **Sync note:** Duplicated in both repos (`kolabing-app`, `kolabing-v2`). Keep identical, and **bump the Last updated date in both** when role behaviour or backend wiring changes.
 
@@ -70,6 +70,8 @@ Spec: paywall is **Business-only**, on **exactly two actions** (create a collabo
 | Client: create entry (intent) | `intent_selection_screen.dart` shows the paywall for unsubscribed business; communities only see the FREE CommunitySeeking option | Business only | ✅ correct |
 
 All four backend gates now follow the same pattern: `if ($profile->isBusiness() && ! $profile->hasActiveSubscription())`. **Never copy this gate into community or attendee paths.**
+
+**Feedback gate on `/complete` (added 2026-06-01, not a paywall):** `CollaborationService::complete()` now calls `enforceFeedbackGate()` which throws `awaiting_own_feedback` (422) or `awaiting_partner_feedback` (422) until both participants have a `collaboration_feedback` row. Subject to `config('collaborations.complete_requires_feedback', true)` so the gate can be soft-rolled. This is a UX gate, **not role-discriminatory** — both business and community must submit. The `awaiting_partner_feedback` error context carries `pending_feedback_from: ['business'|'community']` so the client knows who to nudge.
 
 ---
 
@@ -206,6 +208,7 @@ The admin panel is a **server-rendered Blade surface inside this Laravel backend
 | Grant subscription | `POST /admin/users/{profile}/subscription/grant` → `::grantSubscription` | `ManagedProfileService::grantSubscription($profile, $months = 12)` | `updateOrCreate` `business_subscriptions` with `status = active`, `source = maintainer`, `current_period_start = now()`, `current_period_end = now()+12mo`. Aborts 422 if profile is not `business`. |
 | Revoke subscription | `POST /admin/users/{profile}/subscription/revoke` → `::revokeSubscription` | `ManagedProfileService::revokeSubscription` | Sets `status = inactive`, `cancel_at_period_end = true`. Standard re-gate (`ROLES-AND-PERMISSIONS.md §2.8`) then applies. |
 | Force-cancel collaboration | `POST /admin/kolabs/{kolab}/collaboration/cancel` → `Admin\KolabController::cancelCollaboration` | `CollaborationService::cancel($collab, $reason, $cancelledBy = null)` | Requires a reason (min 3 chars). Persists `cancellation_reason`, `cancelled_at`, leaves `cancelled_by_profile_id` null — **`null` = cancelled by maintainer**. |
+| Force-complete collaboration | `POST /admin/kolabs/{kolab}/collaboration/complete` → `Admin\KolabController::completeCollaboration` | `CollaborationService::adminForceComplete($collab, $reason)` | Bypasses the feedback gate. Requires a reason. Persists `completion_reason`, stamps `completed_at`, leaves `completed_by_profile_id` null. No XP awarded. |
 
 **Key invariant for the role logic:** an admin-granted subscription is indistinguishable from a paid sub at the gate level. `Profile::hasActiveSubscription()` checks `status == active`; it does not branch on `source`. The `source` column is purely for audit and analytics. **Do not** add `source == stripe` checks anywhere — that would silently lock out maintainer-granted users.
 
@@ -225,8 +228,18 @@ Added by the 2026-05-31 admin stats sprint. These columns are **observability-on
 | `collaborations.cancellation_reason` | varchar 500 nullable | `CollaborationService::cancel()` |
 | `collaborations.cancelled_by_profile_id` | foreignUuid nullable | `CollaborationService::cancel()` — **null = maintainer-cancelled** |
 | `profiles.last_active_at` | timestamp nullable (indexed) | `TouchProfileActivity` middleware on the API `auth:sanctum` group; throttled to once per 5 minutes per profile |
+| `collaborations.completion_reason` | varchar 500 nullable | `CollaborationService::adminForceComplete()` |
+| `collaborations.completed_by_profile_id` | foreignUuid nullable | reserved for participant-completion paths; admin force-complete leaves it null (= maintainer) |
+| `collaborations.auto_completed_at` | timestamp nullable | `CollaborationService::autoComplete()` (called by `app:auto-complete-stale-collaborations`) |
+| `collaboration_feedback.mirrored_from_review` | boolean default false | `CollaborationFeedbackService::mirrorFromReview()` (stub rows created when a legacy client POSTs `/review`) |
+| `collaboration_feedback.expectation_match` / `would_recommend` | bool **nullable** (was NOT NULL) | relaxed in the same migration so mirrored stubs sit alongside rich rows |
 
 Backfill for legacy rows: `php artisan app:backfill-lifecycle-timestamps [--dry-run]` copies `updated_at` into the matching transition column. Run once per environment after deploy.
+
+**Auto-completion scheduler:** `app:auto-complete-stale-collaborations` runs `dailyAt('03:00')` per `routes/console.php`. Configurable thresholds in `config/collaborations.php`:
+- `auto_complete_threshold_days` (default 7): days past `scheduled_date` before a stale collab is eligible.
+- `auto_complete_requires_feedback_rows` (default true): also require at least one `collaboration_feedback` row before auto-completing (avoids declaring "done" on collabs nobody acknowledged).
+- `complete_requires_feedback` (default true): the `/complete` feedback gate. Soft-rollout knob if a mobile cutover regresses.
 
 ---
 

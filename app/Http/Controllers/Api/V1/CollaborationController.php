@@ -9,12 +9,15 @@ use App\Exceptions\CollaborationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\CancelCollaborationRequest;
 use App\Http\Requests\Api\V1\CompleteCollaborationRequest;
+use App\Http\Requests\Api\V1\StoreCollaborationFeedbackRequest;
 use App\Http\Requests\Api\V1\StoreCollaborationReviewRequest;
+use App\Http\Requests\Api\V1\UpdateCollaborationFeedbackRequest;
 use App\Http\Resources\Api\V1\CollaborationCollection;
 use App\Http\Resources\Api\V1\CollaborationResource;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
 use App\Models\Profile;
+use App\Services\CollaborationFeedbackService;
 use App\Services\CollaborationService;
 use App\Services\GamificationWalletService;
 use Illuminate\Http\JsonResponse;
@@ -25,6 +28,7 @@ class CollaborationController extends Controller
     public function __construct(
         private readonly CollaborationService $collaborationService,
         private readonly GamificationWalletService $gamificationService,
+        private readonly CollaborationFeedbackService $feedbackService,
     ) {}
 
     /**
@@ -126,14 +130,19 @@ class CollaborationController extends Controller
         $this->authorize('complete', $collaboration);
         $request->validated();
 
+        /** @var Profile $caller */
+        $caller = $request->user();
+
         try {
-            $collaboration = $this->collaborationService->complete($collaboration);
+            $collaboration = $this->collaborationService->complete($collaboration, $caller);
         } catch (CollaborationException $e) {
+            $context = $e->getContext();
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
-                'error_code' => 'invalid_status_transition',
-                'errors' => $e->getContext(),
+                'error_code' => $context['error_code'] ?? 'invalid_status_transition',
+                'errors' => $context,
             ], $e->getStatusCode());
         }
 
@@ -141,6 +150,76 @@ class CollaborationController extends Controller
             'success' => true,
             'message' => __('collaboration.completed'),
             'data' => new CollaborationResource($collaboration),
+        ]);
+    }
+
+    /**
+     * Submit the caller's rich completion feedback. Per the 2026-06-01 feedback
+     * gate plan (§Q7): XP fires per party here, not on /complete.
+     *
+     * POST /api/v1/collaborations/{collaboration}/feedback
+     */
+    public function feedback(
+        StoreCollaborationFeedbackRequest $request,
+        Collaboration $collaboration,
+    ): JsonResponse {
+        /** @var Profile $reviewer */
+        $reviewer = $request->user();
+
+        $this->authorize('view', $collaboration);
+
+        try {
+            $feedback = $this->feedbackService->submit($collaboration, $reviewer, $request->validated());
+        } catch (CollaborationException $e) {
+            $context = $e->getContext();
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error_code' => $context['error_code'] ?? 'feedback_error',
+                'errors' => $context,
+            ], $e->getStatusCode());
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Feedback submitted.'),
+            'data' => $feedback,
+        ], 201);
+    }
+
+    /**
+     * Edit the caller's existing feedback row. Allowed only while the partner
+     * has NOT yet submitted their own — once both rows exist, both lock.
+     *
+     * PUT /api/v1/collaborations/{collaboration}/feedback
+     */
+    public function updateFeedback(
+        UpdateCollaborationFeedbackRequest $request,
+        Collaboration $collaboration,
+    ): JsonResponse {
+        /** @var Profile $reviewer */
+        $reviewer = $request->user();
+
+        $this->authorize('view', $collaboration);
+
+        try {
+            $feedback = $this->feedbackService->edit($collaboration, $reviewer, $request->validated());
+        } catch (CollaborationException $e) {
+            $context = $e->getContext();
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error_code' => $context['error_code'] ?? 'feedback_error',
+                'errors' => $context,
+            ], $e->getStatusCode());
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Feedback updated.'),
+            'data' => $feedback,
         ]);
     }
 
@@ -200,11 +279,16 @@ class CollaborationController extends Controller
 
         $this->authorize('view', $collaboration);
 
-        if (! $collaboration->isCompleted()) {
+        // Reviews used to require completed status. Relaxed to active|completed
+        // so a legacy client (which calls /review before /complete) can write a
+        // review that the mirror promotes into a stub /feedback row — letting
+        // the new gate succeed. Scheduled and cancelled collabs remain out of
+        // scope.
+        if (! ($collaboration->isCompleted() || $collaboration->isActive())) {
             return response()->json([
                 'success' => false,
-                'message' => 'Reviews can only be left for completed collaborations.',
-                'error_code' => 'collaboration_not_completed',
+                'message' => 'Reviews can only be left for active or completed collaborations.',
+                'error_code' => 'collaboration_not_reviewable',
             ], 422);
         }
 
@@ -261,6 +345,15 @@ class CollaborationController extends Controller
             $collaboration->id,
             'Left a review for a completed Kolab',
         );
+
+        // Mirror the review into a stub /feedback row so legacy clients still
+        // satisfy the new /complete gate. No-op if a real /feedback row already
+        // exists (post-mirror, post-new-app user).
+        $this->feedbackService->mirrorFromReview($collaboration, $reviewer, [
+            'rating' => $validated['rating'],
+            'body' => $validated['body'] ?? null,
+            'would_collaborate_again' => $validated['would_collaborate_again'] ?? null,
+        ]);
 
         return response()->json([
             'success' => true,

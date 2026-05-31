@@ -31,8 +31,10 @@ class GamificationCollaborationIntegrationTest extends TestCase
         return $profile;
     }
 
-    public function test_completing_collaboration_awards_points_to_both_parties(): void
+    public function test_submitting_feedback_awards_points_to_each_party(): void
     {
+        // Post-2026-06-01: XP is awarded when each party POSTs /feedback, not
+        // on /complete. See docs/plans 2026-06-01 feedback gate (Q7).
         $creator = $this->createBusinessProfile();
         $applicant = $this->createCommunityProfile();
 
@@ -42,40 +44,43 @@ class GamificationCollaborationIntegrationTest extends TestCase
             ->active()
             ->create();
 
-        $response = $this->actingAs($creator)
-            ->postJson("/api/v1/collaborations/{$collaboration->id}/complete");
+        $this->actingAs($creator)
+            ->postJson("/api/v1/collaborations/{$collaboration->id}/feedback", [
+                'rating' => 5, 'expectation_match' => true, 'would_recommend' => true,
+            ])->assertCreated();
 
-        $response->assertOk()
-            ->assertJsonPath('success', true);
+        $this->actingAs($applicant)
+            ->postJson("/api/v1/collaborations/{$collaboration->id}/feedback", [
+                'rating' => 5, 'expectation_match' => true, 'would_recommend' => true,
+            ])->assertCreated();
 
-        // Both parties receive 10 XP plus the 50 XP first-kolab bonus.
-        $this->assertDatabaseHas('wallets', [
-            'profile_id' => $creator->id,
-            'points' => 60,
-        ]);
+        // Both parties earn 10 XP for participation + 50 XP first-kolab bonus.
+        $this->assertDatabaseHas('wallets', ['profile_id' => $creator->id, 'points' => 60]);
+        $this->assertDatabaseHas('wallets', ['profile_id' => $applicant->id, 'points' => 60]);
 
-        $this->assertDatabaseHas('wallets', [
-            'profile_id' => $applicant->id,
-            'points' => 60,
-        ]);
-
-        // Ledger entries for both parties
         $this->assertDatabaseHas('point_ledger', [
             'profile_id' => $creator->id,
             'points' => 10,
             'event_type' => 'collaboration_complete',
             'reference_id' => $collaboration->id,
         ]);
-
         $this->assertDatabaseHas('point_ledger', [
             'profile_id' => $applicant->id,
             'points' => 10,
             'event_type' => 'collaboration_complete',
             'reference_id' => $collaboration->id,
         ]);
+
+        // /complete itself awards no XP — pure metadata flip.
+        $this->actingAs($creator)
+            ->postJson("/api/v1/collaborations/{$collaboration->id}/complete")
+            ->assertOk();
+
+        $this->assertDatabaseHas('wallets', ['profile_id' => $creator->id, 'points' => 60]);
+        $this->assertDatabaseHas('wallets', ['profile_id' => $applicant->id, 'points' => 60]);
     }
 
-    public function test_scheduled_collaboration_can_be_completed_once_and_then_returns_422(): void
+    public function test_completing_twice_returns_422_terminal_state(): void
     {
         $creator = $this->createBusinessProfile();
         $applicant = $this->createCommunityProfile();
@@ -85,6 +90,14 @@ class GamificationCollaborationIntegrationTest extends TestCase
             ->forApplicant($applicant)
             ->scheduled()
             ->create();
+
+        // Submit feedback from both sides so the gate is satisfied.
+        foreach ([$creator, $applicant] as $actor) {
+            $this->actingAs($actor)
+                ->postJson("/api/v1/collaborations/{$collaboration->id}/feedback", [
+                    'rating' => 4, 'expectation_match' => true, 'would_recommend' => true,
+                ])->assertCreated();
+        }
 
         $firstResponse = $this->actingAs($creator)
             ->postJson("/api/v1/collaborations/{$collaboration->id}/complete");
@@ -102,8 +115,10 @@ class GamificationCollaborationIntegrationTest extends TestCase
             ->assertJsonPath('errors.status', 'completed');
     }
 
-    public function test_completing_collaboration_evaluates_badges(): void
+    public function test_submitting_feedback_evaluates_badges(): void
     {
+        // Post-2026-06-01: badge evaluation runs inside awardPoints, which now
+        // fires on /feedback rather than /complete. See plan doc Q7.
         $creator = $this->createBusinessProfile();
         $applicant = $this->createCommunityProfile();
 
@@ -113,15 +128,17 @@ class GamificationCollaborationIntegrationTest extends TestCase
             ->active()
             ->create();
 
-        $this->actingAs($creator)
-            ->postJson("/api/v1/collaborations/{$collaboration->id}/complete");
+        foreach ([$creator, $applicant] as $actor) {
+            $this->actingAs($actor)
+                ->postJson("/api/v1/collaborations/{$collaboration->id}/feedback", [
+                    'rating' => 5, 'expectation_match' => true, 'would_recommend' => true,
+                ])->assertCreated();
+        }
 
-        // Both should earn first_kolab badge
         $this->assertDatabaseHas('earned_badges', [
             'profile_id' => $creator->id,
             'badge_slug' => 'first_kolab',
         ]);
-
         $this->assertDatabaseHas('earned_badges', [
             'profile_id' => $applicant->id,
             'badge_slug' => 'first_kolab',
