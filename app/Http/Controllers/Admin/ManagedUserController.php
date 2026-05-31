@@ -22,7 +22,7 @@ class ManagedUserController extends Controller
     public function index(): View
     {
         $profiles = Profile::query()
-            ->with(['businessProfile', 'communityProfile', 'attendeeProfile'])
+            ->with(['businessProfile', 'communityProfile', 'attendeeProfile', 'subscription'])
             ->latest()
             ->paginate(20);
 
@@ -48,7 +48,7 @@ class ManagedUserController extends Controller
 
     public function edit(Profile $profile): View
     {
-        $profile->loadMissing(['businessProfile', 'communityProfile', 'attendeeProfile']);
+        $profile->loadMissing(['businessProfile', 'communityProfile', 'attendeeProfile', 'subscription']);
 
         return view('admin.users.edit', [
             'profile' => $profile,
@@ -61,5 +61,33 @@ class ManagedUserController extends Controller
 
         return redirect()->route('admin.users.edit', $profile)
             ->with('status', __('User updated successfully.'));
+    }
+
+    public function destroy(Profile $profile): RedirectResponse
+    {
+        $this->managedProfileService->delete($profile);
+
+        return redirect()->route('admin.users.index')
+            ->with('status', __('User deleted.'));
+    }
+
+    public function grantSubscription(Profile $profile): RedirectResponse
+    {
+        abort_unless($profile->isBusiness(), 422, 'Only business users can receive a subscription.');
+
+        $this->managedProfileService->grantSubscription($profile);
+
+        return redirect()->back()
+            ->with('status', __('Subscription granted for 12 months.'));
+    }
+
+    public function revokeSubscription(Profile $profile): RedirectResponse
+    {
+        abort_unless($profile->isBusiness(), 422, 'Only business users have a subscription.');
+
+        $this->managedProfileService->revokeSubscription($profile);
+
+        return redirect()->back()
+            ->with('status', __('Subscription revoked.'));
     }
 }

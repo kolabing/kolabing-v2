@@ -131,6 +131,52 @@ class ManagedProfileService
         ]);
     }
 
+    public function delete(Profile $profile): void
+    {
+        $profile->delete();
+    }
+
+    /**
+     * Grant a maintainer-issued subscription that unblocks publish.
+     * Defaults to 12 months from today.
+     */
+    public function grantSubscription(Profile $profile, int $months = 12): BusinessSubscription
+    {
+        return DB::transaction(function () use ($profile, $months): BusinessSubscription {
+            $subscription = BusinessSubscription::query()->firstOrNew(
+                ['profile_id' => $profile->id],
+            );
+
+            $subscription->source = SubscriptionSource::Maintainer;
+            $subscription->status = SubscriptionStatus::Active;
+            $subscription->current_period_start = now();
+            $subscription->current_period_end = now()->addMonths($months);
+            $subscription->cancel_at_period_end = false;
+            $subscription->save();
+
+            return $subscription;
+        });
+    }
+
+    public function revokeSubscription(Profile $profile): ?BusinessSubscription
+    {
+        return DB::transaction(function () use ($profile): ?BusinessSubscription {
+            $subscription = BusinessSubscription::query()
+                ->where('profile_id', $profile->id)
+                ->first();
+
+            if ($subscription === null) {
+                return null;
+            }
+
+            $subscription->status = SubscriptionStatus::Inactive;
+            $subscription->cancel_at_period_end = true;
+            $subscription->save();
+
+            return $subscription;
+        });
+    }
+
     /**
      * @param  array<string, mixed>  $data
      */
