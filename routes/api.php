@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\ChallengeCompletionController;
 use App\Http\Controllers\Api\V1\ChallengeController;
 use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\CheckinController;
+use App\Http\Controllers\Api\V1\CollaborationChallengeBonusController;
 use App\Http\Controllers\Api\V1\CollaborationChallengeController;
 use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\CollaborationQrCodeController;
@@ -629,6 +630,12 @@ Route::prefix('v1')->group(function (): void {
         // Create custom challenge for a collaboration
         Route::post('collaborations/{collaboration}/challenges', [CollaborationChallengeController::class, 'store'])
             ->name('api.v1.collaborations.challenges.store');
+
+        // Business-set bonus on a per-challenge basis (business participant only)
+        Route::put('collaborations/{collaboration}/challenges/{challenge}/bonus', [CollaborationChallengeBonusController::class, 'upsert'])
+            ->name('api.v1.collaborations.challenges.bonus.upsert');
+        Route::delete('collaborations/{collaboration}/challenges/{challenge}/bonus', [CollaborationChallengeBonusController::class, 'destroy'])
+            ->name('api.v1.collaborations.challenges.bonus.destroy');
 
         // Generate QR code for a collaboration
         Route::post('collaborations/{collaboration}/qr-code', [CollaborationQrCodeController::class, 'store'])

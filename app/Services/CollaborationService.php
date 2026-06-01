@@ -47,6 +47,7 @@ class CollaborationService
                 'applicantProfile.communityProfile.city',
                 'application',
                 'challenges',
+                'challengeBonuses',
                 'reviews',
             ])
             ->orderByDesc('created_at')
@@ -71,6 +72,7 @@ class CollaborationService
                 'applicantProfile.communityProfile.city',
                 'application',
                 'challenges',
+                'challengeBonuses',
                 'reviews',
             ])
             ->findOrFail($id);
