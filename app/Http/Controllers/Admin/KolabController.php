@@ -65,7 +65,7 @@ class KolabController extends Controller
             'kolabs' => $kolabs,
             'lifecycles' => $lifecycles,
             'statuses' => KolabStatus::cases(),
-            'lifecycleOptions' => KolabLifecycleService::all(),
+            'lifecycleOptions' => KolabLifecycleService::filterOptions(),
             'filters' => [
                 'status' => (string) $request->string('status'),
                 'q' => (string) $request->string('q'),

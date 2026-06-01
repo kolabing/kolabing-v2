@@ -104,6 +104,107 @@ class KolabManagementTest extends TestCase
         $response->assertDontSee('No Collab Kolab');
     }
 
+    public function test_lifecycle_filter_has_match_returns_kolabs_at_any_post_acceptance_stage(): void
+    {
+        // Pending-match only (no collab row yet).
+        $pendingMatch = $this->kolabWithOpportunity(['title' => 'Pending Match Kolab']);
+        Application::factory()->accepted()->create([
+            'collab_opportunity_id' => $pendingMatch->id,
+            'applicant_profile_id' => Profile::factory()->community(),
+        ]);
+
+        // Active collab (post-acceptance, still running).
+        $activeCollab = $this->kolabWithOpportunity(['title' => 'Active Collab Kolab']);
+        Collaboration::factory()->active()->create([
+            'collab_opportunity_id' => $activeCollab->id,
+            'application_id' => Application::factory()->accepted()->create([
+                'collab_opportunity_id' => $activeCollab->id,
+                'applicant_profile_id' => Profile::factory()->community(),
+            ])->id,
+            'creator_profile_id' => $activeCollab->creator_profile_id,
+        ]);
+
+        // Completed collab (post-acceptance, done).
+        $completedCollab = $this->kolabWithOpportunity(['title' => 'Completed Collab Kolab']);
+        Collaboration::factory()->completed()->create([
+            'collab_opportunity_id' => $completedCollab->id,
+            'application_id' => Application::factory()->accepted()->create([
+                'collab_opportunity_id' => $completedCollab->id,
+                'applicant_profile_id' => Profile::factory()->community(),
+            ])->id,
+            'creator_profile_id' => $completedCollab->creator_profile_id,
+        ]);
+
+        // No acceptance — should NOT appear under Has match.
+        Kolab::factory()->published()->create(['title' => 'No Acceptance Kolab']);
+
+        $response = $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.kolabs.index', ['lifecycle' => 'has_match']));
+
+        $response->assertSee('Pending Match Kolab');
+        $response->assertSee('Active Collab Kolab');
+        $response->assertSee('Completed Collab Kolab');
+        $response->assertDontSee('No Acceptance Kolab');
+    }
+
+    public function test_lifecycle_filter_done_returns_completed_cancelled_or_closed(): void
+    {
+        // Completed collab.
+        $completed = $this->kolabWithOpportunity(['title' => 'Completed Done Kolab']);
+        Collaboration::factory()->completed()->create([
+            'collab_opportunity_id' => $completed->id,
+            'application_id' => Application::factory()->accepted()->create([
+                'collab_opportunity_id' => $completed->id,
+                'applicant_profile_id' => Profile::factory()->community(),
+            ])->id,
+            'creator_profile_id' => $completed->creator_profile_id,
+        ]);
+
+        // Cancelled collab.
+        $cancelled = $this->kolabWithOpportunity(['title' => 'Cancelled Done Kolab']);
+        Collaboration::factory()->cancelled()->create([
+            'collab_opportunity_id' => $cancelled->id,
+            'application_id' => Application::factory()->accepted()->create([
+                'collab_opportunity_id' => $cancelled->id,
+                'applicant_profile_id' => Profile::factory()->community(),
+            ])->id,
+            'creator_profile_id' => $cancelled->creator_profile_id,
+        ]);
+
+        // Closed by creator, no collab.
+        Kolab::factory()->closed()->create(['title' => 'Closed By Creator Kolab']);
+
+        // Still active — should NOT appear under Done.
+        $active = $this->kolabWithOpportunity(['title' => 'Still Active Kolab']);
+        Collaboration::factory()->active()->create([
+            'collab_opportunity_id' => $active->id,
+            'application_id' => Application::factory()->accepted()->create([
+                'collab_opportunity_id' => $active->id,
+                'applicant_profile_id' => Profile::factory()->community(),
+            ])->id,
+            'creator_profile_id' => $active->creator_profile_id,
+        ]);
+
+        $response = $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.kolabs.index', ['lifecycle' => 'done']));
+
+        $response->assertSee('Completed Done Kolab');
+        $response->assertSee('Cancelled Done Kolab');
+        $response->assertSee('Closed By Creator Kolab');
+        $response->assertDontSee('Still Active Kolab');
+    }
+
+    public function test_dropdown_uses_pending_match_label_instead_of_matched(): void
+    {
+        $response = $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.kolabs.index'));
+
+        $response->assertOk()
+            ->assertSee('Pending match', false)
+            ->assertSee('Has match (any stage)', false)
+            ->assertSee('Completed or done', false);
+    }
+
     public function test_edit_page_shows_collaboration_details_and_reviews(): void
     {
         $kolab = $this->kolabWithOpportunity();
