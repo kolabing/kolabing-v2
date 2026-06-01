@@ -337,10 +337,10 @@ class CollaborationController extends Controller
             'would_collaborate_again' => $validated['would_collaborate_again'] ?? null,
         ]);
 
-        // Award XP once for leaving a review — uses existing ReviewPosted event type.
+        // Award XP for leaving a review. The amount comes from xp_earn_rules
+        // so the value can be edited from the admin without redeploying.
         $this->gamificationService->awardPoints(
             $reviewer->id,
-            PointEventType::ReviewPosted->defaultPoints(),
             PointEventType::ReviewPosted,
             $collaboration->id,
             'Left a review for a completed Kolab',

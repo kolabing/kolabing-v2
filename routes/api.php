@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\EventDiscoveryController;
 use App\Http\Controllers\Api\V1\EventRewardController;
 use App\Http\Controllers\Api\V1\GalleryController;
+use App\Http\Controllers\Api\V1\GamificationConfigController;
 use App\Http\Controllers\Api\V1\GamificationController;
 use App\Http\Controllers\Api\V1\GamificationStatsController;
 use App\Http\Controllers\Api\V1\KolabController;
@@ -661,6 +662,12 @@ Route::prefix('v1')->group(function (): void {
 
         Route::get('gamification/badges', [GamificationController::class, 'badges'])
             ->name('api.v1.gamification.badges');
+
+        // Server-owned XP economy (levels + per-action awards). Replaces the
+        // app's hardcoded ladder and earn-amount labels. Cached, busted on
+        // admin write via XpEarnRuleService / XpLevelService.
+        Route::get('gamification/config', GamificationConfigController::class)
+            ->name('api.v1.gamification.config');
 
         Route::get('gamification/referral-code', [GamificationController::class, 'referralCode'])
             ->name('api.v1.gamification.referral-code');

@@ -5,6 +5,8 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\KolabController as AdminKolabController;
 use App\Http\Controllers\Admin\ManagedUserController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
+use App\Http\Controllers\Admin\XpEarnRuleController as AdminXpEarnRuleController;
+use App\Http\Controllers\Admin\XpLevelController as AdminXpLevelController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -37,6 +39,16 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::post('/kolabs/{kolab}/collaboration/complete', [AdminKolabController::class, 'completeCollaboration'])->name('kolabs.collaboration.complete');
 
     Route::get('/stats', [AdminStatsController::class, 'index'])->name('stats.index');
+
+    Route::prefix('gamification')->as('gamification.')->group(function (): void {
+        Route::get('/earn-rules', [AdminXpEarnRuleController::class, 'index'])->name('earn-rules.index');
+        Route::get('/earn-rules/{earnRule}/edit', [AdminXpEarnRuleController::class, 'edit'])->name('earn-rules.edit');
+        Route::put('/earn-rules/{earnRule}', [AdminXpEarnRuleController::class, 'update'])->name('earn-rules.update');
+
+        Route::get('/levels', [AdminXpLevelController::class, 'index'])->name('levels.index');
+        Route::get('/levels/{level}/edit', [AdminXpLevelController::class, 'edit'])->name('levels.edit');
+        Route::put('/levels/{level}', [AdminXpLevelController::class, 'update'])->name('levels.update');
+    });
 });
 
 Route::view('/for-businesses', 'pages.for-businesses')->name('for-businesses');

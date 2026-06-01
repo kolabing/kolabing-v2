@@ -21,6 +21,7 @@ class GamificationWalletServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->seed(\Database\Seeders\XpEarnRuleSeeder::class);
         $this->service = app(GamificationWalletService::class);
     }
 
@@ -33,11 +34,9 @@ class GamificationWalletServiceTest extends TestCase
     public function test_award_points_creates_wallet_if_not_exists(): void
     {
         $profile = Profile::factory()->community()->create();
-        $points = PointEventType::CollaborationComplete->defaultPoints();
-
         $this->service->awardPoints(
             $profile->id,
-            $points,
+
             PointEventType::CollaborationComplete,
             'collab-uuid',
             'Collaboration completed'
@@ -52,11 +51,9 @@ class GamificationWalletServiceTest extends TestCase
     public function test_award_points_creates_ledger_entry(): void
     {
         $profile = Profile::factory()->community()->create();
-        $points = PointEventType::CollaborationComplete->defaultPoints();
-
         $this->service->awardPoints(
             $profile->id,
-            $points,
+
             PointEventType::CollaborationComplete,
             'collab-uuid',
             'Collaboration completed'
@@ -78,11 +75,9 @@ class GamificationWalletServiceTest extends TestCase
             'profile_id' => $profile->id,
             'points' => 10,
         ]);
-        $points = PointEventType::CollaborationComplete->defaultPoints();
-
         $this->service->awardPoints(
             $profile->id,
-            $points,
+
             PointEventType::CollaborationComplete,
             'collab-uuid',
             'Collaboration completed'
@@ -97,11 +92,9 @@ class GamificationWalletServiceTest extends TestCase
     public function test_award_points_uses_review_default_points(): void
     {
         $profile = Profile::factory()->community()->create();
-        $points = PointEventType::ReviewPosted->defaultPoints();
-
         $this->service->awardPoints(
             $profile->id,
-            $points,
+
             PointEventType::ReviewPosted,
             'review-uuid',
             'Review posted'
@@ -121,11 +114,9 @@ class GamificationWalletServiceTest extends TestCase
     public function test_award_points_uses_ugc_default_points(): void
     {
         $profile = Profile::factory()->community()->create();
-        $points = PointEventType::UgcPosted->defaultPoints();
-
         $this->service->awardPoints(
             $profile->id,
-            $points,
+
             PointEventType::UgcPosted,
             'ugc-uuid',
             'UGC posted'
@@ -145,11 +136,9 @@ class GamificationWalletServiceTest extends TestCase
     public function test_award_points_with_referral_conversion_default_points(): void
     {
         $profile = Profile::factory()->community()->create();
-        $points = PointEventType::ReferralConversion->defaultPoints();
-
         $this->service->awardPoints(
             $profile->id,
-            $points,
+
             PointEventType::ReferralConversion,
             'referral-uuid',
             'Referral: BCN Yoga Studio subscribed'
@@ -175,11 +164,9 @@ class GamificationWalletServiceTest extends TestCase
     public function test_first_kolab_badge_awarded_after_first_collaboration_complete(): void
     {
         $profile = Profile::factory()->community()->create();
-        $points = PointEventType::CollaborationComplete->defaultPoints();
-
         $this->service->awardPoints(
             $profile->id,
-            $points,
+
             PointEventType::CollaborationComplete,
             'collab-uuid',
             'Collaboration completed'
@@ -195,12 +182,10 @@ class GamificationWalletServiceTest extends TestCase
     {
         $profile = Profile::factory()->community()->create();
         Wallet::factory()->create(['profile_id' => $profile->id, 'points' => 0]);
-        $points = PointEventType::ReviewPosted->defaultPoints();
-
         for ($i = 1; $i <= 3; $i++) {
             $this->service->awardPoints(
                 $profile->id,
-                $points,
+
                 PointEventType::ReviewPosted,
                 "review-$i",
                 "Review $i"
@@ -217,12 +202,10 @@ class GamificationWalletServiceTest extends TestCase
     {
         $profile = Profile::factory()->community()->create();
         Wallet::factory()->create(['profile_id' => $profile->id, 'points' => 0]);
-        $points = PointEventType::ReviewPosted->defaultPoints();
-
         for ($i = 1; $i <= 2; $i++) {
             $this->service->awardPoints(
                 $profile->id,
-                $points,
+
                 PointEventType::ReviewPosted,
                 "review-$i",
                 "Review $i"
@@ -239,11 +222,9 @@ class GamificationWalletServiceTest extends TestCase
     {
         $profile = Profile::factory()->community()->create();
         Wallet::factory()->create(['profile_id' => $profile->id, 'points' => 39]);
-        $points = PointEventType::CollaborationComplete->defaultPoints();
-
         $this->service->awardPoints(
             $profile->id,
-            $points,
+
             PointEventType::CollaborationComplete,
             'collab-uuid',
             'Collaboration completed'
@@ -259,11 +240,9 @@ class GamificationWalletServiceTest extends TestCase
     {
         $profile = Profile::factory()->community()->create();
         Wallet::factory()->create(['profile_id' => $profile->id, 'points' => 40]);
-        $points = PointEventType::CollaborationComplete->defaultPoints();
-
         $this->service->awardPoints(
             $profile->id,
-            $points,
+
             PointEventType::CollaborationComplete,
             'collab-uuid',
             'Collaboration completed'
@@ -278,11 +257,9 @@ class GamificationWalletServiceTest extends TestCase
     public function test_referral_pioneer_badge_awarded_after_first_referral(): void
     {
         $profile = Profile::factory()->community()->create();
-        $points = PointEventType::ReferralConversion->defaultPoints();
-
         $this->service->awardPoints(
             $profile->id,
-            $points,
+
             PointEventType::ReferralConversion,
             'referral-uuid',
             'Referral converted'
@@ -298,12 +275,10 @@ class GamificationWalletServiceTest extends TestCase
     {
         $profile = Profile::factory()->community()->create();
         Wallet::factory()->create(['profile_id' => $profile->id, 'points' => 0]);
-        $points = PointEventType::CollaborationComplete->defaultPoints();
-
         for ($i = 1; $i <= 4; $i++) {
             $this->service->awardPoints(
                 $profile->id,
-                $points,
+
                 PointEventType::CollaborationComplete,
                 "collab-$i",
                 "Collab $i"
@@ -320,12 +295,10 @@ class GamificationWalletServiceTest extends TestCase
     {
         $profile = Profile::factory()->community()->create();
         Wallet::factory()->create(['profile_id' => $profile->id, 'points' => 0]);
-        $points = PointEventType::CollaborationComplete->defaultPoints();
-
         for ($i = 1; $i <= 5; $i++) {
             $this->service->awardPoints(
                 $profile->id,
-                $points,
+
                 PointEventType::CollaborationComplete,
                 "collab-$i",
                 "Collab $i"
@@ -341,10 +314,8 @@ class GamificationWalletServiceTest extends TestCase
     public function test_badge_not_awarded_twice(): void
     {
         $profile = Profile::factory()->community()->create();
-        $points = PointEventType::CollaborationComplete->defaultPoints();
-
-        $this->service->awardPoints($profile->id, $points, PointEventType::CollaborationComplete, 'c1', 'C1');
-        $this->service->awardPoints($profile->id, $points, PointEventType::CollaborationComplete, 'c2', 'C2');
+        $this->service->awardPoints($profile->id, PointEventType::CollaborationComplete, 'c1', 'C1');
+        $this->service->awardPoints($profile->id, PointEventType::CollaborationComplete, 'c2', 'C2');
 
         $count = EarnedBadge::query()
             ->where('profile_id', $profile->id)

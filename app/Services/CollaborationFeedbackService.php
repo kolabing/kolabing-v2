@@ -59,9 +59,9 @@ class CollaborationFeedbackService
             ]));
 
             // Per Q7: XP fires per party on /feedback POST, not on /complete.
+            // Amount sourced from xp_earn_rules — admin-editable.
             $this->walletService->awardPoints(
                 $reviewer->id,
-                PointEventType::CollaborationComplete->defaultPoints(),
                 PointEventType::CollaborationComplete,
                 $collaboration->id,
                 'Submitted collaboration feedback',
