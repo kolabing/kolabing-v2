@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             CommunityTypeSeeder::class,
             BadgeSeeder::class,
             SystemChallengeSeeder::class,
+            RewardEconomicsSeeder::class,
             RealisticDataSeeder::class,
         ]);
     }

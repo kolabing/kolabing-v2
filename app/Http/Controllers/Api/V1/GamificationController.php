@@ -18,6 +18,7 @@ use App\Models\PointLedger;
 use App\Models\Profile;
 use App\Models\ReferralCode;
 use App\Models\WithdrawalRequest;
+use App\Services\Admin\RewardEconomicsService;
 use App\Services\GamificationWalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,7 +27,8 @@ use Illuminate\Support\Facades\DB;
 class GamificationController extends Controller
 {
     public function __construct(
-        private readonly GamificationWalletService $walletService
+        private readonly GamificationWalletService $walletService,
+        private readonly RewardEconomicsService $economics,
     ) {}
 
     /**
@@ -137,20 +139,23 @@ class GamificationController extends Controller
             ], 409);
         }
 
+        $economics = $this->economics->current();
+        $thresholdPoints = $economics->withdrawalThresholdPoints();
+
         $availablePoints = $wallet->getAvailablePoints();
-        if ($availablePoints < 375) {
+        if ($availablePoints < $thresholdPoints) {
             return response()->json([
                 'success' => false,
-                'message' => "Insufficient points. Need 375, have {$availablePoints}.",
+                'message' => "Insufficient points. Need {$thresholdPoints}, have {$availablePoints}.",
             ], 400);
         }
 
-        $withdrawalRequest = DB::transaction(function () use ($profile, $wallet, $validated): WithdrawalRequest {
-            $eurAmount = round(375 * 0.20, 2);
+        $withdrawalRequest = DB::transaction(function () use ($profile, $wallet, $validated, $thresholdPoints, $economics): WithdrawalRequest {
+            $eurAmount = $economics->payoutFor($thresholdPoints);
 
             $withdrawalRequest = WithdrawalRequest::create([
                 'profile_id' => $profile->id,
-                'points' => 375,
+                'points' => $thresholdPoints,
                 'eur_amount' => $eurAmount,
                 'iban' => $validated['iban'],
                 'account_holder' => $validated['account_holder'],
@@ -159,13 +164,13 @@ class GamificationController extends Controller
 
             PointLedger::create([
                 'profile_id' => $profile->id,
-                'points' => -375,
+                'points' => -$thresholdPoints,
                 'event_type' => PointEventType::Withdrawal,
                 'reference_id' => $withdrawalRequest->id,
                 'description' => "Withdrawal of \u{20AC}".number_format($eurAmount, 2),
             ]);
 
-            $wallet->increment('redeemed_points', 375);
+            $wallet->increment('redeemed_points', $thresholdPoints);
             $wallet->update(['pending_withdrawal' => true]);
 
             return $withdrawalRequest;

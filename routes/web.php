@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\KolabController as AdminKolabController;
 use App\Http\Controllers\Admin\ManagedUserController;
+use App\Http\Controllers\Admin\RewardEconomicsController as AdminRewardEconomicsController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
 use Illuminate\Support\Facades\Route;
 
@@ -37,6 +38,11 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::post('/kolabs/{kolab}/collaboration/complete', [AdminKolabController::class, 'completeCollaboration'])->name('kolabs.collaboration.complete');
 
     Route::get('/stats', [AdminStatsController::class, 'index'])->name('stats.index');
+
+    Route::prefix('gamification')->as('gamification.')->group(function (): void {
+        Route::get('/economics', [AdminRewardEconomicsController::class, 'edit'])->name('economics.edit');
+        Route::put('/economics', [AdminRewardEconomicsController::class, 'update'])->name('economics.update');
+    });
 });
 
 Route::view('/for-businesses', 'pages.for-businesses')->name('for-businesses');

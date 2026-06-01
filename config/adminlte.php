@@ -333,6 +333,13 @@ return [
             'icon' => 'fas fa-fw fa-chart-line',
             'active' => ['admin/stats', 'admin/stats/*'],
         ],
+        ['header' => 'GAMIFICATION'],
+        [
+            'text' => 'Reward economics',
+            'route' => 'admin.gamification.economics.edit',
+            'icon' => 'fas fa-fw fa-euro-sign',
+            'active' => ['admin/gamification/economics', 'admin/gamification/economics/*'],
+        ],
     ],
 
     /*
