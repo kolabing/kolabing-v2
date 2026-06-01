@@ -41,4 +41,21 @@ enum GamificationBadgeSlug: string
             self::PowerPartner => 'A trusted voice - complete 5 Kolabs',
         };
     }
+
+    /**
+     * Which user audiences each enum-based badge applies to. Drives the
+     * grouping in the unified admin badge view.
+     *
+     * @return array<int, string>
+     */
+    public function audiences(): array
+    {
+        return match ($this) {
+            self::FirstKolab,
+            self::ContentCreator,
+            self::ReferralPioneer,
+            self::PowerPartner => ['business', 'community'],
+            self::CommunityEarner => ['community'],
+        };
+    }
 }

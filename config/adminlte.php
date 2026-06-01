@@ -346,6 +346,12 @@ return [
             'icon' => 'fas fa-fw fa-th',
             'active' => ['admin/gamification/challenges/defaults', 'admin/gamification/challenges/defaults/*'],
         ],
+        [
+            'text' => 'Badges',
+            'route' => 'admin.gamification.badges.index',
+            'icon' => 'fas fa-fw fa-award',
+            'active' => ['admin/gamification/badges', 'admin/gamification/badges/*'],
+        ],
     ],
 
     /*
