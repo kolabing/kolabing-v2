@@ -63,9 +63,12 @@
                                     </td>
                                     <td class="text-right">{{ number_format($row['award_count']) }}</td>
                                     <td class="text-right pr-4">
-                                        @if ($row['editable'])
-                                            <a href="{{ route('admin.gamification.badges.edit', $row['id']) }}"
-                                               class="btn btn-sm btn-outline-primary">Edit</a>
+                                        @php
+                                            $editUrl = $row['edit_route']
+                                                ?? (isset($row['id']) ? route('admin.gamification.badges.edit', $row['id']) : null);
+                                        @endphp
+                                        @if ($editUrl)
+                                            <a href="{{ $editUrl }}" class="btn btn-sm btn-outline-primary">Edit</a>
                                         @else
                                             <span class="badge badge-light text-uppercase">Read-only</span>
                                         @endif

@@ -91,7 +91,10 @@ class BadgesAdminTest extends TestCase
             ->assertSee('First Kolab')
             ->getContent();
 
-        $this->assertStringContainsString('Read-only', $html);
+        $this->assertStringContainsString(
+            route('admin.gamification.badges.system-b.edit', GamificationBadgeSlug::FirstKolab->value),
+            $html,
+        );
     }
 
     public function test_community_section_includes_community_only_badge(): void
@@ -161,5 +164,94 @@ class BadgesAdminTest extends TestCase
                 'milestone_value' => 1,
             ])
             ->assertForbidden();
+    }
+
+    public function test_system_b_edit_form_renders_with_enum_defaults(): void
+    {
+        $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.gamification.badges.system-b.edit', GamificationBadgeSlug::ContentCreator->value))
+            ->assertOk()
+            ->assertSee(GamificationBadgeSlug::ContentCreator->displayName())
+            ->assertSee('Audiences');
+    }
+
+    public function test_system_b_update_creates_override_row(): void
+    {
+        $this->actingAs($this->maintainer(), 'admin')
+            ->put(route('admin.gamification.badges.system-b.update', GamificationBadgeSlug::FirstKolab->value), [
+                'name' => 'First Collab',
+                'description' => 'You shipped your first one.',
+                'icon' => 'rocket',
+                'audiences' => ['business'],
+            ])
+            ->assertRedirect(route('admin.gamification.badges.index'));
+
+        $this->assertDatabaseHas('gamification_badge_overrides', [
+            'badge_slug' => GamificationBadgeSlug::FirstKolab->value,
+            'name' => 'First Collab',
+            'icon' => 'rocket',
+        ]);
+    }
+
+    public function test_system_b_override_appears_in_index(): void
+    {
+        $this->actingAs($this->maintainer(), 'admin')
+            ->put(route('admin.gamification.badges.system-b.update', GamificationBadgeSlug::PowerPartner->value), [
+                'name' => 'Power Player',
+                'description' => null,
+                'icon' => null,
+                'audiences' => null,
+            ])->assertRedirect();
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.gamification.badges.index'))
+            ->assertOk()
+            ->assertSee('Power Player')
+            ->assertDontSee(GamificationBadgeSlug::PowerPartner->displayName());
+    }
+
+    public function test_system_b_audience_override_moves_badge_between_sections(): void
+    {
+        $this->actingAs($this->maintainer(), 'admin')
+            ->put(route('admin.gamification.badges.system-b.update', GamificationBadgeSlug::CommunityEarner->value), [
+                'name' => null,
+                'description' => null,
+                'icon' => null,
+                'audiences' => ['business'],
+            ])->assertRedirect();
+
+        $html = $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.gamification.badges.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString(GamificationBadgeSlug::CommunityEarner->displayName(), $html);
+    }
+
+    public function test_system_b_update_rejects_non_maintainer(): void
+    {
+        $nonMaintainer = User::factory()->create(['is_maintainer' => false]);
+
+        $this->actingAs($nonMaintainer, 'admin')
+            ->put(route('admin.gamification.badges.system-b.update', GamificationBadgeSlug::FirstKolab->value), [
+                'name' => 'X',
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_system_b_update_validates_audience_values(): void
+    {
+        $this->actingAs($this->maintainer(), 'admin')
+            ->put(route('admin.gamification.badges.system-b.update', GamificationBadgeSlug::FirstKolab->value), [
+                'audiences' => ['attendee'],
+            ])
+            ->assertSessionHasErrors('audiences.0');
+    }
+
+    public function test_system_b_invalid_slug_404s(): void
+    {
+        $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.gamification.badges.system-b.edit', 'not_a_real_slug'))
+            ->assertNotFound();
     }
 }
