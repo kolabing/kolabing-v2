@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
+use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
 use App\Http\Controllers\Admin\ChallengeController as AdminChallengeController;
 use App\Http\Controllers\Admin\ChallengeDefaultsController as AdminChallengeDefaultsController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -50,6 +51,10 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
         Route::get('/challenges/{challenge}/edit', [AdminChallengeController::class, 'edit'])->name('challenges.edit');
         Route::put('/challenges/{challenge}', [AdminChallengeController::class, 'update'])->name('challenges.update');
         Route::delete('/challenges/{challenge}', [AdminChallengeController::class, 'destroy'])->name('challenges.destroy');
+
+        Route::get('/badges', [AdminBadgeController::class, 'index'])->name('badges.index');
+        Route::get('/badges/{badge}/edit', [AdminBadgeController::class, 'edit'])->name('badges.edit');
+        Route::put('/badges/{badge}', [AdminBadgeController::class, 'update'])->name('badges.update');
     });
 });
 
