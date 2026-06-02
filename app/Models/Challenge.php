@@ -42,6 +42,7 @@ class Challenge extends Model
         'is_system',
         'category',
         'event_id',
+        'audience',
     ];
 
     /** @return array<string, string> */
@@ -52,6 +53,7 @@ class Challenge extends Model
             'points' => 'integer',
             'is_system' => 'boolean',
             'category' => ChallengeCategory::class,
+            'audience' => \App\Enums\ChallengeAudience::class,
         ];
     }
 

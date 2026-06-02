@@ -26,6 +26,7 @@ class ChallengeResource extends JsonResource
             'points' => $this->points,
             'is_system' => $this->is_system,
             'category' => $this->category?->value,
+            'audience' => $this->audience?->value ?? 'both',
             'event_id' => $this->event_id,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

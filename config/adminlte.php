@@ -333,6 +333,19 @@ return [
             'icon' => 'fas fa-fw fa-chart-line',
             'active' => ['admin/stats', 'admin/stats/*'],
         ],
+        ['header' => 'GAMIFICATION'],
+        [
+            'text' => 'Challenges',
+            'route' => 'admin.gamification.challenges.index',
+            'icon' => 'fas fa-fw fa-flag-checkered',
+            'active' => ['admin/gamification/challenges', 'admin/gamification/challenges/*'],
+        ],
+        [
+            'text' => 'Challenge defaults',
+            'route' => 'admin.gamification.challenges.defaults.index',
+            'icon' => 'fas fa-fw fa-th',
+            'active' => ['admin/gamification/challenges/defaults', 'admin/gamification/challenges/defaults/*'],
+        ],
     ],
 
     /*

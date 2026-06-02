@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
+use App\Http\Controllers\Admin\ChallengeController as AdminChallengeController;
+use App\Http\Controllers\Admin\ChallengeDefaultsController as AdminChallengeDefaultsController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\KolabController as AdminKolabController;
 use App\Http\Controllers\Admin\ManagedUserController;
@@ -37,6 +39,18 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::post('/kolabs/{kolab}/collaboration/complete', [AdminKolabController::class, 'completeCollaboration'])->name('kolabs.collaboration.complete');
 
     Route::get('/stats', [AdminStatsController::class, 'index'])->name('stats.index');
+
+    Route::prefix('gamification')->as('gamification.')->group(function (): void {
+        Route::get('/challenges/defaults', [AdminChallengeDefaultsController::class, 'index'])->name('challenges.defaults.index');
+        Route::put('/challenges/defaults', [AdminChallengeDefaultsController::class, 'update'])->name('challenges.defaults.update');
+
+        Route::get('/challenges', [AdminChallengeController::class, 'index'])->name('challenges.index');
+        Route::get('/challenges/create', [AdminChallengeController::class, 'create'])->name('challenges.create');
+        Route::post('/challenges', [AdminChallengeController::class, 'store'])->name('challenges.store');
+        Route::get('/challenges/{challenge}/edit', [AdminChallengeController::class, 'edit'])->name('challenges.edit');
+        Route::put('/challenges/{challenge}', [AdminChallengeController::class, 'update'])->name('challenges.update');
+        Route::delete('/challenges/{challenge}', [AdminChallengeController::class, 'destroy'])->name('challenges.destroy');
+    });
 });
 
 Route::view('/for-businesses', 'pages.for-businesses')->name('for-businesses');

@@ -296,6 +296,11 @@ class CollaborationService
                 'contact_methods' => $data['contact_methods'] ?? null,
             ]);
 
+            // Seed role-based default challenges. Idempotent — skips if any
+            // challenges already attached.
+            app(\App\Services\Admin\ChallengeDefaultsService::class)
+                ->seedForCollaboration($collaboration);
+
             return $collaboration->load([
                 'collabOpportunity',
                 'creatorProfile',
