@@ -53,6 +53,8 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
         Route::delete('/challenges/{challenge}', [AdminChallengeController::class, 'destroy'])->name('challenges.destroy');
 
         Route::get('/badges', [AdminBadgeController::class, 'index'])->name('badges.index');
+        Route::get('/badges/system-b/{slug}/edit', [AdminBadgeController::class, 'editSystemB'])->name('badges.system-b.edit');
+        Route::put('/badges/system-b/{slug}', [AdminBadgeController::class, 'updateSystemB'])->name('badges.system-b.update');
         Route::get('/badges/{badge}/edit', [AdminBadgeController::class, 'edit'])->name('badges.edit');
         Route::put('/badges/{badge}', [AdminBadgeController::class, 'update'])->name('badges.update');
     });
