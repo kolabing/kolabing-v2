@@ -98,6 +98,15 @@ class CollaborationResource extends JsonResource
             'selected_challenge_ids' => $this->whenLoaded('challenges', function () {
                 return $this->challenges->pluck('id')->values();
             }),
+            'challenge_bonuses' => $this->whenLoaded('challengeBonuses', function () {
+                return $this->challengeBonuses->map(fn ($bonus): array => [
+                    'challenge_id' => $bonus->challenge_id,
+                    'bonus_type' => $bonus->bonus_type->value,
+                    'bonus_value' => $bonus->bonus_value,
+                    'bonus_description' => $bonus->bonus_description,
+                    'set_by_profile_id' => $bonus->set_by_profile_id,
+                ])->values();
+            }),
             'completed_at' => $this->completed_at?->toIso8601String(),
             'completion_reason' => $this->completion_reason,
             'completed_by_profile_id' => $this->completed_by_profile_id,

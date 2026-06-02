@@ -190,6 +190,16 @@ class Collaboration extends Model
     }
 
     /**
+     * Per-challenge bonuses the business added on top.
+     *
+     * @return HasMany<CollaborationChallengeBonus, $this>
+     */
+    public function challengeBonuses(): HasMany
+    {
+        return $this->hasMany(CollaborationChallengeBonus::class);
+    }
+
+    /**
      * Check if the collaboration is scheduled.
      */
     public function isScheduled(): bool
