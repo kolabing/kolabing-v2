@@ -15,6 +15,9 @@ use App\Http\Controllers\Api\V1\CollaborationChallengeBonusController;
 use App\Http\Controllers\Api\V1\CollaborationChallengeController;
 use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\CollaborationQrCodeController;
+use App\Http\Controllers\Api\V1\CommunityController;
+use App\Http\Controllers\Api\V1\CommunityMemberController;
+use App\Http\Controllers\Api\V1\CommunityTierController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\DiscoveryOpportunityController;
@@ -322,9 +325,46 @@ Route::prefix('v1')->group(function (): void {
         Route::get('events/{event}/leaderboard', [LeaderboardController::class, 'eventLeaderboard'])
             ->name('api.v1.events.leaderboard');
 
-        // Global leaderboard
+        // Global leaderboard (optional ?community_id= for chapter-scoped view)
         Route::get('leaderboard/global', [LeaderboardController::class, 'globalLeaderboard'])
             ->name('api.v1.leaderboard.global');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Communities — members & customisable tiers (NF-6)
+        |--------------------------------------------------------------------------
+        */
+        Route::get('me/communities', [CommunityController::class, 'index'])
+            ->name('api.v1.me.communities');
+        Route::get('me/memberships', [CommunityController::class, 'myMemberships'])
+            ->name('api.v1.me.memberships');
+
+        Route::post('communities', [CommunityController::class, 'store'])
+            ->name('api.v1.communities.store');
+        Route::get('communities/{community}', [CommunityController::class, 'show'])
+            ->name('api.v1.communities.show');
+        Route::patch('communities/{community}', [CommunityController::class, 'update'])
+            ->name('api.v1.communities.update');
+        Route::post('communities/{community}/join', [CommunityController::class, 'join'])
+            ->name('api.v1.communities.join');
+
+        Route::get('communities/{community}/tiers', [CommunityTierController::class, 'index'])
+            ->name('api.v1.communities.tiers.index');
+        Route::post('communities/{community}/tiers', [CommunityTierController::class, 'store'])
+            ->name('api.v1.communities.tiers.store');
+        Route::patch('tiers/{tier}', [CommunityTierController::class, 'update'])
+            ->name('api.v1.tiers.update');
+        Route::delete('tiers/{tier}', [CommunityTierController::class, 'destroy'])
+            ->name('api.v1.tiers.destroy');
+
+        Route::get('communities/{community}/members', [CommunityMemberController::class, 'index'])
+            ->name('api.v1.communities.members.index');
+        Route::post('communities/{community}/members', [CommunityMemberController::class, 'store'])
+            ->name('api.v1.communities.members.store');
+        Route::patch('communities/{community}/members/{member}', [CommunityMemberController::class, 'update'])
+            ->name('api.v1.communities.members.update');
+        Route::delete('communities/{community}/members/{member}', [CommunityMemberController::class, 'destroy'])
+            ->name('api.v1.communities.members.destroy');
 
         /*
         |--------------------------------------------------------------------------
