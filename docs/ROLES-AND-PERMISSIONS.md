@@ -1,6 +1,6 @@
 # Kolabing — Roles, Permissions & Features (Canonical Reference)
 
-**Last updated:** 2026-06-01 (feedback gate + admin force-complete shipped same day)
+**Last updated:** 2026-06-03 (NF-6 community members + customisable tiers, Phase 1)
 **Status:** Authoritative. This document overrides assumptions.
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical. When role behaviour changes, update both **and bump the Last updated date** in both.
 
@@ -192,6 +192,8 @@ Nothing. There is no paywall and no gated action on the community side. If code 
 | Reviews and feedback | No | Yes | Yes | n/a |
 | Check into events, complete challenges, earn badges | n/a | n/a | n/a | **Yes** — gamification track |
 | Earn credits, refer, withdraw | n/a | Business referral perks exist, tracked separately | Yes (€0.25/pt, €75 threshold) | **[VERIFY]** whether attendee wallet redeems to cash |
+| Run a member roster + custom tiers (NF-6, §8) | n/a | n/a | **Yes** — Community Leader owns communities, defines tiers, manages roster (free; capped at 1 community pending NF-7) | n/a |
+| Be a member of a community + hold a tier (NF-6, §8) | n/a | n/a | n/a | **Yes** — as a "Community Member" (wire value stays `attendee`); one tier per community, chapter-scoped leaderboard |
 
 ---
 
@@ -238,7 +240,39 @@ Until those are resolved, treat **§0 attendee row as the stale legacy** and thi
 
 ---
 
-## 8. Maintaining this document
+## 8. Community members & customisable tiers (NF-6 Phase 1, added 2026-06-03)
+
+This is a NEW role surface. It gives a **Community Leader** (the `community` user type) the tooling to run a real membership organisation, and gives a **Community Member** (the `attendee` user type, relabelled in UI copy only) a place in one or more communities with a leader-defined status tier. It is community-agnostic (Greek life is the launch inspiration, but it serves fitness studios, running clubs, and business communities equally).
+
+### 8.1 The two roles in this feature
+- **Community Leader = the `community` user type.** Creates communities, defines tiers + rules, invites/approves members, assigns/auto-assigns tiers, views member activity. Surfaced in the app as a new "Community" tab.
+- **Community Member = the `attendee` user type.** "Community Member" is an **app label only** — the wire value stays `attendee` (decision D4; do NOT add a `user_type` enum value). Members see which communities they belong to and their tier in each.
+
+### 8.2 What Kolabing ships vs. what the leader supplies
+Kolabing ships the **mechanism** (tiers + rules + roster). The leader supplies the **meaning** (tier names, colors, thresholds). The Greek "Exec / Active / Pledge" ladder is not special-cased — it is simply three tiers a leader configured. The app renders whatever tiers the leader defines, in rank order.
+
+### 8.3 Locked product decisions
+- **Tier ⟂ admin (D1):** a tier is the member-facing status ladder. "Can manage" is a **separate `can_manage` boolean** on the membership, granted independently. The top tier is NOT coupled to admin power.
+- **Multi-community (D2):** a member belongs to many communities, **one tier per community** (tier lives on the membership row).
+- **Tier payload (D3):** each tier carries a flexible `permissions` JSON (`{view, chat_channels, perks, capabilities}`). Phase 1 stores + returns it; gating enforcement comes later.
+- **Free vs premium (D5):** **one community free per leader.** Creating a 2nd+ community returns `422 community_limit_reached` — a NEW gate reserved for the future **NF-7 Community Premium**. This is hard-capped at 1 for now via `config('communities.max_free_communities')`.
+- **Join model:** a community has a `join_policy` of `open` (members may self-join AND the leader may invite) or `invite_only` (leader / `can_manage` add only). Default `open`.
+- **Cash-out:** v1 tiers carry **status + non-cash perks only**. Tiers are NOT wired into wallets / withdrawal_requests.
+
+### 8.4 NEVER paywall this surface
+The community cap (§8.3, D5) is its own config-driven gate with its own error code. **It must never call `Profile::hasActiveSubscription()` and must never reuse the business paywall** (the business paywall is business-only, §6 and DB-MAP §3). A community or attendee path must never hit a subscription gate. The `CommunityPolicy` gates mutation on ownership / `can_manage` only.
+
+### 8.5 Tier auto-assignment
+Tiers can auto-assign by rule: `xp_threshold` (member XP from `point_ledger`), `tenure` (days since `joined_at`), `events_attended` (check-ins on the community's events). `manual` tiers are leader-only and never auto-touched, and a member a leader manually placed on a non-default manual tier is never auto-overwritten. A member is promoted to the **highest-rank** tier whose rule they satisfy; members are never auto-demoted. Runs nightly (`app:evaluate-community-tiers`) and immediately on check-in.
+
+### 8.6 The community ↔ events linkage
+"This community's events" is defined by a new nullable `events.community_id` FK. The `events_attended` rule counts check-ins on events with that `community_id`. The chapter-scoped leaderboard (`GET /leaderboard/global?community_id=`) is scoped by **active membership** (the global leaderboard filtered to one community's members). Organiser's events are NOT silently assumed to be the community's events.
+
+Backend wiring (tables, endpoints, policy, command) is in `ROLES-BACKEND-DB-MAP.md §12`.
+
+---
+
+## 9. Maintaining this document
 
 This file and `docs/ROLES-BACKEND-DB-MAP.md` are read by every Claude session that touches role-affecting code (see the project `CLAUDE.md`). They are also duplicated in the `kolabing-app` repo.
 

@@ -1,6 +1,6 @@
 # Kolabing — Roles → Backend → Database Map (Ground-Truth)
 
-**Last updated:** 2026-06-01 (feedback gate + admin force-complete + auto-timeout shipped same day)
+**Last updated:** 2026-06-03 (NF-6 community members + customisable tiers, Phase 1)
 **Status:** Authoritative companion to [`ROLES-AND-PERMISSIONS.md`](./ROLES-AND-PERMISSIONS.md). Read that first (the *what*), then this (the *where*).
 **Sync note:** Duplicated in both repos (`kolabing-app`, `kolabing-v2`). Keep identical, and **bump the Last updated date in both** when role behaviour or backend wiring changes.
 
@@ -20,7 +20,8 @@
 6. ⚠️ **NEW — attendee gamification track has shipped** but the canonical permissions doc still describes attendees as "deferred / out of scope". `AttendeeProfile`, `Wallet`, `EarnedBadge`, `EventCheckin`, `ChallengeCompletion`, and ~40 gamification endpoints are live. See §11.
 7. ⚠️ **NEW — `coliving` is in the canonical role spec (`ROLES-AND-PERMISSIONS.md` §2.1) but missing from `BusinessOnboardingRequest::BUSINESS_TYPES`.** A `coliving` onboarding payload is rejected server-side. Trivial fix; see §8 checklist.
 8. ⚠️ **NEW — admin operator surfaces.** Maintainers can grant a 12-month subscription with `source = maintainer`, force-cancel collaborations, and (since 2026-06-01) **force-complete** collaborations from `/admin/*`. Make sure new gate code accounts for `source = maintainer` (still an `active` row; behaves identically to a Stripe-paid sub). See §9.
-9. ✅ **Feedback gate on `/complete` is live** (2026-06-01). `CollaborationService::complete()` refuses until both participants have a `collaboration_feedback` row; per-party CollaborationComplete XP fires on `/feedback` not `/complete`; legacy `/review` calls auto-mirror a stub feedback row so the gate succeeds during mobile rollout. Soft-rollout knob: `config('collaborations.complete_requires_feedback')`. See §3 and §10.
+9. ⚠️ **NEW — community members + tiers surface (NF-6).** Three new tables (`communities`, `community_tiers`, `community_members`) + a nullable `events.community_id`. The "one free community" cap is a **NEW config-driven gate** (`config('communities.max_free_communities')` → `CommunityLimitReachedException` → 422 `community_limit_reached`). It is NOT the business paywall — do NOT add `hasActiveSubscription()` anywhere on this surface. See §12.
+10. ✅ **Feedback gate on `/complete` is live** (2026-06-01). `CollaborationService::complete()` refuses until both participants have a `collaboration_feedback` row; per-party CollaborationComplete XP fires on `/feedback` not `/complete`; legacy `/review` calls auto-mirror a stub feedback row so the gate succeeds during mobile rollout. Soft-rollout knob: `config('collaborations.complete_requires_feedback')`. See §3 and §10.
 
 ---
 
@@ -182,6 +183,7 @@ Fixed since the last revision:
 - [x] Profile logo returns an absolute URL via `PublicProfileResource::absoluteUrl()` from the correct column. (§5)
 - [x] Collaboration cancellation now persists `cancellation_reason`, `cancelled_at`, and `cancelled_by_profile_id` (§10).
 - [x] **Feedback gate on `/complete` shipped** with admin force-complete, auto-timeout scheduler, and a `/review`→`/feedback` mirror for legacy clients (§3, §9, §10). XP moved from `/complete` to `/feedback` per Q7. PR #9, 2026-06-01.
+- [x] **NF-6 community members + tiers, Phase 1 shipped** (2026-06-03): `communities` / `community_tiers` / `community_members` tables, `events.community_id`, `CommunityPolicy`, the cap gate (NOT the paywall), the auto-assignment command + on-check-in hook, and the chapter-scoped leaderboard. See §12.
 
 Still open:
 
@@ -282,3 +284,80 @@ The attendee track ships substantial code despite `ROLES-AND-PERMISSIONS.md §0`
 - Should the canonical permissions doc grow a full §4 covering attendees, replacing the "deferred" stub?
 
 Until those are resolved, treat this section as the source of truth for what attendees can do, and treat `ROLES-AND-PERMISSIONS.md §0` (attendee = deferred) as **stale**.
+
+---
+
+## 12. Community members & customisable tiers — backend map (added 2026-06-03)
+
+Implements `ROLES-AND-PERMISSIONS.md §8`. Service-layer only (no DB triggers), Sanctum-authed under `/api/v1`.
+
+### 12.1 New tables
+
+```
+communities (id uuid PK, owner_profile_id FK->profiles cascade,
+             community_profile_id FK->community_profiles nullOnDelete null,
+             name, slug UNIQUE, type[greek|fitness|running|business|other],
+             description?, avatar_url?, is_primary bool default true,
+             join_policy[open|invite_only] default open, timestamps, softDeletes)
+ ├─1:N─ community_tiers   (id uuid PK, community_id FK->communities cascade,
+ │                         name, rank int (ascending = higher), color?,
+ │                         assignment_rule[manual|xp_threshold|tenure|events_attended],
+ │                         threshold int? (XP / days / event count; null for manual),
+ │                         permissions json? ({view,chat_channels,perks,capabilities}),
+ │                         is_default bool default false (exactly one per community), timestamps)
+ └─1:N─ community_members (id uuid PK, community_id FK->communities cascade,
+                           profile_id FK->profiles cascade (an attendee account),
+                           tier_id FK->community_tiers nullOnDelete null,
+                           can_manage bool default false (ORTHOGONAL to tier — D1),
+                           status[active|inactive|removed] default active,
+                           joined_at, tier_assigned_at?, timestamps,
+                           UNIQUE(community_id, profile_id))
+
+events.community_id  FK->communities nullOnDelete null   ← the §8.6 linkage
+```
+
+Enums (`app/Enums`): `CommunityType`, `TierAssignmentRule`, `JoinPolicy`, `CommunityMemberStatus`. Models: `Community`, `CommunityTier`, `CommunityMember` (+ `Profile::ownedCommunities()` / `communityMemberships()`, `Event::community()`).
+
+### 12.2 The cap gate — NOT the paywall
+
+| Concept | Code | Notes |
+|---|---|---|
+| Free community cap | `CommunityService::create()` → `config('communities.max_free_communities', 1)` → `CommunityLimitReachedException` | Controller catches → **HTTP 422** `{error: community_limit_reached}`. **Never** calls `hasActiveSubscription()`. Reserved for NF-7 Community Premium. |
+| Default tier | `CommunityService::create()` auto-creates one `is_default` manual tier (`Member`, rank 1) | New joiners land here; it is the floor auto-rules promote away from. |
+| Authorization | `CommunityPolicy::manage()` = owner OR active member with `can_manage` | Registered in `AppServiceProvider`. Mutating tiers/roster/community requires it. No subscription check. |
+
+### 12.3 Endpoints (all `auth:sanctum`, `routes/api.php`)
+
+| Method + path | Controller | Gate |
+|---|---|---|
+| `GET /me/communities` | `CommunityController@index` | auth (owned only) |
+| `GET /me/memberships` | `CommunityController@myMemberships` | auth (own memberships + tier) |
+| `POST /communities` | `CommunityController@store` | cap gate; 201 / 422 |
+| `GET /communities/{community}` | `@show` | auth |
+| `PATCH /communities/{community}` | `@update` | `manage` |
+| `POST /communities/{community}/join` | `@join` | open only, else **403** `invite_only` |
+| `GET /communities/{community}/tiers` | `CommunityTierController@index` | auth |
+| `POST /communities/{community}/tiers` | `@store` | `manage` |
+| `PATCH /tiers/{tier}` | `@update` | `manage` (on `tier->community`) |
+| `DELETE /tiers/{tier}` | `@destroy` | `manage`; **422** `cannot_delete_default_tier` |
+| `GET /communities/{community}/members` | `CommunityMemberController@index` | auth (paginated, nested tier+profile) |
+| `POST /communities/{community}/members` | `@store` | `manage` (invite/add, any join policy) |
+| `PATCH /communities/{community}/members/{member}` | `@update` | `manage` (tier_id / can_manage / status; 422 if tier not in community) |
+| `DELETE /communities/{community}/members/{member}` | `@destroy` | `manage` (soft → status removed) |
+| `GET /leaderboard/global?community_id=` | `LeaderboardController@globalLeaderboard` | chapter scope (404 if community unknown) |
+
+Resources (`app/Http/Resources/Api/V1`): `CommunityResource`, `CommunityTierResource` (always returns the four permission buckets), `CommunityMemberResource` (nested `tier` + `profile{name,avatar_url}` plus flat `tier_id`). Shapes match the app's Dart models in `kolabing-app/lib/features/community/models/`.
+
+### 12.4 Auto-assignment
+
+- `TierAssignmentService::evaluateMember()` / `evaluateCommunity()`: promotes to the **highest-rank** non-manual tier satisfied; never demotes; never overwrites a leader-set non-default manual tier; skips non-active members.
+  - `xp_threshold` → `SUM(point_ledger.points where profile_id = member)` ≥ threshold (append-only ledger is the XP source of truth, swap to NF-5 `GET /gamification/config` when it ships).
+  - `tenure` → `joined_at` diff in days ≥ threshold.
+  - `events_attended` → count of `event_checkins` for the member on events where `events.community_id = {community}` ≥ threshold.
+- `app:evaluate-community-tiers [--dry-run]` (`routes/console.php`, `dailyAt('02:00')`).
+- On-check-in hook: `CheckinService::checkin()` re-evaluates the member's active memberships immediately (wrapped in try/catch + `Log::warning` so a hook failure never breaks check-in).
+
+### 12.5 What this surface must never do
+- Never call `Profile::hasActiveSubscription()` or throw `SubscriptionRequiredException`. The cap is the only gate and it is config-driven.
+- Never add a `user_type` enum value for "community member" — the wire value stays `attendee` (D4).
+- Never couple `can_manage` to the top tier (D1).
