@@ -44,6 +44,7 @@ class Event extends Model
      */
     protected $fillable = [
         'profile_id',
+        'community_id',
         'name',
         'partner_name',
         'partner_type',
@@ -78,6 +79,16 @@ class Event extends Model
     public function profile(): BelongsTo
     {
         return $this->belongsTo(Profile::class);
+    }
+
+    /**
+     * The community this event belongs to (nullable; NF-6 §0.6 linkage).
+     *
+     * @return BelongsTo<Community, $this>
+     */
+    public function community(): BelongsTo
+    {
+        return $this->belongsTo(Community::class);
     }
 
     /**
