@@ -1,8 +1,66 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(awk -F: '{print $1}')",
+      "Bash(grep -rlE \"KolabingColors\\\\.textPrimary\\([^A-Za-z]|$\\)\" lib/)",
+      "Bash(grep -rlE \"KolabingColors\\\\.textSecondary\\([^A-Za-z]|$\\)\" lib/)",
+      "Bash(grep -rlE \"KolabingColors\\\\.accent\\([^A-Za-z]|$\\)\" lib/)",
+      "Bash(grep -rlE \"KolabingColors\\\\.border\\([^A-Za-z]|$\\)\" lib/)",
+      "Bash(grep -rlE 'KolabingColors\\\\.border\\([^A-Za-z]|$\\)' lib/)",
+      "Bash(perl -i -pe 's/KolabingColors\\\\.textPrimary\\\\b/KolabingColors.onSurface/g' lib/features/auth/screens/login_screen.dart)",
+      "Bash(perl -i -pe 's/KolabingColors\\\\.textSecondary\\\\b/KolabingColors.onSurfaceVariant/g' lib/features/auth/screens/sign_in_screen.dart)",
+      "Bash(perl -i -pe 's/KolabingColors\\\\.accent\\\\b/KolabingColors.secondary/g' lib/features/gamification/widgets/leaderboard_podium.dart lib/features/onboarding/widgets/photo_upload_widget.dart)",
+      "Bash(perl -i -pe 's/KolabingColors\\\\.border\\\\b/KolabingColors.darkBorder/g' lib/features/business/screens/community_offer_detail_screen.dart lib/features/kolab/screens/community/needs_screen.dart lib/features/kolab/screens/community/event_details_screen.dart lib/features/kolab/screens/business/availability_screen.dart lib/features/kolab/screens/community/community_info_screen.dart lib/features/kolab/screens/business/venue_details_screen.dart lib/features/kolab/screens/community/logistics_screen.dart lib/features/kolab/screens/business/ideal_community_screen.dart lib/features/kolab/screens/business/product_details_screen.dart lib/widgets/match_breakdown.dart lib/widgets/time_picker.dart lib/widgets/referral_code_field.dart lib/widgets/explore_filter_sheet.dart lib/widgets/explore_detail_sheet.dart lib/widgets/explore_swipe_card.dart lib/features/onboarding/widgets/google_photos_preview_sheet.dart lib/features/onboarding/screens/business/business_step2_screen.dart lib/features/onboarding/screens/business/business_step5_screen.dart)",
+      "Bash(grep -rcE 'KolabingColors\\\\.textPrimary\\([^A-Za-z]|$\\)' lib/)",
+      "Bash(grep -rcE 'KolabingColors\\\\.textSecondary\\([^A-Za-z]|$\\)' lib/)",
+      "Bash(grep -rcE 'KolabingColors\\\\.border\\([^A-Za-z]|$\\)' lib/)",
+      "Bash(grep -rcE 'KolabingColors\\\\.accent\\([^A-Za-z]|$\\)' lib/)",
+      "Bash(grep -rcE 'KolabingColors\\\\.darkBackground\\([^A-Za-z]|$\\)' lib/)",
+      "Bash(sort -u -t: -k1,1n)",
+      "Bash(perl -pe 's/KolabingColors\\\\.border\\\\b\\(?![A-Za-z]\\)/REPLACED/g')",
+      "Bash(df -h /private/tmp && rm -rf /private/tmp/claude-501/*/tasks 2>/dev/null; df -h /private/tmp)",
+      "Bash(export CLAUDE_CODE_TMPDIR=/tmp)",
+      "Bash(grep -n \"GoogleFonts\\\\.\" /Users/macbook/kolabing-app/kolabing-app/lib/features/application/screens/application_review_screen.dart)",
+      "Bash(python3 -)",
+      "Bash(echo \"Flutter starting in background PID $!\")",
+      "Bash(pkill -f \"flutter\")",
+      "Bash(pkill -f \"dart\")",
+      "Bash(awk '{print $2}')",
+      "Bash(curl -s \"http://127.0.0.1:50611/2E-nOZivLuo=/reloadSources\" -d '{}' -H \"Content-Type: application/json\")",
+      "Bash(curl -s \"http://127.0.0.1:50611/2E-nOZivLuo=/\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('result','?'\\)\\)\")",
+      "Bash(kill 8547)",
+      "Bash(git remote *)",
+      "Bash(echo \"Flutter launching with PID $!\")",
+      "Bash(tmux capture-pane *)",
+      "Bash(pkill -f xcodebuild)",
+      "Bash(osascript -e ' *)",
+      "Bash(osascript)",
+      "Bash(osascript -e 'tell application \"System Events\" to click at {722, 781}')",
+      "Bash(python3 -c ' *)",
+      "Bash(osascript -e 'tell application \"Simulator\" to activate')",
+      "Bash(tmux list-sessions *)",
+      "Bash(/Users/macbook/.claude/plugins/cache/claude-plugins-official/superpowers/5.1.0/skills/brainstorming/scripts/start-server.sh --project-dir /Users/macbook/kolabing-app/kolabing-app)",
+      "Bash(export TMPDIR=/tmp)",
+      "Bash(grep -n \"headlineMedium\\\\|headlineLarge\" /Users/macbook/kolabing-app/kolabing-app/lib/features/rewards/screens/withdrawal_request_screen.dart)",
+      "Bash(grep -n \"headlineLarge\" /Users/macbook/kolabing-app/kolabing-app/lib/features/rewards/widgets/referral_banner_card.dart)",
+      "Bash(xargs ls -1)",
+      "Bash(find /Users/macbook/kolabing-app/kolabing-app/lib/features/kolab -name \"*.dart\")",
+      "Bash(rm -rf /private/tmp/claude-501/-Users-macbook-kolabing-app-kolabing-v2/2943aba9-6dd4-455b-8a0a-15e251a38f0f/tasks/*.output 2>/dev/null; echo \"cleaned\")",
+      "Bash(curl -s \"http://127.0.0.1:50116/HyGyTYFwc8w=/getVM\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(list\\(d.keys\\(\\)\\)[:8]\\)\")",
+      "Bash(curl -s -X POST http://127.0.0.1:50116/HyGyTYFwc8w=/ -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"getVM\",\"params\":{},\"id\":1}')"
+    ],
+    "additionalDirectories": [
+      "/private/tmp/claude-501/*",
+      "/private/tmp/claude-501/-Users-macbook-kolabing-app-kolabing-v2/2943aba9-6dd4-455b-8a0a-15e251a38f0f/tasks"
+    ]
+  },
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true,
     "php-lsp@claude-plugins-official": true,
     "firebase@claude-plugins-official": true
-  }
+  },
+  "defaultMode": "bypassPermissions"
 }
