@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\ChallengeDefaultsController as AdminChallengeDefa
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\KolabController as AdminKolabController;
 use App\Http\Controllers\Admin\ManagedUserController;
+use App\Http\Controllers\Admin\RewardEconomicsController as AdminRewardEconomicsController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Admin\XpEarnRuleController as AdminXpEarnRuleController;
 use App\Http\Controllers\Admin\XpLevelController as AdminXpLevelController;
@@ -67,6 +68,9 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
         Route::get('/levels', [AdminXpLevelController::class, 'index'])->name('levels.index');
         Route::get('/levels/{level}/edit', [AdminXpLevelController::class, 'edit'])->name('levels.edit');
         Route::put('/levels/{level}', [AdminXpLevelController::class, 'update'])->name('levels.update');
+
+        Route::get('/economics', [AdminRewardEconomicsController::class, 'edit'])->name('economics.edit');
+        Route::put('/economics', [AdminRewardEconomicsController::class, 'update'])->name('economics.update');
     });
 });
 

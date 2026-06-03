@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             SystemChallengeSeeder::class,
             XpEarnRuleSeeder::class,
             XpLevelSeeder::class,
+            RewardEconomicsSeeder::class,
             RealisticDataSeeder::class,
         ]);
     }

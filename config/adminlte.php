@@ -364,6 +364,12 @@ return [
             'icon' => 'fas fa-fw fa-layer-group',
             'active' => ['admin/gamification/levels', 'admin/gamification/levels/*'],
         ],
+        [
+            'text' => 'Reward economics',
+            'route' => 'admin.gamification.economics.edit',
+            'icon' => 'fas fa-fw fa-euro-sign',
+            'active' => ['admin/gamification/economics', 'admin/gamification/economics/*'],
+        ],
     ],
 
     /*
