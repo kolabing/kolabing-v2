@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\Community;
 use App\Models\Event;
 use App\Models\Profile;
 use App\Services\LeaderboardService;
@@ -43,9 +44,10 @@ class LeaderboardController extends Controller
     }
 
     /**
-     * Get the global leaderboard.
+     * Get the global leaderboard, or a chapter-scoped one when community_id is
+     * passed (NF-6): the global leaderboard filtered to one community's members.
      *
-     * GET /api/v1/leaderboard/global
+     * GET /api/v1/leaderboard/global[?community_id={uuid}]
      */
     public function globalLeaderboard(Request $request): JsonResponse
     {
@@ -55,8 +57,18 @@ class LeaderboardController extends Controller
         $limit = min((int) $request->query('limit', '50'), 100);
         $limit = max($limit, 1);
 
-        $leaderboard = $this->leaderboardService->getGlobalLeaderboard($limit);
-        $myRank = $this->leaderboardService->getMyGlobalRank($profile);
+        $communityId = $request->query('community_id');
+
+        if ($communityId !== null) {
+            /** @var Community $community */
+            $community = Community::query()->findOrFail($communityId);
+
+            $leaderboard = $this->leaderboardService->getCommunityLeaderboard($community, $limit);
+            $myRank = $this->leaderboardService->getMyCommunityRank($community, $profile);
+        } else {
+            $leaderboard = $this->leaderboardService->getGlobalLeaderboard($limit);
+            $myRank = $this->leaderboardService->getMyGlobalRank($profile);
+        }
 
         return response()->json([
             'success' => true,
