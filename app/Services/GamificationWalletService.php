@@ -11,25 +11,34 @@ use App\Models\EarnedBadge;
 use App\Models\PointLedger;
 use App\Models\Profile;
 use App\Models\Wallet;
+use App\Services\Admin\XpEarnRuleService;
 use Illuminate\Support\Facades\DB;
 
 class GamificationWalletService
 {
     public function __construct(
-        private readonly NotificationService $notificationService
+        private readonly NotificationService $notificationService,
+        private readonly XpEarnRuleService $xpEarnRuleService,
     ) {}
 
     /**
-     * Award points to a profile. Creates wallet if none exists.
-     * Evaluates badge conditions after awarding.
+     * Award the amount stored against the given PointEventType on the
+     * xp_earn_rules table to a profile. Creates a wallet if none exists.
+     * Evaluates badge conditions afterwards.
+     *
+     * Why the lookup: the displayed "+N XP" the app shows and the value the
+     * ledger writes MUST agree. They both flow through xp_earn_rules now, so
+     * a single admin save changes both. See docs/plans 2026-06-01-admin-followups
+     * Q (XP economy).
      */
     public function awardPoints(
         string $profileId,
-        int $points,
         PointEventType $eventType,
         ?string $referenceId = null,
         ?string $description = null,
     ): PointLedger {
+        $points = $this->xpEarnRuleService->pointsFor($eventType);
+
         return DB::transaction(function () use ($profileId, $points, $eventType, $referenceId, $description): PointLedger {
             $ledgerEntry = PointLedger::create([
                 'profile_id' => $profileId,
@@ -46,18 +55,20 @@ class GamificationWalletService
 
             $wallet->increment('points', $points);
 
-            // Award first-kolab bonus on the profile's very first completion
+            // Award first-kolab bonus on the profile's very first completion.
             if ($eventType === PointEventType::CollaborationComplete) {
                 $completedCount = $this->countLedgerEvents($profileId, [PointEventType::CollaborationComplete]);
                 if ($completedCount === 1) {
+                    $bonusPoints = $this->xpEarnRuleService->pointsFor(PointEventType::FirstKolabBonus);
+
                     PointLedger::create([
                         'profile_id' => $profileId,
-                        'points' => PointEventType::FirstKolabBonus->defaultPoints(),
+                        'points' => $bonusPoints,
                         'event_type' => PointEventType::FirstKolabBonus,
                         'reference_id' => $referenceId,
                         'description' => 'First Kolab bonus!',
                     ]);
-                    $wallet->increment('points', PointEventType::FirstKolabBonus->defaultPoints());
+                    $wallet->increment('points', $bonusPoints);
                 }
             }
 

@@ -352,6 +352,18 @@ return [
             'icon' => 'fas fa-fw fa-award',
             'active' => ['admin/gamification/badges', 'admin/gamification/badges/*'],
         ],
+        [
+            'text' => 'XP earn rules',
+            'route' => 'admin.gamification.earn-rules.index',
+            'icon' => 'fas fa-fw fa-coins',
+            'active' => ['admin/gamification/earn-rules', 'admin/gamification/earn-rules/*'],
+        ],
+        [
+            'text' => 'XP levels',
+            'route' => 'admin.gamification.levels.index',
+            'icon' => 'fas fa-fw fa-layer-group',
+            'active' => ['admin/gamification/levels', 'admin/gamification/levels/*'],
+        ],
     ],
 
     /*

@@ -22,6 +22,8 @@ class DatabaseSeeder extends Seeder
             CommunityTypeSeeder::class,
             BadgeSeeder::class,
             SystemChallengeSeeder::class,
+            XpEarnRuleSeeder::class,
+            XpLevelSeeder::class,
             RealisticDataSeeder::class,
         ]);
     }

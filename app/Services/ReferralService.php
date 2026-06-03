@@ -10,12 +10,14 @@ use App\Models\BusinessSubscription;
 use App\Models\Profile;
 use App\Models\ReferralCode;
 use App\Models\ReferralRedemption;
+use App\Services\Admin\XpEarnRuleService;
 use Illuminate\Database\QueryException;
 
 class ReferralService
 {
     public function __construct(
-        private readonly GamificationWalletService $walletService
+        private readonly GamificationWalletService $walletService,
+        private readonly XpEarnRuleService $xpEarnRuleService,
     ) {}
 
     public function normalizeCode(?string $code): ?string
@@ -92,11 +94,10 @@ class ReferralService
             throw $e;
         }
 
-        $points = PointEventType::ReferralConversion->defaultPoints();
+        $points = $this->xpEarnRuleService->pointsFor(PointEventType::ReferralConversion);
 
         $this->walletService->awardPoints(
             $referralCode->profile_id,
-            $points,
             PointEventType::ReferralConversion,
             $subscription->id,
             'Referral subscription conversion',
