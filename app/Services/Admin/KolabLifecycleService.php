@@ -35,7 +35,15 @@ class KolabLifecycleService
     public const CLOSED = 'closed';
 
     /**
-     * All lifecycle keys in display order.
+     * Composite filters — returned by no kolab's derive() but accepted by
+     * applyFilter() to broaden the dropdown. See docs/plans 2026-06-01.
+     */
+    public const HAS_MATCH = 'has_match';
+
+    public const DONE = 'done';
+
+    /**
+     * Lifecycle keys that derive() can return. One label per kolab.
      *
      * @return array<int, string>
      */
@@ -47,18 +55,37 @@ class KolabLifecycleService
         ];
     }
 
+    /**
+     * Filterable options for the /admin/kolabs dropdown — all primary
+     * lifecycles plus the two composite shortcuts.
+     *
+     * @return array<int, string>
+     */
+    public static function filterOptions(): array
+    {
+        return [
+            self::DRAFT, self::OPEN, self::RECEIVING, self::MATCHED,
+            self::HAS_MATCH,
+            self::SCHEDULED, self::ACTIVE, self::COMPLETED,
+            self::CANCELLED, self::CLOSED,
+            self::DONE,
+        ];
+    }
+
     public static function label(string $lifecycle): string
     {
         return match ($lifecycle) {
             self::DRAFT => 'Draft',
             self::OPEN => 'Open',
             self::RECEIVING => 'Receiving applicants',
-            self::MATCHED => 'Matched',
+            self::MATCHED => 'Pending match',
+            self::HAS_MATCH => 'Has match (any stage)',
             self::SCHEDULED => 'Scheduled',
             self::ACTIVE => 'Active',
             self::COMPLETED => 'Completed',
             self::CANCELLED => 'Cancelled',
             self::CLOSED => 'Closed',
+            self::DONE => 'Completed or done',
             default => ucfirst(str_replace('_', ' ', $lifecycle)),
         };
     }
@@ -247,6 +274,21 @@ class KolabLifecycleService
             self::ACTIVE => $query->whereExists($hasCollabWith(CollaborationStatus::Active)),
             self::COMPLETED => $query->whereExists($hasCollabWith(CollaborationStatus::Completed)),
             self::CANCELLED => $query->whereExists($hasCollabWith(CollaborationStatus::Cancelled)),
+
+            // Composite: anywhere along the match track — accepted application
+            // exists, regardless of subsequent collab state.
+            self::HAS_MATCH => $query->whereExists($hasApplicationWith(ApplicationStatus::Accepted)),
+
+            // Composite: post-mortem bucket — done with us, one way or the other.
+            self::DONE => $query->where(function ($outer) use ($hasCollabWith, $hasAnyCollab): void {
+                $outer->whereExists($hasCollabWith(CollaborationStatus::Completed))
+                    ->orWhereExists($hasCollabWith(CollaborationStatus::Cancelled))
+                    ->orWhere(function ($q) use ($hasAnyCollab): void {
+                        $q->where('kolabs.status', KolabStatus::Closed->value)
+                            ->whereNotExists($hasAnyCollab);
+                    });
+            }),
+
             default => null,
         };
     }
