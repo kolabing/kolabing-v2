@@ -28,6 +28,7 @@ class UpdateNotificationPreferencesRequest extends FormRequest
             'whatsapp_notifications' => ['sometimes', 'boolean'],
             'new_application_alerts' => ['sometimes', 'boolean'],
             'collaboration_updates' => ['sometimes', 'boolean'],
+            'message_notifications' => ['sometimes', 'boolean'],
             'marketing_tips' => ['sometimes', 'boolean'],
         ];
     }
@@ -44,6 +45,7 @@ class UpdateNotificationPreferencesRequest extends FormRequest
             'whatsapp_notifications',
             'new_application_alerts',
             'collaboration_updates',
+            'message_notifications',
             'marketing_tips',
         ]);
     }

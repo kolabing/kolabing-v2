@@ -169,11 +169,71 @@ class EventService
             $updateData['attendee_count'] = $data['attendee_count'];
         }
 
+        // Upcoming-event fields (NF-16 edit). starts_at also syncs event_date.
+        if (isset($data['starts_at'])) {
+            $startsAt = Carbon::parse($data['starts_at']);
+            $updateData['starts_at'] = $startsAt;
+            $updateData['event_date'] = $startsAt->toDateString();
+        }
+        if (array_key_exists('ends_at', $data)) {
+            $updateData['ends_at'] = $data['ends_at'] !== null ? Carbon::parse($data['ends_at']) : null;
+        }
+        foreach (['location', 'capacity', 'tier_gate'] as $field) {
+            if (array_key_exists($field, $data)) {
+                $updateData[$field] = $data[$field];
+            }
+        }
+
         if (! empty($updateData)) {
             $event->update($updateData);
         }
 
         return $event->load(['photos']);
+    }
+
+    /**
+     * Add photos to an existing event (gallery grows). Total capped at 5.
+     *
+     * @param  array<int, UploadedFile>  $photos
+     *
+     * @throws \DomainException 'photo_limit_reached'
+     */
+    public function addPhotos(Event $event, array $photos): Event
+    {
+        $existing = $event->photos()->count();
+
+        if ($existing + count($photos) > 5) {
+            throw new \DomainException('photo_limit_reached');
+        }
+
+        return DB::transaction(function () use ($event, $photos, $existing): Event {
+            foreach (array_values($photos) as $i => $photo) {
+                $url = $this->fileUploadService->uploadFromFile(
+                    $photo,
+                    FileUploadType::EventPhoto,
+                    $event->id
+                );
+
+                EventPhoto::query()->create([
+                    'event_id' => $event->id,
+                    'url' => $url,
+                    'sort_order' => $existing + $i,
+                ]);
+            }
+
+            return $event->load(['photos']);
+        });
+    }
+
+    /**
+     * Remove a single photo from an event (file + row).
+     */
+    public function deletePhoto(EventPhoto $photo): void
+    {
+        DB::transaction(function () use ($photo): void {
+            $this->fileUploadService->delete($photo->url);
+            $photo->delete();
+        });
     }
 
     /**

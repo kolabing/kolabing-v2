@@ -26,6 +26,7 @@ class NotificationPreferenceResource extends JsonResource
             'whatsapp_notifications' => $this->whatsapp_notifications,
             'new_application_alerts' => $this->new_application_alerts,
             'collaboration_updates' => $this->collaboration_updates,
+            'message_notifications' => $this->message_notifications,
             'marketing_tips' => $this->marketing_tips,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

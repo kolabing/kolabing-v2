@@ -26,6 +26,13 @@ class UpdateEventRequest extends FormRequest
             'partner_type' => ['sometimes', 'string', Rule::in([UserType::Business->value, UserType::Community->value])],
             'date' => ['sometimes', 'date', 'before_or_equal:today'],
             'attendee_count' => ['sometimes', 'integer', 'min:1'],
+            // Upcoming-event fields (NF-16 edit). future allowed.
+            'starts_at' => ['sometimes', 'date'],
+            'ends_at' => ['sometimes', 'nullable', 'date', 'after:starts_at'],
+            'location' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'capacity' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'tier_gate' => ['sometimes', 'nullable', 'array'],
+            'tier_gate.*' => ['uuid'],
         ];
     }
 

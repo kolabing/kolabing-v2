@@ -255,4 +255,24 @@ class NotificationPreferenceControllerTest extends TestCase
             ->assertJsonPath('data.email_notifications', false)
             ->assertJsonMissing(['data.unknown_field']);
     }
+
+    public function test_message_notifications_defaults_on_and_can_be_toggled(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        // Auto-created defaults: message_notifications ON.
+        $this->actingAs($profile)->getJson('/api/v1/me/notification-preferences')
+            ->assertStatus(200)
+            ->assertJsonPath('data.message_notifications', true);
+
+        // Opt out → persisted and returned.
+        $this->actingAs($profile)->putJson('/api/v1/me/notification-preferences', [
+            'message_notifications' => false,
+        ])->assertStatus(200)->assertJsonPath('data.message_notifications', false);
+
+        $this->actingAs($profile)->getJson('/api/v1/me/notification-preferences')
+            ->assertJsonPath('data.message_notifications', false);
+    }
 }
