@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\DiscoveryOpportunityController;
 use App\Http\Controllers\Api\V1\EventController;
+use App\Http\Controllers\Api\V1\EventSignupController;
 use App\Http\Controllers\Api\V1\EventDiscoveryController;
 use App\Http\Controllers\Api\V1\EventRewardController;
 use App\Http\Controllers\Api\V1\GalleryController;
@@ -252,6 +253,16 @@ Route::prefix('v1')->group(function (): void {
         // Delete event
         Route::delete('events/{event}', [EventController::class, 'destroy'])
             ->name('api.v1.events.destroy');
+
+        // NF-CHAT Phase 3 — event sign-up (RSVP) + event chat
+        Route::post('events/{event}/signup', [EventSignupController::class, 'store'])
+            ->name('api.v1.events.signup.store');
+        Route::delete('events/{event}/signup', [EventSignupController::class, 'destroy'])
+            ->name('api.v1.events.signup.destroy');
+        Route::get('events/{event}/signups', [EventSignupController::class, 'index'])
+            ->name('api.v1.events.signups.index');
+        Route::post('events/{event}/chat', [ChatController::class, 'storeEventChat'])
+            ->name('api.v1.events.chat.store');
 
         /*
         |--------------------------------------------------------------------------

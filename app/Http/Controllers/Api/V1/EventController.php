@@ -21,26 +21,38 @@ class EventController extends Controller
     ) {}
 
     /**
-     * List events for a profile.
+     * List events, one lifecycle for every surface (NF-CHAT Phase 3 §6.1).
      *
-     * GET /api/v1/events?profile_id={uuid}
-     * Defaults to authenticated user if profile_id not provided.
+     * GET /api/v1/events?community_id=&time=upcoming|past&attendee=me&profile_id=
+     * Filters: community_id (community Details), time (upcoming tab vs past
+     * showcase), attendee=me (profile's attended/going), profile_id (a profile's
+     * created events). With no filter, defaults to the authenticated user's own.
      */
     public function index(Request $request): JsonResponse
     {
         /** @var Profile $authProfile */
         $authProfile = $request->user();
 
-        $profileId = $request->query('profile_id');
         $perPage = min((int) $request->query('limit', '10'), 50);
 
-        if ($profileId) {
-            $profile = Profile::query()->findOrFail($profileId);
-        } else {
-            $profile = $authProfile;
+        $communityId = $request->query('community_id');
+        $profileId = $request->query('profile_id');
+        $time = $request->query('time'); // upcoming | past | null
+        $attendeeId = $request->query('attendee') === 'me' ? $authProfile->id : null;
+
+        $filters = array_filter([
+            'community_id' => $communityId,
+            'profile_id' => $profileId,
+            'attendee_profile_id' => $attendeeId,
+            'time' => $time,
+        ], static fn ($value) => $value !== null);
+
+        // Back-compat: with no scoping filter, list the viewer's own events.
+        if ($communityId === null && $profileId === null && $attendeeId === null) {
+            $filters['profile_id'] = $authProfile->id;
         }
 
-        $paginator = $this->eventService->listForProfile($profile, $perPage);
+        $paginator = $this->eventService->list($filters, $perPage);
 
         return response()->json([
             'success' => true,

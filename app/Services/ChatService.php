@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\ChatThreadType;
 use App\Enums\CommunityMemberStatus;
+use App\Enums\EventSignupStatus;
 use App\Events\NewChatMessage;
 use App\Models\Application;
 use App\Models\ChatMessage;
@@ -14,6 +15,8 @@ use App\Models\ChatThreadRead;
 use App\Models\Community;
 use App\Models\CommunityMember;
 use App\Models\CommunityTier;
+use App\Models\Event;
+use App\Models\EventSignup;
 use App\Models\Profile;
 use DomainException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -196,6 +199,7 @@ class ChatService
     {
         return $this->visibleCollaborationThreads($profile)
             ->merge($this->visibleCommunityThreads($profile))
+            ->merge($this->visibleEventThreads($profile))
             ->sortByDesc(fn (ChatThread $thread): int => $thread->last_message_at?->getTimestamp() ?? 0)
             ->values();
     }
@@ -283,6 +287,11 @@ class ChatService
             return $thread->application !== null && $this->canParticipate($profile, $thread->application);
         }
 
+        // Event chats: a `going` sign-up, or the community leader/can_manage.
+        if ($thread->type === ChatThreadType::Event) {
+            return $this->canAccessEventThread($profile, $thread);
+        }
+
         if ($thread->community_id === null) {
             return false;
         }
@@ -295,7 +304,7 @@ class ChatService
             return $this->canAccessCustomChat($profile, $thread);
         }
 
-        return false; // event chats arrive in Phase 3
+        return false;
     }
 
     /**
@@ -414,6 +423,116 @@ class ChatService
         }
 
         return $visible->values();
+    }
+
+    /**
+     * Resolve (or lazily create) the single event chat thread for an event.
+     */
+    public function eventThreadFor(Event $event, ?Profile $creator = null): ChatThread
+    {
+        return ChatThread::query()->firstOrCreate(
+            ['type' => ChatThreadType::Event->value, 'event_id' => $event->id],
+            [
+                'community_id' => $event->community_id,
+                'name' => $event->name,
+                'created_by' => $creator?->id,
+            ],
+        );
+    }
+
+    /**
+     * Event threads visible to a profile: the events they are `going` to, plus
+     * (for leaders) the event chats of communities they manage.
+     *
+     * @return Collection<int, ChatThread>
+     */
+    private function visibleEventThreads(Profile $profile): Collection
+    {
+        $goingEventIds = EventSignup::query()
+            ->where('profile_id', $profile->id)
+            ->where('status', EventSignupStatus::Going->value)
+            ->pluck('event_id');
+
+        $managedCommunityIds = $this->managedCommunityIds($profile);
+
+        if ($goingEventIds->isEmpty() && $managedCommunityIds->isEmpty()) {
+            return collect();
+        }
+
+        $threads = ChatThread::query()
+            ->where('type', ChatThreadType::Event->value)
+            ->where(function ($query) use ($goingEventIds, $managedCommunityIds): void {
+                $query->whereIn('event_id', $goingEventIds);
+                if ($managedCommunityIds->isNotEmpty()) {
+                    $query->orWhereIn('community_id', $managedCommunityIds);
+                }
+            })
+            ->get();
+
+        foreach ($threads as $thread) {
+            $thread->unread_count = $this->unreadForThread($profile, $thread);
+        }
+
+        return $threads->values();
+    }
+
+    private function canAccessEventThread(Profile $profile, ChatThread $thread): bool
+    {
+        if ($thread->event_id === null) {
+            return false;
+        }
+
+        $event = Event::query()->find($thread->event_id);
+        if ($event === null) {
+            return false;
+        }
+
+        // Community leader / can_manage always has access to manage the chat.
+        if ($event->community_id !== null && $this->canManageCommunity($profile, $event->community_id)) {
+            return true;
+        }
+
+        // Going sign-ups have access; waitlisted do not.
+        return EventSignup::query()
+            ->where('event_id', $event->id)
+            ->where('profile_id', $profile->id)
+            ->where('status', EventSignupStatus::Going->value)
+            ->exists();
+    }
+
+    /**
+     * Owner, or active member with can_manage, of a community.
+     */
+    public function canManageCommunity(Profile $profile, string $communityId): bool
+    {
+        if (Community::query()->whereKey($communityId)->where('owner_profile_id', $profile->id)->exists()) {
+            return true;
+        }
+
+        return CommunityMember::query()
+            ->where('community_id', $communityId)
+            ->where('profile_id', $profile->id)
+            ->where('can_manage', true)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->exists();
+    }
+
+    /**
+     * Community ids the profile manages (owns or can_manage).
+     *
+     * @return Collection<int, string>
+     */
+    private function managedCommunityIds(Profile $profile): Collection
+    {
+        $owned = Community::query()->where('owner_profile_id', $profile->id)->pluck('id');
+
+        $managed = CommunityMember::query()
+            ->where('profile_id', $profile->id)
+            ->where('can_manage', true)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->pluck('community_id');
+
+        return $owned->merge($managed)->unique()->values();
     }
 
     private function isCommunityMemberOrOwner(Profile $profile, string $communityId): bool

@@ -21,6 +21,7 @@ enum NotificationType: string
     case UnreadMessage = 'unread_message';
     case CollabDayReminder = 'collab_day_reminder';
     case CollabFollowUpReminder = 'collab_followup_reminder';
+    case WaitlistPromoted = 'waitlist_promoted';
 
     /**
      * @return array<string>

@@ -17,10 +17,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $partner_name
  * @property string $partner_type
  * @property \Illuminate\Support\Carbon $event_date
+ * @property \Illuminate\Support\Carbon|null $starts_at
+ * @property \Illuminate\Support\Carbon|null $ends_at
  * @property int $attendee_count
  * @property string|null $location_lat
  * @property string|null $location_lng
  * @property string|null $address
+ * @property string|null $location
+ * @property int|null $capacity
+ * @property array<int, mixed>|null $tier_gate
+ * @property string|null $collaboration_id
  * @property int $max_challenges_per_attendee
  * @property bool $is_active
  * @property string|null $checkin_token
@@ -45,14 +51,20 @@ class Event extends Model
     protected $fillable = [
         'profile_id',
         'community_id',
+        'collaboration_id',
         'name',
         'partner_name',
         'partner_type',
         'event_date',
+        'starts_at',
+        'ends_at',
         'attendee_count',
         'location_lat',
         'location_lng',
         'address',
+        'location',
+        'capacity',
+        'tier_gate',
         'max_challenges_per_attendee',
         'is_active',
         'checkin_token',
@@ -65,12 +77,35 @@ class Event extends Model
     {
         return [
             'event_date' => 'date',
+            'starts_at' => 'datetime',
+            'ends_at' => 'datetime',
             'attendee_count' => 'integer',
             'location_lat' => 'decimal:7',
             'location_lng' => 'decimal:7',
+            'capacity' => 'integer',
+            'tier_gate' => 'array',
             'max_challenges_per_attendee' => 'integer',
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * Effective end of the event for the upcoming/past split — prefers the new
+     * timestamps, falling back to the legacy date.
+     */
+    public function effectiveEnd(): \Illuminate\Support\Carbon
+    {
+        return $this->ends_at
+            ?? $this->starts_at
+            ?? \Illuminate\Support\Carbon::parse($this->event_date)->endOfDay();
+    }
+
+    /**
+     * Upcoming = sign-up/RSVP + event chat apply. Past = showcase only.
+     */
+    public function isUpcoming(): bool
+    {
+        return $this->effectiveEnd()->isFuture();
     }
 
     /**
@@ -121,5 +156,25 @@ class Event extends Model
     public function rewards(): HasMany
     {
         return $this->hasMany(EventReward::class);
+    }
+
+    /**
+     * The collaboration (kolab) this event is linked to, if any.
+     *
+     * @return BelongsTo<Collaboration, $this>
+     */
+    public function collaboration(): BelongsTo
+    {
+        return $this->belongsTo(Collaboration::class);
+    }
+
+    /**
+     * Sign-ups (going / waitlisted / cancelled) for an upcoming event.
+     *
+     * @return HasMany<EventSignup, $this>
+     */
+    public function signups(): HasMany
+    {
+        return $this->hasMany(EventSignup::class);
     }
 }

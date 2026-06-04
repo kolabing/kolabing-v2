@@ -31,6 +31,50 @@ class EventService
     }
 
     /**
+     * Filtered event list (NF-CHAT Phase 3 §6.1) — one events lifecycle feeds the
+     * upcoming tab, community Details (past + gallery) and the profile showcase.
+     *
+     * @param  array{community_id?: ?string, profile_id?: ?string, attendee_profile_id?: ?string, time?: ?string}  $filters
+     */
+    public function list(array $filters, int $perPage = 10): LengthAwarePaginator
+    {
+        // COALESCE(ends_at, starts_at, event_date) = the event's effective time.
+        $effective = 'COALESCE(ends_at, starts_at, event_date)';
+
+        $query = Event::query()->with(['photos']);
+
+        if (! empty($filters['community_id'])) {
+            $query->where('community_id', $filters['community_id']);
+        }
+
+        if (! empty($filters['profile_id'])) {
+            $query->where('profile_id', $filters['profile_id']);
+        }
+
+        if (! empty($filters['attendee_profile_id'])) {
+            $attendeeId = $filters['attendee_profile_id'];
+            $query->where(function ($q) use ($attendeeId): void {
+                $q->whereHas('checkins', fn ($c) => $c->where('profile_id', $attendeeId))
+                    ->orWhereHas('signups', fn ($s) => $s->where('profile_id', $attendeeId)
+                        ->where('status', '!=', 'cancelled'));
+            });
+        }
+
+        $time = $filters['time'] ?? null;
+        if ($time === 'upcoming') {
+            $query->whereRaw("$effective >= ?", [now()])
+                ->orderByRaw('COALESCE(starts_at, event_date) asc');
+        } elseif ($time === 'past') {
+            $query->whereRaw("$effective < ?", [now()])
+                ->orderByRaw('COALESCE(starts_at, event_date) desc');
+        } else {
+            $query->orderByDesc('event_date');
+        }
+
+        return $query->paginate($perPage);
+    }
+
+    /**
      * Get a single event with relations loaded.
      */
     public function getWithRelations(Event $event): Event

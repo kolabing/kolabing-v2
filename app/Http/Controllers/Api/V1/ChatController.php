@@ -13,6 +13,7 @@ use App\Http\Resources\Api\V1\ChatThreadResource;
 use App\Models\Application;
 use App\Models\ChatThread;
 use App\Models\Community;
+use App\Models\Event;
 use App\Models\Profile;
 use App\Services\ChatService;
 use DomainException;
@@ -89,6 +90,32 @@ class ChatController extends Controller
                 'message' => __('This community already has the maximum of 5 custom chats.'),
             ], 422);
         }
+
+        return response()->json([
+            'success' => true,
+            'data' => new ChatThreadResource($thread),
+        ], 201);
+    }
+
+    /**
+     * Create (or fetch) the event chat for an event (leader / can_manage).
+     *
+     * POST /api/v1/events/{event}/chat
+     */
+    public function storeEventChat(Request $request, Event $event): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        if ($event->community_id === null
+            || ! $this->chatService->canManageCommunity($profile, $event->community_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => __('You are not authorized to manage this event\'s chat.'),
+            ], 403);
+        }
+
+        $thread = $this->chatService->eventThreadFor($event, $profile);
 
         return response()->json([
             'success' => true,
