@@ -284,6 +284,7 @@ class ProfileService
                 'whatsapp_notifications' => true,
                 'new_application_alerts' => true,
                 'collaboration_updates' => true,
+                'message_notifications' => true,
                 'marketing_tips' => false,
             ]
         );

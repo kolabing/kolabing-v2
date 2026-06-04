@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\DiscoveryOpportunityController;
 use App\Http\Controllers\Api\V1\EventController;
+use App\Http\Controllers\Api\V1\EventPhotoController;
 use App\Http\Controllers\Api\V1\EventSignupController;
 use App\Http\Controllers\Api\V1\EventDiscoveryController;
 use App\Http\Controllers\Api\V1\EventRewardController;
@@ -263,6 +264,12 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.events.signups.index');
         Route::post('events/{event}/chat', [ChatController::class, 'storeEventChat'])
             ->name('api.v1.events.chat.store');
+
+        // NF-16 — add/remove photos on an existing event (creator / can_manage)
+        Route::post('events/{event}/photos', [EventPhotoController::class, 'store'])
+            ->name('api.v1.events.photos.store');
+        Route::delete('events/{event}/photos/{photo}', [EventPhotoController::class, 'destroy'])
+            ->name('api.v1.events.photos.destroy');
 
         /*
         |--------------------------------------------------------------------------
