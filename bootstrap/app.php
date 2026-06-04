@@ -19,6 +19,13 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    // Registers POST /broadcasting/auth (Sanctum-guarded) + loads routes/channels.php
+    // so private chat channels (chat.thread.{id}, chat.application.{id}) can authorize
+    // for Reverb real-time. Mobile clients send their Bearer token to this endpoint.
+    ->withBroadcasting(
+        __DIR__.'/../routes/channels.php',
+        ['middleware' => ['auth:sanctum']],
+    )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(AddSecurityHeaders::class);
 
