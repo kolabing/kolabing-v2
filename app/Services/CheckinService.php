@@ -4,16 +4,20 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\CommunityMemberStatus;
+use App\Models\CommunityMember;
 use App\Models\Event;
 use App\Models\EventCheckin;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class CheckinService
 {
     public function __construct(
-        private readonly BadgeService $badgeService
+        private readonly BadgeService $badgeService,
+        private readonly TierAssignmentService $tierAssignmentService,
     ) {}
 
     /**
@@ -67,7 +71,31 @@ class CheckinService
             $this->badgeService->checkAndAwardBadges($profile);
         }
 
+        $this->evaluateCommunityTiers($profile);
+
         return $checkin->load(['event', 'profile']);
+    }
+
+    /**
+     * Re-evaluate the member's tier in every community they belong to, so a
+     * check-in promotes immediately (events_attended / xp rules) without
+     * waiting for the nightly app:evaluate-community-tiers job. A failure here
+     * must never break the check-in itself.
+     */
+    private function evaluateCommunityTiers(Profile $profile): void
+    {
+        try {
+            CommunityMember::query()
+                ->where('profile_id', $profile->id)
+                ->where('status', CommunityMemberStatus::Active->value)
+                ->with(['community', 'tier'])
+                ->each(fn (CommunityMember $member) => $this->tierAssignmentService->evaluateMember($member));
+        } catch (\Throwable $e) {
+            Log::warning('Community tier evaluation on check-in failed', [
+                'profile_id' => $profile->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

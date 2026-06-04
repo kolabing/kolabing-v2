@@ -230,6 +230,26 @@ class Profile extends Authenticatable
     }
 
     /**
+     * Communities this profile owns (as a Community Leader).
+     *
+     * @return HasMany<Community, $this>
+     */
+    public function ownedCommunities(): HasMany
+    {
+        return $this->hasMany(Community::class, 'owner_profile_id');
+    }
+
+    /**
+     * Community memberships this profile holds (as a Community Member).
+     *
+     * @return HasMany<CommunityMember, $this>
+     */
+    public function communityMemberships(): HasMany
+    {
+        return $this->hasMany(CommunityMember::class, 'profile_id');
+    }
+
+    /**
      * Get notifications for this profile.
      *
      * @return HasMany<Notification, $this>

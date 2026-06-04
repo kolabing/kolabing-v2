@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\ChallengeCompletionStatus;
+use App\Enums\CommunityMemberStatus;
 use App\Models\AttendeeProfile;
 use App\Models\ChallengeCompletion;
+use App\Models\Community;
+use App\Models\CommunityMember;
 use App\Models\Event;
 use App\Models\Profile;
 use Illuminate\Support\Collection;
@@ -91,6 +94,90 @@ class LeaderboardService
                 'rank' => $rank,
             ];
         });
+    }
+
+    /**
+     * Chapter-scoped leaderboard: the global leaderboard filtered to the
+     * active members of one community (NF-6 member surface).
+     *
+     * @return Collection<int, array{profile_id: string, display_name: string, profile_photo: string|null, total_points: int, rank: int}>
+     */
+    public function getCommunityLeaderboard(Community $community, int $limit = 50): Collection
+    {
+        $memberIds = $this->activeMemberIds($community);
+
+        if ($memberIds === []) {
+            return collect();
+        }
+
+        $attendeeProfiles = AttendeeProfile::query()
+            ->whereIn('profile_id', $memberIds)
+            ->where('total_points', '>', 0)
+            ->orderByDesc('total_points')
+            ->limit($limit)
+            ->with('profile')
+            ->get();
+
+        $rank = 0;
+        $previousPoints = null;
+
+        return $attendeeProfiles->map(function (AttendeeProfile $ap) use (&$rank, &$previousPoints): array {
+            if ($ap->total_points !== $previousPoints) {
+                $rank++;
+                $previousPoints = $ap->total_points;
+            }
+
+            return [
+                'profile_id' => $ap->profile_id,
+                'display_name' => $ap->profile?->email ?? 'Unknown',
+                'profile_photo' => $ap->profile?->avatar_url,
+                'total_points' => $ap->total_points,
+                'rank' => $rank,
+            ];
+        });
+    }
+
+    /**
+     * The authenticated user's rank within one community. Null if they are not
+     * an active member or have no points.
+     *
+     * @return array{profile_id: string, total_points: int, rank: int}|null
+     */
+    public function getMyCommunityRank(Community $community, Profile $profile): ?array
+    {
+        $isMember = $community->members()
+            ->where('profile_id', $profile->id)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->exists();
+
+        $attendeeProfile = $profile->attendeeProfile;
+
+        if (! $isMember || ! $attendeeProfile || $attendeeProfile->total_points === 0) {
+            return null;
+        }
+
+        $rank = AttendeeProfile::query()
+            ->whereIn('profile_id', $this->activeMemberIds($community))
+            ->where('total_points', '>', $attendeeProfile->total_points)
+            ->count() + 1;
+
+        return [
+            'profile_id' => $profile->id,
+            'total_points' => $attendeeProfile->total_points,
+            'rank' => $rank,
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function activeMemberIds(Community $community): array
+    {
+        return CommunityMember::query()
+            ->where('community_id', $community->id)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->pluck('profile_id')
+            ->all();
     }
 
     /**

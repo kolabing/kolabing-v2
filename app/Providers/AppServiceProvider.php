@@ -7,9 +7,11 @@ namespace App\Providers;
 use App\Models\Application;
 use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
+use App\Models\Community;
 use App\Models\Kolab;
 use App\Policies\ApplicationPolicy;
 use App\Policies\CollaborationPolicy;
+use App\Policies\CommunityPolicy;
 use App\Policies\KolabPolicy;
 use App\Policies\OpportunityPolicy;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -54,5 +56,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Application::class, ApplicationPolicy::class);
         Gate::policy(Collaboration::class, CollaborationPolicy::class);
         Gate::policy(Kolab::class, KolabPolicy::class);
+        Gate::policy(Community::class, CommunityPolicy::class);
     }
 }
