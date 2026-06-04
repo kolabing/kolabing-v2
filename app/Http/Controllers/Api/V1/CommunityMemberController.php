@@ -55,7 +55,36 @@ class CommunityMemberController extends Controller
             return $this->forbidden();
         }
 
-        $member = $this->memberService->addMember($community, $request->validated()['profile_id']);
+        $data = $request->validated();
+
+        // Resolve the target: explicit profile_id, or the email on a Kolabing account.
+        $targetProfileId = $data['profile_id'] ?? null;
+
+        if ($targetProfileId === null) {
+            $target = Profile::where('email', $data['email'])->first();
+
+            if ($target === null) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'profile_not_found',
+                    'message' => __('No Kolabing account found for that email.'),
+                ], 404);
+            }
+
+            $targetProfileId = $target->id;
+        }
+
+        $tierId = $data['tier_id'] ?? null;
+
+        if ($tierId !== null && ! $community->tiers()->whereKey($tierId)->exists()) {
+            return response()->json([
+                'success' => false,
+                'error' => 'tier_not_in_community',
+                'message' => __('That tier does not belong to this community.'),
+            ], 422);
+        }
+
+        $member = $this->memberService->addMember($community, $targetProfileId, $tierId);
         $member->load(['tier', 'profile']);
 
         return response()->json([

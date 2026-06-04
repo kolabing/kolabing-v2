@@ -139,6 +139,70 @@ class CommunityEndpointsTest extends TestCase
         ])->assertStatus(201)->assertJsonPath('data.profile_id', $member->id);
     }
 
+    public function test_leader_can_invite_member_by_email(): void
+    {
+        $leader = Profile::factory()->community()->create();
+        $community = $this->makeCommunity($leader, ['join_policy' => 'invite_only']);
+        $invitee = Profile::factory()->attendee()->create(['email' => 'invitee@example.com']);
+
+        // Email is normalised (case/whitespace) before lookup.
+        $this->actingAs($leader)->postJson("/api/v1/communities/{$community->id}/members", [
+            'email' => '  Invitee@Example.com ',
+        ])->assertStatus(201)
+            ->assertJsonPath('data.profile_id', $invitee->id);
+
+        $this->assertSame(1, $community->members()->where('profile_id', $invitee->id)->count());
+    }
+
+    public function test_invite_by_unknown_email_returns_profile_not_found(): void
+    {
+        $leader = Profile::factory()->community()->create();
+        $community = $this->makeCommunity($leader);
+
+        $this->actingAs($leader)->postJson("/api/v1/communities/{$community->id}/members", [
+            'email' => 'nobody@example.com',
+        ])->assertStatus(404)
+            ->assertJsonPath('error', 'profile_not_found');
+    }
+
+    public function test_invite_by_email_with_initial_tier(): void
+    {
+        $leader = Profile::factory()->community()->create();
+        $community = $this->makeCommunity($leader);
+        $tier = CommunityTier::factory()->forCommunity($community)->create(['rank' => 3]);
+        $invitee = Profile::factory()->attendee()->create(['email' => 'tiered@example.com']);
+
+        $this->actingAs($leader)->postJson("/api/v1/communities/{$community->id}/members", [
+            'email' => 'tiered@example.com',
+            'tier_id' => $tier->id,
+        ])->assertStatus(201)
+            ->assertJsonPath('data.profile_id', $invitee->id)
+            ->assertJsonPath('data.tier_id', $tier->id);
+    }
+
+    public function test_invite_by_email_with_foreign_tier_is_rejected(): void
+    {
+        $leader = Profile::factory()->community()->create();
+        $community = $this->makeCommunity($leader);
+        $foreignTier = CommunityTier::factory()->create(['rank' => 2]); // different community
+        Profile::factory()->attendee()->create(['email' => 'tiered@example.com']);
+
+        $this->actingAs($leader)->postJson("/api/v1/communities/{$community->id}/members", [
+            'email' => 'tiered@example.com',
+            'tier_id' => $foreignTier->id,
+        ])->assertStatus(422)
+            ->assertJsonPath('error', 'tier_not_in_community');
+    }
+
+    public function test_invite_requires_email_or_profile_id(): void
+    {
+        $leader = Profile::factory()->community()->create();
+        $community = $this->makeCommunity($leader);
+
+        $this->actingAs($leader)->postJson("/api/v1/communities/{$community->id}/members", [])
+            ->assertStatus(422);
+    }
+
     public function test_leader_sets_member_tier_and_can_manage(): void
     {
         $leader = Profile::factory()->community()->create();

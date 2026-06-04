@@ -31,10 +31,11 @@ class CommunityMemberService
 
     /**
      * Leader / can_manage path: add a member regardless of join policy.
+     * Optional $tierId sets the initial tier (defaults to the community default tier).
      */
-    public function addMember(Community $community, string $profileId): CommunityMember
+    public function addMember(Community $community, string $profileId, ?string $tierId = null): CommunityMember
     {
-        return $this->upsertMember($community, $profileId);
+        return $this->upsertMember($community, $profileId, $tierId);
     }
 
     /**
@@ -81,7 +82,7 @@ class CommunityMemberService
             ->paginate($perPage);
     }
 
-    private function upsertMember(Community $community, string $profileId): CommunityMember
+    private function upsertMember(Community $community, string $profileId, ?string $tierId = null): CommunityMember
     {
         $existing = $community->members()->where('profile_id', $profileId)->first();
 
@@ -89,12 +90,14 @@ class CommunityMemberService
             return $existing;
         }
 
+        $resolvedTierId = $tierId ?? $community->defaultTier?->id;
+
         return $community->members()->create([
             'profile_id' => $profileId,
-            'tier_id' => $community->defaultTier?->id,
+            'tier_id' => $resolvedTierId,
             'status' => CommunityMemberStatus::Active->value,
             'joined_at' => now(),
-            'tier_assigned_at' => $community->defaultTier ? now() : null,
+            'tier_assigned_at' => $resolvedTierId !== null ? now() : null,
         ]);
     }
 }
