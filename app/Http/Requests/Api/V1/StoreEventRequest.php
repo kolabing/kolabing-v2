@@ -16,10 +16,36 @@ class StoreEventRequest extends FormRequest
     }
 
     /**
+     * Upcoming-event create mode is keyed on `starts_at`. Without it, the request
+     * is the legacy retroactive past-showcase create (photos + date<=today).
+     */
+    public function isUpcoming(): bool
+    {
+        return $this->filled('starts_at');
+    }
+
+    /**
      * @return array<string, array<int, mixed>>
      */
     public function rules(): array
     {
+        if ($this->isUpcoming()) {
+            return [
+                'community_id' => ['required', 'uuid', 'exists:communities,id'],
+                'name' => ['required', 'string', 'min:3', 'max:100'],
+                'starts_at' => ['required', 'date'],
+                'ends_at' => ['nullable', 'date', 'after:starts_at'],
+                'location' => ['nullable', 'string', 'max:255'],
+                'capacity' => ['nullable', 'integer', 'min:1'],
+                'tier_gate' => ['nullable', 'array'],
+                'tier_gate.*' => ['uuid'],
+                'collaboration_id' => ['nullable', 'uuid', 'exists:collaborations,id'],
+                'photos' => ['nullable', 'array', 'max:5'],
+                'photos.*' => ['image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
+            ];
+        }
+
+        // Legacy retroactive past-showcase event.
         return [
             'name' => ['required', 'string', 'min:3', 'max:100'],
             'partner_name' => ['required', 'string', 'min:2', 'max:100'],

@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\FileUploadType;
+use App\Enums\UserType;
+use App\Models\Community;
 use App\Models\Event;
 use App\Models\EventPhoto;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class EventService
@@ -91,19 +94,54 @@ class EventService
     public function create(Profile $profile, array $data, array $photos): Event
     {
         return DB::transaction(function () use ($profile, $data, $photos): Event {
-            $event = Event::query()->create([
-                'profile_id' => $profile->id,
-                'name' => $data['name'],
-                'partner_name' => $data['partner_name'],
-                'partner_type' => $data['partner_type'],
-                'event_date' => $data['date'],
-                'attendee_count' => $data['attendee_count'],
-            ]);
+            // Upcoming-event mode (Phase 3) is keyed on `starts_at`; otherwise this
+            // is the legacy retroactive past-showcase create.
+            $event = empty($data['starts_at'])
+                ? Event::query()->create([
+                    'profile_id' => $profile->id,
+                    'name' => $data['name'],
+                    'partner_name' => $data['partner_name'],
+                    'partner_type' => $data['partner_type'],
+                    'event_date' => $data['date'],
+                    'attendee_count' => $data['attendee_count'],
+                ])
+                : $this->buildUpcoming($profile, $data);
 
-            $this->uploadPhotos($event, $photos);
+            if ($photos !== []) {
+                $this->uploadPhotos($event, $photos);
+            }
 
             return $event->load(['photos']);
         });
+    }
+
+    /**
+     * Create an upcoming community event (sign-up/waitlist/chat apply). Defaults
+     * partner + event_date from the community/start so the legacy NOT NULL columns
+     * stay satisfied.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function buildUpcoming(Profile $profile, array $data): Event
+    {
+        $community = Community::query()->find($data['community_id']);
+        $startsAt = Carbon::parse($data['starts_at']);
+
+        return Event::query()->create([
+            'profile_id' => $profile->id,
+            'community_id' => $data['community_id'],
+            'collaboration_id' => $data['collaboration_id'] ?? null,
+            'name' => $data['name'],
+            'partner_name' => $community?->name ?? $data['name'],
+            'partner_type' => UserType::Community->value,
+            'event_date' => $startsAt->toDateString(),
+            'starts_at' => $startsAt,
+            'ends_at' => isset($data['ends_at']) ? Carbon::parse($data['ends_at']) : null,
+            'location' => $data['location'] ?? null,
+            'capacity' => $data['capacity'] ?? null,
+            'tier_gate' => $data['tier_gate'] ?? null,
+            'attendee_count' => 0,
+        ]);
     }
 
     /**
