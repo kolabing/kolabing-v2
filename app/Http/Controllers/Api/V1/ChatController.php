@@ -6,12 +6,16 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SendChatMessageRequest;
+use App\Http\Requests\Api\V1\StoreCommunityChatRequest;
 use App\Http\Resources\Api\V1\ChatMessageCollection;
 use App\Http\Resources\Api\V1\ChatMessageResource;
 use App\Http\Resources\Api\V1\ChatThreadResource;
 use App\Models\Application;
+use App\Models\ChatThread;
+use App\Models\Community;
 use App\Models\Profile;
 use App\Services\ChatService;
+use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
@@ -56,6 +60,125 @@ class ChatController extends Controller
             'data' => [
                 'total' => $this->chatService->getUnreadCount($profile),
             ],
+        ]);
+    }
+
+    /**
+     * Create a custom community chat (owner / can_manage; ≤5 cap).
+     *
+     * POST /api/v1/communities/{community}/chats
+     */
+    public function storeCommunityChat(StoreCommunityChatRequest $request, Community $community): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        if ($profile->cannot('manage', $community)) {
+            return response()->json([
+                'success' => false,
+                'message' => __('You are not authorized to manage this community.'),
+            ], 403);
+        }
+
+        try {
+            $thread = $this->chatService->createCustomChat($community, $profile, $request->validated()['name']);
+        } catch (DomainException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'message' => __('This community already has the maximum of 5 custom chats.'),
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => new ChatThreadResource($thread),
+        ], 201);
+    }
+
+    /**
+     * Messages for a non-application thread (community/event), newest-last.
+     *
+     * GET /api/v1/chats/{thread}/messages
+     */
+    public function threadMessages(Request $request, ChatThread $thread): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        if (! $this->chatService->canAccessThread($profile, $thread)) {
+            return response()->json([
+                'success' => false,
+                'message' => __('You are not authorized to view this chat.'),
+            ], 403);
+        }
+
+        $perPage = min((int) $request->query('per_page', 50), 100);
+        $messages = $this->chatService->getThreadMessages($thread, $perPage);
+
+        // Opening a thread marks it read for the viewer.
+        $this->chatService->markThreadRead($profile, $thread);
+
+        return response()->json([
+            'success' => true,
+            'data' => new ChatMessageCollection($messages),
+            'meta' => [
+                'current_page' => $messages->currentPage(),
+                'last_page' => $messages->lastPage(),
+                'per_page' => $messages->perPage(),
+                'total' => $messages->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Send a message into a non-application thread.
+     *
+     * POST /api/v1/chats/{thread}/messages
+     */
+    public function storeThreadMessage(SendChatMessageRequest $request, ChatThread $thread): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        if (! $this->chatService->canAccessThread($profile, $thread)) {
+            return response()->json([
+                'success' => false,
+                'message' => __('You are not authorized to send messages in this chat.'),
+            ], 403);
+        }
+
+        $message = $this->chatService->sendThreadMessage($profile, $thread, $request->validated());
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Message sent successfully.'),
+            'data' => new ChatMessageResource($message),
+        ], 201);
+    }
+
+    /**
+     * Move the viewer's read pointer for a thread.
+     *
+     * POST /api/v1/chats/{thread}/read
+     */
+    public function readThread(Request $request, ChatThread $thread): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        if (! $this->chatService->canAccessThread($profile, $thread)) {
+            return response()->json([
+                'success' => false,
+                'message' => __('You are not authorized to access this chat.'),
+            ], 403);
+        }
+
+        $this->chatService->markThreadRead($profile, $thread);
+
+        return response()->json([
+            'success' => true,
+            'data' => null,
         ]);
     }
 

@@ -146,6 +146,21 @@ App (`kolabing-app`):
   bottom-nav tab). `ChatsScreen` (business = flat active list). Reuse existing thread screen.
 
 ### Phase 2 — Community main + custom (≤5)
+
+> ✅ **BACKEND BUILT 2026-06-04.** 282 tests green, no regressions.
+> - Migrations: `chat_messages.application_id` → nullable (community/event messages have no
+>   application); backfill `community_main` thread per existing community.
+> - `CommunityService::create` now also creates the community's `community_main` thread.
+> - `ChatService`: `createCustomChat` (≤5 → `DomainException('chat_limit_reached')`, unique slug),
+>   `canAccessThread` (collab=participants, main=member/owner, custom=owner/can_manage or tier
+>   `permissions.chat_channels` contains the slug), `getThreadMessages` (oldest-first), `sendThreadMessage`
+>   (sets `last_message_at`, broadcasts), `markThreadRead` (collab→per-message; community→`chat_thread_reads`),
+>   `visibleThreads` now merges collaboration + community threads with per-thread unread.
+> - `ChatMessageResource` gains `thread_id`; `NewChatMessage` broadcasts `chat.thread.{id}` (+app channel).
+> - Endpoints: `POST /communities/{community}/chats`, `GET/POST /chats/{thread}/messages`,
+>   `POST /chats/{thread}/read`. Request: `StoreCommunityChatRequest`.
+> - Tests: `tests/Feature/Api/V1/CommunityChatTest.php` (7). App side already shipped.
+> **Phase 3 (event chats) still needs the RSVP model.**
 - Auto-create one `community_main` thread when a community is created (+ backfill existing communities).
 - `POST /communities/{id}/chats` custom create with ≤5 cap (`chat_limit_reached`).
 - Access: main → any active member; custom → tier `permissions.chat_channels` contains `slug`.

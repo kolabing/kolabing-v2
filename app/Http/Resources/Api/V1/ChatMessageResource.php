@@ -23,6 +23,7 @@ class ChatMessageResource extends JsonResource
         return [
             'id' => $this->id,
             'application_id' => $this->application_id,
+            'thread_id' => $this->thread_id,
             'sender_profile' => $this->whenLoaded('senderProfile', function () {
                 return new ProfileSummaryResource($this->senderProfile);
             }),

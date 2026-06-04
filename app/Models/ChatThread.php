@@ -63,6 +63,14 @@ class ChatThread extends Model
     }
 
     /**
+     * @return BelongsTo<Community, $this>
+     */
+    public function community(): BelongsTo
+    {
+        return $this->belongsTo(Community::class);
+    }
+
+    /**
      * @return HasMany<ChatMessage, $this>
      */
     public function messages(): HasMany

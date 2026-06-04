@@ -32,9 +32,18 @@ class NewChatMessage implements ShouldBroadcast
      */
     public function broadcastOn(): array
     {
-        return [
-            new PrivateChannel('chat.application.'.$this->message->application_id),
-        ];
+        $channels = [];
+
+        if ($this->message->thread_id !== null) {
+            $channels[] = new PrivateChannel('chat.thread.'.$this->message->thread_id);
+        }
+
+        // Back-compat: collaboration messages keep the application channel.
+        if ($this->message->application_id !== null) {
+            $channels[] = new PrivateChannel('chat.application.'.$this->message->application_id);
+        }
+
+        return $channels;
     }
 
     /**

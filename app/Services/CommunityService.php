@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\ChatThreadType;
 use App\Enums\CommunityType;
 use App\Enums\JoinPolicy;
 use App\Enums\TierAssignmentRule;
 use App\Exceptions\CommunityLimitReachedException;
+use App\Models\ChatThread;
 use App\Models\Community;
 use App\Models\CommunityTier;
 use App\Models\Profile;
@@ -47,6 +49,13 @@ class CommunityService
             ]);
 
             $this->createDefaultTier($community);
+
+            // Every community has exactly one main chat (NF-CHAT Phase 2).
+            ChatThread::query()->create([
+                'type' => ChatThreadType::CommunityMain->value,
+                'community_id' => $community->id,
+                'name' => $community->name,
+            ]);
 
             return $community->load('tiers');
         });
