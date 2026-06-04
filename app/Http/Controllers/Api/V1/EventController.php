@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreEventRequest;
 use App\Http\Requests\Api\V1\UpdateEventRequest;
 use App\Http\Resources\Api\V1\EventResource;
+use App\Models\Community;
 use App\Models\Event;
 use App\Models\Profile;
 use App\Services\EventService;
@@ -103,7 +104,18 @@ class EventController extends Controller
         /** @var Profile $profile */
         $profile = $request->user();
 
-        if ($profile->cannot('create', Event::class)) {
+        $data = $request->validated();
+
+        if ($request->isUpcoming()) {
+            // Upcoming community event: must be owner / can_manage of the community.
+            $community = Community::query()->find($data['community_id']);
+            if ($community === null || $profile->cannot('manage', $community)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => __('You are not authorized to create events for this community.'),
+                ], 403);
+            }
+        } elseif ($profile->cannot('create', Event::class)) {
             return response()->json([
                 'success' => false,
                 'message' => __('You are not authorized to create events.'),
@@ -112,8 +124,8 @@ class EventController extends Controller
 
         $event = $this->eventService->create(
             $profile,
-            $request->validated(),
-            $request->file('photos')
+            $data,
+            $request->file('photos') ?? []
         );
 
         return response()->json([
