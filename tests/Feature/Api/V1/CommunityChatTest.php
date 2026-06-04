@@ -144,11 +144,16 @@ class CommunityChatTest extends TestCase
         $beforeRead = $this->actingAs($member)->getJson('/api/v1/chats')->json('data.0.unread_count');
         $this->assertSame(1, $beforeRead);
 
-        // Listing messages marks the thread read on open.
+        // Listing messages marks the thread read on open. The list MUST live at
+        // data.messages (the app's generic chat client reads that key) — a
+        // regression here showed the message on send but an empty thread on reopen.
         $this->actingAs($member)
             ->getJson("/api/v1/chats/{$main->id}/messages")
             ->assertStatus(200)
-            ->assertJsonPath('meta.total', 1);
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonCount(1, 'data.messages')
+            ->assertJsonPath('data.messages.0.content', 'Welcome all')
+            ->assertJsonPath('data.messages.0.thread_id', $main->id);
 
         $afterRead = $this->actingAs($member)->getJson('/api/v1/chats')->json('data.0.unread_count');
         $this->assertSame(0, $afterRead);

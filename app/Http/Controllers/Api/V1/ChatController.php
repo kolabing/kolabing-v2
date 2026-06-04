@@ -119,9 +119,16 @@ class ChatController extends Controller
         // Opening a thread marks it read for the viewer.
         $this->chatService->markThreadRead($profile, $thread);
 
+        // Shape note: the app's generic chat client reads `data.messages`
+        // (ChatService.getMessages → _list(data, 'messages')). The shared
+        // ChatMessageCollection wraps under `data.data`, which that client can't
+        // find — so return the list under `data.messages` explicitly. (The
+        // application chat endpoint keeps the collection; it has its own parser.)
         return response()->json([
             'success' => true,
-            'data' => new ChatMessageCollection($messages),
+            'data' => [
+                'messages' => ChatMessageResource::collection($messages->items()),
+            ],
             'meta' => [
                 'current_page' => $messages->currentPage(),
                 'last_page' => $messages->lastPage(),
