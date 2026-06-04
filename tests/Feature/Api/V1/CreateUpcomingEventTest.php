@@ -81,6 +81,31 @@ class CreateUpcomingEventTest extends TestCase
             ->assertStatus(422)->assertJsonPath('error', 'tier_not_permitted');
     }
 
+    public function test_creator_can_edit_upcoming_event_fields(): void
+    {
+        $leader = Profile::factory()->community()->create();
+        $community = $this->community($leader);
+        $event = Event::factory()->create([
+            'profile_id' => $leader->id,
+            'community_id' => $community->id,
+            'starts_at' => now()->addDays(2),
+            'capacity' => 10,
+        ]);
+
+        $newStart = now()->addDays(4)->startOfMinute();
+
+        $this->actingAs($leader)->putJson("/api/v1/events/{$event->id}", [
+            'capacity' => 30,
+            'location' => 'New venue',
+            'starts_at' => $newStart->toIso8601String(),
+        ])->assertStatus(200)
+            ->assertJsonPath('data.capacity', 30)
+            ->assertJsonPath('data.location', 'New venue')
+            ->assertJsonPath('data.is_upcoming', true);
+
+        $this->assertSame(30, $event->fresh()->capacity);
+    }
+
     public function test_non_manager_cannot_create_upcoming_event(): void
     {
         $leader = Profile::factory()->community()->create();

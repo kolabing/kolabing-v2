@@ -169,6 +169,21 @@ class EventService
             $updateData['attendee_count'] = $data['attendee_count'];
         }
 
+        // Upcoming-event fields (NF-16 edit). starts_at also syncs event_date.
+        if (isset($data['starts_at'])) {
+            $startsAt = Carbon::parse($data['starts_at']);
+            $updateData['starts_at'] = $startsAt;
+            $updateData['event_date'] = $startsAt->toDateString();
+        }
+        if (array_key_exists('ends_at', $data)) {
+            $updateData['ends_at'] = $data['ends_at'] !== null ? Carbon::parse($data['ends_at']) : null;
+        }
+        foreach (['location', 'capacity', 'tier_gate'] as $field) {
+            if (array_key_exists($field, $data)) {
+                $updateData[$field] = $data[$field];
+            }
+        }
+
         if (! empty($updateData)) {
             $event->update($updateData);
         }
