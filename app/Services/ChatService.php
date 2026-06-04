@@ -8,6 +8,7 @@ use App\Enums\ChatThreadType;
 use App\Enums\CommunityMemberStatus;
 use App\Enums\EventSignupStatus;
 use App\Events\NewChatMessage;
+use App\Jobs\FanOutThreadMessageNotifications;
 use App\Models\Application;
 use App\Models\ChatMessage;
 use App\Models\ChatThread;
@@ -342,6 +343,10 @@ class ChatService
 
         broadcast(new NewChatMessage($message))->toOthers();
 
+        // Fan out push + in-app notifications to the thread's other members
+        // (community/event). Queued so a large audience never blocks the send.
+        FanOutThreadMessageNotifications::dispatch($message->id, $thread->id, $sender->id);
+
         return $message;
     }
 
@@ -533,6 +538,100 @@ class ChatService
             ->pluck('community_id');
 
         return $owned->merge($managed)->unique()->values();
+    }
+
+    /**
+     * Profile ids that should be notified of a new message in a thread, minus the
+     * sender. Mirrors `canAccessThread` as a SET. Collaboration threads return []
+     * (those notify via NotificationService::notifyNewMessage).
+     *
+     * @return array<int, string>
+     */
+    public function threadRecipientIds(ChatThread $thread, string $senderProfileId): array
+    {
+        $ids = match ($thread->type) {
+            ChatThreadType::CommunityMain => $this->communityAudienceIds($thread->community_id),
+            ChatThreadType::CommunityCustom => $this->customChatAudienceIds($thread),
+            ChatThreadType::Event => $this->eventChatAudienceIds($thread),
+            default => collect(),
+        };
+
+        return $ids
+            ->filter(fn ($id): bool => $id !== null && $id !== $senderProfileId)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return Collection<int, string>
+     */
+    private function communityAudienceIds(?string $communityId): Collection
+    {
+        if ($communityId === null) {
+            return collect();
+        }
+
+        $members = CommunityMember::query()
+            ->where('community_id', $communityId)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->pluck('profile_id');
+
+        $owner = Community::query()->whereKey($communityId)->value('owner_profile_id');
+
+        return $members->push($owner);
+    }
+
+    /**
+     * @return Collection<int, string>
+     */
+    private function customChatAudienceIds(ChatThread $thread): Collection
+    {
+        if ($thread->community_id === null) {
+            return collect();
+        }
+
+        $owner = Community::query()->whereKey($thread->community_id)->value('owner_profile_id');
+
+        $ids = CommunityMember::query()
+            ->with('tier')
+            ->where('community_id', $thread->community_id)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->get()
+            ->filter(fn (CommunityMember $m): bool => $m->can_manage
+                || in_array($thread->slug, $this->tierChatChannels($m->tier), true))
+            ->pluck('profile_id');
+
+        return $ids->push($owner);
+    }
+
+    /**
+     * @return Collection<int, string>
+     */
+    private function eventChatAudienceIds(ChatThread $thread): Collection
+    {
+        if ($thread->event_id === null) {
+            return collect();
+        }
+
+        $going = EventSignup::query()
+            ->where('event_id', $thread->event_id)
+            ->where('status', EventSignupStatus::Going->value)
+            ->pluck('profile_id');
+
+        if ($thread->community_id === null) {
+            return $going;
+        }
+
+        $managers = CommunityMember::query()
+            ->where('community_id', $thread->community_id)
+            ->where('can_manage', true)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->pluck('profile_id');
+
+        $owner = Community::query()->whereKey($thread->community_id)->value('owner_profile_id');
+
+        return $going->merge($managers)->push($owner);
     }
 
     private function isCommunityMemberOrOwner(Profile $profile, string $communityId): bool

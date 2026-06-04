@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property bool $whatsapp_notifications
  * @property bool $new_application_alerts
  * @property bool $collaboration_updates
+ * @property bool $message_notifications
  * @property bool $marketing_tips
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -37,6 +38,7 @@ class NotificationPreference extends Model
         'whatsapp_notifications',
         'new_application_alerts',
         'collaboration_updates',
+        'message_notifications',
         'marketing_tips',
     ];
 
@@ -52,6 +54,7 @@ class NotificationPreference extends Model
             'whatsapp_notifications' => 'boolean',
             'new_application_alerts' => 'boolean',
             'collaboration_updates' => 'boolean',
+            'message_notifications' => 'boolean',
             'marketing_tips' => 'boolean',
         ];
     }

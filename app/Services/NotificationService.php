@@ -93,6 +93,68 @@ class NotificationService
     }
 
     /**
+     * Bulk-record a notification for many recipients in one (chunked) insert —
+     * scale-friendly fan-out (the push is sent separately, in one multi-recipient
+     * call by the caller). Does NOT dispatch per-recipient push jobs.
+     *
+     * @param  array<int, string>  $recipientIds
+     */
+    public function recordNotifications(
+        array $recipientIds,
+        NotificationType $type,
+        string $title,
+        string $body,
+        ?string $actorProfileId = null,
+        ?string $targetId = null,
+        ?string $targetType = null,
+    ): void {
+        if ($recipientIds === []) {
+            return;
+        }
+
+        $now = now();
+        $rows = array_map(static fn (string $profileId): array => [
+            'id' => (string) Str::uuid(),
+            'profile_id' => $profileId,
+            'type' => $type->value,
+            'title' => $title,
+            'body' => $body,
+            'actor_profile_id' => $actorProfileId,
+            'target_id' => $targetId,
+            'target_type' => $targetType,
+            'read_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], array_values($recipientIds));
+
+        foreach (array_chunk($rows, 500) as $chunk) {
+            Notification::query()->insert($chunk);
+        }
+    }
+
+    /**
+     * Of the given profile ids, those who allow chat-message notifications.
+     * Missing preference row = default ON.
+     *
+     * @param  array<int, string>  $profileIds
+     * @return array<int, string>
+     */
+    public function recipientsAllowingMessages(array $profileIds): array
+    {
+        if ($profileIds === []) {
+            return [];
+        }
+
+        $optedOut = \App\Models\NotificationPreference::query()
+            ->whereIn('profile_id', $profileIds)
+            ->where('message_notifications', false)
+            ->pluck('profile_id')
+            ->all();
+
+        return array_values(array_diff($profileIds, $optedOut));
+    }
+
+    /**
      * Create a notification for a new chat message.
      * Notifies the other party in the application conversation.
      */
@@ -113,6 +175,11 @@ class NotificationService
         $senderProfile = $senderProfileId === $application->applicant_profile_id
             ? $application->applicantProfile
             : $application->collabOpportunity->creatorProfile;
+
+        // Respect the recipient's message-notification preference (default ON).
+        if ($this->recipientsAllowingMessages([$recipient->id]) === []) {
+            return;
+        }
 
         $body = Str::limit($message->content, 100, '...');
 
