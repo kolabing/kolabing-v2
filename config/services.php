@@ -16,6 +16,9 @@ return [
 
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
+        'from' => env('MAIL_FROM_ADDRESS', 'hello@kolabing.com'),
+        'from_name' => env('MAIL_FROM_NAME', 'Kolabing'),
+        'message_stream' => env('POSTMARK_MESSAGE_STREAM_ID', 'outbound'),
     ],
 
     'resend' => [

@@ -14,6 +14,7 @@ use App\Policies\CollaborationPolicy;
 use App\Policies\CommunityPolicy;
 use App\Policies\KolabPolicy;
 use App\Policies\OpportunityPolicy;
+use App\Services\PostmarkClient;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -25,7 +26,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(PostmarkClient::class, function ($app): PostmarkClient {
+            $config = $app['config'];
+
+            return new PostmarkClient(
+                token: $config->get('services.postmark.key'),
+                from: $config->get('services.postmark.from', 'hello@kolabing.com'),
+                fromName: $config->get('services.postmark.from_name', 'Kolabing'),
+                messageStream: $config->get('services.postmark.message_stream', 'outbound'),
+            );
+        });
     }
 
     /**
