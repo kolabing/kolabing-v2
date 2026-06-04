@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SendChatMessageRequest;
 use App\Http\Resources\Api\V1\ChatMessageCollection;
 use App\Http\Resources\Api\V1\ChatMessageResource;
+use App\Http\Resources\Api\V1\ChatThreadResource;
 use App\Models\Application;
 use App\Models\Profile;
 use App\Services\ChatService;
@@ -20,6 +21,43 @@ class ChatController extends Controller
     public function __construct(
         private readonly ChatService $chatService
     ) {}
+
+    /**
+     * List chat threads visible to the viewer (active-chats inbox).
+     * Business viewers only see collaboration threads with ≥1 message.
+     *
+     * GET /api/v1/chats
+     */
+    public function chats(Request $request): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        $threads = $this->chatService->visibleThreads($profile);
+
+        return response()->json([
+            'success' => true,
+            'data' => ChatThreadResource::collection($threads),
+        ]);
+    }
+
+    /**
+     * Total unread messages across the viewer's visible threads (badge feed).
+     *
+     * GET /api/v1/chats/unread-count
+     */
+    public function unreadCountAcrossThreads(Request $request): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total' => $this->chatService->getUnreadCount($profile),
+            ],
+        ]);
+    }
 
     /**
      * Get chat messages for an application.

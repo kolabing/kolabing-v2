@@ -606,6 +606,12 @@ Route::prefix('v1')->group(function (): void {
         Route::get('me/unread-messages-count', [ChatController::class, 'unreadCount'])
             ->name('api.v1.me.unread-messages-count');
 
+        // NF-CHAT Phase 1 — active-chats inbox (role-scoped thread list)
+        Route::get('chats', [ChatController::class, 'chats'])
+            ->name('api.v1.chats.index');
+        Route::get('chats/unread-count', [ChatController::class, 'unreadCountAcrossThreads'])
+            ->name('api.v1.chats.unread-count');
+
         /*
         |--------------------------------------------------------------------------
         | Notifications

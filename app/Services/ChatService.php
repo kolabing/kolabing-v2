@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\ChatThreadType;
 use App\Events\NewChatMessage;
 use App\Models\Application;
 use App\Models\ChatMessage;
+use App\Models\ChatThread;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -46,11 +48,17 @@ class ChatService
             throw new InvalidArgumentException('You are not authorized to send messages in this chat.');
         }
 
+        $thread = $this->threadForApplication($application);
+
         $message = ChatMessage::query()->create([
             'application_id' => $application->id,
+            'thread_id' => $thread->id,
             'sender_profile_id' => $sender->id,
             'content' => $data['content'],
         ]);
+
+        // Drives the business "active chats" filter + sort.
+        $thread->forceFill(['last_message_at' => now()])->save();
 
         $message->load('senderProfile.businessProfile', 'senderProfile.communityProfile');
 
@@ -157,6 +165,55 @@ class ChatService
         }
 
         return null;
+    }
+
+    /**
+     * Resolve (or lazily create) the collaboration thread for an application.
+     */
+    public function threadForApplication(Application $application): ChatThread
+    {
+        return ChatThread::query()->firstOrCreate(
+            ['application_id' => $application->id],
+            ['type' => ChatThreadType::Collaboration->value],
+        );
+    }
+
+    /**
+     * Collaboration threads visible to a profile, for the active-chats inbox.
+     * Business viewers only see threads with at least one message
+     * (last_message_at != null); a match alone never clutters the inbox.
+     * Each returned thread carries a transient `unread_count`.
+     *
+     * @return Collection<int, ChatThread>
+     */
+    public function visibleThreads(Profile $profile): Collection
+    {
+        $applicationIds = $this->getParticipatingApplicationIds($profile);
+
+        $query = ChatThread::query()
+            ->where('type', ChatThreadType::Collaboration->value)
+            ->whereIn('application_id', $applicationIds)
+            ->with([
+                'application.collaboration',
+                'application.applicantProfile.businessProfile',
+                'application.applicantProfile.communityProfile',
+                'application.collabOpportunity.creatorProfile.businessProfile',
+                'application.collabOpportunity.creatorProfile.communityProfile',
+            ]);
+
+        if ($profile->isBusiness()) {
+            $query->whereNotNull('last_message_at');
+        }
+
+        $threads = $query->orderByDesc('last_message_at')->get();
+
+        $unreadByApplication = $this->getUnreadCountByApplication($profile);
+
+        foreach ($threads as $thread) {
+            $thread->unread_count = $unreadByApplication[$thread->application_id] ?? 0;
+        }
+
+        return $threads;
     }
 
     /**

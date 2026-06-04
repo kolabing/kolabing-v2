@@ -12,12 +12,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * @property string $id
  * @property string $application_id
+ * @property string|null $thread_id
  * @property string $sender_profile_id
  * @property string $content
  * @property \Illuminate\Support\Carbon|null $read_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Application $application
+ * @property-read ChatThread|null $thread
  * @property-read Profile $senderProfile
  */
 class ChatMessage extends Model
@@ -32,6 +34,7 @@ class ChatMessage extends Model
      */
     protected $fillable = [
         'application_id',
+        'thread_id',
         'sender_profile_id',
         'content',
         'read_at',
@@ -57,6 +60,16 @@ class ChatMessage extends Model
     public function application(): BelongsTo
     {
         return $this->belongsTo(Application::class);
+    }
+
+    /**
+     * Get the thread this message belongs to.
+     *
+     * @return BelongsTo<ChatThread, $this>
+     */
+    public function thread(): BelongsTo
+    {
+        return $this->belongsTo(ChatThread::class, 'thread_id');
     }
 
     /**
