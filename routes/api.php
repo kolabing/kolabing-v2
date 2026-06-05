@@ -251,9 +251,13 @@ Route::prefix('v1')->group(function (): void {
         Route::put('events/{event}', [EventController::class, 'update'])
             ->name('api.v1.events.update');
 
-        // Delete event
+        // Delete event (scope = this | following | series for recurring)
         Route::delete('events/{event}', [EventController::class, 'destroy'])
             ->name('api.v1.events.destroy');
+
+        // NF-16 recurring — extend a series' rolling window
+        Route::post('event-series/{series}/extend', [EventController::class, 'extendSeries'])
+            ->name('api.v1.event-series.extend');
 
         // NF-CHAT Phase 3 — event sign-up (RSVP) + event chat
         Route::post('events/{event}/signup', [EventSignupController::class, 'store'])

@@ -698,6 +698,31 @@ class EventTest extends TestCase
         $this->assertDatabaseMissing('event_photos', ['id' => $photo->id]);
     }
 
+    public function test_deleting_an_event_notifies_going_and_waitlisted_signups(): void
+    {
+        $owner = $this->createCommunityProfile();
+        $event = Event::factory()->forProfile($owner)->create();
+
+        $going = $this->createCommunityProfile();
+        $waitlisted = $this->createCommunityProfile();
+        \App\Models\EventSignup::query()->create([
+            'event_id' => $event->id, 'profile_id' => $going->id, 'status' => 'going',
+        ]);
+        \App\Models\EventSignup::query()->create([
+            'event_id' => $event->id, 'profile_id' => $waitlisted->id,
+            'status' => 'waitlisted', 'waitlist_position' => 1,
+        ]);
+
+        $this->actingAs($owner)->deleteJson("/api/v1/events/{$event->id}")->assertStatus(200);
+
+        foreach ([$going, $waitlisted] as $p) {
+            $this->assertDatabaseHas('notifications', [
+                'profile_id' => $p->id,
+                'type' => 'event_cancelled',
+            ]);
+        }
+    }
+
     public function test_non_owner_cannot_delete_event(): void
     {
         $owner = $this->createBusinessProfile();

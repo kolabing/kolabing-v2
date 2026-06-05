@@ -38,6 +38,8 @@ class EventResource extends JsonResource
             'collaboration_id' => $this->collaboration_id,
             'capacity' => $this->capacity,
             'tier_gate' => $this->tier_gate,
+            'series_id' => $this->series_id,
+            'occurrence_index' => $this->occurrence_index,
             'photos' => EventPhotoResource::collection($this->whenLoaded('photos')),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

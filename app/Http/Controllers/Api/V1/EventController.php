@@ -11,6 +11,7 @@ use App\Http\Resources\Api\V1\EventResource;
 use App\Models\Community;
 use App\Models\Event;
 use App\Models\Profile;
+use App\Services\EventSeriesService;
 use App\Services\EventService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,8 @@ use Illuminate\Http\Request;
 class EventController extends Controller
 {
     public function __construct(
-        private readonly EventService $eventService
+        private readonly EventService $eventService,
+        private readonly EventSeriesService $eventSeriesService,
     ) {}
 
     /**
@@ -122,6 +124,23 @@ class EventController extends Controller
             ], 403);
         }
 
+        // Recurring create → build a series and return its first occurrence (so
+        // the app's create flow gets an event back, now carrying series_id).
+        if ($request->isUpcoming() && $request->filled('recurrence')) {
+            $series = $this->eventSeriesService->create($profile, $data);
+            $first = $series->events()->first();
+
+            return response()->json([
+                'success' => true,
+                'message' => __('Recurring event created successfully.'),
+                'data' => $first !== null
+                    ? new EventResource($this->eventService->getWithRelations($first))
+                    : null,
+                'series_id' => $series->id,
+                'occurrences_created' => $series->events()->count(),
+            ], 201);
+        }
+
         $event = $this->eventService->create(
             $profile,
             $data,
@@ -178,11 +197,46 @@ class EventController extends Controller
             ], 403);
         }
 
-        $this->eventService->delete($event);
+        // scope = this (default) | following | series — only meaningful when the
+        // event belongs to a recurring series.
+        $scope = $request->query('scope', 'this');
+        if (! in_array($scope, ['this', 'following', 'series'], true)) {
+            $scope = 'this';
+        }
+
+        $deleted = $this->eventSeriesService->deleteScope($event, $scope);
 
         return response()->json([
             'success' => true,
             'message' => __('Event deleted successfully.'),
+            'deleted_count' => $deleted,
+        ]);
+    }
+
+    /**
+     * Extend a recurring series' rolling window (materialise the next months).
+     *
+     * POST /api/v1/event-series/{series}/extend
+     */
+    public function extendSeries(Request $request, \App\Models\EventSeries $series): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        $community = Community::query()->find($series->community_id);
+        if ($community === null || $profile->cannot('manage', $community)) {
+            return response()->json([
+                'success' => false,
+                'message' => __('You are not authorized to manage this series.'),
+            ], 403);
+        }
+
+        $created = $this->eventSeriesService->extend($series);
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Series extended.'),
+            'occurrences_created' => $created,
         ]);
     }
 }

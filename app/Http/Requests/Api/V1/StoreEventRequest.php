@@ -42,6 +42,18 @@ class StoreEventRequest extends FormRequest
                 'collaboration_id' => ['nullable', 'uuid', 'exists:collaborations,id'],
                 'photos' => ['nullable', 'array', 'max:5'],
                 'photos.*' => ['image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
+
+                // Optional recurrence → creates an event_series + materialises the
+                // first window instead of a single event. Weekday: 0=Sun..6=Sat;
+                // a list allows multi-day (e.g. [2,4] = Tue+Thu = twice weekly).
+                'recurrence' => ['sometimes', 'array'],
+                'recurrence.frequency' => ['required_with:recurrence', Rule::in(['weekly', 'biweekly', 'monthly'])],
+                'recurrence.byweekday' => ['required_with:recurrence', 'array', 'min:1'],
+                'recurrence.byweekday.*' => ['integer', 'between:0,6'],
+                'recurrence.chat_mode' => ['sometimes', Rule::in(['per_event', 'series'])],
+                'recurrence.ends_mode' => ['sometimes', Rule::in(['count', 'until', 'never'])],
+                'recurrence.ends_count' => ['nullable', 'integer', 'min:1', 'max:200', 'required_if:recurrence.ends_mode,count'],
+                'recurrence.ends_on' => ['nullable', 'date', 'after:starts_at', 'required_if:recurrence.ends_mode,until'],
             ];
         }
 

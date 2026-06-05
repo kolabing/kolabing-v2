@@ -51,6 +51,8 @@ class Event extends Model
     protected $fillable = [
         'profile_id',
         'community_id',
+        'series_id',
+        'occurrence_index',
         'collaboration_id',
         'name',
         'partner_name',
@@ -80,6 +82,7 @@ class Event extends Model
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
             'attendee_count' => 'integer',
+            'occurrence_index' => 'integer',
             'location_lat' => 'decimal:7',
             'location_lng' => 'decimal:7',
             'capacity' => 'integer',
@@ -124,6 +127,16 @@ class Event extends Model
     public function community(): BelongsTo
     {
         return $this->belongsTo(Community::class);
+    }
+
+    /**
+     * The recurring series this event is an occurrence of (nullable).
+     *
+     * @return BelongsTo<EventSeries, $this>
+     */
+    public function series(): BelongsTo
+    {
+        return $this->belongsTo(EventSeries::class);
     }
 
     /**

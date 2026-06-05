@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\EventSignupStatus;
 use App\Enums\FileUploadType;
+use App\Enums\NotificationType;
 use App\Enums\UserType;
 use App\Models\Community;
 use App\Models\Event;
 use App\Models\EventPhoto;
+use App\Models\EventSignup;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
@@ -18,7 +21,8 @@ use Illuminate\Support\Facades\DB;
 class EventService
 {
     public function __construct(
-        private readonly FileUploadService $fileUploadService
+        private readonly FileUploadService $fileUploadService,
+        private readonly NotificationService $notificationService,
     ) {}
 
     /**
@@ -237,11 +241,22 @@ class EventService
     }
 
     /**
-     * Delete an event and its photos from storage.
+     * Delete an event and its photos from storage. Anyone holding a live sign-up
+     * (going or waitlisted) is notified the event was cancelled, before the rows
+     * cascade away.
      */
     public function delete(Event $event): void
     {
         $event->load('photos');
+
+        $recipientIds = EventSignup::query()
+            ->where('event_id', $event->id)
+            ->whereIn('status', [
+                EventSignupStatus::Going->value,
+                EventSignupStatus::Waitlisted->value,
+            ])
+            ->pluck('profile_id')
+            ->all();
 
         DB::transaction(function () use ($event): void {
             foreach ($event->photos as $photo) {
@@ -250,6 +265,18 @@ class EventService
 
             $event->delete();
         });
+
+        if ($recipientIds !== []) {
+            $this->notificationService->recordNotifications(
+                recipientIds: $recipientIds,
+                type: NotificationType::EventCancelled,
+                title: __('Event cancelled'),
+                body: __('":event" has been cancelled by the organiser.', ['event' => $event->name]),
+                actorProfileId: $event->profile_id,
+                targetId: $event->community_id,
+                targetType: 'community',
+            );
+        }
     }
 
     /**
