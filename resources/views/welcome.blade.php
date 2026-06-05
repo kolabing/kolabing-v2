@@ -1090,7 +1090,7 @@
 <!-- NAV -->
 <header>
   <div class="logo">
-    <img class="logo-mark" src="assets/kolabing-logo.png" alt="kolabing"/>
+    <img class="logo-mark" src="/brand/kolabing-wordmark-dark.png" alt="kolabing"/>
   </div>
   <nav>
     <a href="#how-it-works">how it works</a>
@@ -1522,7 +1522,7 @@
 <footer>
   <div class="footer-inner">
     <div class="logo">
-      <img class="logo-mark logo-mark--footer" src="assets/kolabing-logo.png" alt="kolabing"/>
+      <img class="logo-mark logo-mark--footer" src="/brand/kolabing-wordmark-light.png" alt="kolabing"/>
     </div>
     <div class="footer-links">
       <a href="#">terms</a>

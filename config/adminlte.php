@@ -326,6 +326,19 @@ return [
             'icon' => 'fas fa-fw fa-handshake',
             'active' => ['admin/kolabs', 'admin/kolabs/*'],
         ],
+        ['header' => 'COMMUNITY OPS'],
+        [
+            'text' => 'Communities',
+            'route' => 'admin.communities.index',
+            'icon' => 'fas fa-fw fa-people-group',
+            'active' => ['admin/communities', 'admin/communities/*'],
+        ],
+        [
+            'text' => 'Businesses',
+            'route' => 'admin.businesses.index',
+            'icon' => 'fas fa-fw fa-briefcase',
+            'active' => ['admin/businesses', 'admin/businesses/*'],
+        ],
         ['header' => 'INSIGHTS'],
         [
             'text' => 'Statistics',

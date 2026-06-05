@@ -10,11 +10,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreCommunityRequest;
 use App\Http\Requests\Api\V1\UpdateCommunityRequest;
 use App\Http\Resources\Api\V1\CommunityMemberResource;
+use App\Http\Resources\Api\V1\CommunityProfileAggregateResource;
 use App\Http\Resources\Api\V1\CommunityResource;
 use App\Http\Resources\Api\V1\CommunityTierResource;
 use App\Models\Community;
 use App\Models\Profile;
 use App\Services\CommunityMemberService;
+use App\Services\CommunityProfileService;
 use App\Services\CommunityService;
 use DomainException;
 use Illuminate\Http\JsonResponse;
@@ -25,6 +27,7 @@ class CommunityController extends Controller
     public function __construct(
         private readonly CommunityService $communityService,
         private readonly CommunityMemberService $memberService,
+        private readonly CommunityProfileService $profileService,
     ) {}
 
     /**
@@ -75,6 +78,24 @@ class CommunityController extends Controller
         return response()->json([
             'success' => true,
             'data' => new CommunityResource($community),
+        ]);
+    }
+
+    /**
+     * GET /api/v1/communities/{community}/profile — the rich aggregate
+     * community public-profile (Batch 6). Members get viewer tier + chapter
+     * rank + member-visible chats; non-members get the public subset.
+     */
+    public function profile(Request $request, Community $community): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        $payload = $this->profileService->build($community, $profile);
+
+        return response()->json([
+            'success' => true,
+            'data' => new CommunityProfileAggregateResource($payload),
         ]);
     }
 

@@ -2,8 +2,11 @@
 
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
+use App\Http\Controllers\Admin\BusinessController as AdminBusinessController;
 use App\Http\Controllers\Admin\ChallengeController as AdminChallengeController;
 use App\Http\Controllers\Admin\ChallengeDefaultsController as AdminChallengeDefaultsController;
+use App\Http\Controllers\Admin\ChatController as AdminChatController;
+use App\Http\Controllers\Admin\CommunityController as AdminCommunityController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\KolabController as AdminKolabController;
 use App\Http\Controllers\Admin\ManagedUserController;
@@ -41,6 +44,16 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::delete('/kolabs/{kolab}', [AdminKolabController::class, 'destroy'])->name('kolabs.destroy');
     Route::post('/kolabs/{kolab}/collaboration/cancel', [AdminKolabController::class, 'cancelCollaboration'])->name('kolabs.collaboration.cancel');
     Route::post('/kolabs/{kolab}/collaboration/complete', [AdminKolabController::class, 'completeCollaboration'])->name('kolabs.collaboration.complete');
+
+    Route::get('/communities', [AdminCommunityController::class, 'index'])->name('communities.index');
+    Route::get('/communities/{community}', [AdminCommunityController::class, 'show'])->name('communities.show');
+
+    Route::get('/businesses', [AdminBusinessController::class, 'index'])->name('businesses.index');
+    Route::get('/businesses/{business}', [AdminBusinessController::class, 'show'])->name('businesses.show');
+
+    Route::get('/chats/{thread}', [AdminChatController::class, 'show'])->name('chats.show')->withTrashed();
+    Route::delete('/chats/{thread}', [AdminChatController::class, 'destroy'])->name('chats.destroy');
+    Route::post('/chats/{thread}/ban', [AdminChatController::class, 'banMember'])->name('chats.ban')->withTrashed();
 
     Route::get('/stats', [AdminStatsController::class, 'index'])->name('stats.index');
 

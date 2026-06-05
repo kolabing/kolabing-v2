@@ -407,3 +407,22 @@ Implements `ROLES-AND-PERMISSIONS.md §12`. `GET /profiles/{profile}/attendee` +
 aggregate). Sources: `attendee_profiles`, `xp_levels` (level rule, Schema-guarded),
 `earned_badges`, `community_members`/`community_tiers`, `event_checkins`→`events`,
 `friendships` (friends_count, Schema-guarded). No gamification writes; never paywalled.
+
+## 17. Maintainer operator panel — communities/businesses/chats (added 2026-06-05, Wave 2)
+
+Blade `/admin/*`, `auth:admin` + `maintainer` guard. `Admin\CommunityController`,
+`Admin\BusinessController`, `Admin\ChatController` → `Admin\AdminCommunityChatService`
+(read queries, eager-loaded). Routes in `routes/web.php`: communities index/show,
+businesses index/show, chats show (`->withTrashed()`), chats destroy + ban. Moderation
+reuses `ChatService::deleteThread`/`banMember` (the latter now `?Profile $bannedBy = null`
+→ `banned_by = null` = maintainer ban). Sidebar nav in `config/adminlte.php`. Read-only +
+moderation; maintainer-only.
+
+## 18. Community profile aggregate — backend map (added 2026-06-05, Wave 2)
+
+`GET /api/v1/communities/{community}/profile` → `CommunityController::profile` →
+`CommunityProfileService` → `CommunityProfileAggregateResource`. Aggregates community +
+`cover_url` (new nullable column), tiers, upcoming events, members preview, gallery,
+member-visible chats (`ChatService::communityThreadsFor`), and viewer block (is_member/
+is_owner/can_manage/tier_name/chapter_rank via `LeaderboardService::getMyCommunityRank`).
+Non-members get the public subset (no chats). Never paywalled.

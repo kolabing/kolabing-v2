@@ -52,6 +52,7 @@ class Community extends Model
         'type',
         'description',
         'avatar_url',
+        'cover_url',
         'is_primary',
         'join_policy',
     ];
@@ -109,6 +110,26 @@ class Community extends Model
     }
 
     /**
+     * Events linked to this community (NF-6 §8.6 linkage).
+     *
+     * @return HasMany<Event, $this>
+     */
+    public function events(): HasMany
+    {
+        return $this->hasMany(Event::class);
+    }
+
+    /**
+     * Chat threads belonging to this community (main + custom + event).
+     *
+     * @return HasMany<ChatThread, $this>
+     */
+    public function chatThreads(): HasMany
+    {
+        return $this->hasMany(ChatThread::class);
+    }
+
+    /**
      * Count of active members.
      */
     public function memberCount(): int
@@ -116,5 +137,13 @@ class Community extends Model
         return $this->members()
             ->where('status', \App\Enums\CommunityMemberStatus::Active->value)
             ->count();
+    }
+
+    /**
+     * Count of events linked to this community.
+     */
+    public function eventCount(): int
+    {
+        return $this->events()->count();
     }
 }

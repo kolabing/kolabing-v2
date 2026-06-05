@@ -324,3 +324,16 @@ This file and `docs/ROLES-BACKEND-DB-MAP.md` are read by every Claude session th
 5. If the change adds or removes a role surface entirely, update the project `CLAUDE.md` "MUST READ" block too.
 
 Treat this maintenance as part of the change, not optional.
+
+---
+
+## 14. Wave 2 additions (added 2026-06-05)
+
+- **Maintainer operator panel** (`/admin/*`, maintainer-guarded): browse all communities
+  and businesses and the chats within each; read transcripts; soft-delete a chat or ban a
+  participant (reuses §9 moderation; a maintainer ban records `banned_by = null`). Backend
+  map §17.
+- **Community profile aggregate** `GET /communities/{community}/profile`: one endpoint
+  feeding the richer community profile (header + `cover_url`, tiers, upcoming events,
+  members, gallery, member-visible chats, viewer's tier + chapter rank). Members see chats;
+  non-members get the public subset. Never paywalled. Backend map §18.

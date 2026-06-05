@@ -14,7 +14,7 @@ class MarketingSeoTest extends TestCase
         $response->assertOk();
         $response->assertSee('REAL PEOPLE', false);
         $response->assertSee('REAL GROWTH', false);
-        $response->assertSee('assets/kolabing-logo.png', false);
+        $response->assertSee('/brand/kolabing-wordmark-dark.png', false);
         $response->assertSee('assets/hero2.mp4', false);
         $response->assertSee('uploads/Gemini_Generated_Image_c3rghhc3rghhc3rg.png', false);
         $response->assertSee('href="#how-it-works"', false);

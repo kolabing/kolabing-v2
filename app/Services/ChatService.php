@@ -342,17 +342,39 @@ class ChatService
 
     /**
      * Ban a member from a thread: removes their access and blocks re-join.
+     * A null `$bannedBy` records a maintainer/operator ban (no acting profile).
      */
-    public function banMember(ChatThread $thread, Profile $target, Profile $bannedBy): ChatThreadParticipant
+    public function banMember(ChatThread $thread, Profile $target, ?Profile $bannedBy = null): ChatThreadParticipant
     {
         return ChatThreadParticipant::query()->updateOrCreate(
             ['thread_id' => $thread->id, 'profile_id' => $target->id],
             [
                 'state' => ChatParticipantState::Banned->value,
                 'banned_at' => now(),
-                'banned_by' => $bannedBy->id,
+                'banned_by' => $bannedBy?->id,
             ],
         );
+    }
+
+    /**
+     * Community threads (main + tier-granted custom) of ONE community that the
+     * given profile may access. Used by the aggregate community-profile endpoint;
+     * returns an empty collection for non-members.
+     *
+     * @return Collection<int, ChatThread>
+     */
+    public function communityThreadsFor(Community $community, Profile $profile): Collection
+    {
+        return ChatThread::query()
+            ->where('community_id', $community->id)
+            ->whereIn('type', [
+                ChatThreadType::CommunityMain->value,
+                ChatThreadType::CommunityCustom->value,
+            ])
+            ->orderBy('created_at')
+            ->get()
+            ->filter(fn (ChatThread $thread): bool => $this->canAccessThread($profile, $thread))
+            ->values();
     }
 
     /**

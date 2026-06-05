@@ -157,7 +157,7 @@ class SyncPostmarkTemplates extends Command
             .'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;"><tr>'
             .'<td align="center" style="padding:0;"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">'
             .'<tr><td align="center" style="padding:32px 16px;">'
-            .'<img src="https://kolabing.com/brand/uploaded-logo-2.png" width="180" alt="Kolabing" style="display:block;border:0;width:180px;height:auto;max-width:52%;margin:0 auto;" /></td></tr>'
+            .'<img src="https://kolabing.com/brand/kolabing-wordmark-dark.png" width="200" alt="Kolabing" style="display:block;border:0;width:200px;height:auto;max-width:58%;margin:0 auto;" /></td></tr>'
             .'<tr><td style="padding:32px 32px 16px;font-size:16px;color:#1a1a1a;">'.$body.'</td></tr>'
             .'<tr><td style="padding:16px 32px 32px;font-size:12px;color:#888;"><p style="margin:0;">Kolabing &middot; Barcelona &middot; '
             .'<a href="https://kolabing.com" style="color:#888;text-decoration:underline;">kolabing.com</a></p></td></tr>'

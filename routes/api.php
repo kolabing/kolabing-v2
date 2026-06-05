@@ -370,6 +370,8 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.communities.store');
         Route::get('communities/{community}', [CommunityController::class, 'show'])
             ->name('api.v1.communities.show');
+        Route::get('communities/{community}/profile', [CommunityController::class, 'profile'])
+            ->name('api.v1.communities.profile');
         Route::patch('communities/{community}', [CommunityController::class, 'update'])
             ->name('api.v1.communities.update');
         Route::post('communities/{community}/join', [CommunityController::class, 'join'])

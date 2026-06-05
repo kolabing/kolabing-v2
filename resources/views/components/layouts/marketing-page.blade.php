@@ -12,15 +12,15 @@
     <meta property="og:title" content="{{ $title }} | Kolabing">
     <meta property="og:description" content="{{ $description }}">
     <meta property="og:url" content="{{ $canonical }}">
-    <meta property="og:image" content="{{ url('/social-preview.svg') }}">
+    <meta property="og:image" content="{{ url('/social-preview.png') }}">
     <meta property="og:image:alt" content="Kolabing local business and community collaboration platform">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ $title }} | Kolabing">
     <meta name="twitter:description" content="{{ $description }}">
-    <meta name="twitter:image" content="{{ url('/social-preview.svg') }}">
+    <meta name="twitter:image" content="{{ url('/social-preview.png') }}">
     <meta name="theme-color" content="#0D1216">
     <link rel="icon" href="/favicon.ico" sizes="any">
-    <link rel="icon" type="image/svg+xml" href="/brand/logo-mark.svg">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="manifest" href="/site.webmanifest">
@@ -50,7 +50,7 @@
     <header class="border-b border-off-black/10 bg-white/90 backdrop-blur">
         <div class="mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-4">
             <a href="{{ route('home') }}" class="flex items-center gap-3 text-off-black">
-                <img src="/brand/logo-wordmark.svg" alt="Kolabing" width="1200" height="260" class="h-8 w-auto">
+                <img src="/brand/kolabing-wordmark-dark.png" alt="Kolabing" width="2240" height="1134" class="h-9 w-auto">
             </a>
             <nav class="flex flex-wrap items-center gap-4 text-sm font-medium text-off-black/70">
                 <a href="{{ route('for-businesses') }}" class="hover:text-off-black">Businesses</a>
@@ -69,7 +69,7 @@
     <footer class="border-t border-off-black/10 bg-off-black py-12 text-white">
         <div class="mx-auto flex max-w-6xl flex-col gap-6 px-6 md:flex-row md:items-center md:justify-between">
             <div>
-                <p class="font-montserrat text-xl font-black uppercase tracking-wide">Kolabing</p>
+                <img src="/brand/kolabing-wordmark-light.png" alt="Kolabing" width="2080" height="1052" class="h-9 w-auto">
                 <p class="mt-2 max-w-xl text-sm text-white/70">Kolabing helps local businesses and communities plan partnerships that turn events into foot traffic, member value, and repeat visits.</p>
             </div>
             <div class="flex flex-wrap gap-4 text-sm text-white/70">
