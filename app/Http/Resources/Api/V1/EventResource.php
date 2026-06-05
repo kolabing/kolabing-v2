@@ -55,6 +55,10 @@ class EventResource extends JsonResource
             'waitlist_position' => $mine->waitlist_position,
         ];
 
+        // Viewer-scoped gate: false when this member's tier is not permitted, so
+        // the app can lock the event (no open into details). Owners always pass.
+        $data['can_access'] = $signups->canAccess($this->resource, $viewer);
+
         if (isset($this->resource->distance_km)) {
             $data['distance_km'] = round((float) $this->resource->distance_km, 2);
         }

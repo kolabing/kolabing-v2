@@ -85,7 +85,9 @@ class CommunityChatTest extends TestCase
         $this->actingAs($leader)
             ->postJson("/api/v1/communities/{$community->id}/chats", ['name' => 'Socials'])
             ->assertStatus(201)
-            ->assertJsonPath('data.name', 'Socials');
+            ->assertJsonPath('data.name', 'Socials')
+            // The slug is the gating key the app needs for the per-tier picker.
+            ->assertJsonPath('data.slug', 'socials');
 
         $grantedTier = CommunityTier::factory()->forCommunity($community)->create([
             'rank' => 3,

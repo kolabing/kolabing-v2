@@ -79,6 +79,44 @@ class CreateUpcomingEventTest extends TestCase
         $this->actingAs($outsiderTierMember)
             ->postJson("/api/v1/events/{$eventId}/signup")
             ->assertStatus(422)->assertJsonPath('error', 'tier_not_permitted');
+
+        // can_access drives the app lock: false for the non-permitted member,
+        // true for the leader — both via the viewer-scoped events index.
+        $this->actingAs($outsiderTierMember)
+            ->getJson("/api/v1/events?community_id={$community->id}&time=upcoming")
+            ->assertStatus(200)
+            ->assertJsonPath('data.events.0.id', $eventId)
+            ->assertJsonPath('data.events.0.can_access', false);
+
+        $this->actingAs($leader)
+            ->getJson("/api/v1/events?community_id={$community->id}&time=upcoming")
+            ->assertStatus(200)
+            ->assertJsonPath('data.events.0.can_access', true);
+    }
+
+    public function test_ungated_event_is_accessible_to_any_member(): void
+    {
+        $leader = Profile::factory()->community()->create();
+        $community = $this->community($leader);
+
+        $eventId = $this->actingAs($leader)->postJson('/api/v1/events', [
+            'community_id' => $community->id,
+            'name' => 'Open Run',
+            'starts_at' => now()->addDays(2)->toIso8601String(),
+        ])->json('data.id');
+
+        $member = Profile::factory()->attendee()->create();
+        CommunityMember::factory()->forCommunity($community)->create([
+            'profile_id' => $member->id,
+            'tier_id' => $community->defaultTier->id,
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($member)
+            ->getJson("/api/v1/events?community_id={$community->id}&time=upcoming")
+            ->assertStatus(200)
+            ->assertJsonPath('data.events.0.id', $eventId)
+            ->assertJsonPath('data.events.0.can_access', true);
     }
 
     public function test_creator_can_edit_upcoming_event_fields(): void

@@ -26,6 +26,10 @@ class ChatThreadResource extends JsonResource
             'id' => $this->id,
             'type' => $type,
             'name' => $this->name,
+            // Stable per-community slug. The gating key: a tier grants access to a
+            // custom chat by listing its slug in permissions.chat_channels, so the
+            // app needs it to build the per-tier channel picker.
+            'slug' => $this->slug,
             'application_id' => $this->application_id,
             'community_id' => $this->community_id,
             'collaboration_id' => $this->whenLoaded('application', fn () => $this->application?->collaboration?->id),

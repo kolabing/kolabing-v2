@@ -183,6 +183,44 @@ class EventSignupService
         }
     }
 
+    /**
+     * Whether a viewer may open / sign up for this event — the boolean form of
+     * {@see assertEligible}. Drives the per-event "locked" lock icon in the app
+     * so a tier-gated event a member cannot join is not even openable.
+     *
+     * Non-community events (no community_id) are open to all. Otherwise: the
+     * community owner always passes; a non-member or a member whose tier is not
+     * in a non-empty tier_gate is locked out.
+     */
+    public function canAccess(Event $event, ?Profile $profile): bool
+    {
+        if ($event->community_id === null) {
+            return true;
+        }
+
+        if ($profile === null) {
+            return false;
+        }
+
+        if (Community::query()->whereKey($event->community_id)->where('owner_profile_id', $profile->id)->exists()) {
+            return true;
+        }
+
+        $member = CommunityMember::query()
+            ->where('community_id', $event->community_id)
+            ->where('profile_id', $profile->id)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->first();
+
+        if ($member === null) {
+            return false;
+        }
+
+        $gate = $event->tier_gate ?? [];
+
+        return ! (is_array($gate) && $gate !== [] && ! in_array($member->tier_id, $gate, true));
+    }
+
     private function nextWaitlistPosition(Event $event): int
     {
         $max = EventSignup::query()
