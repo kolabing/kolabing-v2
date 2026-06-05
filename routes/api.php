@@ -22,10 +22,11 @@ use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\DiscoveryOpportunityController;
 use App\Http\Controllers\Api\V1\EventController;
-use App\Http\Controllers\Api\V1\EventPhotoController;
-use App\Http\Controllers\Api\V1\EventSignupController;
 use App\Http\Controllers\Api\V1\EventDiscoveryController;
+use App\Http\Controllers\Api\V1\EventPhotoController;
 use App\Http\Controllers\Api\V1\EventRewardController;
+use App\Http\Controllers\Api\V1\EventSignupController;
+use App\Http\Controllers\Api\V1\FriendshipController;
 use App\Http\Controllers\Api\V1\GalleryController;
 use App\Http\Controllers\Api\V1\GamificationConfigController;
 use App\Http\Controllers\Api\V1\GamificationController;
@@ -238,6 +239,10 @@ Route::prefix('v1')->group(function (): void {
         // Event Discovery (must be BEFORE events/{event} route)
         Route::get('events/discover', EventDiscoveryController::class)
             ->name('api.v1.events.discover');
+
+        // Public events feed for attendee discovery (Batch 3) — MUST precede events/{event}
+        Route::get('events/discovery', [EventDiscoveryController::class, 'publicFeed'])
+            ->name('api.v1.events.discovery');
 
         // Get single event
         Route::get('events/{event}', [EventController::class, 'show'])
@@ -472,6 +477,12 @@ Route::prefix('v1')->group(function (): void {
         |--------------------------------------------------------------------------
         */
 
+        // Attendee profile + events-attended (Batch 4) — static path precedes profiles/{profile}
+        Route::get('me/events-attended', [ProfileController::class, 'myEventsAttended'])
+            ->name('api.v1.me.events-attended');
+        Route::get('profiles/{profile}/attendee', [ProfileController::class, 'attendeeProfile'])
+            ->name('api.v1.profiles.attendee');
+
         // View public profile
         Route::get('profiles/{profile}', [ProfileController::class, 'publicProfile'])
             ->name('api.v1.profiles.show');
@@ -643,6 +654,36 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.chats.messages.store');
         Route::post('chats/{thread}/read', [ChatController::class, 'readThread'])
             ->name('api.v1.chats.read');
+
+        // NF-CHAT Batch 1 — custom/event chat admin (delete/rename), self-join, ban
+        Route::delete('chats/{thread}', [ChatController::class, 'destroyThread'])
+            ->name('api.v1.chats.destroy');
+        Route::patch('chats/{thread}', [ChatController::class, 'renameThread'])
+            ->name('api.v1.chats.rename');
+        Route::post('chats/{thread}/join', [ChatController::class, 'joinThread'])
+            ->name('api.v1.chats.join');
+        Route::post('chats/{thread}/members/{profile}/remove', [ChatController::class, 'banMember'])
+            ->name('api.v1.chats.members.remove');
+
+        // Friends system (Batch 5) — static "requests" routes precede friends/{profile}
+        Route::get('me/friends', [FriendshipController::class, 'index'])
+            ->name('api.v1.me.friends');
+        Route::get('me/friends/requests', [FriendshipController::class, 'requests'])
+            ->name('api.v1.me.friends.requests');
+        Route::get('me/friends/suggested', [FriendshipController::class, 'suggested'])
+            ->name('api.v1.me.friends.suggested');
+        Route::post('friends/requests', [FriendshipController::class, 'store'])
+            ->name('api.v1.friends.requests.store');
+        Route::post('friends/requests/{friendship}/accept', [FriendshipController::class, 'accept'])
+            ->name('api.v1.friends.requests.accept');
+        Route::post('friends/requests/{friendship}/decline', [FriendshipController::class, 'decline'])
+            ->name('api.v1.friends.requests.decline');
+        Route::delete('friends/{profile}', [FriendshipController::class, 'destroy'])
+            ->name('api.v1.friends.destroy');
+        Route::post('friends/{profile}/block', [FriendshipController::class, 'block'])
+            ->name('api.v1.friends.block');
+        Route::post('friends/{profile}/unblock', [FriendshipController::class, 'unblock'])
+            ->name('api.v1.friends.unblock');
 
         /*
         |--------------------------------------------------------------------------

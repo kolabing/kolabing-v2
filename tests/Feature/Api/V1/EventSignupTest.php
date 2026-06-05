@@ -133,7 +133,7 @@ class EventSignupTest extends TestCase
         $outsider = Profile::factory()->attendee()->create();
 
         $this->actingAs($outsider)->postJson("/api/v1/events/{$event->id}/signup")
-            ->assertStatus(422)->assertJsonPath('error', 'not_a_member');
+            ->assertStatus(403)->assertJsonPath('error', 'community_membership_required');
     }
 
     public function test_cannot_sign_up_to_past_event(): void

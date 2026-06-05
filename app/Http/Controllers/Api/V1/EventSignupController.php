@@ -34,11 +34,13 @@ class EventSignupController extends Controller
         try {
             $this->signups->signup($event, $profile);
         } catch (DomainException $e) {
+            $code = $e->getMessage();
+
             return response()->json([
                 'success' => false,
-                'error' => $e->getMessage(),
-                'message' => $this->messageFor($e->getMessage()),
-            ], 422);
+                'error' => $code,
+                'message' => $this->messageFor($code),
+            ], $this->statusFor($code));
         }
 
         return $this->eventResponse($event);
@@ -109,9 +111,18 @@ class EventSignupController extends Controller
         return match ($code) {
             'event_not_upcoming' => __('Sign-ups are only open for upcoming events.'),
             'event_not_signup_enabled' => __('This event is not open for sign-ups.'),
-            'not_a_member' => __('You must be a member of this community to sign up.'),
+            'community_membership_required' => __('Join this community to RSVP to its members-only events.'),
             'tier_not_permitted' => __('Your tier is not permitted to sign up for this event.'),
             default => __('Could not complete the sign-up.'),
         };
+    }
+
+    /**
+     * members_only gate → 403 (the app routes to the join-community flow); every
+     * other sign-up failure is a 422 validation-style error.
+     */
+    private function statusFor(string $code): int
+    {
+        return $code === 'community_membership_required' ? 403 : 422;
     }
 }

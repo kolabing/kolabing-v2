@@ -6,13 +6,16 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\FileUploadType;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\Api\V1\CommunityPublicProfileResource;
 use App\Http\Requests\Api\V1\UpdateProfileRequest;
+use App\Http\Resources\Api\V1\AttendeePublicProfileResource;
+use App\Http\Resources\Api\V1\CommunityPublicProfileResource;
+use App\Http\Resources\Api\V1\EventAttendedResource;
 use App\Http\Resources\Api\V1\PublicCollaborationResource;
 use App\Http\Resources\Api\V1\PublicProfileResource;
 use App\Http\Resources\Api\V1\PublicProfileReviewResource;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\Profile;
+use App\Services\AttendeeProfileService;
 use App\Services\FileUploadService;
 use App\Services\ProfileService;
 use Illuminate\Http\JsonResponse;
@@ -23,6 +26,7 @@ class ProfileController extends Controller
     public function __construct(
         private readonly ProfileService $profileService,
         private readonly FileUploadService $fileUploadService,
+        private readonly AttendeeProfileService $attendeeProfileService,
     ) {}
 
     /**
@@ -169,6 +173,52 @@ class ProfileController extends Controller
                 'last_page' => $reviews->lastPage(),
                 'per_page' => $reviews->perPage(),
                 'total' => $reviews->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Get the attendee public-profile aggregate (identity, gamification,
+     * communities, events attended, optional friends count).
+     *
+     * Read-only and never gated on the business paywall (attendees are free,
+     * see docs/ROLES-AND-PERMISSIONS.md §7).
+     *
+     * GET /api/v1/profiles/{profile}/attendee
+     */
+    public function attendeeProfile(Profile $profile): JsonResponse
+    {
+        $aggregate = $this->attendeeProfileService->buildPublicProfile($profile);
+
+        return response()->json([
+            'success' => true,
+            'data' => new AttendeePublicProfileResource($aggregate),
+        ]);
+    }
+
+    /**
+     * Paginated history of the events the authenticated attendee has attended
+     * (check-ins joined to events + community).
+     *
+     * GET /api/v1/me/events-attended
+     */
+    public function myEventsAttended(Request $request): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        $perPage = min(max((int) $request->query('per_page', 15), 1), 100);
+
+        $checkins = $this->attendeeProfileService->paginateEventsAttended($profile, $perPage);
+
+        return response()->json([
+            'success' => true,
+            'data' => EventAttendedResource::collection($checkins->getCollection())->resolve(),
+            'meta' => [
+                'current_page' => $checkins->currentPage(),
+                'last_page' => $checkins->lastPage(),
+                'per_page' => $checkins->perPage(),
+                'total' => $checkins->total(),
             ],
         ]);
     }

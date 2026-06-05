@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\ChatParticipantState;
 use App\Enums\ChatThreadType;
 use App\Enums\CommunityMemberStatus;
 use App\Enums\EventSignupStatus;
@@ -12,6 +13,7 @@ use App\Jobs\FanOutThreadMessageNotifications;
 use App\Models\Application;
 use App\Models\ChatMessage;
 use App\Models\ChatThread;
+use App\Models\ChatThreadParticipant;
 use App\Models\ChatThreadRead;
 use App\Models\Community;
 use App\Models\CommunityMember;
@@ -278,6 +280,103 @@ class ChatService
     }
 
     /**
+     * Soft-delete a custom or event chat. Only those two types may be deleted;
+     * main / collaboration threads are structural and may not. Recoverable.
+     *
+     * @throws DomainException 'cannot_delete_thread_type'
+     */
+    public function deleteThread(ChatThread $thread): void
+    {
+        if (! in_array($thread->type, [ChatThreadType::CommunityCustom, ChatThreadType::Event], true)) {
+            throw new DomainException('cannot_delete_thread_type');
+        }
+
+        $thread->delete();
+    }
+
+    /**
+     * Rename a custom chat.
+     */
+    public function renameThread(ChatThread $thread, string $name): ChatThread
+    {
+        $thread->forceFill(['name' => $name])->save();
+
+        return $thread;
+    }
+
+    /**
+     * The auth profile self-joins an open custom chat they are eligible for.
+     * Eligible = the chat is_open AND they are an active member of the community
+     * (and not banned). Writes / activates a `joined` participant row.
+     *
+     * @throws DomainException 'banned' | 'not_eligible'
+     */
+    public function joinThread(Profile $profile, ChatThread $thread): ChatThreadParticipant
+    {
+        $existing = ChatThreadParticipant::query()
+            ->where('thread_id', $thread->id)
+            ->where('profile_id', $profile->id)
+            ->first();
+
+        if ($existing !== null && $existing->state === ChatParticipantState::Banned) {
+            throw new DomainException('banned');
+        }
+
+        if ($thread->type !== ChatThreadType::CommunityCustom
+            || ! $thread->is_open
+            || $thread->community_id === null
+            || ! $this->isCommunityMemberOrOwner($profile, $thread->community_id)) {
+            throw new DomainException('not_eligible');
+        }
+
+        return ChatThreadParticipant::query()->updateOrCreate(
+            ['thread_id' => $thread->id, 'profile_id' => $profile->id],
+            [
+                'state' => ChatParticipantState::Joined->value,
+                'joined_at' => now(),
+                'banned_at' => null,
+                'banned_by' => null,
+            ],
+        );
+    }
+
+    /**
+     * Ban a member from a thread: removes their access and blocks re-join.
+     */
+    public function banMember(ChatThread $thread, Profile $target, Profile $bannedBy): ChatThreadParticipant
+    {
+        return ChatThreadParticipant::query()->updateOrCreate(
+            ['thread_id' => $thread->id, 'profile_id' => $target->id],
+            [
+                'state' => ChatParticipantState::Banned->value,
+                'banned_at' => now(),
+                'banned_by' => $bannedBy->id,
+            ],
+        );
+    }
+
+    /**
+     * Whether a profile holds a `banned` participant row on a thread.
+     */
+    public function isBanned(Profile $profile, ChatThread $thread): bool
+    {
+        return ChatThreadParticipant::query()
+            ->where('thread_id', $thread->id)
+            ->where('profile_id', $profile->id)
+            ->where('state', ChatParticipantState::Banned->value)
+            ->exists();
+    }
+
+    private function hasJoinedParticipant(Profile $profile, ChatThread $thread): bool
+    {
+        return ChatThreadParticipant::query()
+            ->where('thread_id', $thread->id)
+            ->where('profile_id', $profile->id)
+            ->where('state', ChatParticipantState::Joined->value)
+            ->exists();
+    }
+
+    /**
      * Whether a profile may read/post in a thread (derived access, §5 of the spec).
      */
     public function canAccessThread(Profile $profile, ChatThread $thread): bool
@@ -286,6 +385,11 @@ class ChatService
             $thread->loadMissing('application');
 
             return $thread->application !== null && $this->canParticipate($profile, $thread->application);
+        }
+
+        // A banned participant is denied regardless of tier / role / membership.
+        if ($this->isBanned($profile, $thread)) {
+            return false;
         }
 
         // Event chats: a `going` sign-up, or the community leader/can_manage.
@@ -403,7 +507,25 @@ class ChatService
             ])
             ->get();
 
-        $visible = $threads->filter(function (ChatThread $thread) use ($ownedIds, $memberByCommunity): bool {
+        $bannedThreadIds = ChatThreadParticipant::query()
+            ->whereIn('thread_id', $threads->pluck('id'))
+            ->where('profile_id', $profile->id)
+            ->where('state', ChatParticipantState::Banned->value)
+            ->pluck('thread_id')
+            ->all();
+
+        $joinedThreadIds = ChatThreadParticipant::query()
+            ->whereIn('thread_id', $threads->pluck('id'))
+            ->where('profile_id', $profile->id)
+            ->where('state', ChatParticipantState::Joined->value)
+            ->pluck('thread_id')
+            ->all();
+
+        $visible = $threads->filter(function (ChatThread $thread) use ($ownedIds, $memberByCommunity, $bannedThreadIds, $joinedThreadIds): bool {
+            if (in_array($thread->id, $bannedThreadIds, true)) {
+                return false; // banned: denied regardless of tier/role
+            }
+
             if ($thread->type === ChatThreadType::CommunityMain) {
                 return true; // already scoped to owned/joined communities
             }
@@ -420,7 +542,12 @@ class ChatService
                 return true;
             }
 
-            return in_array($thread->slug, $this->tierChatChannels($member->tier), true);
+            if (in_array($thread->slug, $this->tierChatChannels($member->tier), true)) {
+                return true;
+            }
+
+            // Open custom chats the active member has joined.
+            return $thread->is_open && in_array($thread->id, $joinedThreadIds, true);
         });
 
         foreach ($visible as $thread) {
@@ -473,6 +600,15 @@ class ChatService
                 }
             })
             ->get();
+
+        $bannedThreadIds = ChatThreadParticipant::query()
+            ->whereIn('thread_id', $threads->pluck('id'))
+            ->where('profile_id', $profile->id)
+            ->where('state', ChatParticipantState::Banned->value)
+            ->pluck('thread_id')
+            ->all();
+
+        $threads = $threads->reject(fn (ChatThread $thread): bool => in_array($thread->id, $bannedThreadIds, true));
 
         foreach ($threads as $thread) {
             $thread->unread_count = $this->unreadForThread($profile, $thread);
@@ -667,7 +803,17 @@ class ChatService
             return true;
         }
 
-        return in_array($thread->slug, $this->tierChatChannels($member->tier), true);
+        if (in_array($thread->slug, $this->tierChatChannels($member->tier), true)) {
+            return true;
+        }
+
+        // Open custom chats: an active member who has joined gains access (in
+        // addition to the tier-grant path above). Ban is already excluded upstream.
+        if ($thread->is_open && $this->hasJoinedParticipant($profile, $thread)) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

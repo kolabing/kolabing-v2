@@ -1,6 +1,6 @@
 # Kolabing — Roles → Backend → Database Map (Ground-Truth)
 
-**Last updated:** 2026-06-03 (NF-6 community members + customisable tiers, Phase 1)
+**Last updated:** 2026-06-05 (community-social Wave 1: chat admin/join/ban, public events, friends, attendee profile)
 **Status:** Authoritative companion to [`ROLES-AND-PERMISSIONS.md`](./ROLES-AND-PERMISSIONS.md). Read that first (the *what*), then this (the *where*).
 **Sync note:** Duplicated in both repos (`kolabing-app`, `kolabing-v2`). Keep identical, and **bump the Last updated date in both** when role behaviour or backend wiring changes.
 
@@ -361,3 +361,49 @@ Resources (`app/Http/Resources/Api/V1`): `CommunityResource`, `CommunityTierReso
 - Never call `Profile::hasActiveSubscription()` or throw `SubscriptionRequiredException`. The cap is the only gate and it is config-driven.
 - Never add a `user_type` enum value for "community member" — the wire value stays `attendee` (D4).
 - Never couple `can_manage` to the top tier (D1).
+
+---
+
+## 13. Community chat administration — backend map (added 2026-06-05)
+
+Implements `ROLES-AND-PERMISSIONS.md §9`.
+- Schema: `chat_threads.deleted_at` (SoftDeletes) + `chat_threads.is_open` (bool); new
+  `chat_thread_participants` (thread_id, profile_id, `state` joined|banned, joined_at,
+  banned_at, banned_by; UNIQUE(thread_id, profile_id)). Enum `ChatParticipantState`,
+  model `ChatThreadParticipant`.
+- Endpoints (`ChatController`, auth:sanctum): `DELETE /chats/{thread}` (destroyThread),
+  `PATCH /chats/{thread}` (renameThread), `POST /chats/{thread}/join` (joinThread),
+  `POST /chats/{thread}/members/{profile}/remove` (banMember).
+- Authz reuses `ChatService::canManageCommunity()` (owner OR active member with
+  `can_manage`) — no new policy; never `hasActiveSubscription()`.
+- `ChatService::canAccessThread`/`visibleThreads`: soft-deleted excluded via SoftDeletes
+  global scope; `banned` participant denied everywhere; `is_open` custom chat grants an
+  active member with a `joined` row (on top of the tier-grant path).
+- `ChatThreadResource` adds `event`/`event_id`, `is_open`, `can_manage`, `is_member`,
+  `is_participant`. Errors: 422 `cannot_delete_thread_type`, 403 `banned`, 422 `not_eligible`.
+
+## 14. Public events visibility — backend map (added 2026-06-05)
+
+Implements `ROLES-AND-PERMISSIONS.md §10`. `events.visibility` (string, default
+`members_only`) + enum `EventVisibility` + `Event::isPublic()`. Discovery:
+`GET /events/discovery` → `EventDiscoveryService::discoverPublicUpcoming()` →
+`PublicEventResource`. RSVP: `EventSignupService` bypasses membership for public events;
+non-member on a members_only event throws `community_membership_required` → 403 in
+`EventSignupController`. Never paywalled.
+
+## 15. Friends — backend map (added 2026-06-05)
+
+Implements `ROLES-AND-PERMISSIONS.md §11`. `friendships` (requester_profile_id,
+addressee_profile_id, `status` pending|accepted|blocked, responded_at; UNIQUE pair) +
+enum `FriendshipStatus` + `Friendship` (scopes `involving`/`between`). `FriendshipController`
++ `FriendshipService`: request/accept/decline/destroy/block/unblock/index/requests/
+suggested. Suggested = `event_checkins` grouped, `HAVING COUNT(DISTINCT event_id) >= 3`,
+excluding existing friends/pending/blocked/self. Never gated on paywall/cap/`user_type`.
+
+## 16. Attendee public profile — backend map (added 2026-06-05)
+
+Implements `ROLES-AND-PERMISSIONS.md §12`. `GET /profiles/{profile}/attendee` +
+`GET /me/events-attended` → `ProfileController` → `AttendeeProfileService` (read-only
+aggregate). Sources: `attendee_profiles`, `xp_levels` (level rule, Schema-guarded),
+`earned_badges`, `community_members`/`community_tiers`, `event_checkins`→`events`,
+`friendships` (friends_count, Schema-guarded). No gamification writes; never paywalled.

@@ -1,6 +1,6 @@
 # Kolabing — Roles, Permissions & Features (Canonical Reference)
 
-**Last updated:** 2026-06-03 (NF-6 community members + customisable tiers, Phase 1)
+**Last updated:** 2026-06-05 (community-social Wave 1: chat admin/join/ban, public events, friends, attendee profile)
 **Status:** Authoritative. This document overrides assumptions.
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical. When role behaviour changes, update both **and bump the Last updated date** in both.
 
@@ -272,7 +272,47 @@ Backend wiring (tables, endpoints, policy, command) is in `ROLES-BACKEND-DB-MAP.
 
 ---
 
-## 9. Maintaining this document
+## 9. Community chat administration (Wave 1, added 2026-06-05)
+
+Chat threads have types `community_main`, `community_custom`, `event`, `collaboration`.
+Building on §8, leaders manage their community's chats; **never paywalled**.
+
+- **Delete (soft):** owner / `can_manage` may soft-delete ONLY `community_custom` + `event`
+  chats. `community_main` and `collaboration` threads are structural — not deletable
+  (422 `cannot_delete_thread_type`). Deleted chats are **recoverable** by admin.
+- **Rename:** owner / `can_manage` may rename a custom chat.
+- **Join:** a custom chat flagged `is_open` lets an active, non-banned community member
+  self-join. Access is otherwise tier-derived (tier `permissions.chat_channels`). There
+  is **no per-chat "leave"** — leaving a chat = leaving the community (which drops you
+  from all its chats).
+- **Remove = BAN:** "remove a member from a chat" is a **ban** (admin only) — revokes
+  access and blocks re-join. Re-join is allowed unless banned.
+
+## 10. Public events & attendee discovery (Wave 1, added 2026-06-05)
+
+`events.visibility` = `public | members_only` (default `members_only`).
+- **public** → shown in the attendee discovery feed (`GET /events/discovery`); ANY
+  attendee may RSVP directly, no community membership required.
+- **members_only** → RSVP requires active community membership first; a non-member gets
+  `403 community_membership_required` (the app prompts "Join community to RSVP"). Tier
+  gates still apply for members. Never consults the business paywall.
+
+## 11. Friends system (Wave 1, added 2026-06-05)
+
+A profile-to-profile social graph (`friendships`: `pending|accepted|blocked`, unique pair),
+attendee-centric in practice. Request / accept / decline / remove / block / unblock /
+list / requests / **suggested** (profiles sharing ≥ 3 attended events). Authorization is
+participant-identity only (addressee accepts/declines; either side removes). **Never gated
+on the paywall, a community cap, or `user_type`.**
+
+## 12. Attendee public profile + events attended (Wave 1, added 2026-06-05)
+
+Read-only aggregate `GET /profiles/{profile}/attendee`: identity, gamification
+(points/level/badges), communities (+ tier, `can_manage`), `events_attended` (count +
+recent history), `friends_count`. Plus `GET /me/events-attended` (paginated history from
+`event_checkins`). No gamification write paths touched; never paywalled.
+
+## 13. Maintaining this document
 
 This file and `docs/ROLES-BACKEND-DB-MAP.md` are read by every Claude session that touches role-affecting code (see the project `CLAUDE.md`). They are also duplicated in the `kolabing-app` repo.
 

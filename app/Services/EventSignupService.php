@@ -32,7 +32,7 @@ class EventSignupService
      * Join an upcoming event (or land on the waitlist if full).
      *
      * @throws DomainException 'event_not_upcoming' | 'event_not_signup_enabled'
-     *                         | 'not_a_member' | 'tier_not_permitted'
+     *                         | 'community_membership_required' | 'tier_not_permitted'
      */
     public function signup(Event $event, Profile $profile): EventSignup
     {
@@ -161,7 +161,13 @@ class EventSignupService
 
     private function assertEligible(Event $event, Profile $profile): void
     {
-        // The community owner (leader) is always eligible.
+        // PUBLIC EVENTS lane (Batch 3): a public event is RSVP-able by ANY
+        // attendee — no community membership required.
+        if ($event->isPublic()) {
+            return;
+        }
+
+        // members_only: the community owner (leader) is always eligible.
         if (Community::query()->whereKey($event->community_id)->where('owner_profile_id', $profile->id)->exists()) {
             return;
         }
@@ -173,7 +179,9 @@ class EventSignupService
             ->first();
 
         if ($member === null) {
-            throw new DomainException('not_a_member');
+            // members_only event + non-member → the app prompts "Join community
+            // to RSVP". Distinct code so the client can route to the join flow.
+            throw new DomainException('community_membership_required');
         }
 
         // Optional tier gate: tier_gate is a list of allowed tier ids.
@@ -195,6 +203,11 @@ class EventSignupService
     public function canAccess(Event $event, ?Profile $profile): bool
     {
         if ($event->community_id === null) {
+            return true;
+        }
+
+        // PUBLIC EVENTS lane (Batch 3): a public event is open to any attendee.
+        if ($event->isPublic()) {
             return true;
         }
 

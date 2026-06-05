@@ -4,12 +4,47 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\EventSignupStatus;
+use App\Enums\EventVisibility;
 use App\Models\Event;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class EventDiscoveryService
 {
+    /**
+     * Attendee-facing PUBLIC EVENTS feed (Batch 3): upcoming `public` events any
+     * attendee may discover and RSVP to, regardless of community membership.
+     *
+     * Eager-loads the owning community + photos for the card summary and counts
+     * the `going` sign-ups for the social-proof badge.
+     *
+     * @return LengthAwarePaginator<Event>
+     */
+    public function discoverPublicUpcoming(int $perPage = 15): LengthAwarePaginator
+    {
+        return Event::query()
+            ->where('visibility', EventVisibility::Public->value)
+            ->whereNotNull('community_id')
+            ->where(function ($query): void {
+                $query
+                    ->where('ends_at', '>', now())
+                    ->orWhere(function ($inner): void {
+                        $inner->whereNull('ends_at')->where('starts_at', '>', now());
+                    })
+                    ->orWhere(function ($inner): void {
+                        $inner->whereNull('ends_at')->whereNull('starts_at')
+                            ->where('event_date', '>=', now()->toDateString());
+                    });
+            })
+            ->withCount(['signups as going_count' => function ($query): void {
+                $query->where('status', EventSignupStatus::Going->value);
+            }])
+            ->with(['photos', 'community'])
+            ->orderByRaw('COALESCE(starts_at, event_date) asc')
+            ->paginate($perPage);
+    }
+
     /**
      * Find active events near a given latitude/longitude within a radius (km).
      *

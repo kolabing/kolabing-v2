@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\RenameChatThreadRequest;
 use App\Http\Requests\Api\V1\SendChatMessageRequest;
 use App\Http\Requests\Api\V1\StoreCommunityChatRequest;
 use App\Http\Resources\Api\V1\ChatMessageCollection;
@@ -189,6 +190,137 @@ class ChatController extends Controller
             'message' => __('Message sent successfully.'),
             'data' => new ChatMessageResource($message),
         ], 201);
+    }
+
+    /**
+     * Soft-delete a custom or event chat (owner / can_manage of the thread's
+     * community). Only community_custom + event types may be deleted.
+     *
+     * DELETE /api/v1/chats/{thread}
+     */
+    public function destroyThread(Request $request, ChatThread $thread): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        if (! $this->canManageThread($profile, $thread)) {
+            return response()->json([
+                'success' => false,
+                'message' => __('You are not authorized to manage this chat.'),
+            ], 403);
+        }
+
+        try {
+            $this->chatService->deleteThread($thread);
+        } catch (DomainException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'message' => __('Only custom and event chats can be deleted.'),
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => null,
+        ]);
+    }
+
+    /**
+     * Rename a custom chat (owner / can_manage of the thread's community).
+     *
+     * PATCH /api/v1/chats/{thread}
+     */
+    public function renameThread(RenameChatThreadRequest $request, ChatThread $thread): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        if (! $this->canManageThread($profile, $thread)) {
+            return response()->json([
+                'success' => false,
+                'message' => __('You are not authorized to manage this chat.'),
+            ], 403);
+        }
+
+        if ($thread->type !== \App\Enums\ChatThreadType::CommunityCustom) {
+            return response()->json([
+                'success' => false,
+                'error' => 'cannot_rename_thread_type',
+                'message' => __('Only custom chats can be renamed.'),
+            ], 422);
+        }
+
+        $thread = $this->chatService->renameThread($thread, $request->validated()['name']);
+
+        return response()->json([
+            'success' => true,
+            'data' => new ChatThreadResource($thread),
+        ]);
+    }
+
+    /**
+     * Self-join an open custom chat (active community member, not banned).
+     *
+     * POST /api/v1/chats/{thread}/join
+     */
+    public function joinThread(Request $request, ChatThread $thread): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        try {
+            $this->chatService->joinThread($profile, $thread);
+        } catch (DomainException $e) {
+            $status = $e->getMessage() === 'banned' ? 403 : 422;
+
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'message' => $e->getMessage() === 'banned'
+                    ? __('You are banned from this chat.')
+                    : __('You are not eligible to join this chat.'),
+            ], $status);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => new ChatThreadResource($thread->fresh()),
+        ]);
+    }
+
+    /**
+     * Ban a member from a chat (owner / can_manage). Removes access + blocks re-join.
+     *
+     * POST /api/v1/chats/{thread}/members/{profile}/remove
+     */
+    public function banMember(Request $request, ChatThread $thread, Profile $profile): JsonResponse
+    {
+        /** @var Profile $actor */
+        $actor = $request->user();
+
+        if (! $this->canManageThread($actor, $thread)) {
+            return response()->json([
+                'success' => false,
+                'message' => __('You are not authorized to manage this chat.'),
+            ], 403);
+        }
+
+        $this->chatService->banMember($thread, $profile, $actor);
+
+        return response()->json([
+            'success' => true,
+            'data' => null,
+        ]);
+    }
+
+    /**
+     * Owner / can_manage of the thread's community.
+     */
+    private function canManageThread(Profile $profile, ChatThread $thread): bool
+    {
+        return $thread->community_id !== null
+            && $this->chatService->canManageCommunity($profile, $thread->community_id);
     }
 
     /**

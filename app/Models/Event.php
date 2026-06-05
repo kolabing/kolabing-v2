@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\EventVisibility;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -26,6 +27,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $location
  * @property int|null $capacity
  * @property array<int, mixed>|null $tier_gate
+ * @property EventVisibility $visibility
  * @property string|null $collaboration_id
  * @property int $max_challenges_per_attendee
  * @property bool $is_active
@@ -44,6 +46,13 @@ class Event extends Model
     use HasFactory;
 
     use HasUuids;
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'visibility' => EventVisibility::MembersOnly->value,
+    ];
 
     /**
      * @var list<string>
@@ -67,6 +76,7 @@ class Event extends Model
         'location',
         'capacity',
         'tier_gate',
+        'visibility',
         'max_challenges_per_attendee',
         'is_active',
         'checkin_token',
@@ -87,6 +97,7 @@ class Event extends Model
             'location_lng' => 'decimal:7',
             'capacity' => 'integer',
             'tier_gate' => 'array',
+            'visibility' => EventVisibility::class,
             'max_challenges_per_attendee' => 'integer',
             'is_active' => 'boolean',
         ];
@@ -109,6 +120,15 @@ class Event extends Model
     public function isUpcoming(): bool
     {
         return $this->effectiveEnd()->isFuture();
+    }
+
+    /**
+     * Whether any attendee may discover + RSVP to this event without a community
+     * membership (PUBLIC EVENTS lane, Batch 3).
+     */
+    public function isPublic(): bool
+    {
+        return $this->visibility === EventVisibility::Public;
     }
 
     /**

@@ -250,6 +250,26 @@ class Profile extends Authenticatable
     }
 
     /**
+     * Friendship rows this profile initiated.
+     *
+     * @return HasMany<Friendship, $this>
+     */
+    public function friendshipsSent(): HasMany
+    {
+        return $this->hasMany(Friendship::class, 'requester_profile_id');
+    }
+
+    /**
+     * Friendship rows this profile received.
+     *
+     * @return HasMany<Friendship, $this>
+     */
+    public function friendshipsReceived(): HasMany
+    {
+        return $this->hasMany(Friendship::class, 'addressee_profile_id');
+    }
+
+    /**
      * Get notifications for this profile.
      *
      * @return HasMany<Notification, $this>

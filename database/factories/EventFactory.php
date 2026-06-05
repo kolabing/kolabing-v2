@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\EventVisibility;
 use App\Enums\UserType;
 use App\Models\Event;
 use App\Models\Profile;
@@ -38,6 +39,37 @@ class EventFactory extends Factory
     {
         return $this->state(fn (): array => [
             'profile_id' => $profile->id,
+        ]);
+    }
+
+    /**
+     * A public event any attendee may discover + RSVP to (Batch 3).
+     */
+    public function publicVisibility(): static
+    {
+        return $this->state(fn (): array => [
+            'visibility' => EventVisibility::Public->value,
+        ]);
+    }
+
+    /**
+     * A members-only event (the default) — RSVP requires active membership.
+     */
+    public function membersOnly(): static
+    {
+        return $this->state(fn (): array => [
+            'visibility' => EventVisibility::MembersOnly->value,
+        ]);
+    }
+
+    /**
+     * An upcoming occurrence (drives sign-up / RSVP and the discovery feed).
+     */
+    public function upcoming(): static
+    {
+        return $this->state(fn (): array => [
+            'starts_at' => now()->addDays(2),
+            'ends_at' => now()->addDays(2)->addHours(3),
         ]);
     }
 }

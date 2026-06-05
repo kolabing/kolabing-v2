@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * @property string $id
@@ -20,14 +21,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $slug
  * @property string|null $name
  * @property string|null $created_by
+ * @property bool $is_open
  * @property \Illuminate\Support\Carbon|null $last_message_at
- * @property int $unread_count  Transient, set by ChatService for the active-chats list.
+ * @property \Illuminate\Support\Carbon|null $deleted_at
+ * @property int $unread_count Transient, set by ChatService for the active-chats list.
  * @property-read Application|null $application
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, ChatThreadParticipant> $participants
  */
 class ChatThread extends Model
 {
     use HasFactory;
     use HasUuids;
+    use SoftDeletes;
 
     /**
      * @var list<string>
@@ -40,6 +45,7 @@ class ChatThread extends Model
         'slug',
         'name',
         'created_by',
+        'is_open',
         'last_message_at',
     ];
 
@@ -50,6 +56,7 @@ class ChatThread extends Model
     {
         return [
             'type' => ChatThreadType::class,
+            'is_open' => 'boolean',
             'last_message_at' => 'datetime',
         ];
     }
@@ -84,5 +91,13 @@ class ChatThread extends Model
     public function reads(): HasMany
     {
         return $this->hasMany(ChatThreadRead::class, 'thread_id');
+    }
+
+    /**
+     * @return HasMany<ChatThreadParticipant, $this>
+     */
+    public function participants(): HasMany
+    {
+        return $this->hasMany(ChatThreadParticipant::class, 'thread_id');
     }
 }
