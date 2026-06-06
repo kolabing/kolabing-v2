@@ -9,6 +9,7 @@ use App\Exceptions\CollaborationException;
 use App\Models\Application;
 use App\Models\Collaboration;
 use App\Models\Profile;
+use App\Services\PostHog\PostHogService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -20,6 +21,7 @@ class CollaborationService
     public function __construct(
         private readonly GamificationWalletService $walletService,
         private readonly CollaborationFeedbackService $feedbackService,
+        private readonly PostHogService $postHog,
     ) {}
 
     /**
@@ -239,12 +241,23 @@ class CollaborationService
             'cancelled_by_profile_id' => $cancelledBy?->id,
         ]);
 
-        return $collaboration->fresh([
+        $fresh = $collaboration->fresh([
             'collabOpportunity',
             'creatorProfile',
             'applicantProfile',
             'application',
         ]);
+
+        $distinctProfile = $cancelledBy ?? $fresh->creatorProfile;
+
+        $this->postHog->capture($distinctProfile, 'collaboration_cancelled_server_side', [
+            'collaboration_id' => $fresh->id,
+            'kolab_id' => $fresh->collab_opportunity_id,
+            'cancelled_by_profile_id' => $cancelledBy?->id,
+            'cancelled_by_role' => $cancelledBy?->user_type->value ?? 'maintainer',
+        ]);
+
+        return $fresh;
     }
 
     /**
