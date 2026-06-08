@@ -157,6 +157,117 @@ class EventSeriesService
     }
 
     /**
+     * Edit → make recurring: turn an existing one-off into a series. The event
+     * becomes occurrence 0 (keeping its date + sign-ups); future occurrences are
+     * materialised from its fields + the recurrence rule.
+     *
+     * @param  array<string, mixed>  $recurrence
+     */
+    public function convertToSeries(Event $event, array $recurrence): EventSeries
+    {
+        $startsAt = $event->starts_at ?? Carbon::parse($event->event_date);
+        $duration = $event->ends_at !== null ? $startsAt->diffInMinutes($event->ends_at) : null;
+
+        return DB::transaction(function () use ($event, $recurrence, $startsAt, $duration): EventSeries {
+            $series = EventSeries::query()->create([
+                'community_id' => $event->community_id,
+                'profile_id' => $event->profile_id,
+                'name' => $event->name,
+                'frequency' => $recurrence['frequency'],
+                'byweekday' => array_values(array_unique($recurrence['byweekday'])),
+                'time_of_day' => $startsAt->format('H:i'),
+                'duration_minutes' => $duration,
+                'location' => $event->location,
+                'capacity' => $event->capacity,
+                'tier_gate' => $event->tier_gate,
+                'chat_mode' => $recurrence['chat_mode'] ?? 'per_event',
+                'ends_mode' => $recurrence['ends_mode'] ?? 'never',
+                'ends_count' => $recurrence['ends_count'] ?? null,
+                'ends_on' => isset($recurrence['ends_on']) ? Carbon::parse($recurrence['ends_on'])->toDateString() : null,
+                'starts_on' => $startsAt->toDateString(),
+                // Seed date already "materialised" → generation continues AFTER it.
+                'materialized_through' => $startsAt->toDateString(),
+            ]);
+
+            $event->update(['series_id' => $series->id, 'occurrence_index' => 0]);
+
+            $this->materialize($series->fresh());
+
+            return $series->fresh();
+        });
+    }
+
+    /**
+     * Scoped edit: apply field changes to this occurrence (scope=this) or to the
+     * series template + matching occurrences (following / series). Each
+     * occurrence keeps its own DATE; a changed start time shifts the time-of-day
+     * across the scope, a changed end shifts the duration.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  'this'|'following'|'series'  $scope
+     * @return int occurrences updated
+     */
+    public function updateScope(Event $event, array $data, string $scope): int
+    {
+        if ($event->series_id === null || $scope === 'this') {
+            $this->eventService->update($event, $data);
+
+            return 1;
+        }
+
+        $newTime = isset($data['starts_at']) ? Carbon::parse($data['starts_at']) : null;
+        $newDuration = ($newTime !== null && array_key_exists('ends_at', $data) && $data['ends_at'] !== null)
+            ? $newTime->diffInMinutes(Carbon::parse($data['ends_at']))
+            : null;
+
+        $series = EventSeries::query()->find($event->series_id);
+        if ($series !== null) {
+            $tpl = [];
+            foreach (['name', 'location', 'capacity', 'tier_gate'] as $f) {
+                if (array_key_exists($f, $data)) {
+                    $tpl[$f] = $data[$f];
+                }
+            }
+            if ($newTime !== null) {
+                $tpl['time_of_day'] = $newTime->format('H:i');
+            }
+            if ($newDuration !== null) {
+                $tpl['duration_minutes'] = $newDuration;
+            }
+            if ($tpl !== []) {
+                $series->update($tpl);
+            }
+        }
+
+        $query = Event::query()->where('series_id', $event->series_id);
+        if ($scope === 'following') {
+            $query->where('starts_at', '>=', $event->starts_at);
+        }
+
+        $count = 0;
+        foreach ($query->get() as $occ) {
+            $patch = [];
+            foreach (['name', 'location', 'capacity', 'tier_gate'] as $f) {
+                if (array_key_exists($f, $data)) {
+                    $patch[$f] = $data[$f];
+                }
+            }
+            if ($newTime !== null) {
+                $occStart = $occ->starts_at ?? Carbon::parse($occ->event_date);
+                $shifted = $occStart->copy()->setTime($newTime->hour, $newTime->minute);
+                $patch['starts_at'] = $shifted->toIso8601String();
+                if ($newDuration !== null) {
+                    $patch['ends_at'] = $shifted->copy()->addMinutes($newDuration)->toIso8601String();
+                }
+            }
+            $this->eventService->update($occ, $patch);
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
      * Delete an occurrence at one of three scopes. Each occurrence goes through
      * {@see EventService::delete} so attendees are notified + photos cleaned up.
      *

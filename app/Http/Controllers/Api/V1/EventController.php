@@ -171,7 +171,42 @@ class EventController extends Controller
             ], 403);
         }
 
-        $event = $this->eventService->update($event, $request->validated());
+        $data = $request->validated();
+        $scope = $request->query('scope', 'this');
+        if (! in_array($scope, ['this', 'following', 'series'], true)) {
+            $scope = 'this';
+        }
+
+        // Edit → make recurring: apply field edits, then convert to a series.
+        if ($event->series_id === null && $request->filled('recurrence')) {
+            $fields = array_diff_key($data, ['recurrence' => true]);
+            if ($fields !== []) {
+                $this->eventService->update($event, $fields);
+            }
+            $series = $this->eventSeriesService->convertToSeries($event->fresh(), $data['recurrence']);
+
+            return response()->json([
+                'success' => true,
+                'message' => __('Recurring series created from this event.'),
+                'data' => new EventResource($this->eventService->getWithRelations($event->fresh())),
+                'series_id' => $series->id,
+                'occurrences_created' => $series->events()->count(),
+            ]);
+        }
+
+        // Scoped edit across a series.
+        if ($event->series_id !== null && $scope !== 'this') {
+            $count = $this->eventSeriesService->updateScope($event, $data, $scope);
+
+            return response()->json([
+                'success' => true,
+                'message' => __('Event updated successfully.'),
+                'data' => new EventResource($this->eventService->getWithRelations($event->fresh())),
+                'updated_count' => $count,
+            ]);
+        }
+
+        $event = $this->eventService->update($event, $data);
 
         return response()->json([
             'success' => true,

@@ -184,4 +184,85 @@ class EventSeriesTest extends TestCase
             'recurrence' => ['frequency' => 'weekly', 'byweekday' => [0], 'ends_mode' => 'count', 'ends_count' => 3],
         ])->assertStatus(403);
     }
+
+    public function test_edit_converts_a_one_off_into_a_series(): void
+    {
+        Carbon::setTestNow('2026-07-01 08:00:00');
+        $leader = Profile::factory()->community()->create();
+        $community = $this->community($leader);
+
+        // A plain one-off (no recurrence).
+        $id = $this->actingAs($leader)->postJson('/api/v1/events', [
+            'community_id' => $community->id,
+            'name' => 'Sunday Run',
+            'starts_at' => '2026-07-05T09:00:00+00:00',
+        ])->json('data.id');
+        $this->assertNull(Event::query()->find($id)->series_id);
+
+        // Edit it into a weekly series of 4.
+        $resp = $this->actingAs($leader)->putJson("/api/v1/events/{$id}", [
+            'recurrence' => [
+                'frequency' => 'weekly', 'byweekday' => [0],
+                'ends_mode' => 'count', 'ends_count' => 4,
+            ],
+        ])->assertStatus(200)->assertJsonPath('occurrences_created', 4);
+
+        $seriesId = $resp->json('series_id');
+        $seed = Event::query()->find($id);
+        $this->assertSame($seriesId, $seed->series_id);  // seed is now in the series
+        $this->assertSame(0, $seed->occurrence_index);    // as occurrence 0
+        $this->assertSame(4, Event::query()->where('series_id', $seriesId)->count());
+    }
+
+    public function test_scoped_edit_series_updates_all_occurrences(): void
+    {
+        Carbon::setTestNow('2026-07-01 08:00:00');
+        $leader = Profile::factory()->community()->create();
+        $community = $this->community($leader);
+
+        $seriesId = $this->actingAs($leader)->postJson('/api/v1/events', [
+            'community_id' => $community->id,
+            'name' => 'Sunday Run',
+            'starts_at' => '2026-07-05T09:00:00+00:00',
+            'recurrence' => ['frequency' => 'weekly', 'byweekday' => [0], 'ends_mode' => 'count', 'ends_count' => 4],
+        ])->json('series_id');
+
+        $events = Event::query()->where('series_id', $seriesId)->orderBy('starts_at')->get();
+
+        $this->actingAs($leader)->putJson("/api/v1/events/{$events[1]->id}?scope=series", [
+            'capacity' => 50,
+            'location' => 'New Place',
+        ])->assertStatus(200)->assertJsonPath('updated_count', 4);
+
+        foreach (Event::query()->where('series_id', $seriesId)->get() as $e) {
+            $this->assertSame(50, $e->capacity);
+            $this->assertSame('New Place', $e->location);
+        }
+        $this->assertSame(50, \App\Models\EventSeries::query()->find($seriesId)->capacity);
+    }
+
+    public function test_scoped_edit_following_updates_this_and_later_only(): void
+    {
+        Carbon::setTestNow('2026-07-01 08:00:00');
+        $leader = Profile::factory()->community()->create();
+        $community = $this->community($leader);
+
+        $seriesId = $this->actingAs($leader)->postJson('/api/v1/events', [
+            'community_id' => $community->id,
+            'name' => 'Sunday Run',
+            'starts_at' => '2026-07-05T09:00:00+00:00',
+            'recurrence' => ['frequency' => 'weekly', 'byweekday' => [0], 'ends_mode' => 'count', 'ends_count' => 4],
+        ])->json('series_id');
+
+        $events = Event::query()->where('series_id', $seriesId)->orderBy('starts_at')->get();
+
+        $this->actingAs($leader)->putJson("/api/v1/events/{$events[2]->id}?scope=following", [
+            'capacity' => 99,
+        ])->assertStatus(200)->assertJsonPath('updated_count', 2); // 3rd + 4th
+
+        $this->assertNull($events[0]->fresh()->capacity);
+        $this->assertNull($events[1]->fresh()->capacity);
+        $this->assertSame(99, $events[2]->fresh()->capacity);
+        $this->assertSame(99, $events[3]->fresh()->capacity);
+    }
 }

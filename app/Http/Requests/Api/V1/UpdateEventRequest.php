@@ -33,6 +33,17 @@ class UpdateEventRequest extends FormRequest
             'capacity' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'tier_gate' => ['sometimes', 'nullable', 'array'],
             'tier_gate.*' => ['uuid'],
+
+            // Edit → make recurring: a recurrence block on a non-series event
+            // converts it into a series (this event becomes occurrence 0).
+            'recurrence' => ['sometimes', 'array'],
+            'recurrence.frequency' => ['required_with:recurrence', Rule::in(['weekly', 'biweekly', 'monthly'])],
+            'recurrence.byweekday' => ['required_with:recurrence', 'array', 'min:1'],
+            'recurrence.byweekday.*' => ['integer', 'between:0,6'],
+            'recurrence.chat_mode' => ['sometimes', Rule::in(['per_event', 'series'])],
+            'recurrence.ends_mode' => ['sometimes', Rule::in(['count', 'until', 'never'])],
+            'recurrence.ends_count' => ['nullable', 'integer', 'min:1', 'max:200', 'required_if:recurrence.ends_mode,count'],
+            'recurrence.ends_on' => ['nullable', 'date', 'required_if:recurrence.ends_mode,until'],
         ];
     }
 
