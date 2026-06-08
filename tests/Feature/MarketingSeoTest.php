@@ -7,18 +7,24 @@ use Tests\TestCase;
 
 class MarketingSeoTest extends TestCase
 {
-    public function test_homepage_renders_the_preview_v2_landing_page(): void
+    public function test_homepage_renders_the_preview_v5_landing_page(): void
     {
         $response = $this->get('/');
 
         $response->assertOk();
-        $response->assertSee('Kolab Ideas', false);
-        $response->assertSee('Build Any Kind of Kolab', false);
+        $response->assertSee('kolab ideas', false);
+        $response->assertSee('BUILD ANY KIND OF KOLAB', false);
         $response->assertSee('One community. One business goal.', false);
         $response->assertSee('Community', false);
-        $response->assertSee('Business Goal', false);
+        $response->assertSee('Business goal', false);
         $response->assertSee('Kolab', false);
-        $response->assertSee('uploads/run-club-cafe.png', false);
+        $response->assertSee('what&rsquo;s your business goal?', false);
+        $response->assertSee('href="#how-it-works"', false);
+        $response->assertSee('href="#faq"', false);
+        $response->assertSee('href="#cta"', false);
+        $response->assertSee('uploads/Screenshot 2026-05-16 at 22.47.19.png', false);
+        $response->assertSee('uploads/Gemini_Generated_Image_j3ohygj3ohygj3oh.png', false);
+        $response->assertSee('uploads/Gemini_Generated_Image_rfno1grfno1grfno.png', false);
         $response->assertSee('uploads/feedback-skincare.png', false);
         $response->assertSee('uploads/content-dog-walk.png', false);
         $response->assertSee('uploads/loyalty-wine-book.png', false);
