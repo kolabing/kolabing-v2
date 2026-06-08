@@ -12,14 +12,16 @@ class MarketingSeoTest extends TestCase
         $response = $this->get('/');
 
         $response->assertOk();
-        $response->assertSee('REAL PEOPLE', false);
-        $response->assertSee('REAL GROWTH', false);
-        $response->assertSee('assets/kolabing-logo.png', false);
-        $response->assertSee('assets/hero2.mp4', false);
-        $response->assertSee('uploads/Gemini_Generated_Image_c3rghhc3rghhc3rg.png', false);
-        $response->assertSee('href="#how-it-works"', false);
-        $response->assertSee('href="#faq"', false);
-        $response->assertSee('href="#cta"', false);
+        $response->assertSee('Kolab Ideas', false);
+        $response->assertSee('Build Any Kind of Kolab', false);
+        $response->assertSee('One community. One business goal.', false);
+        $response->assertSee('Community', false);
+        $response->assertSee('Business Goal', false);
+        $response->assertSee('Kolab', false);
+        $response->assertSee('uploads/run-club-cafe.png', false);
+        $response->assertSee('uploads/feedback-skincare.png', false);
+        $response->assertSee('uploads/content-dog-walk.png', false);
+        $response->assertSee('uploads/loyalty-wine-book.png', false);
     }
 
     public function test_secure_requests_receive_security_headers(): void
