@@ -18,6 +18,7 @@ use App\Services\PostmarkClient;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use PostHog\PostHog;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -44,6 +45,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerPolicies();
+        $this->initializePostHog();
         $this->configurePasswordReset();
     }
 
@@ -67,5 +69,22 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Collaboration::class, CollaborationPolicy::class);
         Gate::policy(Kolab::class, KolabPolicy::class);
         Gate::policy(Community::class, CommunityPolicy::class);
+    }
+
+    private function initializePostHog(): void
+    {
+        if (! config('posthog.enabled')) {
+            return;
+        }
+
+        $apiKey = config('posthog.api_key') ?: config('posthog.project_api_key');
+
+        if (blank($apiKey)) {
+            return;
+        }
+
+        PostHog::init($apiKey, [
+            'host' => config('posthog.host', 'https://eu.i.posthog.com'),
+        ]);
     }
 }

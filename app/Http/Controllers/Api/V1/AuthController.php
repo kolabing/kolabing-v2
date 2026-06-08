@@ -19,6 +19,7 @@ use App\Models\Profile;
 use App\Services\AppleAuthService;
 use App\Services\AuthService;
 use App\Services\GoogleAuthService;
+use App\Services\PostHog\PostHogService;
 use App\Services\ProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,7 +31,8 @@ class AuthController extends Controller
         private readonly GoogleAuthService $googleAuthService,
         private readonly AppleAuthService $appleAuthService,
         private readonly AuthService $authService,
-        private readonly ProfileService $profileService
+        private readonly ProfileService $profileService,
+        private readonly PostHogService $postHog,
     ) {}
 
     /**
@@ -76,6 +78,12 @@ class AuthController extends Controller
             ? __('Registration successful')
             : __('Login successful');
 
+        $this->postHog->capture(
+            $result['profile'],
+            $result['is_new_user'] ? 'user_registered' : 'login_completed',
+            ['method' => 'google'],
+        );
+
         return response()->json([
             'success' => true,
             'message' => $message,
@@ -120,6 +128,10 @@ class AuthController extends Controller
                 'errors' => null,
             ], 404);
         }
+
+        $this->postHog->capture($result['profile'], 'login_completed', [
+            'method' => 'apple',
+        ]);
 
         return response()->json([
             'success' => true,
@@ -215,6 +227,10 @@ class AuthController extends Controller
             $request->getBusinessProfileData()
         );
 
+        $this->postHog->capture($result['profile'], 'user_registered', [
+            'method' => 'password',
+        ]);
+
         return response()->json([
             'success' => true,
             'message' => __('Registration successful'),
@@ -241,6 +257,10 @@ class AuthController extends Controller
             $request->getCommunityProfileData()
         );
 
+        $this->postHog->capture($result['profile'], 'user_registered', [
+            'method' => 'password',
+        ]);
+
         return response()->json([
             'success' => true,
             'message' => __('Registration successful'),
@@ -265,6 +285,10 @@ class AuthController extends Controller
         $result = $this->authService->registerAttendee(
             $request->only(['email', 'password'])
         );
+
+        $this->postHog->capture($result['profile'], 'user_registered', [
+            'method' => 'password',
+        ]);
 
         return response()->json([
             'success' => true,
@@ -302,6 +326,10 @@ class AuthController extends Controller
                 ],
             ], $result['code']);
         }
+
+        $this->postHog->capture($result['profile'], 'login_completed', [
+            'method' => 'password',
+        ]);
 
         return response()->json([
             'success' => true,

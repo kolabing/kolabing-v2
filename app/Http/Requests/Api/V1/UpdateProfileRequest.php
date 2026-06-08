@@ -46,6 +46,7 @@ class UpdateProfileRequest extends FormRequest
 
         $baseRules = [
             'phone_number' => ['nullable', 'string', 'max:20'],
+            'analytics_opt_out' => ['sometimes', 'boolean'],
         ];
 
         if ($profile->user_type === UserType::Business) {
@@ -97,11 +98,11 @@ class UpdateProfileRequest extends FormRequest
     /**
      * Get base profile data for update.
      *
-     * @return array{phone_number?: string|null}
+     * @return array{phone_number?: string|null, analytics_opt_out?: bool}
      */
     public function getProfileData(): array
     {
-        return $this->only(['phone_number']);
+        return $this->safe()->only(['phone_number', 'analytics_opt_out']);
     }
 
     /**

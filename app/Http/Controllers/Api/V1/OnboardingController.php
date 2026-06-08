@@ -10,12 +10,14 @@ use App\Http\Requests\Api\V1\CommunityOnboardingRequest;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\Profile;
 use App\Services\OnboardingService;
+use App\Services\PostHog\PostHogService;
 use Illuminate\Http\JsonResponse;
 
 class OnboardingController extends Controller
 {
     public function __construct(
-        private readonly OnboardingService $onboardingService
+        private readonly OnboardingService $onboardingService,
+        private readonly PostHogService $postHog,
     ) {}
 
     /**
@@ -32,6 +34,11 @@ class OnboardingController extends Controller
             $profile,
             $request->validated()
         );
+
+        $this->postHog->capture($profile, 'onboarding_completed', [
+            'flow' => 'business',
+            'city_id' => $profile->businessProfile?->city_id,
+        ]);
 
         return response()->json([
             'success' => true,
@@ -54,6 +61,11 @@ class OnboardingController extends Controller
             $profile,
             $request->validated()
         );
+
+        $this->postHog->capture($profile, 'onboarding_completed', [
+            'flow' => 'community',
+            'city_id' => $profile->communityProfile?->city_id,
+        ]);
 
         return response()->json([
             'success' => true,

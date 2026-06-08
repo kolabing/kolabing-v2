@@ -11,6 +11,7 @@ use App\Http\Requests\Api\V1\VerifyAppleTransactionRequest;
 use App\Http\Resources\Api\V1\SubscriptionResource;
 use App\Models\Profile;
 use App\Services\AppleIAPService;
+use App\Services\PostHog\PostHogService;
 use App\Services\ReferralService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,7 @@ class AppleIAPController extends Controller
     public function __construct(
         private readonly AppleIAPService $appleIAPService,
         private readonly ReferralService $referralService,
+        private readonly PostHogService $postHog,
     ) {}
 
     public function verify(VerifyAppleTransactionRequest $request): JsonResponse
@@ -92,6 +94,11 @@ class AppleIAPController extends Controller
 
             return $this->invalidAppleVerificationResponse($transactionId);
         }
+
+        $this->postHog->capture($profile, 'subscription_verified', [
+            'source' => 'apple_iap',
+            'product_id' => (string) $request->input('product_id'),
+        ]);
 
         return response()->json([
             'success' => true,

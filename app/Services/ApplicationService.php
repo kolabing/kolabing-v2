@@ -11,6 +11,7 @@ use App\Models\Application;
 use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
 use App\Models\Profile;
+use App\Services\PostHog\PostHogService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -21,6 +22,7 @@ class ApplicationService
     public function __construct(
         private readonly NotificationService $notificationService,
         private readonly NotificationReminderService $notificationReminderService,
+        private readonly PostHogService $postHog,
     ) {}
 
     /**
@@ -85,7 +87,7 @@ class ApplicationService
 
         $this->validateCanAccept($application);
 
-        return DB::transaction(function () use ($application, $data): array {
+        $result = DB::transaction(function () use ($application, $data): array {
             $application->update([
                 'status' => ApplicationStatus::Accepted,
                 'accepted_at' => now(),
@@ -101,6 +103,18 @@ class ApplicationService
                 'collaboration' => $collaboration,
             ];
         });
+
+        $acceptedApplication = $result['application']->loadMissing('collabOpportunity.creatorProfile');
+        $collaboration = $result['collaboration'];
+
+        $this->postHog->capture($acceptedApplication->collabOpportunity->creatorProfile, 'application_accepted_server_side', [
+            'application_id' => $acceptedApplication->id,
+            'kolab_id' => $acceptedApplication->collab_opportunity_id,
+            'collaboration_id' => $collaboration->id,
+            'applicant_profile_type' => $acceptedApplication->applicant_profile_type->value,
+        ]);
+
+        return $result;
     }
 
     /**

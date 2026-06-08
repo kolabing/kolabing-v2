@@ -87,6 +87,7 @@ class Profile extends Authenticatable
         'device_token',
         'device_platform',
         'last_active_at',
+        'analytics_opt_out',
     ];
 
     /**
@@ -116,6 +117,7 @@ class Profile extends Authenticatable
             'password' => 'hashed',
             'is_test_user' => 'boolean',
             'last_active_at' => 'datetime',
+            'analytics_opt_out' => 'boolean',
         ];
     }
 

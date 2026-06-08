@@ -142,7 +142,9 @@ class ProfileControllerTest extends TestCase
     public function test_show_profile_returns_community_user(): void
     {
         $city = City::factory()->create();
-        $profile = Profile::factory()->community()->create();
+        $profile = Profile::factory()->community()->create([
+            'analytics_opt_out' => true,
+        ]);
         CommunityProfile::factory()->create([
             'profile_id' => $profile->id,
             'name' => 'Test Community',
@@ -155,6 +157,7 @@ class ProfileControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.user_type', 'community')
+            ->assertJsonPath('data.analytics_opt_out', true)
             ->assertJsonPath('data.community_profile.name', 'Test Community')
             ->assertJsonStructure([
                 'success',
@@ -163,6 +166,7 @@ class ProfileControllerTest extends TestCase
                     'email',
                     'phone_number',
                     'user_type',
+                    'analytics_opt_out',
                     'avatar_url',
                     'community_profile' => [
                         'id',
@@ -177,6 +181,29 @@ class ProfileControllerTest extends TestCase
                     ],
                 ],
             ]);
+    }
+
+    public function test_update_profile_can_toggle_analytics_opt_out(): void
+    {
+        $profile = Profile::factory()->community()->create([
+            'analytics_opt_out' => false,
+        ]);
+        CommunityProfile::factory()->create([
+            'profile_id' => $profile->id,
+        ]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/me/profile', [
+                'analytics_opt_out' => true,
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.analytics_opt_out', true);
+
+        $this->assertDatabaseHas('profiles', [
+            'id' => $profile->id,
+            'analytics_opt_out' => true,
+        ]);
     }
 
     /*
