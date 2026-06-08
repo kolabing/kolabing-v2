@@ -17,6 +17,7 @@ use App\Models\Community;
 use App\Models\CommunityMember;
 use App\Models\CommunityTier;
 use App\Models\Event;
+use App\Models\EventSeries;
 use App\Models\EventSignup;
 use App\Models\Profile;
 use DomainException;
@@ -435,6 +436,22 @@ class ChatService
      */
     public function eventThreadFor(Event $event, ?Profile $creator = null): ChatThread
     {
+        // Shared series chat: one thread for the whole series (keyed by
+        // series_id), so every occurrence's "Open chat" lands in the same room.
+        if ($event->series_id !== null) {
+            $series = EventSeries::query()->find($event->series_id);
+            if ($series !== null && $series->chat_mode === 'series') {
+                return ChatThread::query()->firstOrCreate(
+                    ['type' => ChatThreadType::Event->value, 'series_id' => $series->id],
+                    [
+                        'community_id' => $event->community_id,
+                        'name' => $series->name,
+                        'created_by' => $creator?->id,
+                    ],
+                );
+            }
+        }
+
         return ChatThread::query()->firstOrCreate(
             ['type' => ChatThreadType::Event->value, 'event_id' => $event->id],
             [
@@ -443,6 +460,16 @@ class ChatService
                 'created_by' => $creator?->id,
             ],
         );
+    }
+
+    /**
+     * Profile ids of all occurrences in a series (for series-chat access/audience).
+     *
+     * @return \Illuminate\Support\Collection<int, string>
+     */
+    private function seriesEventIds(string $seriesId): \Illuminate\Support\Collection
+    {
+        return Event::query()->where('series_id', $seriesId)->pluck('id');
     }
 
     /**
@@ -458,6 +485,12 @@ class ChatService
             ->where('status', EventSignupStatus::Going->value)
             ->pluck('event_id');
 
+        // Series the profile is going to (any occurrence) → its shared series chat.
+        $goingSeriesIds = $goingEventIds->isEmpty()
+            ? collect()
+            : Event::query()->whereIn('id', $goingEventIds)
+                ->whereNotNull('series_id')->pluck('series_id')->unique();
+
         $managedCommunityIds = $this->managedCommunityIds($profile);
 
         if ($goingEventIds->isEmpty() && $managedCommunityIds->isEmpty()) {
@@ -466,8 +499,11 @@ class ChatService
 
         $threads = ChatThread::query()
             ->where('type', ChatThreadType::Event->value)
-            ->where(function ($query) use ($goingEventIds, $managedCommunityIds): void {
+            ->where(function ($query) use ($goingEventIds, $goingSeriesIds, $managedCommunityIds): void {
                 $query->whereIn('event_id', $goingEventIds);
+                if ($goingSeriesIds->isNotEmpty()) {
+                    $query->orWhereIn('series_id', $goingSeriesIds);
+                }
                 if ($managedCommunityIds->isNotEmpty()) {
                     $query->orWhereIn('community_id', $managedCommunityIds);
                 }
@@ -483,6 +519,20 @@ class ChatService
 
     private function canAccessEventThread(Profile $profile, ChatThread $thread): bool
     {
+        // Shared series thread: manager, or going to ANY occurrence of the series.
+        if ($thread->event_id === null && $thread->series_id !== null) {
+            if ($thread->community_id !== null
+                && $this->canManageCommunity($profile, $thread->community_id)) {
+                return true;
+            }
+
+            return EventSignup::query()
+                ->whereIn('event_id', $this->seriesEventIds($thread->series_id))
+                ->where('profile_id', $profile->id)
+                ->where('status', EventSignupStatus::Going->value)
+                ->exists();
+        }
+
         if ($thread->event_id === null) {
             return false;
         }
@@ -610,14 +660,20 @@ class ChatService
      */
     private function eventChatAudienceIds(ChatThread $thread): Collection
     {
-        if ($thread->event_id === null) {
+        if ($thread->event_id === null && $thread->series_id === null) {
             return collect();
         }
 
-        $going = EventSignup::query()
-            ->where('event_id', $thread->event_id)
-            ->where('status', EventSignupStatus::Going->value)
-            ->pluck('profile_id');
+        // Series thread → going across all occurrences; else the single event.
+        $going = $thread->series_id !== null
+            ? EventSignup::query()
+                ->whereIn('event_id', $this->seriesEventIds($thread->series_id))
+                ->where('status', EventSignupStatus::Going->value)
+                ->pluck('profile_id')
+            : EventSignup::query()
+                ->where('event_id', $thread->event_id)
+                ->where('status', EventSignupStatus::Going->value)
+                ->pluck('profile_id');
 
         if ($thread->community_id === null) {
             return $going;

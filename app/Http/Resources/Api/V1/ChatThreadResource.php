@@ -34,6 +34,7 @@ class ChatThreadResource extends JsonResource
             'community_id' => $this->community_id,
             'collaboration_id' => $this->whenLoaded('application', fn () => $this->application?->collaboration?->id),
             'event_id' => $this->event_id,
+            'series_id' => $this->series_id,
             'last_message_at' => $this->last_message_at?->toIso8601String(),
             'unread_count' => (int) ($this->unread_count ?? 0),
             'participant_summary' => $this->participantSummary(),

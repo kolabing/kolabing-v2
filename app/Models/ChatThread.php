@@ -37,6 +37,7 @@ class ChatThread extends Model
         'application_id',
         'community_id',
         'event_id',
+        'series_id',
         'slug',
         'name',
         'created_by',
