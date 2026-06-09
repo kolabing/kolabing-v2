@@ -77,6 +77,13 @@ class CommunityService
 
         $community->save();
 
+        // Same-image sync (reverse of ProfileService): editing the community logo
+        // mirrors back to the owner's profile photo, so the two never drift.
+        if (array_key_exists('avatar_url', $data) && $data['avatar_url'] !== null) {
+            $owner = Profile::query()->with('communityProfile')->find($community->owner_profile_id);
+            $owner?->communityProfile?->update(['profile_photo' => $data['avatar_url']]);
+        }
+
         return $community->refresh();
     }
 

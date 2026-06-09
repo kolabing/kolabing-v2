@@ -10,6 +10,7 @@ use App\Enums\NotificationType;
 use App\Enums\OfferStatus;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
+use App\Models\Community;
 use App\Models\Kolab;
 use App\Models\NotificationPreference;
 use App\Models\Profile;
@@ -84,6 +85,15 @@ class ProfileService
                     $profile->businessProfile->update($extendedProfileData);
                 } elseif ($profile->isCommunity() && $profile->communityProfile) {
                     $profile->communityProfile->update($extendedProfileData);
+
+                    // Same-image sync: a community's profile photo IS its logo —
+                    // mirror it to the community entity's avatar_url so the hub,
+                    // detail and my-communities screens all match.
+                    if (array_key_exists('profile_photo', $extendedProfileData)) {
+                        Community::query()
+                            ->where('owner_profile_id', $profile->id)
+                            ->update(['avatar_url' => $extendedProfileData['profile_photo']]);
+                    }
                 }
             }
 
