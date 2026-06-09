@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\ChatThreadType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SendChatMessageRequest;
 use App\Http\Requests\Api\V1\StoreCommunityChatRequest;
@@ -95,6 +96,59 @@ class ChatController extends Controller
             'success' => true,
             'data' => new ChatThreadResource($thread),
         ], 201);
+    }
+
+    /**
+     * Rename a custom community chat (manager only). Slug is preserved.
+     *
+     * PATCH /api/v1/chats/{thread}
+     */
+    public function updateCommunityChat(Request $request, ChatThread $thread): JsonResponse
+    {
+        $validated = $request->validate(['name' => ['required', 'string', 'max:60']]);
+
+        if (! $this->canManageCustomChat($request->user(), $thread)) {
+            return response()->json([
+                'success' => false,
+                'message' => __('You are not authorized to manage this chat.'),
+            ], 403);
+        }
+
+        $thread = $this->chatService->renameCustomChat($thread, $validated['name']);
+
+        return response()->json([
+            'success' => true,
+            'data' => new ChatThreadResource($thread),
+        ]);
+    }
+
+    /**
+     * Delete a custom community chat (manager only).
+     *
+     * DELETE /api/v1/chats/{thread}
+     */
+    public function destroyCommunityChat(Request $request, ChatThread $thread): JsonResponse
+    {
+        if (! $this->canManageCustomChat($request->user(), $thread)) {
+            return response()->json([
+                'success' => false,
+                'message' => __('You are not authorized to manage this chat.'),
+            ], 403);
+        }
+
+        $this->chatService->deleteCustomChat($thread);
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Chat deleted.'),
+        ]);
+    }
+
+    private function canManageCustomChat(Profile $profile, ChatThread $thread): bool
+    {
+        return $thread->type === ChatThreadType::CommunityCustom
+            && $thread->community_id !== null
+            && $this->chatService->canManageCommunity($profile, $thread->community_id);
     }
 
     /**

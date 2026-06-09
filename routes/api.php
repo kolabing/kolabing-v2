@@ -637,6 +637,11 @@ Route::prefix('v1')->group(function (): void {
         // NF-CHAT Phase 2 — community chats + generic thread messages
         Route::post('communities/{community}/chats', [ChatController::class, 'storeCommunityChat'])
             ->name('api.v1.communities.chats.store');
+        // Rename / delete a custom community chat (manager only)
+        Route::patch('chats/{thread}', [ChatController::class, 'updateCommunityChat'])
+            ->name('api.v1.chats.update');
+        Route::delete('chats/{thread}', [ChatController::class, 'destroyCommunityChat'])
+            ->name('api.v1.chats.destroy');
         Route::get('chats/{thread}/messages', [ChatController::class, 'threadMessages'])
             ->name('api.v1.chats.messages.index');
         Route::post('chats/{thread}/messages', [ChatController::class, 'storeThreadMessage'])

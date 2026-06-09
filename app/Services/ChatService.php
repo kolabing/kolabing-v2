@@ -279,6 +279,27 @@ class ChatService
     }
 
     /**
+     * Rename a custom chat. The slug is deliberately NOT changed — it's the
+     * gating key in tiers' permissions.chat_channels, so renaming must not
+     * silently revoke access.
+     */
+    public function renameCustomChat(ChatThread $thread, string $name): ChatThread
+    {
+        $thread->update(['name' => $name]);
+
+        return $thread->fresh();
+    }
+
+    /**
+     * Delete a custom chat (messages + read pointers cascade via FK). Tiers that
+     * listed its slug keep a harmless dangling entry.
+     */
+    public function deleteCustomChat(ChatThread $thread): void
+    {
+        $thread->delete();
+    }
+
+    /**
      * Whether a profile may read/post in a thread (derived access, §5 of the spec).
      */
     public function canAccessThread(Profile $profile, ChatThread $thread): bool
