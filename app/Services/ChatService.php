@@ -12,6 +12,7 @@ use App\Jobs\FanOutThreadMessageNotifications;
 use App\Models\Application;
 use App\Models\ChatMessage;
 use App\Models\ChatThread;
+use App\Models\ChatThreadBan;
 use App\Models\ChatThreadRead;
 use App\Models\Community;
 use App\Models\CommunityMember;
@@ -300,6 +301,47 @@ class ChatService
     }
 
     /**
+     * Block an individual from a thread (overrides their tier access). No-op for
+     * a community owner / manager — admins can't be blocked. Idempotent.
+     */
+    public function banFromChat(ChatThread $thread, Profile $target, Profile $by): void
+    {
+        if ($thread->community_id !== null
+            && $this->canManageCommunity($target, $thread->community_id)) {
+            return; // can't block an owner/manager
+        }
+
+        ChatThreadBan::query()->firstOrCreate(
+            ['thread_id' => $thread->id, 'profile_id' => $target->id],
+            ['created_by' => $by->id],
+        );
+    }
+
+    /**
+     * Lift a block. Idempotent.
+     */
+    public function unbanFromChat(ChatThread $thread, string $profileId): void
+    {
+        ChatThreadBan::query()
+            ->where('thread_id', $thread->id)
+            ->where('profile_id', $profileId)
+            ->delete();
+    }
+
+    /**
+     * Profile ids currently blocked from a thread.
+     *
+     * @return array<int, string>
+     */
+    public function bannedProfileIds(ChatThread $thread): array
+    {
+        return ChatThreadBan::query()
+            ->where('thread_id', $thread->id)
+            ->pluck('profile_id')
+            ->all();
+    }
+
+    /**
      * Whether a profile may read/post in a thread (derived access, §5 of the spec).
      */
     public function canAccessThread(Profile $profile, ChatThread $thread): bool
@@ -425,7 +467,7 @@ class ChatService
             ])
             ->get();
 
-        $visible = $threads->filter(function (ChatThread $thread) use ($ownedIds, $memberByCommunity): bool {
+        $visible = $threads->filter(function (ChatThread $thread) use ($ownedIds, $memberByCommunity, $profile): bool {
             if ($thread->type === ChatThreadType::CommunityMain) {
                 return true; // already scoped to owned/joined communities
             }
@@ -440,6 +482,9 @@ class ChatService
             }
             if ($member->can_manage) {
                 return true;
+            }
+            if ($this->isBanned($thread, $profile)) {
+                return false;
             }
 
             return in_array($thread->slug, $this->tierChatChannels($member->tier), true);
@@ -529,7 +574,10 @@ class ChatService
                     $query->orWhereIn('community_id', $managedCommunityIds);
                 }
             })
-            ->get();
+            ->get()
+            // Per-member block hides the thread from the blocked viewer (managers
+            // are never banned, so this only affects going-but-blocked members).
+            ->reject(fn (ChatThread $thread): bool => $this->isBanned($thread, $profile));
 
         foreach ($threads as $thread) {
             $thread->unread_count = $this->unreadForThread($profile, $thread);
@@ -545,6 +593,9 @@ class ChatService
             if ($thread->community_id !== null
                 && $this->canManageCommunity($profile, $thread->community_id)) {
                 return true;
+            }
+            if ($this->isBanned($thread, $profile)) {
+                return false;
             }
 
             return EventSignup::query()
@@ -566,6 +617,9 @@ class ChatService
         // Community leader / can_manage always has access to manage the chat.
         if ($event->community_id !== null && $this->canManageCommunity($profile, $event->community_id)) {
             return true;
+        }
+        if ($this->isBanned($thread, $profile)) {
+            return false;
         }
 
         // Going sign-ups have access; waitlisted do not.
@@ -743,8 +797,23 @@ class ChatService
         if ($member->can_manage) {
             return true;
         }
+        // Per-member block overrides tier access.
+        if ($this->isBanned($thread, $profile)) {
+            return false;
+        }
 
         return in_array($thread->slug, $this->tierChatChannels($member->tier), true);
+    }
+
+    /**
+     * Whether a profile is individually blocked from a thread (overrides tier).
+     */
+    private function isBanned(ChatThread $thread, Profile $profile): bool
+    {
+        return ChatThreadBan::query()
+            ->where('thread_id', $thread->id)
+            ->where('profile_id', $profile->id)
+            ->exists();
     }
 
     /**

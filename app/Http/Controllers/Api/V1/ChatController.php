@@ -151,6 +151,70 @@ class ChatController extends Controller
             && $this->chatService->canManageCommunity($profile, $thread->community_id);
     }
 
+    /** Manager of the thread's community (any thread type with a community). */
+    private function canManageThread(Profile $profile, ChatThread $thread): bool
+    {
+        return $thread->community_id !== null
+            && $this->chatService->canManageCommunity($profile, $thread->community_id);
+    }
+
+    /**
+     * Profile ids blocked from a thread (manager only).
+     *
+     * GET /api/v1/chats/{thread}/bans
+     */
+    public function bans(Request $request, ChatThread $thread): JsonResponse
+    {
+        if (! $this->canManageThread($request->user(), $thread)) {
+            return response()->json(['success' => false, 'message' => __('Not authorized.')], 403);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => ['banned_profile_ids' => $this->chatService->bannedProfileIds($thread)],
+        ]);
+    }
+
+    /**
+     * Block a member from a thread (manager only). POST /api/v1/chats/{thread}/bans
+     */
+    public function storeBan(Request $request, ChatThread $thread): JsonResponse
+    {
+        $validated = $request->validate([
+            'profile_id' => ['required', 'uuid', 'exists:profiles,id'],
+        ]);
+
+        $profile = $request->user();
+        if (! $this->canManageThread($profile, $thread)) {
+            return response()->json(['success' => false, 'message' => __('Not authorized.')], 403);
+        }
+
+        $target = Profile::query()->findOrFail($validated['profile_id']);
+        $this->chatService->banFromChat($thread, $target, $profile);
+
+        return response()->json([
+            'success' => true,
+            'data' => ['banned_profile_ids' => $this->chatService->bannedProfileIds($thread)],
+        ], 201);
+    }
+
+    /**
+     * Lift a block (manager only). DELETE /api/v1/chats/{thread}/bans/{profile}
+     */
+    public function destroyBan(Request $request, ChatThread $thread, string $profile): JsonResponse
+    {
+        if (! $this->canManageThread($request->user(), $thread)) {
+            return response()->json(['success' => false, 'message' => __('Not authorized.')], 403);
+        }
+
+        $this->chatService->unbanFromChat($thread, $profile);
+
+        return response()->json([
+            'success' => true,
+            'data' => ['banned_profile_ids' => $this->chatService->bannedProfileIds($thread)],
+        ]);
+    }
+
     /**
      * Create (or fetch) the event chat for an event (leader / can_manage).
      *

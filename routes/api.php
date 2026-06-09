@@ -642,6 +642,13 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.chats.update');
         Route::delete('chats/{thread}', [ChatController::class, 'destroyCommunityChat'])
             ->name('api.v1.chats.destroy');
+        // Per-member chat block/unblock (manager only)
+        Route::get('chats/{thread}/bans', [ChatController::class, 'bans'])
+            ->name('api.v1.chats.bans.index');
+        Route::post('chats/{thread}/bans', [ChatController::class, 'storeBan'])
+            ->name('api.v1.chats.bans.store');
+        Route::delete('chats/{thread}/bans/{profile}', [ChatController::class, 'destroyBan'])
+            ->name('api.v1.chats.bans.destroy');
         Route::get('chats/{thread}/messages', [ChatController::class, 'threadMessages'])
             ->name('api.v1.chats.messages.index');
         Route::post('chats/{thread}/messages', [ChatController::class, 'storeThreadMessage'])
