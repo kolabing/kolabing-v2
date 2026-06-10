@@ -32,6 +32,7 @@ class CommunityDiscoverResource extends JsonResource
             'member_count' => $this->resolveMemberCount(),
             'join_policy' => $this->join_policy->value,
             'is_featured' => $this->is_featured,
+            'matched' => (bool) ($this->getAttribute('interest_matched') ?? false),
             'leader_name' => $this->resolveLeaderName(),
         ];
     }

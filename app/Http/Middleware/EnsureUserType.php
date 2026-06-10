@@ -35,7 +35,11 @@ class EnsureUserType
         $requiredType = UserType::tryFrom($userType);
 
         if (! $requiredType || $user->user_type !== $requiredType) {
-            $typeLabel = $userType === 'business' ? 'business' : 'community';
+            $typeLabel = match ($userType) {
+                'business' => 'business',
+                'attendee' => 'attendee',
+                default => 'community',
+            };
 
             return response()->json([
                 'success' => false,

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\AttendeeOnboardingRequest;
 use App\Http\Requests\Api\V1\BusinessOnboardingRequest;
 use App\Http\Requests\Api\V1\CommunityOnboardingRequest;
 use App\Http\Resources\Api\V1\UserResource;
@@ -70,6 +71,33 @@ class OnboardingController extends Controller
         return response()->json([
             'success' => true,
             'message' => __('Community profile updated successfully'),
+            'data' => new UserResource($profile),
+        ]);
+    }
+
+    /**
+     * Complete attendee user onboarding (re-runnable).
+     *
+     * PUT /api/v1/onboarding/attendee
+     */
+    public function attendee(AttendeeOnboardingRequest $request): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        $profile = $this->onboardingService->completeAttendeeOnboarding(
+            $profile,
+            $request->validated()
+        );
+
+        $this->postHog->capture($profile, 'onboarding_completed', [
+            'flow' => 'attendee',
+            'city_id' => $profile->city_id,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Profile updated successfully'),
             'data' => new UserResource($profile),
         ]);
     }

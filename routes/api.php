@@ -116,6 +116,10 @@ Route::prefix('v1')->group(function (): void {
     Route::get('lookup/community-types', [LookupController::class, 'communityTypes'])
         ->name('api.v1.lookup.community-types');
 
+    // Universal @handle availability check (leaks no PII; usable pre-auth too).
+    Route::get('handle/available', [LookupController::class, 'handleAvailable'])
+        ->name('api.v1.handle.available');
+
     /*
     |--------------------------------------------------------------------------
     | Protected Routes
@@ -143,6 +147,11 @@ Route::prefix('v1')->group(function (): void {
         Route::put('onboarding/community', [OnboardingController::class, 'community'])
             ->middleware('user_type:community')
             ->name('api.v1.onboarding.community');
+
+        // Onboarding - Attendee only
+        Route::put('onboarding/attendee', [OnboardingController::class, 'attendee'])
+            ->middleware('user_type:attendee')
+            ->name('api.v1.onboarding.attendee');
 
         /*
         |--------------------------------------------------------------------------
@@ -476,6 +485,12 @@ Route::prefix('v1')->group(function (): void {
         | Public Profile
         |--------------------------------------------------------------------------
         */
+
+        // Look up a profile's public card by exact email or @handle — must be
+        // registered before the {profile} wildcard so "lookup" is not captured
+        // as a route-model-bound profile.
+        Route::get('profiles/lookup', [ProfileController::class, 'lookup'])
+            ->name('api.v1.profiles.lookup');
 
         // View public profile
         Route::get('profiles/{profile}', [ProfileController::class, 'publicProfile'])

@@ -12,6 +12,7 @@ use App\Models\City;
 use App\Models\CitySuggestion;
 use App\Models\Profile;
 use App\Services\GooglePlacesService;
+use App\Services\HandleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,8 +20,44 @@ use Illuminate\Http\Request;
 class LookupController extends Controller
 {
     public function __construct(
-        private readonly GooglePlacesService $googlePlacesService
+        private readonly GooglePlacesService $googlePlacesService,
+        private readonly HandleService $handleService,
     ) {}
+
+    /**
+     * Check whether a `@handle` is available, returning suggestions on collision
+     * or when the requested handle is malformed.
+     *
+     * GET /api/v1/handle/available?handle=<h>
+     */
+    public function handleAvailable(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'handle' => ['required', 'string', 'max:30'],
+        ]);
+
+        $normalized = $this->handleService->normalize($validated['handle']);
+
+        if (! $this->handleService->isValidFormat($normalized)) {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'available' => false,
+                    'suggestions' => $this->handleService->suggestions($normalized),
+                ],
+            ]);
+        }
+
+        $available = $this->handleService->isAvailable($normalized);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'available' => $available,
+                'suggestions' => $available ? [] : $this->handleService->suggestions($normalized),
+            ],
+        ]);
+    }
 
     /**
      * Get the list of available cities.

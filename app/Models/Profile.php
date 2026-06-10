@@ -22,6 +22,8 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string $email
  * @property string|null $phone_number
  * @property string|null $name
+ * @property string|null $handle
+ * @property array<int, string>|null $interests
  * @property string|null $city_id
  * @property UserType $user_type
  * @property string|null $google_id
@@ -84,6 +86,8 @@ class Profile extends Authenticatable
         'phone_number',
         'user_type',
         'name',
+        'handle',
+        'interests',
         'city_id',
         'google_id',
         'apple_id',
@@ -124,6 +128,7 @@ class Profile extends Authenticatable
             'is_test_user' => 'boolean',
             'last_active_at' => 'datetime',
             'analytics_opt_out' => 'boolean',
+            'interests' => 'array',
         ];
     }
 

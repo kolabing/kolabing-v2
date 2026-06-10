@@ -75,17 +75,42 @@ class CommunityController extends Controller
             ->withCount(['members as active_members_count' => function ($sub): void {
                 $sub->where('status', CommunityMemberStatus::Active->value);
             }])
-            ->with('owner.businessProfile', 'owner.communityProfile')
-            ->orderByDesc('is_featured')
+            ->with('owner.businessProfile', 'owner.communityProfile');
+
+        $type = $request->query('type');
+        $hasTypeFilter = is_string($type) && $type !== '' && in_array($type, CommunityType::values(), true);
+
+        // Viewer interests (community-type slugs) drive interest-first ranking
+        // when no explicit ?type filter is supplied.
+        $interests = $profile->interests ?? [];
+        $interests = is_array($interests)
+            ? array_values(array_filter($interests, static fn ($v): bool => in_array($v, CommunityType::values(), true)))
+            : [];
+
+        if ($hasTypeFilter) {
+            $query->where('type', $type);
+        } elseif ($interests !== []) {
+            // Interest-match-first: rank communities whose type is in the
+            // viewer's interests above the rest, then featured, then members.
+            $placeholders = implode(',', array_fill(0, count($interests), '?'));
+            $query->orderByRaw("CASE WHEN type IN ($placeholders) THEN 0 ELSE 1 END", $interests);
+        }
+
+        $query->orderByDesc('is_featured')
             ->orderByDesc('active_members_count')
             ->orderBy('name');
 
-        $type = $request->query('type');
-        if (is_string($type) && $type !== '' && in_array($type, CommunityType::values(), true)) {
-            $query->where('type', $type);
-        }
-
         $communities = $query->paginate($perPage);
+
+        // Tag each row with whether it matched a viewer interest (only meaningful
+        // when interest-ranking is active, i.e. no explicit ?type filter).
+        $matchInterests = $hasTypeFilter ? [] : $interests;
+        foreach ($communities->items() as $community) {
+            $community->setAttribute(
+                'interest_matched',
+                in_array($community->type->value, $matchInterests, true)
+            );
+        }
 
         return response()->json([
             'success' => true,
