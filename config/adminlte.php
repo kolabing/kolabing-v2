@@ -346,6 +346,13 @@ return [
             'icon' => 'fas fa-fw fa-list-check',
             'active' => ['admin/tasks', 'admin/tasks/*'],
         ],
+        ['header' => 'PLATFORM'],
+        [
+            'text' => 'Types',
+            'route' => 'admin.types.index',
+            'icon' => 'fas fa-fw fa-tags',
+            'active' => ['admin/types', 'admin/types/*'],
+        ],
         ['header' => 'GAMIFICATION'],
         [
             'text' => 'Challenges',

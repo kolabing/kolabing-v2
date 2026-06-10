@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
 use App\Http\Controllers\Admin\CrmController as AdminCrmController;
 use App\Http\Controllers\Admin\TaskController as AdminTaskController;
+use App\Http\Controllers\Admin\TypeController as AdminTypeController;
 use App\Http\Controllers\Admin\ChallengeController as AdminChallengeController;
 use App\Http\Controllers\Admin\ChallengeDefaultsController as AdminChallengeDefaultsController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -61,6 +62,16 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::get('/tasks/{task}/edit', [AdminTaskController::class, 'edit'])->name('tasks.edit');
     Route::put('/tasks/{task}', [AdminTaskController::class, 'update'])->name('tasks.update');
     Route::delete('/tasks/{task}', [AdminTaskController::class, 'destroy'])->name('tasks.destroy');
+
+    // Community/Business type taxonomies (single source of truth, app reads via /lookup)
+    Route::get('/types', [AdminTypeController::class, 'index'])->name('types.index');
+    Route::get('/types/create', [AdminTypeController::class, 'create'])->name('types.create');
+    Route::post('/types', [AdminTypeController::class, 'store'])->name('types.store');
+    Route::get('/types/{kind}/{id}/edit', [AdminTypeController::class, 'edit'])->name('types.edit');
+    Route::put('/types/{kind}/{id}', [AdminTypeController::class, 'update'])->name('types.update');
+    Route::delete('/types/{kind}/{id}', [AdminTypeController::class, 'destroy'])->name('types.destroy');
+    Route::post('/types/{kind}/{id}/toggle', [AdminTypeController::class, 'toggle'])->name('types.toggle');
+    Route::post('/types/{kind}/reorder', [AdminTypeController::class, 'reorder'])->name('types.reorder');
 
     Route::prefix('gamification')->as('gamification.')->group(function (): void {
         Route::get('/challenges/defaults', [AdminChallengeDefaultsController::class, 'index'])->name('challenges.defaults.index');
