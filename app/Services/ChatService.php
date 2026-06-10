@@ -270,13 +270,45 @@ class ChatService
             throw new DomainException('chat_limit_reached');
         }
 
-        return ChatThread::query()->create([
+        $thread = ChatThread::query()->create([
             'type' => ChatThreadType::CommunityCustom->value,
             'community_id' => $community->id,
             'slug' => $this->uniqueChatSlug($community, $name),
             'name' => $name,
             'created_by' => $creator->id,
         ]);
+
+        // Default-open: a brand-new chat is ungated, so grant its slug to every
+        // tier and make it visible to all members immediately. Without this a new
+        // chat is invisible to non-managers (their tier's chat_channels never lists
+        // it) until the leader manually grants access — which read as "not all
+        // chats appear available" (see chat-visibility-tier-gating diagnosis). The
+        // leader can still RESTRICT it afterwards via the per-chat Access picker.
+        $this->grantChatToAllTiers($community, $thread->slug);
+
+        return $thread;
+    }
+
+    /**
+     * Append a chat slug to every tier's permissions.chat_channels (idempotent),
+     * so a newly created, ungated chat is visible to all members by default.
+     */
+    private function grantChatToAllTiers(Community $community, string $slug): void
+    {
+        $tiers = CommunityTier::query()->where('community_id', $community->id)->get();
+
+        foreach ($tiers as $tier) {
+            $permissions = $tier->permissions ?? [];
+            $channels = $permissions['chat_channels'] ?? [];
+            if (! is_array($channels)) {
+                $channels = [];
+            }
+            if (! in_array($slug, $channels, true)) {
+                $channels[] = $slug;
+                $permissions['chat_channels'] = $channels;
+                $tier->update(['permissions' => $permissions]);
+            }
+        }
     }
 
     /**

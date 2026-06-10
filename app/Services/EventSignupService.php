@@ -47,13 +47,17 @@ class EventSignupService
         $this->assertEligible($event, $profile);
 
         return DB::transaction(function () use ($event, $profile): EventSignup {
-            // Lock this event's sign-ups so concurrent joins can't both take the
-            // last seat.
+            // Serialize all sign-ups for this event by locking the EVENT ROW (a
+            // single-row `SELECT ... FOR UPDATE`, legal on Postgres). We must NOT
+            // lock the count() below: Postgres forbids `FOR UPDATE` with an
+            // aggregate ("FOR UPDATE is not allowed with aggregate functions"),
+            // which 500'd every sign-up in prod while SQLite tests passed.
+            Event::query()->whereKey($event->id)->lockForUpdate()->first();
+
             $existing = EventSignup::query()
                 ->where('event_id', $event->id)
                 ->where('profile_id', $profile->id)
-                ->lockForUpdate()
-                ->first();
+                ->first(); // event-row lock already serializes us
 
             if ($existing !== null && $existing->status !== EventSignupStatus::Cancelled) {
                 return $existing; // already going or waitlisted — idempotent
@@ -62,8 +66,7 @@ class EventSignupService
             $goingCount = EventSignup::query()
                 ->where('event_id', $event->id)
                 ->where('status', EventSignupStatus::Going->value)
-                ->lockForUpdate()
-                ->count();
+                ->count(); // no lockForUpdate(): aggregate + FOR UPDATE is illegal on Postgres
 
             $hasRoom = $event->capacity === null || $goingCount < $event->capacity;
 

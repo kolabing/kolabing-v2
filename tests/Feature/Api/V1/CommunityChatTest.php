@@ -76,7 +76,7 @@ class CommunityChatTest extends TestCase
             ->assertStatus(403);
     }
 
-    public function test_member_sees_main_plus_only_tier_granted_custom(): void
+    public function test_member_sees_custom_chat_by_default_and_when_restricted(): void
     {
         $leader = Profile::factory()->community()->create();
         $community = $this->makeCommunity($leader);
@@ -113,7 +113,21 @@ class CommunityChatTest extends TestCase
             ->assertStatus(200)
             ->assertJsonCount(2, 'data');
 
-        // Plain member: main only.
+        // Default-OPEN (Daniel 2026-06-10): creating "Socials" granted its slug to
+        // EVERY tier (grantChatToAllTiers), incl. the default tier — so even a
+        // plain member sees main + socials without an explicit grant.
+        $this->actingAs($plain)->getJson('/api/v1/chats')
+            ->assertStatus(200)
+            ->assertJsonCount(2, 'data');
+
+        // Restriction still works: the leader removes 'socials' from the default
+        // tier → the plain member falls back to main only.
+        CommunityTier::query()
+            ->where('community_id', $community->id)
+            ->where('is_default', true)
+            ->firstOrFail()
+            ->update(['permissions' => ['view' => [], 'chat_channels' => [], 'perks' => [], 'capabilities' => []]]);
+
         $this->actingAs($plain)->getJson('/api/v1/chats')
             ->assertStatus(200)
             ->assertJsonCount(1, 'data')

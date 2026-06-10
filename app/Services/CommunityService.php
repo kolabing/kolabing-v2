@@ -36,6 +36,12 @@ class CommunityService
         }
 
         return DB::transaction(function () use ($owner, $data, $existing): Community {
+            // Inherit the owner's existing community-profile photo when the client
+            // doesn't supply one, so creating a community never blanks the picture
+            // the leader already has (the create path mirrors update()'s same-image
+            // sync — it must never null an existing image).
+            $avatarUrl = $data['avatar_url'] ?? $owner->communityProfile?->profile_photo;
+
             $community = Community::query()->create([
                 'owner_profile_id' => $owner->id,
                 'community_profile_id' => $data['community_profile_id'] ?? null,
@@ -43,7 +49,7 @@ class CommunityService
                 'slug' => $this->uniqueSlug($data['slug'] ?? $data['name']),
                 'type' => $data['type'] ?? CommunityType::Other->value,
                 'description' => $data['description'] ?? null,
-                'avatar_url' => $data['avatar_url'] ?? null,
+                'avatar_url' => $avatarUrl,
                 'is_primary' => $existing === 0,
                 'join_policy' => $data['join_policy'] ?? JoinPolicy::Open->value,
             ]);
