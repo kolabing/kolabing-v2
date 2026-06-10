@@ -17,7 +17,7 @@ return new class extends Migration
     {
         Schema::create('admin_column_prefs', function (Blueprint $table): void {
             $table->uuid('id')->primary();
-            $table->uuid('admin_id');
+            $table->unsignedBigInteger('admin_id'); // matches users.id (bigint)
             $table->string('table_key', 60);
             $table->json('visible_columns'); // ordered list of visible column keys
             $table->timestamps();
