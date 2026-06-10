@@ -123,7 +123,7 @@ class PostHogInstrumentationTest extends TestCase
         $mock->shouldReceive('verifyTransaction')->once()->andReturn([
             'transactionId' => '2000000111111111',
             'originalTransactionId' => '2000000000000001',
-            'productId' => 'com.kolabing.app.subscription.monthly',
+            'productId' => config('subscriptions.business.apple.monthly.apple_product_id'),
             'bundleId' => 'com.serragcvc.kolabing',
             'purchaseDate' => now()->subMinute()->getTimestampMs(),
             'expiresDate' => now()->addMonth()->getTimestampMs(),
@@ -133,7 +133,7 @@ class PostHogInstrumentationTest extends TestCase
         $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', [
             'transaction_id' => '2000000111111111',
             'original_transaction_id' => '2000000000000001',
-            'product_id' => 'com.kolabing.app.subscription.monthly',
+            'product_id' => config('subscriptions.business.apple.monthly.apple_product_id'),
         ]);
 
         $response->assertOk();
@@ -143,7 +143,7 @@ class PostHogInstrumentationTest extends TestCase
                 && $job->distinctId === $profile->id
                 && $job->properties['user_type'] === 'business'
                 && $job->properties['source'] === 'apple_iap'
-                && $job->properties['product_id'] === 'com.kolabing.app.subscription.monthly';
+                && $job->properties['product_id'] === config('subscriptions.business.apple.monthly.apple_product_id');
         });
     }
 }

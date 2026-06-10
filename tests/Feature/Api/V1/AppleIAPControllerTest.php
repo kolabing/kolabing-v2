@@ -34,11 +34,21 @@ class AppleIAPControllerTest extends TestCase
         return array_merge([
             'transactionId' => '2000000111111111',
             'originalTransactionId' => '2000000000000001',
-            'productId' => 'com.kolabing.app.subscription.monthly',
+            'productId' => $this->monthlyAppleProductId(),
             'bundleId' => 'com.serragcvc.kolabing',
             'purchaseDate' => now()->subMinute()->getTimestampMs(),
             'expiresDate' => now()->addMonth()->getTimestampMs(),
         ], $overrides);
+    }
+
+    private function monthlyAppleProductId(): string
+    {
+        return (string) config('subscriptions.business.apple.monthly.apple_product_id');
+    }
+
+    private function threeMonthAppleProductId(): string
+    {
+        return (string) config('subscriptions.business.apple.three_months.apple_product_id');
     }
 
     public function test_verify_requires_authentication(): void
@@ -46,7 +56,7 @@ class AppleIAPControllerTest extends TestCase
         $response = $this->postJson('/api/v1/me/subscription/apple-verify', [
             'transaction_id' => '123',
             'original_transaction_id' => '123',
-            'product_id' => 'com.kolabing.app.subscription.monthly',
+            'product_id' => $this->monthlyAppleProductId(),
         ]);
 
         $response->assertStatus(401)
@@ -61,7 +71,7 @@ class AppleIAPControllerTest extends TestCase
         $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', [
             'transaction_id' => '123',
             'original_transaction_id' => '123',
-            'product_id' => 'com.kolabing.app.subscription.monthly',
+            'product_id' => $this->monthlyAppleProductId(),
         ]);
 
         $response->assertStatus(403)
@@ -92,7 +102,7 @@ class AppleIAPControllerTest extends TestCase
         $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', [
             'transaction_id' => '2000000111111111',
             'original_transaction_id' => '2000000000000001',
-            'product_id' => 'com.kolabing.app.subscription.monthly',
+            'product_id' => $this->monthlyAppleProductId(),
         ]);
 
         $response->assertStatus(400)
@@ -121,7 +131,7 @@ class AppleIAPControllerTest extends TestCase
         $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', [
             'transaction_id' => '2000000111111111',
             'original_transaction_id' => '2000000000000001',
-            'product_id' => 'com.kolabing.app.subscription.monthly',
+            'product_id' => $this->monthlyAppleProductId(),
             'referral_code' => '  kolab-test  ',
         ]);
 
@@ -137,7 +147,7 @@ class AppleIAPControllerTest extends TestCase
             'status' => 'active',
             'apple_transaction_id' => '2000000111111111',
             'apple_original_transaction_id' => '2000000000000001',
-            'apple_product_id' => 'com.kolabing.app.subscription.monthly',
+            'apple_product_id' => $this->monthlyAppleProductId(),
         ]);
 
         $this->assertDatabaseHas('referral_codes', [
@@ -157,6 +167,39 @@ class AppleIAPControllerTest extends TestCase
             'points' => 50,
             'event_type' => 'referral_conversion',
             'reference_id' => $existingSubscription->id,
+        ]);
+    }
+
+    public function test_verify_accepts_the_three_month_plan_product_id(): void
+    {
+        $profile = $this->createBusinessProfile();
+        BusinessSubscription::factory()->create([
+            'profile_id' => $profile->id,
+            'status' => SubscriptionStatus::Inactive,
+        ]);
+
+        $mock = $this->partialAppleIAPService();
+        $mock->shouldReceive('verifyTransaction')->once()->andReturn($this->fakeTransactionData([
+            'productId' => $this->threeMonthAppleProductId(),
+            'expiresDate' => now()->addMonths(3)->getTimestampMs(),
+        ]));
+
+        $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', [
+            'transaction_id' => '2000000111111111',
+            'original_transaction_id' => '2000000000000001',
+            'product_id' => $this->threeMonthAppleProductId(),
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.source', 'apple_iap')
+            ->assertJsonPath('data.apple_product_id', $this->threeMonthAppleProductId());
+
+        $this->assertDatabaseHas('business_subscriptions', [
+            'profile_id' => $profile->id,
+            'source' => 'apple_iap',
+            'status' => 'active',
+            'apple_product_id' => $this->threeMonthAppleProductId(),
         ]);
     }
 
@@ -180,7 +223,7 @@ class AppleIAPControllerTest extends TestCase
         $payload = [
             'transaction_id' => '2000000111111111',
             'original_transaction_id' => '2000000000000001',
-            'product_id' => 'com.kolabing.app.subscription.monthly',
+            'product_id' => $this->monthlyAppleProductId(),
             'referral_code' => 'KOLAB-TEST',
         ];
 
@@ -224,7 +267,7 @@ class AppleIAPControllerTest extends TestCase
         $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', [
             'transaction_id' => '2000000111111111',
             'original_transaction_id' => '2000000000000001',
-            'product_id' => 'com.kolabing.app.subscription.monthly',
+            'product_id' => $this->monthlyAppleProductId(),
             'referral_code' => 'KOLAB-MISS',
         ]);
 
@@ -259,7 +302,7 @@ class AppleIAPControllerTest extends TestCase
         $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', [
             'transaction_id' => '2000000111111111',
             'original_transaction_id' => '2000000000000001',
-            'product_id' => 'com.kolabing.app.subscription.monthly',
+            'product_id' => $this->monthlyAppleProductId(),
         ]);
 
         $response->assertStatus(400)
@@ -281,7 +324,7 @@ class AppleIAPControllerTest extends TestCase
 
         $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-restore', [
             'transactions' => [
-                ['transaction_id' => '2000000111111111', 'original_transaction_id' => '2000000000000001', 'product_id' => 'com.kolabing.app.subscription.monthly'],
+                ['transaction_id' => '2000000111111111', 'original_transaction_id' => '2000000000000001', 'product_id' => $this->monthlyAppleProductId()],
             ],
         ]);
 

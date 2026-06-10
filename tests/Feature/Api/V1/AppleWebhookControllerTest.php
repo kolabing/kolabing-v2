@@ -30,7 +30,7 @@ class AppleWebhookControllerTest extends TestCase
         return array_merge([
             'transactionId' => '2000000111111111',
             'originalTransactionId' => '2000000000000001',
-            'productId' => 'com.kolabing.app.subscription.monthly',
+            'productId' => (string) config('subscriptions.business.apple.monthly.apple_product_id'),
             'purchaseDate' => now()->subMinute()->getTimestampMs(),
             'expiresDate' => now()->addMonth()->getTimestampMs(),
         ], $overrides);

@@ -99,13 +99,13 @@ Each item lists what exists now, what's missing, and any open decisions. See ref
 
 ### 3.3 Web subscription checkout — `P0` for launch (§4 covers the landing-page UI)
 Builds on §3.2. Add a public-facing flow:
-- [ ] `/pricing` route + Blade page showing the monthly (€29) and 4-month (€96) plans. Owner: **backend**.
+- [ ] `/pricing` route + Blade page showing the monthly (€39.99) and 3-month plans. Owner: **backend**.
 - [ ] "Subscribe" CTA on `/for-businesses` + footer + post-OAuth confirmation page that redirects to Stripe Checkout. Owner: **backend**.
 - [ ] Success / cancel return URLs with appropriate user feedback. Owner: **backend**.
 - [ ] Email receipt on subscription activation (joins §1.P1). Owner: **backend**.
 
 **Open decisions:**
-- Pricing display: monthly only, or both monthly + 4-month plan with comparison?
+- Pricing display: monthly only, or both monthly + 3-month plan with comparison?
 - Trial period? (None today.)
 - VAT handling at checkout for EU customers?
 
