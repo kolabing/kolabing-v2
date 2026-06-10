@@ -76,24 +76,26 @@ class CommunityDiscoverTest extends TestCase
     {
         $viewer = Profile::factory()->attendee()->create();
 
+        // Real 17-slug community types (the unified vocabulary), not the retired
+        // 5-value placeholder enum.
         Community::factory()->create([
             'name' => 'Fitness One',
-            'type' => 'fitness',
+            'type' => 'fitness_community',
             'join_policy' => 'open',
         ]);
         Community::factory()->create([
-            'name' => 'Greek One',
-            'type' => 'greek',
+            'name' => 'Run One',
+            'type' => 'run_club',
             'join_policy' => 'open',
         ]);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/communities/discover?type=fitness');
+            ->getJson('/api/v1/communities/discover?type=fitness_community');
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.name', 'Fitness One')
-            ->assertJsonPath('data.0.type', 'fitness');
+            ->assertJsonPath('data.0.type', 'fitness_community');
     }
 
     public function test_discover_requires_authentication(): void
