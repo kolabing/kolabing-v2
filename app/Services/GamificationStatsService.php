@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\Schema;
 
 class GamificationStatsService
 {
+    public function __construct(
+        private readonly FriendshipService $friendships,
+    ) {}
+
     /**
      * Get gamification stats for a profile.
      *
@@ -43,9 +47,12 @@ class GamificationStatsService
     /**
      * Get the game card view for a profile (public view).
      *
+     * When $viewer is provided, the profile object carries the friend graph
+     * fields (friend_status / friends_count) relative to that viewer.
+     *
      * @return array{profile: array<string, mixed>, stats: array<string, mixed>, recent_badges: Collection<int, mixed>}
      */
-    public function getGameCard(Profile $profile): array
+    public function getGameCard(Profile $profile, ?Profile $viewer = null): array
     {
         $stats = $this->getStats($profile);
 
@@ -57,6 +64,10 @@ class GamificationStatsService
                 'email' => $profile->email,
                 'avatar_url' => $profile->avatar_url,
                 'user_type' => $profile->user_type->value,
+                'friend_status' => $viewer !== null
+                    ? $this->friendships->statusFor($viewer, $profile)
+                    : 'none',
+                'friends_count' => $this->friendships->friendsCountFor($profile),
             ],
             'stats' => $stats,
             'recent_badges' => $recentBadges,

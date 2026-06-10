@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\EventPhotoController;
 use App\Http\Controllers\Api\V1\EventSignupController;
 use App\Http\Controllers\Api\V1\EventDiscoveryController;
 use App\Http\Controllers\Api\V1\EventRewardController;
+use App\Http\Controllers\Api\V1\FriendshipController;
 use App\Http\Controllers\Api\V1\GalleryController;
 use App\Http\Controllers\Api\V1\GamificationConfigController;
 use App\Http\Controllers\Api\V1\GamificationController;
@@ -487,6 +488,36 @@ Route::prefix('v1')->group(function (): void {
         // View profile's completed collaborations
         Route::get('profiles/{profile}/collaborations', [ProfileController::class, 'profileCollaborations'])
             ->name('api.v1.profiles.collaborations');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Friends (member-to-member friend graph, NF-17)
+        |--------------------------------------------------------------------------
+        */
+
+        // Send a friend request (auto-accepts a reverse pending request)
+        Route::post('friends/{profile}', [FriendshipController::class, 'store'])
+            ->name('api.v1.friends.store');
+
+        // Accept an incoming friend request
+        Route::post('friends/{profile}/accept', [FriendshipController::class, 'accept'])
+            ->name('api.v1.friends.accept');
+
+        // Decline an incoming friend request
+        Route::post('friends/{profile}/decline', [FriendshipController::class, 'decline'])
+            ->name('api.v1.friends.decline');
+
+        // Remove a friend or cancel an outgoing request
+        Route::delete('friends/{profile}', [FriendshipController::class, 'destroy'])
+            ->name('api.v1.friends.destroy');
+
+        // List my accepted friends (paginated)
+        Route::get('me/friends', [FriendshipController::class, 'index'])
+            ->name('api.v1.me.friends');
+
+        // List my incoming friend requests ({data, count})
+        Route::get('me/friend-requests', [FriendshipController::class, 'requests'])
+            ->name('api.v1.me.friend-requests');
 
         /*
         |--------------------------------------------------------------------------

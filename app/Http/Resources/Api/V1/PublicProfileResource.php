@@ -9,6 +9,7 @@ use App\Enums\UserType;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
 use App\Models\Profile;
+use App\Services\FriendshipService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Str;
@@ -65,8 +66,25 @@ class PublicProfileResource extends JsonResource
                     ->orWhere('applicant_profile_id', $this->id)
                 )
                 ->count(),
+            'friend_status' => $this->resolveFriendStatus($request),
+            'friends_count' => app(FriendshipService::class)->friendsCountFor($this->resource),
             'recent_reviews' => $this->buildRecentReviews(),
         ];
+    }
+
+    /**
+     * Resolve friend_status for the authenticated viewer vs this profile.
+     * Returns 'self' for own profile, 'none' when unauthenticated.
+     */
+    private function resolveFriendStatus(Request $request): string
+    {
+        $viewer = $request->user();
+
+        if (! $viewer instanceof Profile) {
+            return 'none';
+        }
+
+        return app(FriendshipService::class)->statusFor($viewer, $this->resource);
     }
 
     /**
