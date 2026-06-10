@@ -40,82 +40,82 @@ class CommunityTypeSeeder extends Seeder
         return [
             [
                 'name' => 'Run Club',
-                'slug' => 'run-club',
+                'slug' => 'run_club',
                 'icon' => 'running',
             ],
             [
                 'name' => 'Fitness Community',
-                'slug' => 'fitness-community',
+                'slug' => 'fitness_community',
                 'icon' => 'dumbbell',
             ],
             [
                 'name' => 'Wellness Community',
-                'slug' => 'wellness-community',
+                'slug' => 'wellness_community',
                 'icon' => 'heart',
             ],
             [
                 'name' => 'Art & Creative Community',
-                'slug' => 'art-creative-community',
+                'slug' => 'art_creative_community',
                 'icon' => 'palette',
             ],
             [
                 'name' => 'Photography Community',
-                'slug' => 'photography-community',
+                'slug' => 'photography_community',
                 'icon' => 'camera',
             ],
             [
                 'name' => 'Music Community',
-                'slug' => 'music-community',
+                'slug' => 'music_community',
                 'icon' => 'music',
             ],
             [
                 'name' => 'Dance Community',
-                'slug' => 'dance-community',
+                'slug' => 'dance_community',
                 'icon' => 'music-2',
             ],
             [
                 'name' => 'Tech / Startup Community',
-                'slug' => 'tech-startup-community',
+                'slug' => 'tech_startup_community',
                 'icon' => 'laptop',
             ],
             [
                 'name' => 'Book Club',
-                'slug' => 'book-club',
+                'slug' => 'book_club',
                 'icon' => 'book',
             ],
             [
                 'name' => 'Sustainability Community',
-                'slug' => 'sustainability-community',
+                'slug' => 'sustainability_community',
                 'icon' => 'leaf',
             ],
             [
                 'name' => 'Food Community',
-                'slug' => 'food-community',
+                'slug' => 'food_community',
                 'icon' => 'utensils',
             ],
             [
                 'name' => 'Travel Community',
-                'slug' => 'travel-community',
+                'slug' => 'travel_community',
                 'icon' => 'plane',
             ],
             [
                 'name' => 'Student Community',
-                'slug' => 'student-community',
+                'slug' => 'student_community',
                 'icon' => 'graduation-cap',
             ],
             [
                 'name' => 'Professional / Networking Community',
-                'slug' => 'professional-networking-community',
+                'slug' => 'professional_networking_community',
                 'icon' => 'users',
             ],
             [
                 'name' => 'Business / Coworking',
-                'slug' => 'business-coworking',
+                'slug' => 'business_coworking',
                 'icon' => 'briefcase',
             ],
             [
                 'name' => 'Hobby Community',
-                'slug' => 'hobby-community',
+                'slug' => 'hobby_community',
                 'icon' => 'star',
             ],
             [
