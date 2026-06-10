@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
+use App\Http\Controllers\Admin\CrmController as AdminCrmController;
+use App\Http\Controllers\Admin\TaskController as AdminTaskController;
 use App\Http\Controllers\Admin\ChallengeController as AdminChallengeController;
 use App\Http\Controllers\Admin\ChallengeDefaultsController as AdminChallengeDefaultsController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -43,6 +45,22 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::post('/kolabs/{kolab}/collaboration/complete', [AdminKolabController::class, 'completeCollaboration'])->name('kolabs.collaboration.complete');
 
     Route::get('/stats', [AdminStatsController::class, 'index'])->name('stats.index');
+
+    // CRM (businesses / communities / ambassadors) + Tasks
+    Route::get('/crm', [AdminCrmController::class, 'index'])->name('crm.index');
+    Route::post('/crm/columns', [AdminCrmController::class, 'saveColumns'])->name('crm.columns');
+    Route::get('/crm/create', [AdminCrmController::class, 'create'])->name('crm.create');
+    Route::post('/crm', [AdminCrmController::class, 'store'])->name('crm.store');
+    Route::get('/crm/{account}/edit', [AdminCrmController::class, 'edit'])->name('crm.edit');
+    Route::put('/crm/{account}', [AdminCrmController::class, 'update'])->name('crm.update');
+    Route::delete('/crm/{account}', [AdminCrmController::class, 'destroy'])->name('crm.destroy');
+
+    Route::get('/tasks', [AdminTaskController::class, 'index'])->name('tasks.index');
+    Route::get('/tasks/create', [AdminTaskController::class, 'create'])->name('tasks.create');
+    Route::post('/tasks', [AdminTaskController::class, 'store'])->name('tasks.store');
+    Route::get('/tasks/{task}/edit', [AdminTaskController::class, 'edit'])->name('tasks.edit');
+    Route::put('/tasks/{task}', [AdminTaskController::class, 'update'])->name('tasks.update');
+    Route::delete('/tasks/{task}', [AdminTaskController::class, 'destroy'])->name('tasks.destroy');
 
     Route::prefix('gamification')->as('gamification.')->group(function (): void {
         Route::get('/challenges/defaults', [AdminChallengeDefaultsController::class, 'index'])->name('challenges.defaults.index');

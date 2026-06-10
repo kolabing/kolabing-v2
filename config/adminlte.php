@@ -333,6 +333,19 @@ return [
             'icon' => 'fas fa-fw fa-chart-line',
             'active' => ['admin/stats', 'admin/stats/*'],
         ],
+        ['header' => 'SALES & CRM'],
+        [
+            'text' => 'CRM',
+            'route' => 'admin.crm.index',
+            'icon' => 'fas fa-fw fa-address-book',
+            'active' => ['admin/crm', 'admin/crm/*'],
+        ],
+        [
+            'text' => 'Tasks',
+            'route' => 'admin.tasks.index',
+            'icon' => 'fas fa-fw fa-list-check',
+            'active' => ['admin/tasks', 'admin/tasks/*'],
+        ],
         ['header' => 'GAMIFICATION'],
         [
             'text' => 'Challenges',
