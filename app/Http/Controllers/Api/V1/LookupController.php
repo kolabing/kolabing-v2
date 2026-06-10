@@ -181,16 +181,37 @@ class LookupController extends Controller
             ],
         ];
 
-        // Validate that all values match the allowed business types
-        $allowedValues = BusinessOnboardingRequest::BUSINESS_TYPES;
-        $businessTypes = array_filter($businessTypes, fn ($type) => in_array($type['value'], $allowedValues, true));
+        // RETIRED 2026-06-10: the $businessTypes array above is kept (not
+        // deleted) for reference only. Business types now live in the
+        // business_types table (manage in /admin/types) — the source used here.
+        // See docs/plans/2026-06-10-type-source-of-truth-DECISION.md.
+        return $this->typeListResponse(\App\Models\BusinessType::query());
+    }
+
+    /**
+     * Map an active, sorted *_types query to the lookup response. Emits both
+     * value/label (legacy keys) and id/name/slug/icon/icon_url (current app),
+     * so it stays compatible across app versions.
+     */
+    private function typeListResponse(\Illuminate\Database\Eloquent\Builder $query): JsonResponse
+    {
+        $data = $query->where('is_active', true)
+            ->orderBy('sort_order')->orderBy('name')
+            ->get(['id', 'name', 'slug', 'icon', 'icon_url'])
+            ->map(fn ($t): array => [
+                'id' => $t->id,
+                'value' => $t->slug,
+                'slug' => $t->slug,
+                'label' => $t->name,
+                'name' => $t->name,
+                'icon' => $t->icon,
+                'icon_url' => $t->icon_url,
+            ])->all();
 
         return response()->json([
             'success' => true,
-            'data' => array_values($businessTypes),
-            'meta' => [
-                'total' => count($businessTypes),
-            ],
+            'data' => $data,
+            'meta' => ['total' => count($data)],
         ]);
     }
 
@@ -289,17 +310,10 @@ class LookupController extends Controller
             ],
         ];
 
-        // Validate that all values match the allowed community types
-        $allowedValues = CommunityOnboardingRequest::COMMUNITY_TYPES;
-        $communityTypes = array_filter($communityTypes, fn ($type) => in_array($type['value'], $allowedValues, true));
-
-        return response()->json([
-            'success' => true,
-            'data' => array_values($communityTypes),
-            'meta' => [
-                'total' => count($communityTypes),
-            ],
-        ]);
+        // RETIRED 2026-06-10: the $communityTypes array above is kept (not
+        // deleted) for reference only. Community types now live in the
+        // community_types table (manage in /admin/types) — the source used here.
+        return $this->typeListResponse(\App\Models\CommunityType::query());
     }
 
     /**

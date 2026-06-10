@@ -33,6 +33,7 @@ class CommunityType extends Model
         'name',
         'slug',
         'icon',
+        'icon_url',
         'sort_order',
         'is_active',
     ];
