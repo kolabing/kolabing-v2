@@ -35,6 +35,11 @@ class EventResource extends JsonResource
             'address' => $this->address,
             'location' => $this->location,
             'community_id' => $this->community_id,
+            // Host community name + 17-slug type (eager-loaded to avoid N+1).
+            // community_type is the host community's `type` (the unified vocabulary),
+            // NOT the 5-value App\Enums\CommunityType placeholder.
+            'community_name' => $this->whenLoaded('community', fn () => $this->community?->name),
+            'community_type' => $this->whenLoaded('community', fn () => $this->community?->type),
             'collaboration_id' => $this->collaboration_id,
             'capacity' => $this->capacity,
             'tier_gate' => $this->tier_gate,

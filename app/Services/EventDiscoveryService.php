@@ -5,44 +5,149 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Event;
+use App\Support\CommunityTypeVocabulary;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 class EventDiscoveryService
 {
+    /**
+     * Discover active events, optionally near a lat/lng and optionally filtered by
+     * the host community's city / type, and by date (today | upcoming).
+     *
+     * Geo filtering is applied only when both $lat and $lng are provided; a
+     * city_id alone (no coordinates) drives a non-geo, city-scoped query.
+     *
+     * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
+     * @return LengthAwarePaginator<Event>
+     */
+    public function discover(
+        ?float $lat,
+        ?float $lng,
+        float $radiusKm = 50.0,
+        int $perPage = 10,
+        array $filters = []
+    ): LengthAwarePaginator {
+        $hasGeo = $lat !== null && $lng !== null;
+
+        if ($hasGeo) {
+            return $this->discoverNearby($lat, $lng, $radiusKm, $perPage, $filters);
+        }
+
+        return $this->discoverFiltered($perPage, $filters);
+    }
+
     /**
      * Find active events near a given latitude/longitude within a radius (km).
      *
      * Uses the Haversine formula to calculate great-circle distances.
      * The query approach varies by database driver for compatibility.
      *
+     * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
      * @return LengthAwarePaginator<Event>
      */
     public function discoverNearby(
         float $lat,
         float $lng,
         float $radiusKm = 50.0,
-        int $perPage = 10
+        int $perPage = 10,
+        array $filters = []
     ): LengthAwarePaginator {
         $driver = DB::getDriverName();
 
         if ($driver === 'sqlite') {
-            return $this->discoverNearbySqlite($lat, $lng, $radiusKm, $perPage);
+            return $this->discoverNearbySqlite($lat, $lng, $radiusKm, $perPage, $filters);
         }
 
-        return $this->discoverNearbyPostgres($lat, $lng, $radiusKm, $perPage);
+        return $this->discoverNearbyPostgres($lat, $lng, $radiusKm, $perPage, $filters);
+    }
+
+    /**
+     * Non-geo discovery: city / date / type filters only, ordered by start.
+     *
+     * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
+     * @return LengthAwarePaginator<Event>
+     */
+    private function discoverFiltered(int $perPage, array $filters): LengthAwarePaginator
+    {
+        $query = $this->baseQuery($filters);
+
+        return $query
+            ->orderByRaw('COALESCE(starts_at, event_date) ASC')
+            ->paginate($perPage);
+    }
+
+    /**
+     * The shared base query: active events, host-community eager-loaded, with the
+     * city / date / type filters applied.
+     *
+     * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
+     * @return Builder<Event>
+     */
+    private function baseQuery(array $filters): Builder
+    {
+        $query = Event::query()
+            ->where('is_active', true)
+            ->with(['photos', 'profile', 'community.communityProfile']);
+
+        $this->applyFilters($query, $filters);
+
+        return $query;
+    }
+
+    /**
+     * Apply the city / date / type filters to a query.
+     *
+     * - city_id  → host community's community_profile is in that city.
+     *   Join path: events.community_id → communities.community_profile_id
+     *   → community_profiles.city_id.
+     * - type     → host community's type matches the slug (separator-tolerant).
+     *   Join path: events.community_id → communities.type.
+     * - date     → today restricts to events occurring today (COALESCE the same
+     *   start column the resource exposes: starts_at, else legacy event_date).
+     *
+     * @param  Builder<Event>  $query
+     * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
+     */
+    private function applyFilters(Builder $query, array $filters): void
+    {
+        $cityId = $filters['city_id'] ?? null;
+        if (is_string($cityId) && $cityId !== '') {
+            $query->whereHas('community.communityProfile', function (Builder $sub) use ($cityId): void {
+                $sub->where('city_id', $cityId);
+            });
+        }
+
+        $type = $filters['type'] ?? null;
+        if (is_string($type) && $type !== '') {
+            $variants = CommunityTypeVocabulary::variants($type);
+            $query->whereHas('community', function (Builder $sub) use ($variants): void {
+                $sub->whereIn('type', $variants);
+            });
+        }
+
+        $date = $filters['date'] ?? null;
+        if ($date === 'today') {
+            $today = now()->toDateString();
+            // Match on the same effective start the resource/app reads: prefer the
+            // starts_at timestamp's date, fall back to the legacy event_date.
+            $query->whereRaw('DATE(COALESCE(starts_at, event_date)) = ?', [$today]);
+        }
     }
 
     /**
      * PostgreSQL implementation using native trigonometric functions.
      *
+     * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
      * @return LengthAwarePaginator<Event>
      */
     private function discoverNearbyPostgres(
         float $lat,
         float $lng,
         float $radiusKm,
-        int $perPage
+        int $perPage,
+        array $filters = []
     ): LengthAwarePaginator {
         $haversine = '(
             6371 * acos(
@@ -52,15 +157,15 @@ class EventDiscoveryService
             )
         )';
 
-        return Event::query()
+        $query = $this->baseQuery($filters)
             ->whereNotNull('location_lat')
             ->whereNotNull('location_lng')
-            ->where('is_active', true)
-            ->selectRaw("*, {$haversine} AS distance_km", [$lat, $lng, $lat])
+            ->select('events.*')
+            ->selectRaw("{$haversine} AS distance_km", [$lat, $lng, $lat])
             ->whereRaw("{$haversine} <= ?", [$lat, $lng, $lat, $radiusKm])
-            ->orderBy('distance_km')
-            ->with(['photos', 'profile'])
-            ->paginate($perPage);
+            ->orderBy('distance_km');
+
+        return $query->paginate($perPage);
     }
 
     /**
@@ -69,13 +174,15 @@ class EventDiscoveryService
      * Uses a latitude/longitude bounding box for the initial filter,
      * then calculates the precise Haversine distance in PHP.
      *
+     * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
      * @return LengthAwarePaginator<Event>
      */
     private function discoverNearbySqlite(
         float $lat,
         float $lng,
         float $radiusKm,
-        int $perPage
+        int $perPage,
+        array $filters = []
     ): LengthAwarePaginator {
         $latDelta = $radiusKm / 111.0;
         $lngDelta = $radiusKm / (111.0 * cos(deg2rad($lat)));
@@ -85,13 +192,11 @@ class EventDiscoveryService
         $minLng = $lng - $lngDelta;
         $maxLng = $lng + $lngDelta;
 
-        $paginator = Event::query()
+        $paginator = $this->baseQuery($filters)
             ->whereNotNull('location_lat')
             ->whereNotNull('location_lng')
-            ->where('is_active', true)
             ->whereBetween('location_lat', [$minLat, $maxLat])
             ->whereBetween('location_lng', [$minLng, $maxLng])
-            ->with(['photos', 'profile'])
             ->paginate($perPage);
 
         /** @var \Illuminate\Support\Collection<int, Event> $filtered */
