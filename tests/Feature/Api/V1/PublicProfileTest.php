@@ -76,6 +76,23 @@ class PublicProfileTest extends TestCase
             ->assertJsonPath('data.user_type', 'community');
     }
 
+    public function test_public_profile_attendee_falls_back_to_base_name(): void
+    {
+        $viewer = Profile::factory()->community()->create();
+        $attendee = Profile::factory()->attendee()->create([
+            'name' => 'Maria Smiles',
+        ]);
+
+        $response = $this->actingAs($viewer)
+            ->getJson("/api/v1/profiles/{$attendee->id}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.user_type', 'attendee')
+            ->assertJsonPath('data.display_name', 'Maria Smiles');
+
+        $this->assertNotNull($response->json('data.display_name'));
+    }
+
     public function test_public_profile_does_not_expose_sensitive_data(): void
     {
         $viewer = Profile::factory()->business()->create();

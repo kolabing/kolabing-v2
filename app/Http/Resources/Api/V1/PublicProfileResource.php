@@ -43,7 +43,9 @@ class PublicProfileResource extends JsonResource
         return [
             'id' => $this->id,
             'user_type' => $this->user_type->value,
-            'display_name' => $extendedProfile?->name,
+            // Attendee profiles have no name/avatar of their own, so fall back to
+            // the base `profiles` record (profiles.name / profiles.avatar_url).
+            'display_name' => $extendedProfile?->name ?? $this->resource->name,
             'avatar_url' => $logo,
             'logo_url' => $logo,
             'about' => $extendedProfile?->about,

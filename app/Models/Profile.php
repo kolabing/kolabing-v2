@@ -79,6 +79,7 @@ class Profile extends Authenticatable
         'email',
         'phone_number',
         'user_type',
+        'name',
         'google_id',
         'apple_id',
         'password',
