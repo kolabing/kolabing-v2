@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
-use App\Enums\CommunityType;
 use App\Enums\JoinPolicy;
 use App\Models\Community;
 use App\Models\Profile;
@@ -27,7 +26,8 @@ class CommunityFactory extends Factory
             'community_profile_id' => null,
             'name' => $name,
             'slug' => Str::slug($name).'-'.Str::lower(Str::random(6)),
-            'type' => CommunityType::Other->value,
+            // Real 17-slug community-type vocabulary (not the legacy enum).
+            'type' => 'other',
             'description' => fake()->optional()->sentence(),
             'avatar_url' => null,
             'is_primary' => true,

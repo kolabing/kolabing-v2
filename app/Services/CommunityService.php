@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\ChatThreadType;
-use App\Enums\CommunityType;
 use App\Enums\JoinPolicy;
 use App\Enums\TierAssignmentRule;
 use App\Exceptions\CommunityLimitReachedException;
@@ -42,12 +41,20 @@ class CommunityService
             // sync — it must never null an existing image).
             $avatarUrl = $data['avatar_url'] ?? $owner->communityProfile?->profile_photo;
 
+            // The group carries the real 17-slug community-type vocabulary. Prefer
+            // the type the leader picked at sign-up (community_profiles
+            // .community_type) so the group inherits it; else the provided 17-slug;
+            // else 'other'. App\Enums\CommunityType (5-value) is NOT used here.
+            $type = $owner->communityProfile?->community_type
+                ?? $data['type']
+                ?? 'other';
+
             $community = Community::query()->create([
                 'owner_profile_id' => $owner->id,
                 'community_profile_id' => $data['community_profile_id'] ?? null,
                 'name' => $data['name'],
                 'slug' => $this->uniqueSlug($data['slug'] ?? $data['name']),
-                'type' => $data['type'] ?? CommunityType::Other->value,
+                'type' => $type,
                 'description' => $data['description'] ?? null,
                 'avatar_url' => $avatarUrl,
                 'is_primary' => $existing === 0,

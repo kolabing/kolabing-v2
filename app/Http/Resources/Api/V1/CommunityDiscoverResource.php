@@ -28,7 +28,7 @@ class CommunityDiscoverResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'avatar_url' => $this->avatar_url,
-            'type' => $this->type->value,
+            'type' => $this->type,
             'member_count' => $this->resolveMemberCount(),
             'join_policy' => $this->join_policy->value,
             'is_featured' => $this->is_featured,

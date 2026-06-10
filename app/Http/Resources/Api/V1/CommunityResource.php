@@ -24,7 +24,7 @@ class CommunityResource extends JsonResource
             'community_profile_id' => $this->community_profile_id,
             'name' => $this->name,
             'slug' => $this->slug,
-            'type' => $this->type->value,
+            'type' => $this->type,
             'description' => $this->description,
             'avatar_url' => $this->avatar_url,
             'is_primary' => $this->is_primary,

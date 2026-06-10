@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\CommunityMemberStatus;
-use App\Enums\CommunityType;
 use App\Enums\JoinPolicy;
 use App\Exceptions\CommunityLimitReachedException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\CommunityOnboardingRequest;
 use App\Http\Requests\Api\V1\StoreCommunityRequest;
 use App\Http\Requests\Api\V1\UpdateCommunityRequest;
 use App\Http\Resources\Api\V1\CommunityDiscoverResource;
@@ -77,14 +77,21 @@ class CommunityController extends Controller
             }])
             ->with('owner.businessProfile', 'owner.communityProfile');
 
-        $type = $request->query('type');
-        $hasTypeFilter = is_string($type) && $type !== '' && in_array($type, CommunityType::values(), true);
+        // The community-type vocabulary is the REAL 17-slug list
+        // (CommunityOnboardingRequest::COMMUNITY_TYPES), the same one communities
+        // pick at sign-up and attendees pick as interests. NOT the 5-value
+        // App\Enums\CommunityType placeholder.
+        $communityTypes = CommunityOnboardingRequest::COMMUNITY_TYPES;
 
-        // Viewer interests (community-type slugs) drive interest-first ranking
-        // when no explicit ?type filter is supplied.
+        $type = $request->query('type');
+        $hasTypeFilter = is_string($type) && $type !== '' && in_array($type, $communityTypes, true);
+
+        // Viewer interests (17-slug community-type vocabulary) drive interest-first
+        // ranking when no explicit ?type filter is supplied. Matched against
+        // communities.type, which now carries the same 17-slug vocabulary.
         $interests = $profile->interests ?? [];
         $interests = is_array($interests)
-            ? array_values(array_filter($interests, static fn ($v): bool => in_array($v, CommunityType::values(), true)))
+            ? array_values(array_filter($interests, static fn ($v): bool => in_array($v, $communityTypes, true)))
             : [];
 
         if ($hasTypeFilter) {
@@ -108,7 +115,7 @@ class CommunityController extends Controller
         foreach ($communities->items() as $community) {
             $community->setAttribute(
                 'interest_matched',
-                in_array($community->type->value, $matchInterests, true)
+                in_array($community->type, $matchInterests, true)
             );
         }
 

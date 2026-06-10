@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
-use App\Enums\CommunityType;
 use App\Enums\JoinPolicy;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -23,7 +22,11 @@ class StoreCommunityRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'min:2', 'max:100'],
-            'type' => ['required', 'string', Rule::in(CommunityType::values())],
+            // type uses the REAL 17-slug vocabulary (the same list communities
+            // pick at sign-up), NOT the 5-value App\Enums\CommunityType placeholder.
+            // When the owner has a community_profiles.community_type the service
+            // inherits it, so `type` is optional here.
+            'type' => ['nullable', 'string', Rule::in(CommunityOnboardingRequest::COMMUNITY_TYPES)],
             'description' => ['nullable', 'string', 'max:2000'],
             'avatar_url' => ['nullable', 'url', 'max:2048'],
             'join_policy' => ['nullable', 'string', Rule::in(JoinPolicy::values())],

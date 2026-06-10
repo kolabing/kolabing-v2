@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Enums\CommunityType;
 use App\Enums\JoinPolicy;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,7 +19,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $community_profile_id
  * @property string $name
  * @property string $slug
- * @property CommunityType $type
+ * @property string $type
  * @property string|null $description
  * @property string|null $avatar_url
  * @property bool $is_primary
@@ -64,7 +63,10 @@ class Community extends Model
     protected function casts(): array
     {
         return [
-            'type' => CommunityType::class,
+            // `type` carries the real 17-slug community-type vocabulary
+            // (CommunityOnboardingRequest::COMMUNITY_TYPES) as a raw string.
+            // It is intentionally NOT cast to App\Enums\CommunityType (a 5-value
+            // placeholder); validation/matching happen against the 17-slug list.
             'join_policy' => JoinPolicy::class,
             'is_primary' => 'boolean',
             'is_featured' => 'boolean',

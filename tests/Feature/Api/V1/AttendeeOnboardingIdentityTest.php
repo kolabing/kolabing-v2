@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Api\V1;
 
 use App\Enums\CommunityMemberStatus;
-use App\Enums\CommunityType;
 use App\Enums\JoinPolicy;
 use App\Models\Community;
 use App\Models\CommunityTier;
@@ -17,10 +16,10 @@ class AttendeeOnboardingIdentityTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
-    private function openCommunity(CommunityType $type = CommunityType::Other): Community
+    private function openCommunity(string $type = 'other'): Community
     {
         $community = Community::factory()->create([
-            'type' => $type->value,
+            'type' => $type,
             'join_policy' => JoinPolicy::Open->value,
         ]);
         CommunityTier::factory()->defaultTier()->forCommunity($community)->create();
@@ -83,7 +82,7 @@ class AttendeeOnboardingIdentityTest extends TestCase
     public function test_attendee_onboarding_persists_and_auto_joins_open_communities(): void
     {
         $attendee = Profile::factory()->attendee()->create(['handle' => null, 'name' => null]);
-        $open = $this->openCommunity(CommunityType::Fitness);
+        $open = $this->openCommunity('fitness_community');
         $inviteOnly = Community::factory()->inviteOnly()->create();
         CommunityTier::factory()->defaultTier()->forCommunity($inviteOnly)->create();
 
@@ -91,13 +90,13 @@ class AttendeeOnboardingIdentityTest extends TestCase
             ->putJson('/api/v1/onboarding/attendee', [
                 'name' => 'Ada Lovelace',
                 'handle' => '@AdaL',
-                'interests' => ['fitness', 'running'],
+                'interests' => ['fitness_community', 'run_club'],
                 'community_ids' => [$open->id, $inviteOnly->id],
             ])
             ->assertStatus(200)
             ->assertJsonPath('data.handle', 'adal')
             ->assertJsonPath('data.name', 'Ada Lovelace')
-            ->assertJsonPath('data.interests', ['fitness', 'running']);
+            ->assertJsonPath('data.interests', ['fitness_community', 'run_club']);
 
         $this->assertDatabaseHas('profiles', [
             'id' => $attendee->id,
@@ -131,6 +130,38 @@ class AttendeeOnboardingIdentityTest extends TestCase
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['handle']);
+    }
+
+    public function test_attendee_onboarding_accepts_real_17_slug_interest(): void
+    {
+        $attendee = Profile::factory()->attendee()->create(['handle' => null]);
+
+        $this->actingAs($attendee)
+            ->putJson('/api/v1/onboarding/attendee', [
+                'name' => 'Runner',
+                'handle' => 'runner_x',
+                // run_club is a real GET /lookup/community-types slug, NOT one of
+                // the legacy 5-value placeholder values.
+                'interests' => ['run_club', 'tech_startup_community'],
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.interests', ['run_club', 'tech_startup_community']);
+    }
+
+    public function test_attendee_onboarding_rejects_legacy_placeholder_interest(): void
+    {
+        $attendee = Profile::factory()->attendee()->create(['handle' => null]);
+
+        // The retired 5-value placeholder values (e.g. 'running', 'fitness') are
+        // no longer valid interests — only the real 17-slug vocabulary is.
+        $this->actingAs($attendee)
+            ->putJson('/api/v1/onboarding/attendee', [
+                'name' => 'Someone',
+                'handle' => 'someone_y',
+                'interests' => ['running'],
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['interests.0']);
     }
 
     public function test_attendee_onboarding_rejects_unknown_interest_slug(): void
@@ -214,19 +245,19 @@ class AttendeeOnboardingIdentityTest extends TestCase
     {
         $viewer = Profile::factory()->attendee()->create([
             'handle' => null,
-            'interests' => ['running'],
+            'interests' => ['run_club'],
         ]);
 
         // A featured non-match and a non-featured interest match. Interest match
         // must come first despite the other being featured.
         $featuredOther = Community::factory()->create([
-            'type' => CommunityType::Other->value,
+            'type' => 'other',
             'join_policy' => JoinPolicy::Open->value,
             'is_featured' => true,
             'name' => 'AAA Featured Other',
         ]);
         $runMatch = Community::factory()->create([
-            'type' => CommunityType::Running->value,
+            'type' => 'run_club',
             'join_policy' => JoinPolicy::Open->value,
             'is_featured' => false,
             'name' => 'ZZZ Run Club',
@@ -246,24 +277,55 @@ class AttendeeOnboardingIdentityTest extends TestCase
     {
         $viewer = Profile::factory()->attendee()->create([
             'handle' => null,
-            'interests' => ['running'],
+            'interests' => ['run_club'],
         ]);
 
         Community::factory()->create([
-            'type' => CommunityType::Running->value,
+            'type' => 'run_club',
             'join_policy' => JoinPolicy::Open->value,
         ]);
         $fitness = Community::factory()->create([
-            'type' => CommunityType::Fitness->value,
+            'type' => 'fitness_community',
             'join_policy' => JoinPolicy::Open->value,
         ]);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/communities/discover?type=fitness')
+            ->getJson('/api/v1/communities/discover?type=fitness_community')
             ->assertStatus(200)
             ->assertJsonCount(1, 'data');
 
         $this->assertSame($fitness->id, $response->json('data.0.id'));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Community-group create — inherits the leader's real 17-slug type
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_create_community_inherits_type_from_community_profile(): void
+    {
+        $leader = Profile::factory()->community()->create();
+        \App\Models\CommunityProfile::factory()->create([
+            'profile_id' => $leader->id,
+            'community_type' => 'run_club',
+        ]);
+        $leader->refresh()->load('communityProfile');
+
+        // Even though the request omits `type`, the group inherits the leader's
+        // community_profiles.community_type (the real 17-slug they picked at
+        // sign-up), NOT the legacy placeholder default.
+        $response = $this->actingAs($leader)
+            ->postJson('/api/v1/communities', [
+                'name' => 'Morning Milers',
+            ])
+            ->assertStatus(201)
+            ->assertJsonPath('data.type', 'run_club');
+
+        $this->assertDatabaseHas('communities', [
+            'id' => $response->json('data.id'),
+            'type' => 'run_club',
+        ]);
     }
 
     /*

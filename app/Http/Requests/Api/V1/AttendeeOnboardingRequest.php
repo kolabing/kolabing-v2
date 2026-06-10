@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
-use App\Enums\CommunityType;
 use App\Services\HandleService;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -40,7 +39,10 @@ class AttendeeOnboardingRequest extends FormRequest
             'handle' => ['required', 'string', 'regex:'.HandleService::FORMAT],
             'city_id' => ['nullable', 'uuid', 'exists:cities,id'],
             'interests' => ['nullable', 'array'],
-            'interests.*' => ['string', 'in:'.implode(',', CommunityType::values())],
+            // Interests are the REAL 17-slug community-type vocabulary (the same
+            // list communities pick at sign-up / GET /lookup/community-types),
+            // NOT the 5-value App\Enums\CommunityType placeholder.
+            'interests.*' => ['string', 'in:'.implode(',', CommunityOnboardingRequest::COMMUNITY_TYPES)],
             'community_ids' => ['nullable', 'array'],
             'community_ids.*' => ['uuid', 'exists:communities,id'],
             'photo' => ['nullable', 'string'],
