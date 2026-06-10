@@ -57,9 +57,17 @@ class CrmController extends Controller
                 'monthly_call_attendance' => ['Calls', false, true],
             ],
             default => $common + [ // community
-                'sector' => ['Sector / niche', true, true],
-                'member_count' => ['Members', true, true],
-                'leader_contact' => ['Leader contact', false, true],
+                'category' => ['Category', true, true],
+                'location' => ['Location', false, true],
+                'ig_followers' => ['IG followers', false, true],
+                'whatsapp_members' => ['WhatsApp members', false, true],
+                'discord_members' => ['Discord members', false, true],
+                'avg_attendance' => ['Avg attendance', true, true],
+                'founder_name' => ['Founder', true, true],
+                'founder_email' => ['Founder email', false, true],
+                'founder_instagram' => ['Founder IG', false, true],
+                'ambassador_potential' => ['Ambassador', true, true],
+                'founding_partner' => ['Founding partner', false, true],
             ],
         };
     }
@@ -227,6 +235,11 @@ class CrmController extends Controller
                 if (array_key_exists($c, $metrics)) {
                     $metrics[$c] = (int) $metrics[$c];
                 }
+            }
+        }
+        if ($type === 'community') {
+            foreach (['events_weekly', 'strong_attendance', 'active_ig', 'engaged_founder', 'good_vibes'] as $f) {
+                $metrics[$f] = ! empty($metrics[$f]);
             }
         }
         $data['metrics'] = $metrics;

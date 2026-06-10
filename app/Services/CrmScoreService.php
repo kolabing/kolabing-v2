@@ -34,6 +34,13 @@ class CrmScoreService
             'product_feedback' => ['Product feedback', 10],
             'feature_suggestions' => ['Feature suggestions', 5],
         ],
+        'community' => [
+            'events_weekly' => ['Events weekly', 20],
+            'strong_attendance' => ['Strong attendance', 20],
+            'active_ig' => ['Active Instagram', 15],
+            'engaged_founder' => ['Engaged founder', 20],
+            'good_vibes' => ['Good vibes', 25],
+        ],
     ];
 
     /**
@@ -54,9 +61,10 @@ class CrmScoreService
     {
         $metrics = $account->metrics ?? [];
 
-        if ($account->type === 'business') {
+        // business + community share the Y/N-factor → /100 shape.
+        if ($account->type === 'business' || $account->type === 'community') {
             $total = 0;
-            foreach ($this->weightsFor('business') as $key => $points) {
+            foreach ($this->weightsFor($account->type) as $key => $points) {
                 if (! empty($metrics[$key])) { // Y / true
                     $total += $points;
                 }

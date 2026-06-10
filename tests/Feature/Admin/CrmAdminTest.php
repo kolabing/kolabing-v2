@@ -31,6 +31,24 @@ class CrmAdminTest extends TestCase
         }
     }
 
+    public function test_create_and_edit_pages_render_for_each_type(): void
+    {
+        (new CrmSeeder)->run();
+        $admin = $this->maintainer();
+
+        foreach (['business', 'community', 'ambassador'] as $type) {
+            $this->actingAs($admin, 'admin')
+                ->get(route('admin.crm.create', ['type' => $type]))->assertOk();
+        }
+        // Edit pages render the type-aware Blade (business + community at least).
+        foreach (['Zaatar', 'All Barcelona'] as $name) {
+            $acct = CrmAccount::query()->where('name', $name)->firstOrFail();
+            $this->actingAs($admin, 'admin')->get(route('admin.crm.edit', $acct))->assertOk();
+        }
+        // Task create/edit pages render too.
+        $this->actingAs($admin, 'admin')->get(route('admin.tasks.create'))->assertOk();
+    }
+
     public function test_tasks_index_renders(): void
     {
         $this->actingAs($this->maintainer(), 'admin')

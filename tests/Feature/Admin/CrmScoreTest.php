@@ -29,6 +29,11 @@ class CrmScoreTest extends TestCase
         $this->assertSame(0, CrmAccount::query()->where('name', 'T44')->value('score'));
         // Mojibake cleaned on the way in.
         $this->assertSame('Gràcia', CrmAccount::query()->where('name', 'Kubik Barcelona')->value('metrics')['neighborhood']);
+
+        // Communities — Health Score factors (20/20/15/20/25).
+        $this->assertSame(100, CrmAccount::query()->where('name', 'All Barcelona')->value('score'));
+        $this->assertSame(65, CrmAccount::query()->where('name', 'BCN Book Club')->value('score')); // attendance+founder+vibes
+        $this->assertSame(80, CrmAccount::query()->where('name', 'Cycling Barcelona')->value('score')); // all but engaged_founder
     }
 
     public function test_ambassador_contribution_score(): void

@@ -20,6 +20,7 @@ class CrmSeeder extends Seeder
         $this->seedWeights();
         $this->seedPipelineBusinesses();
         $this->seedPartnershipBusinesses();
+        $this->seedCommunities();
 
         $svc = app(CrmScoreService::class);
         CrmAccount::query()->each(fn (CrmAccount $a) => $svc->recalculate($a));
@@ -34,6 +35,47 @@ class CrmSeeder extends Seeder
                     ['label' => $label, 'points' => $points],
                 );
             }
+        }
+    }
+
+    /** Communities CRM sheet — supply side, Health Score factors. */
+    private function seedCommunities(): void
+    {
+        // [name, category, location, ig, ig_followers, wa_members, discord, avg_attendance,
+        //  founder_name, founder_ig, status, owner, last_contact, next_action,
+        //  [events_weekly,strong_attendance,active_ig,engaged_founder,good_vibes],
+        //  ambassador_potential, founding_partner, notes]
+        $rows = [
+            ['All Barcelona', 'Social / Events', 'Barcelona', '@all.barcelona', 4200, 350, 0, 50, 'Organizer', '@all.barcelona', 'Active', 'Maria', '2026-06-01', 'Propose new event Kolab', [1,1,1,1,1], 'High', 'Yes', 'Bachata singles night × Zaatar — 50 people. Very engaged organizer. Recurring.'],
+            ['The Junction', 'Wellness / Events', 'Born, Barcelona', '@thejunctionbcn', 2800, 120, 0, 400, 'Founder', '@thejunctionbcn', 'Active', 'Maria', '2026-06-03', 'Lock in next Kolab location', [1,1,1,1,1], 'High', 'Yes', 'Wellness event, 400 people in Born. Flagship community. High production quality.'],
+            ['SamFit', 'Fitness / Running', 'Barceloneta', '@samfit_bcn', 1500, 80, 0, 30, 'Sam', '@samfit_bcn', 'Onboarded', 'Maria', '2026-05-28', 'First Kolab in progress', [1,1,1,1,1], 'High', 'Yes', 'Active fitness community in Barceloneta. First Kolab in progress.'],
+            ['Good Ripple', 'Creative / Arts', 'Barcelona', '@goodripplebcn', 800, 60, 0, 25, 'Founder', '@goodripplebcn', 'Interested', 'Maria', '2026-05-30', 'Match with venue for artsy afterwork', [0,1,1,1,1], 'Medium', 'No', 'Artsy afterwork craft event. Seeking venue.'],
+            ['Yoga Barceloneta', 'Yoga / Wellness', 'Barceloneta, Barcelona', '@yogabarceloneta', 1200, 45, 0, 15, 'Founder', '@yogabarceloneta', 'Active', 'Maria', '2026-05-15', 'Propose next yoga breakfast', [1,1,1,1,1], 'High', 'Yes', 'Yoga breakfast Kolab — 7am yoga + breakfast, 15 people. Recurring.'],
+            ['Barcelona Run Club', 'Running', 'Barcelona', '@barcelonarunclub', 3500, 200, 0, 60, 'Founder', '@barcelonarunclub', 'Interested', 'Maria', '2026-06-02', 'Coffee sponsorship deal (Datirs)', [1,1,1,1,1], 'High', 'Yes', 'Coffee party with Datirs ongoing. 60+ runners/event. Major community.'],
+            ['BCN Digital Nomads', 'Digital Nomads', 'Barcelona', '@bcndigitalnomads', 2100, 300, 150, 40, 'Organizer', '@bcndigitalnomads', 'Contacted', 'Maria', '2026-05-20', 'Present Kolab options', [0,1,1,1,1], 'High', 'No', 'Discord + WhatsApp. Coworking Kolabs ideal.'],
+            ['Mujeres que Corren', 'Running / Women', 'Barcelona', '@mujeresquecorren', 900, 80, 0, 25, 'Founder', '@mujeresquecorren', 'Target', 'Maria', null, 'Initial outreach DM', [1,1,1,1,1], 'High', 'No', "Women's running community. Post-run brunch Kolabs ideal."],
+            ['BCN Book Club', 'Book Clubs', 'Barcelona', '@bcnbookclub', 600, 45, 0, 20, 'Organizer', '@bcnbookclub', 'Target', 'Maria', null, 'Initial outreach', [0,1,0,1,1], 'Medium', 'No', 'Monthly meetings. Café/coworking venue Kolabs. Lower frequency.'],
+            ['Cycling Barcelona', 'Cycling', 'Barcelona', '@cyclingbarcelona', 4500, 120, 0, 60, 'Founder', '@cyclingbarcelona', 'Target', 'Maria', null, 'Initial outreach', [1,1,1,0,1], 'Medium', 'No', 'Large cycling crew. Brewery/café Kolabs. Organic photo potential (60+ riders).'],
+        ];
+
+        $hf = ['events_weekly', 'strong_attendance', 'active_ig', 'engaged_founder', 'good_vibes'];
+        foreach ($rows as [$name, $cat, $loc, $ig, $followers, $wa, $disc, $attend, $founder, $fIg, $status, $owner, $last, $next, $factors, $amb, $fp, $notes]) {
+            CrmAccount::query()->updateOrCreate(
+                ['type' => 'community', 'name' => $name],
+                [
+                    'status' => $status, 'owner' => $owner, 'instagram_handle' => $ig,
+                    'next_action' => $next, 'notes' => $notes, 'last_activity_at' => $last,
+                    'metrics' => array_merge(
+                        array_combine($hf, array_map(static fn ($v) => (bool) $v, $factors)),
+                        [
+                            'category' => $cat, 'location' => $loc, 'ig_followers' => $followers,
+                            'whatsapp_members' => $wa, 'discord_members' => $disc, 'avg_attendance' => $attend,
+                            'founder_name' => $founder, 'founder_instagram' => $fIg,
+                            'ambassador_potential' => $amb, 'founding_partner' => $fp,
+                        ],
+                    ),
+                ],
+            );
         }
     }
 

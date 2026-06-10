@@ -36,12 +36,13 @@
                 <button class="btn btn-sm btn-outline-secondary">Filter</button>
             </form>
 
-            {{-- Column picker (server-side, saved per admin) --}}
-            <div class="dropdown ml-auto">
-                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-toggle="dropdown">
+            {{-- Column picker — native <details> (no JS dependency), saved per admin --}}
+            <details class="ml-auto" style="position:relative">
+                <summary class="btn btn-sm btn-outline-secondary" style="list-style:none">
                     <i class="fas fa-table-columns mr-1"></i> Columns
-                </button>
-                <div class="dropdown-menu dropdown-menu-right p-2" style="min-width:230px">
+                </summary>
+                <div class="card card-body p-2 shadow"
+                    style="position:absolute; right:0; z-index:1030; min-width:240px; max-height:60vh; overflow:auto">
                     <form method="POST" action="{{ route('admin.crm.columns') }}">
                         @csrf
                         <input type="hidden" name="type" value="{{ $type }}">
@@ -55,7 +56,7 @@
                         <button class="btn btn-sm btn-primary btn-block mt-2">Apply</button>
                     </form>
                 </div>
-            </div>
+            </details>
         </div>
 
         <div class="card-body p-0">

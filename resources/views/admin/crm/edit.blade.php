@@ -83,12 +83,56 @@
             </div>
         @else
             <div class="card">
-                <div class="card-header font-weight-bold">Community</div>
+                <div class="card-header font-weight-bold">Health factors (drive the score)</div>
                 <div class="card-body">
                     <div class="form-row">
-                        <div class="form-group col-md-4"><label>Sector / niche</label><input name="metrics[sector]" value="{{ $m['sector'] ?? '' }}" class="form-control"></div>
-                        <div class="form-group col-md-3"><label>Members</label><input type="number" min="0" name="metrics[member_count]" value="{{ $m['member_count'] ?? '' }}" class="form-control"></div>
-                        <div class="form-group col-md-5"><label>Leader contact</label><input name="metrics[leader_contact]" value="{{ $m['leader_contact'] ?? '' }}" class="form-control"></div>
+                        @foreach (['events_weekly' => 'Events weekly (+20)', 'strong_attendance' => 'Strong attendance (+20)', 'active_ig' => 'Active Instagram (+15)', 'engaged_founder' => 'Engaged founder (+20)', 'good_vibes' => 'Good vibes (+25)'] as $k => $lbl)
+                            <div class="form-group col-md-4 form-check ml-3">
+                                <input type="hidden" name="metrics[{{ $k }}]" value="0">
+                                <input class="form-check-input" type="checkbox" name="metrics[{{ $k }}]" value="1" id="h-{{ $k }}" @checked(! empty($m[$k]))>
+                                <label class="form-check-label" for="h-{{ $k }}">{{ $lbl }}</label>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header font-weight-bold">Community info</div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div class="form-group col-md-4"><label>Category</label><input name="metrics[category]" value="{{ $m['category'] ?? '' }}" class="form-control"></div>
+                        <div class="form-group col-md-4"><label>Location</label><input name="metrics[location]" value="{{ $m['location'] ?? '' }}" class="form-control"></div>
+                        <div class="form-group col-md-4"><label>Website</label><input name="metrics[website]" value="{{ $m['website'] ?? '' }}" class="form-control"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-3"><label>IG followers</label><input type="number" min="0" name="metrics[ig_followers]" value="{{ $m['ig_followers'] ?? '' }}" class="form-control"></div>
+                        <div class="form-group col-md-3"><label>WhatsApp members</label><input type="number" min="0" name="metrics[whatsapp_members]" value="{{ $m['whatsapp_members'] ?? '' }}" class="form-control"></div>
+                        <div class="form-group col-md-3"><label>Discord members</label><input type="number" min="0" name="metrics[discord_members]" value="{{ $m['discord_members'] ?? '' }}" class="form-control"></div>
+                        <div class="form-group col-md-3"><label>Avg attendance</label><input type="number" min="0" name="metrics[avg_attendance]" value="{{ $m['avg_attendance'] ?? '' }}" class="form-control"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-3"><label>Founder name</label><input name="metrics[founder_name]" value="{{ $m['founder_name'] ?? '' }}" class="form-control"></div>
+                        <div class="form-group col-md-3"><label>Founder email</label><input name="metrics[founder_email]" value="{{ $m['founder_email'] ?? '' }}" class="form-control"></div>
+                        <div class="form-group col-md-3"><label>Founder IG</label><input name="metrics[founder_instagram]" value="{{ $m['founder_instagram'] ?? '' }}" class="form-control"></div>
+                        <div class="form-group col-md-3"><label>Founder WhatsApp</label><input name="metrics[founder_whatsapp]" value="{{ $m['founder_whatsapp'] ?? '' }}" class="form-control"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-3">
+                            <label>Ambassador potential</label>
+                            <select name="metrics[ambassador_potential]" class="form-control">
+                                @foreach (['', 'High', 'Medium', 'Low'] as $opt)
+                                    <option value="{{ $opt }}" @selected(($m['ambassador_potential'] ?? '') === $opt)>{{ $opt ?: '—' }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group col-md-3">
+                            <label>Founding partner?</label>
+                            <select name="metrics[founding_partner]" class="form-control">
+                                @foreach (['No', 'Yes'] as $opt)
+                                    <option value="{{ $opt }}" @selected(($m['founding_partner'] ?? 'No') === $opt)>{{ $opt }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
