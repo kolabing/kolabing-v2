@@ -53,8 +53,35 @@ class ProfileController extends Controller
         /** @var Profile $profile */
         $profile = $request->user();
 
-        // Get profile data based on user type
+        // Get base profile data (phone_number, analytics_opt_out).
         $profileData = $request->getProfileData();
+
+        // Attendees have no extended profile: their identity (name, avatar, city)
+        // lives on the base `profiles` record. Merge attendee fields into the base
+        // profile update and write the photo to profiles.avatar_url.
+        if ($profile->isAttendee()) {
+            $profileData = array_merge($profileData, $request->getAttendeeProfileData());
+
+            if ($request->hasFile('profile_photo')) {
+                if ($profile->avatar_url) {
+                    $this->fileUploadService->delete($profile->avatar_url);
+                }
+
+                $profileData['avatar_url'] = $this->fileUploadService->uploadFromFile(
+                    $request->file('profile_photo'),
+                    FileUploadType::ProfilePhoto,
+                    $profile->id
+                );
+            }
+
+            $profile = $this->profileService->updateProfile($profile, $profileData, []);
+
+            return response()->json([
+                'success' => true,
+                'message' => __('Profile updated successfully'),
+                'data' => new UserResource($profile),
+            ]);
+        }
 
         $extendedProfileData = $profile->isBusiness()
             ? $request->getBusinessProfileData()

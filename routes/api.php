@@ -364,6 +364,10 @@ Route::prefix('v1')->group(function (): void {
 
         Route::post('communities', [CommunityController::class, 'store'])
             ->name('api.v1.communities.store');
+        // Public discovery — must be registered before the {community} wildcard
+        // so "discover" is not captured as a route-model-bound community.
+        Route::get('communities/discover', [CommunityController::class, 'discover'])
+            ->name('api.v1.communities.discover');
         Route::get('communities/{community}', [CommunityController::class, 'show'])
             ->name('api.v1.communities.show');
         Route::patch('communities/{community}', [CommunityController::class, 'update'])

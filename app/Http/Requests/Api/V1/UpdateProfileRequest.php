@@ -49,11 +49,31 @@ class UpdateProfileRequest extends FormRequest
             'analytics_opt_out' => ['sometimes', 'boolean'],
         ];
 
-        if ($profile->user_type === UserType::Business) {
+        if ($profile->isBusiness()) {
             return array_merge($baseRules, $this->businessProfileRules());
         }
 
+        if ($profile->isAttendee()) {
+            return array_merge($baseRules, $this->attendeeProfileRules());
+        }
+
         return array_merge($baseRules, $this->communityProfileRules());
+    }
+
+    /**
+     * Get attendee profile specific validation rules. Attendee identity lives on
+     * the base `profiles` table (name, avatar_url, city_id), so only those fields
+     * are accepted.
+     *
+     * @return array<string, mixed>
+     */
+    private function attendeeProfileRules(): array
+    {
+        return [
+            'name' => ['nullable', 'string', 'max:255'],
+            'city_id' => ['nullable', 'uuid', Rule::exists('cities', 'id')],
+            'profile_photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
+        ];
     }
 
     /**
@@ -147,6 +167,21 @@ class UpdateProfileRequest extends FormRequest
             'instagram',
             'tiktok',
             'website',
+        ]);
+    }
+
+    /**
+     * Get attendee profile data for update. Attendees store name + city on the
+     * base `profiles` record (the photo is handled separately in the controller
+     * and written to profiles.avatar_url).
+     *
+     * @return array<string, mixed>
+     */
+    public function getAttendeeProfileData(): array
+    {
+        return $this->only([
+            'name',
+            'city_id',
         ]);
     }
 

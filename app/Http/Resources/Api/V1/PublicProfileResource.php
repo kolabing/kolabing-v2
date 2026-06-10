@@ -54,7 +54,10 @@ class PublicProfileResource extends JsonResource
             'type_label' => $this->formatTypeLabel($rawType),
             'business_type' => $this->when($this->user_type === UserType::Business, fn () => $this->businessProfile?->primaryCategory()),
             'categories' => $this->when($this->user_type === UserType::Business, fn () => $businessCategories),
-            'city_name' => $extendedProfile?->city?->name,
+            // Attendees carry their city on the base profile; business/community
+            // carry it on the extended profile. Prefer the extended profile's
+            // city, fall back to the base profile's city.
+            'city_name' => $extendedProfile?->city?->name ?? $this->resource->city?->name,
             'instagram' => $extendedProfile?->instagram,
             'tiktok' => $this->user_type === UserType::Community
                 ? $extendedProfile?->tiktok

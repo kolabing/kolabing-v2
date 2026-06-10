@@ -53,6 +53,10 @@ class ProfileService
     {
         if ($profile->isBusiness()) {
             $profile->load(['businessProfile.city', 'subscription']);
+        } elseif ($profile->isAttendee()) {
+            // Attendee identity lives on the base profile; load the base city
+            // plus the attendee extended profile (gamification stats).
+            $profile->load(['attendeeProfile', 'city']);
         } else {
             $profile->load(['communityProfile.city']);
         }

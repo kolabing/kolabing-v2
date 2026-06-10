@@ -44,6 +44,23 @@ class UserResource extends JsonResource
             });
 
             $data['has_active_subscription'] = $this->hasActiveSubscription();
+        } elseif ($this->user_type === UserType::Attendee) {
+            // Attendee identity (name, avatar, city) lives on the base profile.
+            $data['name'] = $this->name;
+            $data['city_id'] = $this->city_id;
+            $data['city_name'] = $this->whenLoaded('city', fn () => $this->city?->name);
+
+            $data['attendee_profile'] = $this->whenLoaded('attendeeProfile', function () {
+                $attendee = $this->attendeeProfile;
+
+                return $attendee ? [
+                    'id' => $attendee->id,
+                    'total_points' => $attendee->total_points,
+                    'total_challenges_completed' => $attendee->total_challenges_completed,
+                    'total_events_attended' => $attendee->total_events_attended,
+                    'global_rank' => $attendee->global_rank,
+                ] : null;
+            });
         } else {
             $data['community_profile'] = $this->whenLoaded('communityProfile', function () {
                 return new CommunityProfileResource($this->communityProfile);

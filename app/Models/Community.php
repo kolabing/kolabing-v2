@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $description
  * @property string|null $avatar_url
  * @property bool $is_primary
+ * @property bool $is_featured
  * @property JoinPolicy $join_policy
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -53,6 +54,7 @@ class Community extends Model
         'description',
         'avatar_url',
         'is_primary',
+        'is_featured',
         'join_policy',
     ];
 
@@ -65,6 +67,7 @@ class Community extends Model
             'type' => CommunityType::class,
             'join_policy' => JoinPolicy::class,
             'is_primary' => 'boolean',
+            'is_featured' => 'boolean',
         ];
     }
 
