@@ -24,7 +24,7 @@ class UpdateCommunityRequest extends FormRequest
             'name' => ['sometimes', 'string', 'min:2', 'max:100'],
             // type uses the REAL 17-slug vocabulary (CommunityOnboardingRequest::
             // COMMUNITY_TYPES), NOT the 5-value App\Enums\CommunityType placeholder.
-            'type' => ['sometimes', 'string', Rule::in(CommunityOnboardingRequest::COMMUNITY_TYPES)],
+            'type' => ['sometimes', 'string', 'exists:community_types,slug'],
             'description' => ['nullable', 'string', 'max:2000'],
             'avatar_url' => ['nullable', 'url', 'max:2048'],
             'join_policy' => ['sometimes', 'string', Rule::in(JoinPolicy::values())],

@@ -26,7 +26,7 @@ class StoreCommunityRequest extends FormRequest
             // pick at sign-up), NOT the 5-value App\Enums\CommunityType placeholder.
             // When the owner has a community_profiles.community_type the service
             // inherits it, so `type` is optional here.
-            'type' => ['nullable', 'string', Rule::in(CommunityOnboardingRequest::COMMUNITY_TYPES)],
+            'type' => ['nullable', 'string', 'exists:community_types,slug'],
             'description' => ['nullable', 'string', 'max:2000'],
             'avatar_url' => ['nullable', 'url', 'max:2048'],
             'join_policy' => ['nullable', 'string', Rule::in(JoinPolicy::values())],

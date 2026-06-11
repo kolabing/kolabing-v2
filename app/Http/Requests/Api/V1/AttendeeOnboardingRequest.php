@@ -39,10 +39,10 @@ class AttendeeOnboardingRequest extends FormRequest
             'handle' => ['required', 'string', 'regex:'.HandleService::FORMAT],
             'city_id' => ['nullable', 'uuid', 'exists:cities,id'],
             'interests' => ['nullable', 'array'],
-            // Interests are the REAL 17-slug community-type vocabulary (the same
-            // list communities pick at sign-up / GET /lookup/community-types),
-            // NOT the 5-value App\Enums\CommunityType placeholder.
-            'interests.*' => ['string', 'in:'.implode(',', CommunityOnboardingRequest::COMMUNITY_TYPES)],
+            // Interests are the REAL community-type vocabulary (the same list
+            // communities pick at sign-up / GET /lookup/community-types).
+            // Source of truth: community_types table (admin-managed).
+            'interests.*' => ['string', 'exists:community_types,slug'],
             'community_ids' => ['nullable', 'array'],
             'community_ids.*' => ['uuid', 'exists:communities,id'],
             'photo' => ['nullable', 'string'],

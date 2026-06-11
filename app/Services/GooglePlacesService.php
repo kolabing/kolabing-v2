@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\VenueType;
-use App\Http\Requests\Api\V1\BusinessOnboardingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -332,6 +331,10 @@ class GooglePlacesService
     private function mapBusinessCategories(array $types): array
     {
         $categories = [];
+        // Source of truth: business_types table (admin-managed). The Google
+        // place-type → slug map stays hardcoded (Google's vocabulary), but its
+        // OUTPUT is validated against the live table, not the retired const.
+        $validSlugs = \App\Models\BusinessType::query()->pluck('slug')->all();
 
         foreach ($types as $type) {
             if (! is_string($type)) {
@@ -340,7 +343,7 @@ class GooglePlacesService
 
             $mapped = self::BUSINESS_CATEGORY_MAP[$type] ?? null;
 
-            if ($mapped !== null && in_array($mapped, BusinessOnboardingRequest::BUSINESS_TYPES, true) && ! in_array($mapped, $categories, true)) {
+            if ($mapped !== null && in_array($mapped, $validSlugs, true) && ! in_array($mapped, $categories, true)) {
                 $categories[] = $mapped;
             }
         }

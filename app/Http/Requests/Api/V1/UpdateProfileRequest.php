@@ -106,7 +106,7 @@ class UpdateProfileRequest extends FormRequest
         return [
             'name' => ['nullable', 'string', 'max:255'],
             'about' => ['nullable', 'string', 'max:2000'],
-            'community_type' => ['nullable', 'string', 'max:100', Rule::exists('community_types', 'name')],
+            'community_type' => ['nullable', 'string', 'max:100', Rule::exists('community_types', 'slug')],
             'city_id' => ['nullable', 'uuid', Rule::exists('cities', 'id')],
             'instagram' => ['nullable', 'string', 'max:255'],
             'tiktok' => ['nullable', 'string', 'max:255'],
