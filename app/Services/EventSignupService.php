@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\CommunityMemberStatus;
 use App\Enums\EventSignupStatus;
+use App\Enums\EventVisibility;
 use App\Enums\NotificationType;
 use App\Models\Community;
 use App\Models\CommunityMember;
@@ -164,6 +165,11 @@ class EventSignupService
 
     private function assertEligible(Event $event, Profile $profile): void
     {
+        // Public events are open to everyone — no community membership required.
+        if ($event->visibility === EventVisibility::Public) {
+            return;
+        }
+
         // The community owner (leader) is always eligible.
         if (Community::query()->whereKey($event->community_id)->where('owner_profile_id', $profile->id)->exists()) {
             return;
@@ -198,6 +204,11 @@ class EventSignupService
     public function canAccess(Event $event, ?Profile $profile): bool
     {
         if ($event->community_id === null) {
+            return true;
+        }
+
+        // Public events are accessible to everyone.
+        if ($event->visibility === EventVisibility::Public) {
             return true;
         }
 

@@ -136,6 +136,18 @@ class EventSignupTest extends TestCase
             ->assertStatus(422)->assertJsonPath('error', 'not_a_member');
     }
 
+    public function test_non_member_can_sign_up_to_public_event(): void
+    {
+        $leader = Profile::factory()->community()->create();
+        $community = $this->community($leader);
+        $event = $this->upcomingEvent($community, ['visibility' => 'public']);
+        $outsider = Profile::factory()->attendee()->create();
+
+        // Public events are open to everyone — no membership required.
+        $this->actingAs($outsider)->postJson("/api/v1/events/{$event->id}/signup")
+            ->assertStatus(200)->assertJsonPath('data.my_signup.status', 'going');
+    }
+
     public function test_cannot_sign_up_to_past_event(): void
     {
         $leader = Profile::factory()->community()->create();
