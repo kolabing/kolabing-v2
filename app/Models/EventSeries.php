@@ -29,6 +29,7 @@ class EventSeries extends Model
      */
     protected $fillable = [
         'community_id',
+        'city_id',
         'profile_id',
         'name',
         'frequency',

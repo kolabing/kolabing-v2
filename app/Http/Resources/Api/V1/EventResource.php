@@ -40,6 +40,10 @@ class EventResource extends JsonResource
             // NOT the 5-value App\Enums\CommunityType placeholder.
             'community_name' => $this->whenLoaded('community', fn () => $this->community?->name),
             'community_type' => $this->whenLoaded('community', fn () => $this->community?->type),
+            // Effective city name: the event's own city when set, else the host
+            // community's profile city. Mirrors the discover effective-city rule.
+            'city_id' => $this->city_id,
+            'city_name' => $this->effectiveCityName(),
             'collaboration_id' => $this->collaboration_id,
             'capacity' => $this->capacity,
             'tier_gate' => $this->tier_gate,
@@ -72,5 +76,32 @@ class EventResource extends JsonResource
         }
 
         return $data;
+    }
+
+    /**
+     * The event's effective city name: its own city when set, otherwise the host
+     * community's profile city. Only reads already-loaded relations so it never
+     * triggers an N+1 (discover eager-loads `city` + `community.communityProfile`).
+     */
+    private function effectiveCityName(): ?string
+    {
+        if ($this->city_id !== null && $this->relationLoaded('city')) {
+            $name = $this->city?->name;
+            if ($name !== null) {
+                return $name;
+            }
+        }
+
+        if ($this->relationLoaded('community')) {
+            $community = $this->community;
+            if ($community !== null && $community->relationLoaded('communityProfile')) {
+                $profile = $community->communityProfile;
+                if ($profile !== null && $profile->relationLoaded('city')) {
+                    return $profile->city?->name;
+                }
+            }
+        }
+
+        return null;
     }
 }

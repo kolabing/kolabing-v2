@@ -136,6 +136,7 @@ class EventService
         return Event::query()->create([
             'profile_id' => $profile->id,
             'community_id' => $data['community_id'],
+            'city_id' => $data['city_id'] ?? null,
             'collaboration_id' => $data['collaboration_id'] ?? null,
             'name' => $data['name'],
             'partner_name' => $community?->name ?? $data['name'],
@@ -185,7 +186,7 @@ class EventService
         if (array_key_exists('ends_at', $data)) {
             $updateData['ends_at'] = $data['ends_at'] !== null ? Carbon::parse($data['ends_at']) : null;
         }
-        foreach (['location', 'capacity', 'tier_gate', 'visibility'] as $field) {
+        foreach (['city_id', 'location', 'capacity', 'tier_gate', 'visibility'] as $field) {
             if (array_key_exists($field, $data)) {
                 $updateData[$field] = $data[$field];
             }

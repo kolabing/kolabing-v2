@@ -80,8 +80,17 @@ class EventDiscoveryService
     }
 
     /**
-     * The shared base query: active events, host-community eager-loaded, with the
-     * city / date / type filters applied.
+     * The shared base query: discoverable PUBLIC events, host-community + city
+     * eager-loaded, with the city / date / type filters applied.
+     *
+     * Gate (changed for the empty-discover bug): we DO NOT require is_active here.
+     * Community upcoming events are created is_active=false (EventService never
+     * sets it), so the old blanket `where('is_active', true)` hid every upcoming
+     * event from discover. The real visibility contract is `visibility=public`
+     * (members/tier never leak) plus the future-inclusive date floor in
+     * applyDateFilter (effective date >= today, all branches). is_active was an
+     * artefact of the old geo "active now" path; the public/city upcoming surface
+     * is governed entirely by visibility + date, so dropping it here is safe.
      *
      * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
      * @return Builder<Event>
@@ -89,11 +98,10 @@ class EventDiscoveryService
     private function baseQuery(array $filters): Builder
     {
         $query = Event::query()
-            ->where('is_active', true)
             // Discover is a PUBLIC surface: only events explicitly marked public are
             // visible to non-members. members/tier events never leak here.
             ->where('visibility', EventVisibility::Public->value)
-            ->with(['photos', 'profile', 'community.communityProfile']);
+            ->with(['photos', 'profile', 'city', 'community.communityProfile.city']);
 
         $this->applyFilters($query, $filters);
 
@@ -103,9 +111,12 @@ class EventDiscoveryService
     /**
      * Apply the city / date / type filters to a query.
      *
-     * - city_id  → host community's community_profile is in that city.
-     *   Join path: events.community_id → communities.community_profile_id
-     *   → community_profiles.city_id.
+     * - city_id  → the event's EFFECTIVE city is that city. Effective city =
+     *   events.city_id when set, ELSE the host community's
+     *   community_profiles.city_id (events.community_id → communities
+     *   .community_profile_id → community_profiles.city_id). So an event with its
+     *   own city_id matches even when its community has no profile (e.g. a
+     *   leader-created type=other community with community_profile_id=null).
      * - type     → host community's type matches the slug (separator-tolerant).
      *   Join path: events.community_id → communities.type.
      * - date     → restricts on the effective start date COALESCE(starts_at,
@@ -119,8 +130,18 @@ class EventDiscoveryService
     {
         $cityId = $filters['city_id'] ?? null;
         if (is_string($cityId) && $cityId !== '') {
-            $query->whereHas('community.communityProfile', function (Builder $sub) use ($cityId): void {
-                $sub->where('city_id', $cityId);
+            // Effective-city match: the event's own city_id, OR (when it has none)
+            // the host community's profile city. An explicit events.city_id always
+            // wins, so an event pinned to a city shows even if its community lacks
+            // a profile.
+            $query->where(function (Builder $outer) use ($cityId): void {
+                $outer->where('city_id', $cityId)
+                    ->orWhere(function (Builder $fallback) use ($cityId): void {
+                        $fallback->whereNull('city_id')
+                            ->whereHas('community.communityProfile', function (Builder $sub) use ($cityId): void {
+                                $sub->where('city_id', $cityId);
+                            });
+                    });
             });
         }
 

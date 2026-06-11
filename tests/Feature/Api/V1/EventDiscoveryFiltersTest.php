@@ -285,6 +285,103 @@ class EventDiscoveryFiltersTest extends TestCase
             ->assertJsonPath('data.events.0.id', $thisMonth->id);
     }
 
+    public function test_discover_matches_event_own_city_when_community_has_no_profile(): void
+    {
+        $attendee = Profile::factory()->attendee()->create();
+        $city = City::factory()->create();
+        $owner = Profile::factory()->business()->create();
+
+        // Leader-created community: type=other, NO community profile (so no profile
+        // city). Without events.city_id this event could never be discovered.
+        $community = Community::factory()->create([
+            'name' => 'Real Run Club',
+            'type' => 'other',
+            'community_profile_id' => null,
+        ]);
+
+        $event = Event::factory()->forProfile($owner)->create([
+            'community_id' => $community->id,
+            'city_id' => $city->id,
+            // is_active=false is how community upcoming events are actually created;
+            // discover must still surface it (the relaxed gate).
+            'is_active' => false,
+            'visibility' => EventVisibility::Public->value,
+            'event_date' => now()->addDays(10)->toDateString(),
+            'starts_at' => now()->addDays(10),
+            'ends_at' => now()->addDays(10)->addHours(2),
+        ]);
+
+        $this->actingAs($attendee)
+            ->getJson('/api/v1/events/discover?city_id='.$city->id)
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data.events')
+            ->assertJsonPath('data.events.0.id', $event->id)
+            ->assertJsonPath('data.events.0.city_id', $city->id)
+            ->assertJsonPath('data.events.0.city_name', $city->name);
+    }
+
+    public function test_discover_event_own_city_overrides_community_profile_city(): void
+    {
+        $attendee = Profile::factory()->attendee()->create();
+        $eventCity = City::factory()->create(['name' => 'Madrid']);
+        $communityCity = City::factory()->create(['name' => 'Barcelona']);
+
+        // Community sits in Barcelona, but the event pins itself to Madrid.
+        $event = $this->createHostedEvent($communityCity, 'run_club', 'Mismatch Club', [
+            'city_id' => $eventCity->id,
+            'is_active' => false,
+        ]);
+
+        // Shows under the EVENT's city (Madrid)...
+        $this->actingAs($attendee)
+            ->getJson('/api/v1/events/discover?city_id='.$eventCity->id)
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data.events')
+            ->assertJsonPath('data.events.0.id', $event->id)
+            ->assertJsonPath('data.events.0.city_name', 'Madrid');
+
+        // ...and NOT under the community's city (Barcelona), since its own city wins.
+        $this->actingAs($attendee)
+            ->getJson('/api/v1/events/discover?city_id='.$communityCity->id)
+            ->assertStatus(200)
+            ->assertJsonCount(0, 'data.events');
+    }
+
+    public function test_discover_falls_back_to_community_profile_city(): void
+    {
+        $attendee = Profile::factory()->attendee()->create();
+        $city = City::factory()->create(['name' => 'Valencia']);
+
+        // No events.city_id → effective city = community profile city.
+        $event = $this->createHostedEvent($city, 'run_club', 'Fallback Club', [
+            'city_id' => null,
+        ]);
+
+        $this->actingAs($attendee)
+            ->getJson('/api/v1/events/discover?city_id='.$city->id)
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data.events')
+            ->assertJsonPath('data.events.0.id', $event->id)
+            ->assertJsonPath('data.events.0.city_name', 'Valencia');
+    }
+
+    public function test_discover_surfaces_inactive_public_upcoming_event(): void
+    {
+        $attendee = Profile::factory()->attendee()->create();
+        $city = City::factory()->create();
+
+        // is_active=false is the real production state of community upcoming events.
+        $event = $this->createHostedEvent($city, 'run_club', 'Inactive Club', [
+            'is_active' => false,
+        ]);
+
+        $this->actingAs($attendee)
+            ->getJson('/api/v1/events/discover?city_id='.$city->id)
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data.events')
+            ->assertJsonPath('data.events.0.id', $event->id);
+    }
+
     public function test_discover_upcoming_excludes_past_events(): void
     {
         $attendee = Profile::factory()->attendee()->create();

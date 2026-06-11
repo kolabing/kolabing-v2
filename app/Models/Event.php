@@ -13,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * @property string $id
  * @property string $profile_id
+ * @property string|null $community_id
+ * @property string|null $city_id
  * @property string $name
  * @property string $partner_name
  * @property string $partner_type
@@ -52,6 +54,7 @@ class Event extends Model
     protected $fillable = [
         'profile_id',
         'community_id',
+        'city_id',
         'series_id',
         'occurrence_index',
         'collaboration_id',
@@ -130,6 +133,17 @@ class Event extends Model
     public function community(): BelongsTo
     {
         return $this->belongsTo(Community::class);
+    }
+
+    /**
+     * The event's own city (where it happens). Nullable; discover falls back to
+     * the host community's profile city when this is null.
+     *
+     * @return BelongsTo<City, $this>
+     */
+    public function city(): BelongsTo
+    {
+        return $this->belongsTo(City::class);
     }
 
     /**

@@ -164,16 +164,24 @@ class EventDiscoveryTest extends TestCase
     |--------------------------------------------------------------------------
     */
 
-    public function test_discover_excludes_inactive_events(): void
+    /**
+     * Contract change (events-city-discover): is_active is NO LONGER a discover
+     * gate. Community upcoming events are created is_active=false, so the old
+     * blanket gate hid every one of them. Discoverability is now governed solely
+     * by visibility=public + a future-inclusive date floor; an inactive public
+     * upcoming event therefore SURFACES (in the geo path too).
+     */
+    public function test_discover_includes_inactive_public_upcoming_events(): void
     {
         $attendee = Profile::factory()->attendee()->create();
-        $this->createEventAt(41.3900, 2.1700, active: false);
+        $event = $this->createEventAt(41.3900, 2.1700, active: false);
 
         $response = $this->actingAs($attendee)
             ->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686');
 
         $response->assertStatus(200)
-            ->assertJsonCount(0, 'data.events');
+            ->assertJsonCount(1, 'data.events')
+            ->assertJsonPath('data.events.0.id', $event->id);
     }
 
     public function test_discover_excludes_events_without_location(): void

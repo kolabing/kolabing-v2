@@ -32,6 +32,9 @@ class StoreEventRequest extends FormRequest
         if ($this->isUpcoming()) {
             return [
                 'community_id' => ['required', 'uuid', 'exists:communities,id'],
+                // The event's own city (where it happens). Drives city discover
+                // independent of the host community's profile city. Nullable.
+                'city_id' => ['nullable', 'uuid', 'exists:cities,id'],
                 'name' => ['required', 'string', 'min:3', 'max:100'],
                 'starts_at' => ['required', 'date'],
                 'ends_at' => ['nullable', 'date', 'after:starts_at'],
