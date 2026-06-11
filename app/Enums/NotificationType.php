@@ -23,6 +23,9 @@ enum NotificationType: string
     case CollabFollowUpReminder = 'collab_followup_reminder';
     case WaitlistPromoted = 'waitlist_promoted';
     case EventCancelled = 'event_cancelled';
+    case CommunityJoinRequested = 'community_join_requested';
+    case CommunityJoinApproved = 'community_join_approved';
+    case CommunityJoinDeclined = 'community_join_declined';
 
     /**
      * @return array<string>

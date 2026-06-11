@@ -31,6 +31,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read CommunityProfile|null $communityProfile
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CommunityTier> $tiers
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CommunityMember> $members
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, CommunityJoinRequest> $joinRequests
  * @property-read CommunityTier|null $defaultTier
  */
 class Community extends Model
@@ -103,6 +104,14 @@ class Community extends Model
     public function members(): HasMany
     {
         return $this->hasMany(CommunityMember::class);
+    }
+
+    /**
+     * @return HasMany<CommunityJoinRequest, $this>
+     */
+    public function joinRequests(): HasMany
+    {
+        return $this->hasMany(CommunityJoinRequest::class);
     }
 
     /**

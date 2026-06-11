@@ -16,16 +16,17 @@ use App\Http\Controllers\Api\V1\CollaborationChallengeController;
 use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\CollaborationQrCodeController;
 use App\Http\Controllers\Api\V1\CommunityController;
+use App\Http\Controllers\Api\V1\CommunityJoinRequestController;
 use App\Http\Controllers\Api\V1\CommunityMemberController;
 use App\Http\Controllers\Api\V1\CommunityTierController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\DiscoveryOpportunityController;
 use App\Http\Controllers\Api\V1\EventController;
-use App\Http\Controllers\Api\V1\EventPhotoController;
-use App\Http\Controllers\Api\V1\EventSignupController;
 use App\Http\Controllers\Api\V1\EventDiscoveryController;
+use App\Http\Controllers\Api\V1\EventPhotoController;
 use App\Http\Controllers\Api\V1\EventRewardController;
+use App\Http\Controllers\Api\V1\EventSignupController;
 use App\Http\Controllers\Api\V1\FriendshipController;
 use App\Http\Controllers\Api\V1\GalleryController;
 use App\Http\Controllers\Api\V1\GamificationConfigController;
@@ -383,6 +384,16 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.communities.update');
         Route::post('communities/{community}/join', [CommunityController::class, 'join'])
             ->name('api.v1.communities.join');
+
+        // Invite-only join requests (request → leader approves/declines).
+        Route::post('communities/{community}/join-requests', [CommunityJoinRequestController::class, 'store'])
+            ->name('api.v1.communities.join-requests.store');
+        Route::get('communities/{community}/join-requests', [CommunityJoinRequestController::class, 'index'])
+            ->name('api.v1.communities.join-requests.index');
+        Route::post('join-requests/{joinRequest}/approve', [CommunityJoinRequestController::class, 'approve'])
+            ->name('api.v1.join-requests.approve');
+        Route::post('join-requests/{joinRequest}/decline', [CommunityJoinRequestController::class, 'decline'])
+            ->name('api.v1.join-requests.decline');
 
         Route::get('communities/{community}/tiers', [CommunityTierController::class, 'index'])
             ->name('api.v1.communities.tiers.index');

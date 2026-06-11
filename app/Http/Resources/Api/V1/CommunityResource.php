@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Enums\CommunityMemberStatus;
+use App\Enums\JoinRequestStatus;
 use App\Models\Community;
+use App\Models\Profile;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -18,6 +21,9 @@ class CommunityResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        /** @var Profile|null $viewer */
+        $viewer = $request->user();
+
         return [
             'id' => $this->id,
             'owner_profile_id' => $this->owner_profile_id,
@@ -30,8 +36,40 @@ class CommunityResource extends JsonResource
             'is_primary' => $this->is_primary,
             'join_policy' => $this->join_policy->value,
             'member_count' => $this->memberCount(),
+            // Viewer-scoped CTA hints (null-safe when unauthenticated).
+            'is_member' => $viewer !== null ? $this->viewerIsMember($viewer) : false,
+            'my_join_request_status' => $viewer !== null ? $this->viewerJoinRequestStatus($viewer) : null,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
+    }
+
+    private function viewerIsMember(Profile $viewer): bool
+    {
+        if ($viewer->id === $this->owner_profile_id) {
+            return true;
+        }
+
+        return $this->members()
+            ->where('profile_id', $viewer->id)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->exists();
+    }
+
+    /**
+     * The viewer's latest join-request status (null|pending|approved|declined).
+     */
+    private function viewerJoinRequestStatus(Profile $viewer): ?string
+    {
+        $status = $this->joinRequests()
+            ->where('profile_id', $viewer->id)
+            ->orderByDesc('created_at')
+            ->value('status');
+
+        if ($status === null) {
+            return null;
+        }
+
+        return $status instanceof JoinRequestStatus ? $status->value : (string) $status;
     }
 }
