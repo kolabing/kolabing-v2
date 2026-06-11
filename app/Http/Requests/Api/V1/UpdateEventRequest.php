@@ -33,6 +33,8 @@ class UpdateEventRequest extends FormRequest
             'capacity' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'tier_gate' => ['sometimes', 'nullable', 'array'],
             'tier_gate.*' => ['uuid'],
+            // Visibility: public (surfaces in city discover) | members | tier.
+            'visibility' => ['sometimes', Rule::enum(\App\Enums\EventVisibility::class)],
 
             // Edit → make recurring: a recurrence block on a non-series event
             // converts it into a series (this event becomes occurrence 0).

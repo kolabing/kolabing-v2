@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $location
  * @property int|null $capacity
  * @property array<int, mixed>|null $tier_gate
+ * @property string $visibility
  * @property string|null $collaboration_id
  * @property int $max_challenges_per_attendee
  * @property bool $is_active
@@ -67,6 +68,7 @@ class Event extends Model
         'location',
         'capacity',
         'tier_gate',
+        'visibility',
         'max_challenges_per_attendee',
         'is_active',
         'checkin_token',
@@ -87,6 +89,7 @@ class Event extends Model
             'location_lng' => 'decimal:7',
             'capacity' => 'integer',
             'tier_gate' => 'array',
+            'visibility' => \App\Enums\EventVisibility::class,
             'max_challenges_per_attendee' => 'integer',
             'is_active' => 'boolean',
         ];

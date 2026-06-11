@@ -37,8 +37,11 @@ class StoreEventRequest extends FormRequest
                 'ends_at' => ['nullable', 'date', 'after:starts_at'],
                 'location' => ['nullable', 'string', 'max:255'],
                 'capacity' => ['nullable', 'integer', 'min:1'],
-                'tier_gate' => ['nullable', 'array'],
+                // `tier` reuses tier_gate for the allowed tier ids.
+                'tier_gate' => ['nullable', 'array', 'required_if:visibility,tier'],
                 'tier_gate.*' => ['uuid'],
+                // Visibility: public (surfaces in city discover) | members | tier.
+                'visibility' => ['sometimes', Rule::enum(\App\Enums\EventVisibility::class)],
                 'collaboration_id' => ['nullable', 'uuid', 'exists:collaborations,id'],
                 'photos' => ['nullable', 'array', 'max:5'],
                 'photos.*' => ['image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],

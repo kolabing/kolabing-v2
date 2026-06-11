@@ -26,6 +26,12 @@ class EventDiscoveryTest extends TestCase
             'location_lat' => $lat,
             'location_lng' => $lng,
             'is_active' => $active,
+            // Discover is public-only and future-inclusive: these fixtures must be
+            // public + upcoming to surface.
+            'visibility' => \App\Enums\EventVisibility::Public->value,
+            'event_date' => now()->addDays(10)->toDateString(),
+            'starts_at' => now()->addDays(10),
+            'ends_at' => now()->addDays(10)->addHours(2),
         ]);
     }
 

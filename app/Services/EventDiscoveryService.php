@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\EventVisibility;
 use App\Models\Event;
 use App\Support\CommunityTypeVocabulary;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -89,6 +90,9 @@ class EventDiscoveryService
     {
         $query = Event::query()
             ->where('is_active', true)
+            // Discover is a PUBLIC surface: only events explicitly marked public are
+            // visible to non-members. members/tier events never leak here.
+            ->where('visibility', EventVisibility::Public->value)
             ->with(['photos', 'profile', 'community.communityProfile']);
 
         $this->applyFilters($query, $filters);
@@ -104,8 +108,9 @@ class EventDiscoveryService
      *   → community_profiles.city_id.
      * - type     → host community's type matches the slug (separator-tolerant).
      *   Join path: events.community_id → communities.type.
-     * - date     → today restricts to events occurring today (COALESCE the same
-     *   start column the resource exposes: starts_at, else legacy event_date).
+     * - date     → restricts on the effective start date COALESCE(starts_at,
+     *   event_date) — the same column the resource exposes. See applyDateFilter
+     *   for the exact range boundaries.
      *
      * @param  Builder<Event>  $query
      * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
@@ -127,12 +132,59 @@ class EventDiscoveryService
             });
         }
 
-        $date = $filters['date'] ?? null;
-        if ($date === 'today') {
-            $today = now()->toDateString();
-            // Match on the same effective start the resource/app reads: prefer the
-            // starts_at timestamp's date, fall back to the legacy event_date.
-            $query->whereRaw('DATE(COALESCE(starts_at, event_date)) = ?', [$today]);
+        $this->applyDateFilter($query, $filters['date'] ?? null);
+    }
+
+    /**
+     * Apply the `date` range filter on the effective start date,
+     * DATE(COALESCE(starts_at, event_date)) — the same column the resource reads.
+     *
+     * Boundaries (all inclusive, evaluated against "now" in the app timezone):
+     * - today    → effective date == today.
+     * - week     → this ISO week, Monday .. Sunday (Carbon startOfWeek/endOfWeek).
+     * - weekend  → this week's Saturday .. Sunday.
+     * - month    → first .. last day of the current calendar month.
+     * - upcoming → today onward (all future, the default). This is what fixes the
+     *   "nothing shows" bug: future events are INCLUDED, only the past is dropped.
+     * - null / unknown → no date restriction (still future-inclusive).
+     *
+     * @param  Builder<Event>  $query
+     */
+    private function applyDateFilter(Builder $query, ?string $date): void
+    {
+        $effective = 'DATE(COALESCE(starts_at, event_date))';
+
+        switch ($date) {
+            case 'today':
+                $query->whereRaw("{$effective} = ?", [now()->toDateString()]);
+                break;
+
+            case 'week':
+                $query->whereRaw("{$effective} BETWEEN ? AND ?", [
+                    now()->startOfWeek()->toDateString(),
+                    now()->endOfWeek()->toDateString(),
+                ]);
+                break;
+
+            case 'weekend':
+                $query->whereRaw("{$effective} BETWEEN ? AND ?", [
+                    now()->startOfWeek()->addDays(5)->toDateString(), // Saturday
+                    now()->endOfWeek()->toDateString(),                // Sunday
+                ]);
+                break;
+
+            case 'month':
+                $query->whereRaw("{$effective} BETWEEN ? AND ?", [
+                    now()->startOfMonth()->toDateString(),
+                    now()->endOfMonth()->toDateString(),
+                ]);
+                break;
+
+            case 'upcoming':
+            default:
+                // All future events, today onward — fixes the empty-discover bug.
+                $query->whereRaw("{$effective} >= ?", [now()->toDateString()]);
+                break;
         }
     }
 

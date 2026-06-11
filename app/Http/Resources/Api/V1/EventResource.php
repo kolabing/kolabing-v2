@@ -43,6 +43,7 @@ class EventResource extends JsonResource
             'collaboration_id' => $this->collaboration_id,
             'capacity' => $this->capacity,
             'tier_gate' => $this->tier_gate,
+            'visibility' => ($this->visibility ?? \App\Enums\EventVisibility::Members)->value,
             'series_id' => $this->series_id,
             'occurrence_index' => $this->occurrence_index,
             'photos' => EventPhotoResource::collection($this->whenLoaded('photos')),

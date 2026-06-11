@@ -32,8 +32,9 @@ class DiscoverEventsRequest extends FormRequest
             'limit' => ['sometimes', 'integer', 'min:1', 'max:50'],
             // Filter to events whose host community sits in this city.
             'city_id' => ['sometimes', 'uuid', 'exists:cities,id'],
-            // upcoming (default) | today.
-            'date' => ['sometimes', 'string', Rule::in(['today', 'upcoming'])],
+            // today | week (Mon-Sun) | weekend (Sat-Sun) | month (calendar month)
+            // | upcoming (default, all future).
+            'date' => ['sometimes', 'string', Rule::in(['today', 'week', 'weekend', 'month', 'upcoming'])],
             // A host community_type slug from the canonical 17-slug vocabulary
             // (community_types table, falling back to the COMMUNITY_TYPES constant);
             // NEVER the 5-value App\Enums\CommunityType placeholder.
@@ -56,7 +57,7 @@ class DiscoverEventsRequest extends FormRequest
             'limit.min' => 'Limit must be at least 1.',
             'limit.max' => 'Limit cannot exceed 50.',
             'city_id.exists' => 'The selected city does not exist.',
-            'date.in' => 'The date filter must be either today or upcoming.',
+            'date.in' => 'The date filter must be one of: today, week, weekend, month, upcoming.',
             'type.in' => 'The community type is not valid.',
         ];
     }

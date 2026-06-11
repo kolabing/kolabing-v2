@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\EventSignupStatus;
+use App\Enums\EventVisibility;
 use App\Enums\FileUploadType;
 use App\Enums\NotificationType;
 use App\Enums\UserType;
@@ -108,6 +109,7 @@ class EventService
                     'partner_type' => $data['partner_type'],
                     'event_date' => $data['date'],
                     'attendee_count' => $data['attendee_count'],
+                    'visibility' => EventVisibility::Members->value,
                 ])
                 : $this->buildUpcoming($profile, $data);
 
@@ -144,6 +146,7 @@ class EventService
             'location' => $data['location'] ?? null,
             'capacity' => $data['capacity'] ?? null,
             'tier_gate' => $data['tier_gate'] ?? null,
+            'visibility' => $data['visibility'] ?? EventVisibility::Members->value,
             'attendee_count' => 0,
         ]);
     }
@@ -182,7 +185,7 @@ class EventService
         if (array_key_exists('ends_at', $data)) {
             $updateData['ends_at'] = $data['ends_at'] !== null ? Carbon::parse($data['ends_at']) : null;
         }
-        foreach (['location', 'capacity', 'tier_gate'] as $field) {
+        foreach (['location', 'capacity', 'tier_gate', 'visibility'] as $field) {
             if (array_key_exists($field, $data)) {
                 $updateData[$field] = $data[$field];
             }
