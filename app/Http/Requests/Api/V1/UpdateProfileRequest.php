@@ -86,9 +86,9 @@ class UpdateProfileRequest extends FormRequest
         return [
             'name' => ['nullable', 'string', 'max:255'],
             'about' => ['nullable', 'string', 'max:2000'],
-            'business_type' => ['nullable', 'string', 'max:100', Rule::in(BusinessOnboardingRequest::BUSINESS_TYPES)],
+            'business_type' => ['nullable', 'string', 'max:100', Rule::exists('business_types', 'slug')],
             'categories' => ['sometimes', 'array', 'min:1', 'max:3'],
-            'categories.*' => ['string', 'distinct', Rule::in(BusinessOnboardingRequest::BUSINESS_TYPES)],
+            'categories.*' => ['string', 'distinct', Rule::exists('business_types', 'slug')],
             'city_id' => ['nullable', 'uuid', Rule::exists('cities', 'id')],
             'instagram' => ['nullable', 'string', 'max:255'],
             'website' => ['nullable', 'string', 'max:255', 'url'],
