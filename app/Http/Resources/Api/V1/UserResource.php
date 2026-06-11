@@ -26,6 +26,7 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'phone_number' => $this->phone_number,
             'user_type' => $this->user_type->value,
+            'onboarding_completed' => $this->onboardingCompleted(),
             'handle' => $this->handle,
             'interests' => $this->interests ?? [],
             'analytics_opt_out' => (bool) $this->analytics_opt_out,

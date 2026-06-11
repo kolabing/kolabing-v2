@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Enums\UserType;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\Rule;
 
 class AppleLoginRequest extends FormRequest
 {
@@ -23,6 +25,7 @@ class AppleLoginRequest extends FormRequest
         return [
             'identity_token' => ['required', 'string'],
             'name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'user_type' => ['sometimes', 'nullable', 'string', Rule::in(UserType::values())],
         ];
     }
 
@@ -33,7 +36,19 @@ class AppleLoginRequest extends FormRequest
     {
         return [
             'identity_token.required' => __('validation.required', ['attribute' => 'identity token']),
+            'user_type.in' => __('validation.in', ['attribute' => 'user type']),
         ];
+    }
+
+    public function getUserType(): ?UserType
+    {
+        $validated = $this->validated();
+
+        if (! array_key_exists('user_type', $validated) || $validated['user_type'] === null || $validated['user_type'] === '') {
+            return null;
+        }
+
+        return UserType::from($validated['user_type']);
     }
 
     protected function failedValidation(Validator $validator): never

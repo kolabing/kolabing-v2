@@ -470,4 +470,31 @@ class Profile extends Authenticatable
 
         return $this->communityProfile;
     }
+
+    /**
+     * Determine whether the profile has completed its onboarding flow.
+     */
+    public function onboardingCompleted(): bool
+    {
+        if ($this->isAttendee()) {
+            return filled($this->name)
+                && filled($this->handle)
+                && filled($this->city_id)
+                && ! empty($this->interests);
+        }
+
+        if ($this->isBusiness()) {
+            return filled($this->businessProfile?->name)
+                && filled($this->businessProfile?->business_type)
+                && filled($this->businessProfile?->city_id);
+        }
+
+        if ($this->isCommunity()) {
+            return filled($this->communityProfile?->name)
+                && filled($this->communityProfile?->community_type)
+                && filled($this->communityProfile?->city_id);
+        }
+
+        return false;
+    }
 }

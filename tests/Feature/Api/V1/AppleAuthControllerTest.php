@@ -6,9 +6,11 @@ namespace Tests\Feature\Api\V1;
 
 use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
+use App\Models\AttendeeProfile;
 use App\Models\CommunityProfile;
 use App\Models\Profile;
 use App\Services\AppleAuthService;
+use App\Enums\UserType;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Mockery\MockInterface;
 use Tests\TestCase;
@@ -73,6 +75,134 @@ class AppleAuthControllerTest extends TestCase
             ->assertJsonPath('success', false)
             ->assertJsonPath('message', 'No account found with this Apple ID. Please register first.')
             ->assertJsonPath('errors', null);
+    }
+
+    public function test_apple_login_validates_optional_user_type_when_provided(): void
+    {
+        $response = $this->postJson('/api/v1/auth/apple', [
+            'identity_token' => 'valid-token',
+            'user_type' => 'invalid',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Validation failed')
+            ->assertJsonStructure([
+                'success',
+                'message',
+                'errors' => ['user_type'],
+            ]);
+    }
+
+    public function test_apple_login_creates_new_attendee_user_when_user_type_is_provided(): void
+    {
+        $this->mock(AppleAuthService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('verifyIdentityToken')
+                ->once()
+                ->andReturn([
+                    'apple_id' => 'apple-attendee-123',
+                    'email' => 'newattendee@example.com',
+                ]);
+        });
+
+        $response = $this->postJson('/api/v1/auth/apple', [
+            'identity_token' => 'valid-token',
+            'name' => 'Ada Lovelace',
+            'user_type' => 'attendee',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Registration successful')
+            ->assertJsonPath('data.is_new_user', true)
+            ->assertJsonPath('data.user.user_type', 'attendee')
+            ->assertJsonPath('data.user.name', 'Ada Lovelace')
+            ->assertJsonPath('data.user.onboarding_completed', false);
+
+        $this->assertDatabaseHas('profiles', [
+            'email' => 'newattendee@example.com',
+            'apple_id' => 'apple-attendee-123',
+            'user_type' => UserType::Attendee->value,
+            'name' => 'Ada Lovelace',
+        ]);
+
+        $profile = Profile::where('email', 'newattendee@example.com')->first();
+        $this->assertNotNull($profile);
+        $this->assertDatabaseHas('attendee_profiles', [
+            'profile_id' => $profile->id,
+            'total_points' => 0,
+            'total_challenges_completed' => 0,
+            'total_events_attended' => 0,
+        ]);
+    }
+
+    public function test_apple_login_returns_conflict_for_user_type_mismatch(): void
+    {
+        $profile = Profile::factory()->business()->create([
+            'apple_id' => 'apple-business-123',
+            'google_id' => null,
+        ]);
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $this->mock(AppleAuthService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('verifyIdentityToken')
+                ->once()
+                ->andReturn([
+                    'apple_id' => 'apple-business-123',
+                    'email' => 'business@example.com',
+                ]);
+        });
+
+        $response = $this->postJson('/api/v1/auth/apple', [
+            'identity_token' => 'valid-token',
+            'user_type' => 'attendee',
+        ]);
+
+        $response->assertStatus(409)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'User type mismatch')
+            ->assertJsonStructure([
+                'success',
+                'message',
+                'errors' => ['user_type'],
+            ]);
+    }
+
+    public function test_apple_login_succeeds_for_existing_attendee_user_by_email_and_user_type(): void
+    {
+        $profile = Profile::factory()->attendee()->create([
+            'email' => 'attendee@example.com',
+            'apple_id' => null,
+            'google_id' => null,
+        ]);
+        AttendeeProfile::factory()->create(['profile_id' => $profile->id]);
+
+        $this->mock(AppleAuthService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('verifyIdentityToken')
+                ->once()
+                ->andReturn([
+                    'apple_id' => 'apple-attendee-999',
+                    'email' => 'attendee@example.com',
+                ]);
+        });
+
+        $response = $this->postJson('/api/v1/auth/apple', [
+            'identity_token' => 'valid-token',
+            'user_type' => 'attendee',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Login successful')
+            ->assertJsonPath('data.is_new_user', false)
+            ->assertJsonPath('data.user.user_type', 'attendee')
+            ->assertJsonPath('data.user.onboarding_completed', false);
+
+        $this->assertDatabaseHas('profiles', [
+            'id' => $profile->id,
+            'apple_id' => 'apple-attendee-999',
+        ]);
     }
 
     public function test_apple_login_succeeds_for_existing_business_user_by_apple_id(): void
