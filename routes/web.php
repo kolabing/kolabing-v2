@@ -6,8 +6,10 @@ use App\Http\Controllers\Admin\ChallengeController as AdminChallengeController;
 use App\Http\Controllers\Admin\ChallengeDefaultsController as AdminChallengeDefaultsController;
 use App\Http\Controllers\Admin\CrmController as AdminCrmController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\GamificationController as AdminGamificationController;
 use App\Http\Controllers\Admin\KolabController as AdminKolabController;
 use App\Http\Controllers\Admin\ManagedUserController;
+use App\Http\Controllers\Admin\PartnerRewardController as AdminPartnerRewardController;
 use App\Http\Controllers\Admin\RewardEconomicsController as AdminRewardEconomicsController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Admin\TaskController as AdminTaskController;
@@ -74,6 +76,20 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::post('/types/{kind}/reorder', [AdminTypeController::class, 'reorder'])->name('types.reorder');
 
     Route::prefix('gamification')->as('gamification.')->group(function (): void {
+        // Read-only oversight: overview + leaderboards.
+        Route::get('/overview', [AdminGamificationController::class, 'overview'])->name('overview');
+        Route::get('/leaderboards/communities', [AdminGamificationController::class, 'communityLeaderboard'])->name('leaderboards.communities');
+        Route::get('/leaderboards/communities/{community}', [AdminGamificationController::class, 'communityLeaderboard'])->name('leaderboards.communities.show');
+        Route::get('/leaderboards/global', [AdminGamificationController::class, 'globalLeaderboard'])->name('leaderboards.global');
+
+        // Global partner-reward catalogue ("Redeem your XP") — full CRUD.
+        Route::get('/partner-rewards', [AdminPartnerRewardController::class, 'index'])->name('partner-rewards.index');
+        Route::get('/partner-rewards/create', [AdminPartnerRewardController::class, 'create'])->name('partner-rewards.create');
+        Route::post('/partner-rewards', [AdminPartnerRewardController::class, 'store'])->name('partner-rewards.store');
+        Route::get('/partner-rewards/{partnerReward}/edit', [AdminPartnerRewardController::class, 'edit'])->name('partner-rewards.edit');
+        Route::put('/partner-rewards/{partnerReward}', [AdminPartnerRewardController::class, 'update'])->name('partner-rewards.update');
+        Route::delete('/partner-rewards/{partnerReward}', [AdminPartnerRewardController::class, 'destroy'])->name('partner-rewards.destroy');
+
         Route::get('/challenges/defaults', [AdminChallengeDefaultsController::class, 'index'])->name('challenges.defaults.index');
         Route::put('/challenges/defaults', [AdminChallengeDefaultsController::class, 'update'])->name('challenges.defaults.update');
 
