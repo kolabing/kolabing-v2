@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Enums\UserType;
+use App\Models\AttendeeProfile;
 use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
-use App\Models\AttendeeProfile;
 use App\Models\CommunityProfile;
 use App\Models\Profile;
 use App\Services\AppleAuthService;
-use App\Enums\UserType;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Mockery\MockInterface;
 use Tests\TestCase;

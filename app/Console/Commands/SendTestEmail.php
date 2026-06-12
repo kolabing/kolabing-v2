@@ -107,8 +107,8 @@ class SendTestEmail extends Command
     private function text(): string
     {
         return "Kolabing — transactional email pipeline test\n\n"
-            ."This is a connectivity test from the new Kolabing transactional email system "
-            ."(Postmark). If you are reading this, sending works end to end: configuration → "
+            .'This is a connectivity test from the new Kolabing transactional email system '
+            .'(Postmark). If you are reading this, sending works end to end: configuration → '
             ."queued job → Postmark API → your inbox.\n\n"
             ."No action needed. Branded templates come next.\n";
     }

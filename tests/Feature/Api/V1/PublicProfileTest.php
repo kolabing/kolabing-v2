@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature\Api\V1;
 
 use App\Models\BusinessProfile;
-use App\Models\CommunityProfile;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
+use App\Models\CommunityProfile;
 use App\Models\Kolab;
 use App\Models\Profile;
 use App\Models\ProfileGalleryPhoto;

@@ -16,6 +16,7 @@ class CrmAccount extends Model
 {
     /** @use HasFactory<\Database\Factories\CrmAccountFactory> */
     use HasFactory;
+
     use HasUuids;
 
     public const TYPES = ['business', 'community', 'ambassador'];

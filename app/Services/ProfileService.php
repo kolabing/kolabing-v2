@@ -14,9 +14,9 @@ use App\Models\Community;
 use App\Models\Kolab;
 use App\Models\NotificationPreference;
 use App\Models\Profile;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class ProfileService
@@ -246,7 +246,7 @@ class ProfileService
     public function getCommunityPublicProfile(Profile $profile): Profile
     {
         if (! $profile->isCommunity()) {
-            $exception = new ModelNotFoundException();
+            $exception = new ModelNotFoundException;
             $exception->setModel(Profile::class, [$profile->id]);
 
             throw $exception;

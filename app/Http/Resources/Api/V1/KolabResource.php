@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Resources\Api\V1;
 
-use App\Models\Application;
 use App\Enums\IntentType;
+use App\Models\Application;
 use App\Models\Kolab;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;

@@ -2,16 +2,16 @@
 
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
-use App\Http\Controllers\Admin\CrmController as AdminCrmController;
-use App\Http\Controllers\Admin\TaskController as AdminTaskController;
-use App\Http\Controllers\Admin\TypeController as AdminTypeController;
 use App\Http\Controllers\Admin\ChallengeController as AdminChallengeController;
 use App\Http\Controllers\Admin\ChallengeDefaultsController as AdminChallengeDefaultsController;
+use App\Http\Controllers\Admin\CrmController as AdminCrmController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\KolabController as AdminKolabController;
 use App\Http\Controllers\Admin\ManagedUserController;
 use App\Http\Controllers\Admin\RewardEconomicsController as AdminRewardEconomicsController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
+use App\Http\Controllers\Admin\TaskController as AdminTaskController;
+use App\Http\Controllers\Admin\TypeController as AdminTypeController;
 use App\Http\Controllers\Admin\XpEarnRuleController as AdminXpEarnRuleController;
 use App\Http\Controllers\Admin\XpLevelController as AdminXpLevelController;
 use Illuminate\Support\Facades\Route;

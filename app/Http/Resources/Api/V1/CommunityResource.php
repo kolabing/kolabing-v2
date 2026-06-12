@@ -43,8 +43,41 @@ class CommunityResource extends JsonResource
             // Viewer-scoped CTA hints (null-safe when unauthenticated).
             'is_member' => $viewer !== null ? $this->viewerIsMember($viewer) : false,
             'my_join_request_status' => $viewer !== null ? $this->viewerJoinRequestStatus($viewer) : null,
+            // Viewer's per-community POINTS balance + tier (null when not a member).
+            'my_points' => $viewer !== null ? $this->viewerPoints($viewer) : 0,
+            'my_tier' => $viewer !== null ? $this->viewerTier($viewer) : null,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
+        ];
+    }
+
+    private function viewerPoints(Profile $viewer): int
+    {
+        return (int) (\App\Models\CommunityPoints::query()
+            ->where('community_id', $this->id)
+            ->where('profile_id', $viewer->id)
+            ->value('points') ?? 0);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function viewerTier(Profile $viewer): ?array
+    {
+        $member = $this->members()
+            ->where('profile_id', $viewer->id)
+            ->with('tier')
+            ->first();
+
+        if ($member?->tier === null) {
+            return null;
+        }
+
+        return [
+            'id' => $member->tier->id,
+            'name' => $member->tier->name,
+            'color' => $member->tier->color,
+            'rank' => $member->tier->rank,
         ];
     }
 

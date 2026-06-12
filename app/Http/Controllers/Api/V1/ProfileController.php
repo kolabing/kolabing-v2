@@ -6,8 +6,8 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\FileUploadType;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\Api\V1\CommunityPublicProfileResource;
 use App\Http\Requests\Api\V1\UpdateProfileRequest;
+use App\Http\Resources\Api\V1\CommunityPublicProfileResource;
 use App\Http\Resources\Api\V1\PublicCollaborationResource;
 use App\Http\Resources\Api\V1\PublicProfileResource;
 use App\Http\Resources\Api\V1\PublicProfileReviewResource;

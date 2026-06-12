@@ -34,6 +34,7 @@ class SendCollabReminders extends Command
         foreach ($todayCollabs as $collab) {
             if ($dryRun) {
                 $this->line("  [dry-run] Would send day-of reminder for collab {$collab->id}");
+
                 continue;
             }
             $notificationService->notifyCollabDayReminder($collab);
@@ -51,6 +52,7 @@ class SendCollabReminders extends Command
         foreach ($followUpCollabs as $collab) {
             if ($dryRun) {
                 $this->line("  [dry-run] Would send follow-up reminder for collab {$collab->id}");
+
                 continue;
             }
             $notificationService->notifyCollabFollowUpReminder($collab);

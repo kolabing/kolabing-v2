@@ -118,6 +118,30 @@ class Community extends Model
     }
 
     /**
+     * @return HasMany<CommunityGoal, $this>
+     */
+    public function goals(): HasMany
+    {
+        return $this->hasMany(CommunityGoal::class);
+    }
+
+    /**
+     * @return HasMany<CommunityReward, $this>
+     */
+    public function rewards(): HasMany
+    {
+        return $this->hasMany(CommunityReward::class);
+    }
+
+    /**
+     * @return HasMany<CommunityBadge, $this>
+     */
+    public function badges(): HasMany
+    {
+        return $this->hasMany(CommunityBadge::class);
+    }
+
+    /**
      * @return HasOne<CommunityTier, $this>
      */
     public function defaultTier(): HasOne

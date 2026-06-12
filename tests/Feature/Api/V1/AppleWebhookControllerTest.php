@@ -139,13 +139,13 @@ class AppleWebhookControllerTest extends TestCase
                     'signedRenewalInfo' => 'inner.jws.renewal',
                 ],
             ]);
-            $mock->shouldReceive('decodeSignedJwt')
-                ->once()
-                ->with('inner.jws.transaction')
-                ->andReturn($this->fakeTransactionData([
-                    'originalTransactionId' => $subscription->apple_original_transaction_id,
-                    'transactionId' => $subscription->apple_transaction_id,
-                ]));
+        $mock->shouldReceive('decodeSignedJwt')
+            ->once()
+            ->with('inner.jws.transaction')
+            ->andReturn($this->fakeTransactionData([
+                'originalTransactionId' => $subscription->apple_original_transaction_id,
+                'transactionId' => $subscription->apple_transaction_id,
+            ]));
         $mock->shouldReceive('decodeSignedJwt')
             ->once()
             ->with('inner.jws.renewal')

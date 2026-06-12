@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
-use App\Models\BusinessSubscription;
 use App\Models\BusinessProfile;
+use App\Models\BusinessSubscription;
 use App\Models\CommunityProfile;
 use App\Models\Kolab;
 use App\Models\Profile;

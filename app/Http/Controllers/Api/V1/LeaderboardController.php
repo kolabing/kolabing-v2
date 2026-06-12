@@ -78,4 +78,30 @@ class LeaderboardController extends Controller
             ],
         ]);
     }
+
+    /**
+     * The per-community POINTS leaderboard. Each row carries the member's
+     * tier, badge_count, and points (the canonical community ranking).
+     *
+     * GET /api/v1/communities/{community}/leaderboard
+     */
+    public function communityLeaderboard(Request $request, Community $community): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        $limit = min((int) $request->query('limit', '50'), 100);
+        $limit = max($limit, 1);
+
+        $leaderboard = $this->leaderboardService->getCommunityPointsLeaderboard($community, $limit);
+        $myRank = $this->leaderboardService->getMyCommunityPointsRank($community, $profile);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'leaderboard' => $leaderboard->values()->all(),
+                'my_rank' => $myRank,
+            ],
+        ]);
+    }
 }

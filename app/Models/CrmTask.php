@@ -17,10 +17,13 @@ class CrmTask extends Model
 {
     /** @use HasFactory<\Database\Factories\CrmTaskFactory> */
     use HasFactory;
+
     use HasUuids;
 
     public const AREAS = ['sales', 'marketing', 'dev'];
+
     public const SUBAREAS = ['business', 'communities', 'ambassadors', 'community_members'];
+
     public const STATUSES = ['open', 'doing', 'done'];
 
     /** ambassadors tasks only make sense under sales/marketing. */

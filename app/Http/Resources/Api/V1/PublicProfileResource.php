@@ -100,15 +100,15 @@ class PublicProfileResource extends JsonResource
     {
         return PublicProfileReviewResource::collection(
             CollaborationReview::query()
-            ->where('reviewed_profile_id', $this->id)
-            ->whereNotNull('rating')
-            ->with([
-                'reviewerProfile.businessProfile',
-                'reviewerProfile.communityProfile',
-            ])
-            ->orderByDesc('created_at')
-            ->limit(3)
-            ->get()
+                ->where('reviewed_profile_id', $this->id)
+                ->whereNotNull('rating')
+                ->with([
+                    'reviewerProfile.businessProfile',
+                    'reviewerProfile.communityProfile',
+                ])
+                ->orderByDesc('created_at')
+                ->limit(3)
+                ->get()
         )->resolve();
     }
 

@@ -31,7 +31,7 @@ class LegacyOpportunityBridgeService
             return $opportunity;
         }
 
-        $exception = new ModelNotFoundException();
+        $exception = new ModelNotFoundException;
         $exception->setModel(CollabOpportunity::class, [$opportunityId]);
 
         throw $exception;
@@ -39,7 +39,7 @@ class LegacyOpportunityBridgeService
 
     private function persistCompatibilityOpportunity(Kolab $kolab): CollabOpportunity
     {
-        $opportunity = CollabOpportunity::query()->find($kolab->id) ?? new CollabOpportunity();
+        $opportunity = CollabOpportunity::query()->find($kolab->id) ?? new CollabOpportunity;
 
         $this->fillFromKolab($opportunity, $kolab);
         $opportunity->save();
@@ -50,7 +50,7 @@ class LegacyOpportunityBridgeService
 
     private function makeCompatibilityOpportunity(Kolab $kolab): CollabOpportunity
     {
-        $opportunity = CollabOpportunity::query()->find($kolab->id) ?? new CollabOpportunity();
+        $opportunity = CollabOpportunity::query()->find($kolab->id) ?? new CollabOpportunity;
 
         $this->fillFromKolab($opportunity, $kolab);
         $opportunity->setRelation('creatorProfile', $kolab->creatorProfile);

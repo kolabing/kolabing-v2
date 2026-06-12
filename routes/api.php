@@ -15,9 +15,13 @@ use App\Http\Controllers\Api\V1\CollaborationChallengeBonusController;
 use App\Http\Controllers\Api\V1\CollaborationChallengeController;
 use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\CollaborationQrCodeController;
+use App\Http\Controllers\Api\V1\CommunityBadgeController;
 use App\Http\Controllers\Api\V1\CommunityController;
+use App\Http\Controllers\Api\V1\CommunityGoalController;
 use App\Http\Controllers\Api\V1\CommunityJoinRequestController;
 use App\Http\Controllers\Api\V1\CommunityMemberController;
+use App\Http\Controllers\Api\V1\CommunityRewardController;
+use App\Http\Controllers\Api\V1\CommunityRewardsHubController;
 use App\Http\Controllers\Api\V1\CommunityTierController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
@@ -35,6 +39,7 @@ use App\Http\Controllers\Api\V1\GamificationStatsController;
 use App\Http\Controllers\Api\V1\KolabController;
 use App\Http\Controllers\Api\V1\LeaderboardController;
 use App\Http\Controllers\Api\V1\LookupController;
+use App\Http\Controllers\Api\V1\MeRewardsOverviewController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OnboardingController;
@@ -418,6 +423,58 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.communities.members.update');
         Route::delete('communities/{community}/members/{member}', [CommunityMemberController::class, 'destroy'])
             ->name('api.v1.communities.members.destroy');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Community gamification — goals, rewards, badges, points (per-community)
+        |--------------------------------------------------------------------------
+        | Leader CRUD is manage-gated in the controllers (owner / can_manage),
+        | like the roster & tier endpoints. Member reads are open to viewers.
+        */
+
+        // Goals
+        Route::get('communities/{community}/goals', [CommunityGoalController::class, 'index'])
+            ->name('api.v1.communities.goals.index');
+        Route::post('communities/{community}/goals', [CommunityGoalController::class, 'store'])
+            ->name('api.v1.communities.goals.store');
+        Route::put('goals/{goal}', [CommunityGoalController::class, 'update'])
+            ->name('api.v1.goals.update');
+        Route::delete('goals/{goal}', [CommunityGoalController::class, 'destroy'])
+            ->name('api.v1.goals.destroy');
+
+        // Rewards (leader CRUD)
+        Route::get('communities/{community}/rewards', [CommunityRewardController::class, 'index'])
+            ->name('api.v1.communities.rewards.index');
+        Route::post('communities/{community}/rewards', [CommunityRewardController::class, 'store'])
+            ->name('api.v1.communities.rewards.store');
+        Route::put('rewards/{reward}', [CommunityRewardController::class, 'update'])
+            ->name('api.v1.rewards.update');
+        Route::delete('rewards/{reward}', [CommunityRewardController::class, 'destroy'])
+            ->name('api.v1.rewards.destroy');
+
+        // Badges (leader CRUD)
+        Route::get('communities/{community}/badges', [CommunityBadgeController::class, 'index'])
+            ->name('api.v1.communities.badges.index');
+        Route::post('communities/{community}/badges', [CommunityBadgeController::class, 'store'])
+            ->name('api.v1.communities.badges.store');
+        Route::put('badges/{badge}', [CommunityBadgeController::class, 'update'])
+            ->name('api.v1.badges.update');
+        Route::delete('badges/{badge}', [CommunityBadgeController::class, 'destroy'])
+            ->name('api.v1.badges.destroy');
+
+        // Member rewards hub + redeem
+        Route::get('communities/{community}/rewards-hub', [CommunityRewardsHubController::class, 'show'])
+            ->name('api.v1.communities.rewards-hub');
+        Route::post('communities/{community}/rewards/{reward}/redeem', [CommunityRewardsHubController::class, 'redeem'])
+            ->name('api.v1.communities.rewards.redeem');
+
+        // Per-community POINTS leaderboard (tier + badge_count + points rows)
+        Route::get('communities/{community}/leaderboard', [LeaderboardController::class, 'communityLeaderboard'])
+            ->name('api.v1.communities.leaderboard');
+
+        // Personal rewards overview (global XP + partner rewards + per-community)
+        Route::get('me/rewards-overview', [MeRewardsOverviewController::class, 'show'])
+            ->name('api.v1.me.rewards-overview');
 
         /*
         |--------------------------------------------------------------------------
