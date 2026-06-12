@@ -21,6 +21,13 @@ use Illuminate\Support\Facades\DB;
 
 class EventService
 {
+    /**
+     * Maximum number of photos an event gallery may hold in total. Each
+     * POST /events/{event}/photos request may add up to 5 (StoreEventPhotosRequest),
+     * but the gallery never grows past this cap.
+     */
+    public const int MAX_EVENT_PHOTOS = 20;
+
     public function __construct(
         private readonly FileUploadService $fileUploadService,
         private readonly NotificationService $notificationService,
@@ -200,7 +207,8 @@ class EventService
     }
 
     /**
-     * Add photos to an existing event (gallery grows). Total capped at 5.
+     * Add photos to an existing event (gallery grows). Total capped at
+     * self::MAX_EVENT_PHOTOS (per-request count is capped at 5 in the request).
      *
      * @param  array<int, UploadedFile>  $photos
      *
@@ -210,7 +218,7 @@ class EventService
     {
         $existing = $event->photos()->count();
 
-        if ($existing + count($photos) > 5) {
+        if ($existing + count($photos) > self::MAX_EVENT_PHOTOS) {
             throw new \DomainException('photo_limit_reached');
         }
 

@@ -378,10 +378,16 @@ Route::prefix('v1')->group(function (): void {
         // so "discover" is not captured as a route-model-bound community.
         Route::get('communities/discover', [CommunityController::class, 'discover'])
             ->name('api.v1.communities.discover');
+        // Token-based invite join — literal "join" segment before the {community}
+        // wildcard so the token is not mistaken for a community id.
+        Route::post('communities/join/{token}', [CommunityController::class, 'joinByToken'])
+            ->name('api.v1.communities.join-by-token');
         Route::get('communities/{community}', [CommunityController::class, 'show'])
             ->name('api.v1.communities.show');
         Route::patch('communities/{community}', [CommunityController::class, 'update'])
             ->name('api.v1.communities.update');
+        Route::get('communities/{community}/invite', [CommunityController::class, 'invite'])
+            ->name('api.v1.communities.invite');
         Route::post('communities/{community}/join', [CommunityController::class, 'join'])
             ->name('api.v1.communities.join');
 

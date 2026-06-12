@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 /**
  * @property string $id
@@ -25,6 +26,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property bool $is_primary
  * @property bool $is_featured
  * @property JoinPolicy $join_policy
+ * @property string|null $invite_token
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Profile $owner
@@ -56,6 +58,7 @@ class Community extends Model
         'is_primary',
         'is_featured',
         'join_policy',
+        'invite_token',
     ];
 
     /**
@@ -130,5 +133,47 @@ class Community extends Model
         return $this->members()
             ->where('status', \App\Enums\CommunityMemberStatus::Active->value)
             ->count();
+    }
+
+    /**
+     * Canonical shareable join link, "<base>/<slug>". Always safe to share;
+     * open communities join straight from it, invite_only ones still require a
+     * token (use inviteUrlWithToken()).
+     */
+    public function inviteUrl(): string
+    {
+        $base = rtrim((string) config('communities.invite_base_url'), '/');
+
+        return $base.'/'.$this->slug;
+    }
+
+    /**
+     * Token-bearing invite link for invite_only communities. Returns the plain
+     * slug link for open communities (no token needed).
+     */
+    public function inviteUrlWithToken(): string
+    {
+        if ($this->join_policy !== JoinPolicy::InviteOnly) {
+            return $this->inviteUrl();
+        }
+
+        return $this->inviteUrl().'?invite='.$this->ensureInviteToken();
+    }
+
+    /**
+     * Lazily mint (and persist) the invite token. Idempotent: returns the
+     * existing token when one is already set.
+     */
+    public function ensureInviteToken(): string
+    {
+        if ($this->invite_token === null || $this->invite_token === '') {
+            do {
+                $token = Str::lower(Str::random(32));
+            } while (self::query()->where('invite_token', $token)->exists());
+
+            $this->forceFill(['invite_token' => $token])->save();
+        }
+
+        return (string) $this->invite_token;
     }
 }

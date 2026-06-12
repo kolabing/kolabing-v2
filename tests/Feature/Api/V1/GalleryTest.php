@@ -179,10 +179,10 @@ class GalleryTest extends TestCase
         ]);
     }
 
-    public function test_upload_enforces_max_10_photos_limit(): void
+    public function test_upload_enforces_max_20_photos_limit(): void
     {
         $profile = Profile::factory()->business()->create();
-        ProfileGalleryPhoto::factory()->count(10)->forProfile($profile)->create();
+        ProfileGalleryPhoto::factory()->count(20)->forProfile($profile)->create();
 
         $response = $this->actingAs($profile)
             ->postJson('/api/v1/me/gallery', [
@@ -191,6 +191,60 @@ class GalleryTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonPath('success', false);
+    }
+
+    public function test_batch_upload_accepts_multiple_photos(): void
+    {
+        $profile = Profile::factory()->community()->create();
+
+        $response = $this->actingAs($profile)
+            ->postJson('/api/v1/me/gallery', [
+                'photos' => [
+                    UploadedFile::fake()->image('a.jpg', 800, 600),
+                    UploadedFile::fake()->image('b.jpg', 800, 600),
+                    UploadedFile::fake()->image('c.jpg', 800, 600),
+                ],
+            ]);
+
+        $response->assertStatus(201)
+            ->assertJsonCount(3, 'data');
+
+        $this->assertSame(3, $profile->galleryPhotos()->count());
+    }
+
+    public function test_batch_upload_rejects_more_than_five_per_request(): void
+    {
+        $profile = Profile::factory()->community()->create();
+
+        $files = [];
+        for ($i = 0; $i < 6; $i++) {
+            $files[] = UploadedFile::fake()->image("p{$i}.jpg", 800, 600);
+        }
+
+        $this->actingAs($profile)
+            ->postJson('/api/v1/me/gallery', ['photos' => $files])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['photos']);
+    }
+
+    public function test_batch_upload_respects_total_cap(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        ProfileGalleryPhoto::factory()->count(18)->forProfile($profile)->create();
+
+        // 18 existing + 3 = 21 > 20 → rejected.
+        $this->actingAs($profile)
+            ->postJson('/api/v1/me/gallery', [
+                'photos' => [
+                    UploadedFile::fake()->image('a.jpg', 800, 600),
+                    UploadedFile::fake()->image('b.jpg', 800, 600),
+                    UploadedFile::fake()->image('c.jpg', 800, 600),
+                ],
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->assertSame(18, $profile->galleryPhotos()->count());
     }
 
     public function test_upload_caption_is_optional(): void

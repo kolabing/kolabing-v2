@@ -35,6 +35,10 @@ class CommunityResource extends JsonResource
             'avatar_url' => $this->avatar_url,
             'is_primary' => $this->is_primary,
             'join_policy' => $this->join_policy->value,
+            // Canonical shareable join link (always present). For invite_only
+            // communities the bare slug link is not enough to bypass the gate —
+            // owners/managers fetch the token link via GET /communities/{id}/invite.
+            'invite_url' => $this->inviteUrl(),
             'member_count' => $this->memberCount(),
             // Viewer-scoped CTA hints (null-safe when unauthenticated).
             'is_member' => $viewer !== null ? $this->viewerIsMember($viewer) : false,

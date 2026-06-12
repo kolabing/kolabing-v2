@@ -239,6 +239,70 @@ class CommunityController extends Controller
         ], 201);
     }
 
+    /**
+     * GET /api/v1/communities/{community}/invite — shareable join link.
+     *
+     * Owner / can_manage only. For open communities returns the canonical slug
+     * link. For invite_only communities also returns a pre-authorizing token
+     * (lazily minted) and the token-bearing url for POST /communities/join/{token}.
+     */
+    public function invite(Request $request, Community $community): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        if ($profile->cannot('manage', $community)) {
+            return $this->forbidden();
+        }
+
+        $isInviteOnly = $community->join_policy === JoinPolicy::InviteOnly;
+        $token = $isInviteOnly ? $community->ensureInviteToken() : null;
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'community_id' => $community->id,
+                'slug' => $community->slug,
+                'join_policy' => $community->join_policy->value,
+                'invite_url' => $community->inviteUrl(),
+                'token' => $token,
+                'token_url' => $isInviteOnly ? $community->inviteUrlWithToken() : null,
+            ],
+        ]);
+    }
+
+    /**
+     * POST /api/v1/communities/join/{token} — join via an invite token.
+     *
+     * Resolves the invite_only community by its token and adds the caller as a
+     * member, bypassing the invite_only gate. Open communities should use the
+     * plain POST /communities/{community}/join instead.
+     */
+    public function joinByToken(Request $request, string $token): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        $community = Community::query()->where('invite_token', $token)->first();
+
+        if ($community === null) {
+            return response()->json([
+                'success' => false,
+                'error' => 'invalid_invite',
+                'message' => __('This invite link is invalid or has expired.'),
+            ], 404);
+        }
+
+        // Token pre-authorizes the join regardless of join policy.
+        $member = $this->memberService->addMember($community, $profile->id);
+        $member->load(['tier', 'profile']);
+
+        return response()->json([
+            'success' => true,
+            'data' => new CommunityMemberResource($member),
+        ], 201);
+    }
+
     private function forbidden(): JsonResponse
     {
         return response()->json([

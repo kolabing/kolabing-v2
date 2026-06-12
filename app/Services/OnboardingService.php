@@ -201,6 +201,7 @@ class OnboardingService
 
             // Update community profile
             $communityProfile = $profile->communityProfile;
+            $resolvedPhoto = $profilePhotoUrl ?? $communityProfile->profile_photo;
             $communityProfile->update([
                 'name' => $data['name'],
                 'about' => $data['about'] ?? null,
@@ -209,8 +210,21 @@ class OnboardingService
                 'instagram' => $this->sanitizeSocialHandle($data['instagram'] ?? null),
                 'tiktok' => $this->sanitizeSocialHandle($data['tiktok'] ?? null),
                 'website' => $data['website'] ?? null,
-                'profile_photo' => $profilePhotoUrl ?? $communityProfile->profile_photo,
+                'profile_photo' => $resolvedPhoto,
             ]);
+
+            // FX-13 forward-sync: a community account's profile photo and its
+            // community-group logo are ONE image. ProfileService::updateProfile
+            // mirrors profile_photo -> Community.avatar_url, but onboarding writes
+            // the community_profile directly and bypassed that mirror, so the photo
+            // picked at onboarding never reached an already-created group. Mirror it
+            // here too (no-op when the leader has no group yet; the group's create
+            // path inherits this same profile_photo as its avatar).
+            if ($resolvedPhoto !== null) {
+                Community::query()
+                    ->where('owner_profile_id', $profile->id)
+                    ->update(['avatar_url' => $resolvedPhoto]);
+            }
 
             // Refresh and load relationships
             $profile->refresh();
