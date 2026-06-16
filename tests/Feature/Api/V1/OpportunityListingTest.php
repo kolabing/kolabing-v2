@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Enums\KolabStatus;
 use App\Models\Application;
 use App\Models\CollabOpportunity;
+use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -29,11 +31,12 @@ class OpportunityListingTest extends TestCase
 
     public function test_my_opportunities_returns_only_own_opportunities(): void
     {
+        // Phase 2: /me/opportunities reads the viewer's KOLABS, not collab_opportunities.
         $owner = Profile::factory()->business()->create();
         $other = Profile::factory()->business()->create();
 
-        CollabOpportunity::factory()->count(3)->published()->forCreator($owner)->create();
-        CollabOpportunity::factory()->count(2)->published()->forCreator($other)->create();
+        Kolab::factory()->count(3)->create(['creator_profile_id' => $owner->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
+        Kolab::factory()->count(2)->create(['creator_profile_id' => $other->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
 
         $response = $this->actingAs($owner)
             ->getJson('/api/v1/me/opportunities');
@@ -47,9 +50,9 @@ class OpportunityListingTest extends TestCase
     {
         $owner = Profile::factory()->business()->create();
 
-        CollabOpportunity::factory()->forCreator($owner)->create(); // draft
-        CollabOpportunity::factory()->published()->forCreator($owner)->create();
-        CollabOpportunity::factory()->closed()->forCreator($owner)->create();
+        Kolab::factory()->create(['creator_profile_id' => $owner->id, 'status' => KolabStatus::Draft]);
+        Kolab::factory()->create(['creator_profile_id' => $owner->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
+        Kolab::factory()->create(['creator_profile_id' => $owner->id, 'status' => KolabStatus::Closed]);
 
         $response = $this->actingAs($owner)
             ->getJson('/api/v1/me/opportunities');
@@ -62,8 +65,8 @@ class OpportunityListingTest extends TestCase
     {
         $owner = Profile::factory()->business()->create();
 
-        CollabOpportunity::factory()->forCreator($owner)->create(); // draft
-        CollabOpportunity::factory()->count(2)->published()->forCreator($owner)->create();
+        Kolab::factory()->create(['creator_profile_id' => $owner->id, 'status' => KolabStatus::Draft]);
+        Kolab::factory()->count(2)->create(['creator_profile_id' => $owner->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
 
         $response = $this->actingAs($owner)
             ->getJson('/api/v1/me/opportunities?status=published');
@@ -75,7 +78,7 @@ class OpportunityListingTest extends TestCase
     public function test_my_opportunities_returns_correct_structure(): void
     {
         $owner = Profile::factory()->business()->create();
-        CollabOpportunity::factory()->published()->forCreator($owner)->create();
+        Kolab::factory()->create(['creator_profile_id' => $owner->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
 
         $response = $this->actingAs($owner)
             ->getJson('/api/v1/me/opportunities');
