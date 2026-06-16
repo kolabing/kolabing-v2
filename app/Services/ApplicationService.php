@@ -10,6 +10,7 @@ use App\Exceptions\SubscriptionRequiredException;
 use App\Models\Application;
 use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
+use App\Models\Kolab;
 use App\Models\Profile;
 use App\Services\PostHog\PostHogService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -39,8 +40,15 @@ class ApplicationService
     {
         $this->validateCanApply($applicant, $opportunity);
 
+        // Phase 1 dual-write: also persist kolab_id. Because the legacy bridge
+        // materializes collab_opportunities with id = kolab.id, the opportunity id
+        // is already the kolab id for every kolab-originated row. We confirm a kolab
+        // exists before setting it so true-legacy opportunities stay NULL.
+        $kolabId = $this->resolveKolabId($opportunity->id);
+
         $application = Application::create([
             'collab_opportunity_id' => $opportunity->id,
+            'kolab_id' => $kolabId,
             'applicant_profile_id' => $applicant->id,
             'applicant_profile_type' => $applicant->user_type,
             'message' => $data['message'] ?? null,
@@ -347,6 +355,20 @@ class ApplicationService
     }
 
     /**
+     * Resolve the kolab id for an opportunity id (Phase 1 dual-write helper).
+     *
+     * The legacy bridge persists collab_opportunities with id = kolab.id, so the
+     * opportunity id IS the kolab id whenever a kolab exists. Returns null for
+     * true-legacy opportunities that have no backing kolab.
+     */
+    private function resolveKolabId(string $opportunityId): ?string
+    {
+        return Kolab::query()->whereKey($opportunityId)->exists()
+            ? $opportunityId
+            : null;
+    }
+
+    /**
      * Create a collaboration from an accepted application.
      *
      * @param  Application  $application  The accepted application
@@ -367,9 +389,15 @@ class ApplicationService
             ? $creator->communityProfile?->id
             : $applicant->communityProfile?->id;
 
+        // Phase 1 dual-write: prefer the application's kolab_id (set on apply); fall
+        // back to resolving from the opportunity id for older pending applications
+        // created before the dual-write was in place.
+        $kolabId = $application->kolab_id ?? $this->resolveKolabId($opportunity->id);
+
         return Collaboration::create([
             'application_id' => $application->id,
             'collab_opportunity_id' => $opportunity->id,
+            'kolab_id' => $kolabId,
             'creator_profile_id' => $creator->id,
             'applicant_profile_id' => $applicant->id,
             'business_profile_id' => $businessProfileId,
