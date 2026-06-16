@@ -632,6 +632,65 @@ class AuthControllerTest extends TestCase
         ]);
     }
 
+    public function test_register_product_business_without_primary_venue_succeeds(): void
+    {
+        $cityA = City::factory()->create(['name' => 'Madrid', 'country' => 'Spain']);
+        $cityB = City::factory()->create(['name' => 'Valencia', 'country' => 'Spain']);
+
+        $response = $this->postJson('/api/v1/auth/register/business', [
+            'email' => 'productbiz@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Bean Brand',
+            'about' => 'Specialty coffee beans shipped nationwide',
+            'business_type' => 'retail',
+            'has_venue' => false,
+            'city_id' => $cityA->id,
+            'target_city_ids' => [$cityA->id, $cityB->id],
+            'offering' => 'Single-origin coffee beans and brewing gear',
+            'offer_photos' => [],
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.user.user_type', 'business')
+            ->assertJsonPath('data.user.business_profile.has_venue', false)
+            ->assertJsonPath('data.user.business_profile.offering', 'Single-origin coffee beans and brewing gear')
+            ->assertJsonPath('data.user.business_profile.primary_venue', null);
+
+        $profile = Profile::where('email', 'productbiz@example.com')->first();
+        $this->assertNotNull($profile);
+        $profile->load('businessProfile');
+
+        $this->assertFalse($profile->businessProfile->has_venue);
+        $this->assertNull($profile->businessProfile->primary_venue);
+        $this->assertEquals($cityA->id, $profile->businessProfile->city_id);
+        $this->assertEquals(
+            [$cityA->id, $cityB->id],
+            $profile->businessProfile->target_city_ids
+        );
+        $this->assertEquals(
+            'Single-origin coffee beans and brewing gear',
+            $profile->businessProfile->offering
+        );
+    }
+
+    public function test_register_product_business_requires_city_when_no_venue(): void
+    {
+        $response = $this->postJson('/api/v1/auth/register/business', [
+            'email' => 'nocity@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Bean Brand',
+            'business_type' => 'retail',
+            'has_venue' => false,
+            'offering' => 'Coffee beans',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['city_id']);
+    }
+
     public function test_register_business_accepts_city_name_fallback_and_primary_venue(): void
     {
         config(['filesystems.uploads_disk' => 'public']);
@@ -813,6 +872,30 @@ class AuthControllerTest extends TestCase
                 'message',
                 'errors' => ['community_type'],
             ]);
+    }
+
+    public function test_register_community_persists_community_size(): void
+    {
+        $city = City::factory()->create();
+
+        $response = $this->postJson('/api/v1/auth/register/community', [
+            'email' => 'sizedcommunity@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Sized Community',
+            'community_type' => 'run_club',
+            'community_size' => 250,
+            'city_id' => $city->id,
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.user.community_profile.community_size', 250);
+
+        $profile = Profile::where('email', 'sizedcommunity@example.com')->first();
+        $this->assertNotNull($profile);
+        $profile->load('communityProfile');
+        $this->assertEquals(250, $profile->communityProfile->community_size);
     }
 
     public function test_register_community_creates_user_successfully(): void

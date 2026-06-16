@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $name
  * @property string|null $about
  * @property string|null $community_type
+ * @property int|null $community_size
  * @property string|null $city_id
  * @property string|null $instagram
  * @property string|null $tiktok
@@ -41,6 +42,7 @@ class CommunityProfile extends Model
         'name',
         'about',
         'community_type',
+        'community_size',
         'city_id',
         'instagram',
         'tiktok',
@@ -58,6 +60,7 @@ class CommunityProfile extends Model
     {
         return [
             'is_featured' => 'boolean',
+            'community_size' => 'integer',
         ];
     }
 

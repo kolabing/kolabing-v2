@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\BusinessOnboardingRequest;
 use App\Http\Requests\Api\V1\CommunityOnboardingRequest;
 use App\Http\Resources\Api\V1\CityResource;
+use App\Models\BusinessType;
 use App\Models\City;
 use App\Models\CitySuggestion;
 use App\Models\Profile;
@@ -148,9 +149,26 @@ class LookupController extends Controller
         $allowedValues = BusinessOnboardingRequest::BUSINESS_TYPES;
         $businessTypes = array_filter($businessTypes, fn ($type) => in_array($type['value'], $allowedValues, true));
 
+        // Enrich each entry with icon + applies_to from the seeded business_types
+        // table so the app can render and goal-filter the category pills. Falls
+        // back gracefully if a row is missing.
+        $meta = BusinessType::query()
+            ->get(['slug', 'icon', 'applies_to'])
+            ->keyBy('slug');
+
+        $businessTypes = array_map(function (array $type) use ($meta): array {
+            $row = $meta->get($type['value']);
+
+            return [
+                ...$type,
+                'icon' => $row?->icon,
+                'applies_to' => $row?->applies_to ?? 'both',
+            ];
+        }, array_values($businessTypes));
+
         return response()->json([
             'success' => true,
-            'data' => array_values($businessTypes),
+            'data' => $businessTypes,
             'meta' => [
                 'total' => count($businessTypes),
             ],

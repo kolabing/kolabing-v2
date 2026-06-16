@@ -268,6 +268,43 @@ class OnboardingControllerTest extends TestCase
         $this->assertSame('google-place-id', $profile->businessProfile->primary_venue['place_id']);
     }
 
+    public function test_business_onboarding_product_path_without_venue_succeeds(): void
+    {
+        $other = City::factory()->create(['name' => 'Madrid']);
+
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/onboarding/business', [
+                'name' => 'Bean Brand',
+                'business_type' => 'retail',
+                'has_venue' => false,
+                'city_id' => $this->city->id,
+                'target_city_ids' => [$this->city->id, $other->id],
+                'offering' => 'Single-origin coffee beans',
+                'offer_photos' => [],
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.business_profile.has_venue', false)
+            ->assertJsonPath('data.business_profile.offering', 'Single-origin coffee beans')
+            ->assertJsonPath('data.business_profile.primary_venue', null);
+
+        $profile->refresh();
+        $profile->load('businessProfile');
+
+        $this->assertFalse($profile->businessProfile->has_venue);
+        $this->assertNull($profile->businessProfile->primary_venue);
+        $this->assertEquals($this->city->id, $profile->businessProfile->city_id);
+        $this->assertEquals(
+            [$this->city->id, $other->id],
+            $profile->businessProfile->target_city_ids
+        );
+    }
+
     public function test_business_onboarding_validates_categories_limit(): void
     {
         $profile = Profile::factory()->business()->create();
@@ -533,6 +570,27 @@ class OnboardingControllerTest extends TestCase
         $this->assertEquals($communityProfile->id, $community->community_profile_id);
         $this->assertTrue($community->is_primary);
         $this->assertTrue($community->tiers()->where('is_default', true)->exists());
+    }
+
+    public function test_community_onboarding_persists_community_size(): void
+    {
+        $profile = Profile::factory()->community()->create();
+        CommunityProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/onboarding/community', [
+                'name' => 'Maria Garcia',
+                'community_type' => 'run_club',
+                'community_size' => 320,
+                'city_id' => $this->city->id,
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.community_profile.community_size', 320);
+
+        $profile->refresh();
+        $this->assertEquals(320, $profile->communityProfile->community_size);
     }
 
     private function tinyPngDataUri(): string

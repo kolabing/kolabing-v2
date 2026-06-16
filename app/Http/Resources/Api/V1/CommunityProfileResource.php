@@ -29,6 +29,7 @@ class CommunityProfileResource extends JsonResource
             'name' => $this->name,
             'about' => $this->about,
             'community_type' => $this->community_type,
+            'community_size' => $this->community_size,
             'type_label' => $this->formatTypeLabel($this->community_type),
             'city' => $this->whenLoaded('city', function () {
                 return $this->city ? new CityResource($this->city) : null;

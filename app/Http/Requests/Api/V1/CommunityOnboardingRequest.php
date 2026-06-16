@@ -54,6 +54,7 @@ class CommunityOnboardingRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'about' => ['nullable', 'string', 'max:1000'],
             'community_type' => ['required', 'string', 'in:'.implode(',', self::COMMUNITY_TYPES)],
+            'community_size' => ['nullable', 'integer', 'min:1'],
             'city_id' => ['required', 'uuid', 'exists:cities,id'],
             'phone_number' => ['nullable', 'string', 'regex:/^\+[1-9]\d{1,14}$/'],
             'instagram' => ['nullable', 'string', 'max:255', 'regex:/^@?[a-zA-Z0-9._]+$/'],

@@ -67,6 +67,18 @@ class BusinessVenueService
     }
 
     /**
+     * Normalize a standalone photo list (e.g. product/service offer photos)
+     * using the same rehosting rules as venue photos.
+     *
+     * @param  array<int, string>  $photos
+     * @return array<int, string>
+     */
+    public function normalizePhotos(array $photos, string $profileId): array
+    {
+        return $this->normalizeVenuePhotos($photos, $profileId);
+    }
+
+    /**
      * @param  array<int, string>  $photos
      * @return array<int, string>
      */

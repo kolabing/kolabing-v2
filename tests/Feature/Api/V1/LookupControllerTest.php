@@ -141,6 +141,8 @@ class LookupControllerTest extends TestCase
                         'value',
                         'label',
                         'description',
+                        'icon',
+                        'applies_to',
                     ],
                 ],
                 'meta' => [
@@ -154,6 +156,22 @@ class LookupControllerTest extends TestCase
         $this->assertContains('bar', $values);
         $this->assertContains('gym', $values);
         $this->assertContains('other', $values);
+    }
+
+    public function test_business_types_endpoint_exposes_icon_and_applies_to_from_seed(): void
+    {
+        $this->seed(\Database\Seeders\BusinessTypeSeeder::class);
+
+        $response = $this->getJson('/api/v1/lookup/business-types');
+
+        $response->assertStatus(200);
+
+        $byValue = collect($response->json('data'))->keyBy('value');
+
+        $this->assertSame('coffee', $byValue['cafe']['icon']);
+        $this->assertSame('venue', $byValue['cafe']['applies_to']);
+        $this->assertSame('both', $byValue['retail']['applies_to']);
+        $this->assertSame('both', $byValue['other']['applies_to']);
     }
 
     public function test_business_types_endpoint_is_public(): void

@@ -16,20 +16,25 @@ use Illuminate\Support\Facades\Log;
  * @phpstan-type BusinessOnboardingData array{
  *     name: string,
  *     about?: string|null,
+ *     offering?: string|null,
  *     business_type?: string|null,
  *     categories?: array<int, string>,
+ *     has_venue?: bool,
  *     city_id?: string|null,
  *     city_name?: string|null,
+ *     target_city_ids?: array<int, string>,
+ *     offer_photos?: array<int, string>,
  *     phone_number?: string|null,
  *     instagram?: string|null,
  *     website?: string|null,
  *     profile_photo?: string|null,
- *     primary_venue: array<string, mixed>
+ *     primary_venue?: array<string, mixed>|null
  * }
  * @phpstan-type CommunityOnboardingData array{
  *     name: string,
  *     about?: string|null,
  *     community_type: string,
+ *     community_size?: int|null,
  *     city_id: string,
  *     phone_number?: string|null,
  *     instagram?: string|null,
@@ -65,31 +70,48 @@ class OnboardingService
                 $data['profile_photo'] ?? null,
                 $profile->id
             );
+            $businessProfile = $profile->businessProfile;
+
+            $hasVenue = $data['has_venue'] ?? $businessProfile->has_venue ?? true;
+            $primaryVenueInput = $data['primary_venue'] ?? null;
+
             $resolvedCity = $this->businessVenueService->resolveCity(
                 $data['city_id'] ?? null,
-                $data['city_name'] ?? $data['primary_venue']['city'] ?? null
+                $data['city_name'] ?? $primaryVenueInput['city'] ?? null
             );
-            $primaryVenue = $this->businessVenueService->normalizePrimaryVenue(
-                $data['primary_venue'],
-                $profile->id,
-                $profile->businessProfile?->primary_venue
-            );
-            $categories = $this->normalizeBusinessCategories($data, $profile->businessProfile);
+
+            $primaryVenue = ($hasVenue && is_array($primaryVenueInput))
+                ? $this->businessVenueService->normalizePrimaryVenue(
+                    $primaryVenueInput,
+                    $profile->id,
+                    $businessProfile->primary_venue
+                )
+                : ($hasVenue ? $businessProfile->primary_venue : null);
+
+            $categories = $this->normalizeBusinessCategories($data, $businessProfile);
+
+            $targetCityIds = array_values($data['target_city_ids'] ?? []);
+            $offerPhotos = isset($data['offer_photos'])
+                ? $this->businessVenueService->normalizePhotos($data['offer_photos'], $profile->id)
+                : ($businessProfile->offer_photos ?? []);
 
             // Update business profile
-            $businessProfile = $profile->businessProfile;
             $businessProfile->update([
                 'name' => $data['name'],
                 'about' => $data['about'] ?? null,
+                'offering' => $data['offering'] ?? $businessProfile->offering,
                 'business_type' => $categories[0] ?? $businessProfile->business_type,
+                'has_venue' => $hasVenue,
                 'categories' => $categories,
                 'city_id' => $resolvedCity?->id,
-                'city_name' => $resolvedCity?->name ?? $data['city_name'] ?? $primaryVenue['city'],
-                'city_country' => $resolvedCity?->country ?? $primaryVenue['country'],
+                'city_name' => $resolvedCity?->name ?? $data['city_name'] ?? $primaryVenue['city'] ?? null,
+                'city_country' => $resolvedCity?->country ?? $primaryVenue['country'] ?? null,
+                'target_city_ids' => $targetCityIds === [] ? ($businessProfile->target_city_ids ?? null) : $targetCityIds,
                 'instagram' => $this->sanitizeSocialHandle($data['instagram'] ?? null),
                 'website' => $data['website'] ?? null,
                 'profile_photo' => $profilePhotoUrl ?? $businessProfile->profile_photo,
                 'primary_venue' => $primaryVenue,
+                'offer_photos' => $offerPhotos === [] ? null : $offerPhotos,
             ]);
 
             // Refresh and load relationships
@@ -125,6 +147,7 @@ class OnboardingService
                 'name' => $data['name'],
                 'about' => $data['about'] ?? null,
                 'community_type' => $data['community_type'],
+                'community_size' => $data['community_size'] ?? $communityProfile->community_size,
                 'city_id' => $data['city_id'],
                 'instagram' => $this->sanitizeSocialHandle($data['instagram'] ?? null),
                 'tiktok' => $this->sanitizeSocialHandle($data['tiktok'] ?? null),
