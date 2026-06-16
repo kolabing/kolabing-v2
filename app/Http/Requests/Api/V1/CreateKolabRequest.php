@@ -61,9 +61,12 @@ class CreateKolabRequest extends FormRequest
             // Community Seeking fields
             'needs' => ['required_if:intent_type,community_seeking', 'nullable', 'array'],
             'needs.*' => ['string', 'in:'.implode(',', OfferOptionValues::for(OfferOption::KIND_NEED))],
-            'community_types' => ['required_if:intent_type,community_seeking', 'nullable', 'array'],
+            // community_types + community_size are inherited from the creator's
+            // community_profile (KolabService::enrichCommunitySeekingData), so
+            // they are NOT required here — the app no longer asks for them.
+            'community_types' => ['nullable', 'array'],
             'community_types.*' => ['string'],
-            'community_size' => ['required_if:intent_type,community_seeking', 'nullable', 'integer', 'min:1'],
+            'community_size' => ['nullable', 'integer', 'min:1'],
             'typical_attendance' => ['required_if:intent_type,community_seeking', 'nullable', 'integer', 'min:1'],
             'offers_in_return' => ['required_if:intent_type,community_seeking', 'nullable', 'array'],
             'offers_in_return.*' => ['string', 'in:'.implode(',', OfferOptionValues::for(OfferOption::KIND_DELIVERABLE))],

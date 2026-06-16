@@ -87,6 +87,10 @@ class KolabService
             $data = $this->enrichVenuePromotionData($creator, $data);
         }
 
+        if ($data['intent_type'] === IntentType::CommunitySeeking->value) {
+            $data = $this->enrichCommunitySeekingData($creator, $data);
+        }
+
         $kolab = Kolab::query()->create([
             'creator_profile_id' => $creator->id,
             'intent_type' => $data['intent_type'],
@@ -143,6 +147,10 @@ class KolabService
 
         if ($intentType === IntentType::VenuePromotion->value) {
             $data = $this->enrichVenuePromotionData($kolab->creatorProfile, $data);
+        }
+
+        if ($intentType === IntentType::CommunitySeeking->value) {
+            $data = $this->enrichCommunitySeekingData($kolab->creatorProfile, $data);
         }
 
         $kolab->update($data);
@@ -344,6 +352,35 @@ class KolabService
         $data['venue_type'] = $primaryVenue['venue_type'] ?? null;
         $data['capacity'] = $primaryVenue['capacity'] ?? null;
         $data['venue_address'] = $primaryVenue['formatted_address'] ?? null;
+
+        return $data;
+    }
+
+    /**
+     * Inherit the community's self-describing fields (type + size) from its
+     * profile so they are NOT re-asked on every kolab — they already live on the
+     * community_profile (set at onboarding). typical_attendance is intentionally
+     * NOT inherited: it varies per kolab and stays a per-kolab input.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function enrichCommunitySeekingData(Profile $creator, array $data): array
+    {
+        $creator->loadMissing('communityProfile');
+        $profile = $creator->communityProfile;
+
+        if ($profile === null) {
+            return $data;
+        }
+
+        if (empty($data['community_types']) && ! empty($profile->community_type)) {
+            $data['community_types'] = [$profile->community_type];
+        }
+
+        if (empty($data['community_size']) && $profile->community_size !== null) {
+            $data['community_size'] = $profile->community_size;
+        }
 
         return $data;
     }
