@@ -46,3 +46,20 @@
 
     @yield('admin_content')
 @stop
+
+{{-- Lucide icon font/runtime, loaded admin-wide so any view can render
+     <i data-lucide="slug"></i>. The app renders the same Lucide icons by slug,
+     so what an admin sees here matches what the mobile app shows. --}}
+@section('js')
+    @parent
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script>
+        window.renderLucide = function () {
+            if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                window.lucide.createIcons();
+            }
+        };
+        document.addEventListener('DOMContentLoaded', window.renderLucide);
+        window.renderLucide();
+    </script>
+@stop
