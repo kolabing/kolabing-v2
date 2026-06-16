@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             CitySeeder::class,
             BusinessTypeSeeder::class,
             CommunityTypeSeeder::class,
+            OfferOptionSeeder::class,
             BadgeSeeder::class,
             SystemChallengeSeeder::class,
             XpEarnRuleSeeder::class,

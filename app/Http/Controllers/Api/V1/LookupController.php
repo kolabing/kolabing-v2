@@ -284,6 +284,85 @@ class LookupController extends Controller
     }
 
     /**
+     * Get the list of business offering options (what a business offers).
+     *
+     * GET /api/v1/lookup/offerings
+     */
+    public function offerings(): JsonResponse
+    {
+        return $this->offerOptionResponse(\App\Models\OfferOption::KIND_OFFERING);
+    }
+
+    /**
+     * Get the list of deliverable options (offered in return — community
+     * offers_in_return / business expects).
+     *
+     * GET /api/v1/lookup/deliverables
+     */
+    public function deliverables(): JsonResponse
+    {
+        return $this->offerOptionResponse(\App\Models\OfferOption::KIND_DELIVERABLE);
+    }
+
+    /**
+     * Get the list of community need options.
+     *
+     * GET /api/v1/lookup/needs
+     */
+    public function needs(): JsonResponse
+    {
+        return $this->offerOptionResponse(\App\Models\OfferOption::KIND_NEED);
+    }
+
+    /**
+     * Get the list of product type options (kolab product-promotion + product
+     * onboarding picker).
+     *
+     * GET /api/v1/lookup/product-types
+     */
+    public function productTypes(): JsonResponse
+    {
+        return $this->offerOptionResponse(\App\Models\OfferOption::KIND_PRODUCT_TYPE);
+    }
+
+    /**
+     * Get the list of venue type options (venue onboarding + kolab venue-promotion).
+     *
+     * GET /api/v1/lookup/venue-types
+     */
+    public function venueTypes(): JsonResponse
+    {
+        return $this->offerOptionResponse(\App\Models\OfferOption::KIND_VENUE_TYPE);
+    }
+
+    /**
+     * Map an active, sorted offer_options kind to the lookup response. Emits the
+     * shared shape { value, label, icon, is_active, sort_order } so every offer /
+     * product / venue taxonomy is consumed by one app model.
+     */
+    private function offerOptionResponse(string $kind): JsonResponse
+    {
+        $data = \App\Models\OfferOption::query()
+            ->where('kind', $kind)
+            ->where('is_active', true)
+            ->orderBy('sort_order')->orderBy('name')
+            ->get(['name', 'slug', 'icon', 'is_active', 'sort_order'])
+            ->map(fn ($o): array => [
+                'value' => $o->slug,
+                'label' => $o->name,
+                'icon' => $o->icon,
+                'is_active' => (bool) $o->is_active,
+                'sort_order' => (int) $o->sort_order,
+            ])->all();
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+            'meta' => ['total' => count($data)],
+        ]);
+    }
+
+    /**
      * GET /api/v1/places/autocomplete
      */
     public function autocompletePlaces(Request $request): JsonResponse

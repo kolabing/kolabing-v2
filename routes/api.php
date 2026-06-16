@@ -22,10 +22,10 @@ use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\DiscoveryOpportunityController;
 use App\Http\Controllers\Api\V1\EventController;
-use App\Http\Controllers\Api\V1\EventPhotoController;
-use App\Http\Controllers\Api\V1\EventSignupController;
 use App\Http\Controllers\Api\V1\EventDiscoveryController;
+use App\Http\Controllers\Api\V1\EventPhotoController;
 use App\Http\Controllers\Api\V1\EventRewardController;
+use App\Http\Controllers\Api\V1\EventSignupController;
 use App\Http\Controllers\Api\V1\GalleryController;
 use App\Http\Controllers\Api\V1\GamificationConfigController;
 use App\Http\Controllers\Api\V1\GamificationController;
@@ -114,6 +114,22 @@ Route::prefix('v1')->group(function (): void {
 
     Route::get('lookup/community-types', [LookupController::class, 'communityTypes'])
         ->name('api.v1.lookup.community-types');
+
+    // Kolab offer taxonomies (admin-managed in /admin/offer-options).
+    Route::get('lookup/offerings', [LookupController::class, 'offerings'])
+        ->name('api.v1.lookup.offerings');
+
+    Route::get('lookup/deliverables', [LookupController::class, 'deliverables'])
+        ->name('api.v1.lookup.deliverables');
+
+    Route::get('lookup/needs', [LookupController::class, 'needs'])
+        ->name('api.v1.lookup.needs');
+
+    Route::get('lookup/product-types', [LookupController::class, 'productTypes'])
+        ->name('api.v1.lookup.product-types');
+
+    Route::get('lookup/venue-types', [LookupController::class, 'venueTypes'])
+        ->name('api.v1.lookup.venue-types');
 
     /*
     |--------------------------------------------------------------------------

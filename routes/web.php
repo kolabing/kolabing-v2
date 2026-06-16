@@ -2,15 +2,16 @@
 
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
-use App\Http\Controllers\Admin\CrmController as AdminCrmController;
-use App\Http\Controllers\Admin\TaskController as AdminTaskController;
 use App\Http\Controllers\Admin\ChallengeController as AdminChallengeController;
 use App\Http\Controllers\Admin\ChallengeDefaultsController as AdminChallengeDefaultsController;
+use App\Http\Controllers\Admin\CrmController as AdminCrmController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\KolabController as AdminKolabController;
 use App\Http\Controllers\Admin\ManagedUserController;
+use App\Http\Controllers\Admin\OfferOptionController as AdminOfferOptionController;
 use App\Http\Controllers\Admin\RewardEconomicsController as AdminRewardEconomicsController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
+use App\Http\Controllers\Admin\TaskController as AdminTaskController;
 use App\Http\Controllers\Admin\XpEarnRuleController as AdminXpEarnRuleController;
 use App\Http\Controllers\Admin\XpLevelController as AdminXpLevelController;
 use Illuminate\Support\Facades\Route;
@@ -61,6 +62,18 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::get('/tasks/{task}/edit', [AdminTaskController::class, 'edit'])->name('tasks.edit');
     Route::put('/tasks/{task}', [AdminTaskController::class, 'update'])->name('tasks.update');
     Route::delete('/tasks/{task}', [AdminTaskController::class, 'destroy'])->name('tasks.destroy');
+
+    // Kolab offer taxonomies (offering / deliverable / need / product_type / venue_type)
+    // — source of truth the app reads via /lookup/{offerings,deliverables,needs,
+    // product-types,venue-types}.
+    Route::get('/offer-options', [AdminOfferOptionController::class, 'index'])->name('offer-options.index');
+    Route::get('/offer-options/create', [AdminOfferOptionController::class, 'create'])->name('offer-options.create');
+    Route::post('/offer-options', [AdminOfferOptionController::class, 'store'])->name('offer-options.store');
+    Route::get('/offer-options/{kind}/{id}/edit', [AdminOfferOptionController::class, 'edit'])->name('offer-options.edit');
+    Route::put('/offer-options/{kind}/{id}', [AdminOfferOptionController::class, 'update'])->name('offer-options.update');
+    Route::delete('/offer-options/{kind}/{id}', [AdminOfferOptionController::class, 'destroy'])->name('offer-options.destroy');
+    Route::post('/offer-options/{kind}/{id}/toggle', [AdminOfferOptionController::class, 'toggle'])->name('offer-options.toggle');
+    Route::post('/offer-options/{kind}/reorder', [AdminOfferOptionController::class, 'reorder'])->name('offer-options.reorder');
 
     Route::prefix('gamification')->as('gamification.')->group(function (): void {
         Route::get('/challenges/defaults', [AdminChallengeDefaultsController::class, 'index'])->name('challenges.defaults.index');

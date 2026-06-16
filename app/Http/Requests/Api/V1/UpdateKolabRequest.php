@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Requests\Api\V1;
 
 use App\Enums\IntentType;
+use App\Models\OfferOption;
+use App\Support\OfferOptionValues;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -12,22 +14,6 @@ use Illuminate\Validation\Validator as ValidationValidator;
 
 class UpdateKolabRequest extends FormRequest
 {
-    /**
-     * @var array<int, string>
-     */
-    private const OFFERING_VALUES = [
-        'venue',
-        'venue_space',
-        'food_drink',
-        'free_drinks',
-        'discount',
-        'products',
-        'social_media',
-        'content_creation',
-        'sponsorship',
-        'other',
-    ];
-
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -56,28 +42,28 @@ class UpdateKolabRequest extends FormRequest
 
             // Community Seeking fields
             'needs' => ['sometimes', 'nullable', 'array'],
-            'needs.*' => ['string', 'in:venue,food_drink,sponsor,products,discount,other'],
+            'needs.*' => ['string', 'in:'.implode(',', OfferOptionValues::for(OfferOption::KIND_NEED))],
             'community_types' => ['sometimes', 'nullable', 'array'],
             'community_types.*' => ['string'],
             'community_size' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'typical_attendance' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'offers_in_return' => ['sometimes', 'nullable', 'array'],
-            'offers_in_return.*' => ['string', 'in:social_media,event_activation,product_placement,community_reach,review_feedback'],
+            'offers_in_return.*' => ['string', 'in:'.implode(',', OfferOptionValues::for(OfferOption::KIND_DELIVERABLE))],
             'venue_preference' => ['sometimes', 'nullable', 'string', 'in:business_provides,community_provides,no_venue'],
 
             // Venue Promotion fields
             'venue_name' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'venue_type' => ['sometimes', 'nullable', 'string', 'in:restaurant,cafe,bar_lounge,hotel,coworking,sports_facility,event_space,rooftop,beach_club,retail_store,other'],
+            'venue_type' => ['sometimes', 'nullable', 'string', 'in:'.implode(',', OfferOptionValues::for(OfferOption::KIND_VENUE_TYPE))],
             'capacity' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'venue_address' => ['sometimes', 'nullable', 'string', 'max:500'],
 
             // Product Promotion fields
             'product_name' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'product_type' => ['sometimes', 'nullable', 'string', 'in:food_product,beverage,health_beauty,sports_equipment,fashion,tech_gadget,experience_service,other'],
+            'product_type' => ['sometimes', 'nullable', 'string', 'in:'.implode(',', OfferOptionValues::for(OfferOption::KIND_PRODUCT_TYPE))],
 
             // Business Targeting fields
             'offering' => ['sometimes', 'nullable', 'array'],
-            'offering.*' => ['string', 'in:'.implode(',', self::OFFERING_VALUES)],
+            'offering.*' => ['string', 'in:'.implode(',', OfferOptionValues::for(OfferOption::KIND_OFFERING))],
 
             // Optional fields
             'area' => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -96,7 +82,7 @@ class UpdateKolabRequest extends FormRequest
             'seeking_communities.*' => ['string'],
             'min_community_size' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'expects' => ['sometimes', 'nullable', 'array'],
-            'expects.*' => ['string', 'in:social_media,event_activation,product_placement,community_reach,review_feedback'],
+            'expects.*' => ['string', 'in:'.implode(',', OfferOptionValues::for(OfferOption::KIND_DELIVERABLE))],
             'past_events' => ['sometimes', 'nullable', 'array'],
             'past_events.*.name' => ['required_with:past_events', 'string', 'max:255'],
             'past_events.*.date' => ['required_with:past_events', 'date'],

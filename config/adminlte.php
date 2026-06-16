@@ -346,6 +346,13 @@ return [
             'icon' => 'fas fa-fw fa-list-check',
             'active' => ['admin/tasks', 'admin/tasks/*'],
         ],
+        ['header' => 'PLATFORM'],
+        [
+            'text' => 'Offer options',
+            'route' => 'admin.offer-options.index',
+            'icon' => 'fas fa-fw fa-handshake',
+            'active' => ['admin/offer-options', 'admin/offer-options/*'],
+        ],
         ['header' => 'GAMIFICATION'],
         [
             'text' => 'Challenges',
