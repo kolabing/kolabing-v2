@@ -146,6 +146,11 @@ class ChatService
      */
     public function canParticipate(Profile $profile, Application $application): bool
     {
+        // Chat is read-only once an application is no longer pending/accepted.
+        if ($application->isDeclined() || $application->isWithdrawn()) {
+            return false;
+        }
+
         // Load the opportunity with creator
         $application->loadMissing('collabOpportunity');
 
