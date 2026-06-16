@@ -11,6 +11,7 @@ use App\Http\Resources\Api\V1\CityResource;
 use App\Models\BusinessType;
 use App\Models\City;
 use App\Models\CitySuggestion;
+use App\Models\CommunityType;
 use App\Models\Profile;
 use App\Services\GooglePlacesService;
 use Illuminate\Http\JsonResponse;
@@ -149,11 +150,12 @@ class LookupController extends Controller
         $allowedValues = BusinessOnboardingRequest::BUSINESS_TYPES;
         $businessTypes = array_filter($businessTypes, fn ($type) => in_array($type['value'], $allowedValues, true));
 
-        // Enrich each entry with icon + applies_to from the seeded business_types
-        // table so the app can render and goal-filter the category pills. Falls
-        // back gracefully if a row is missing.
+        // Enrich each entry with icon + icon_url + applies_to from the seeded
+        // business_types table so the app can render and goal-filter the category
+        // pills. `icon_url` is the admin-picked personalised SVG (CategoryIcon
+        // renders it with top priority). Falls back gracefully if a row is missing.
         $meta = BusinessType::query()
-            ->get(['slug', 'icon', 'applies_to'])
+            ->get(['slug', 'icon', 'icon_url', 'applies_to'])
             ->keyBy('slug');
 
         $businessTypes = array_map(function (array $type) use ($meta): array {
@@ -162,6 +164,7 @@ class LookupController extends Controller
             return [
                 ...$type,
                 'icon' => $row?->icon,
+                'icon_url' => $row?->icon_url,
                 'applies_to' => $row?->applies_to ?? 'both',
             ];
         }, array_values($businessTypes));
@@ -273,6 +276,24 @@ class LookupController extends Controller
         // Validate that all values match the allowed community types
         $allowedValues = CommunityOnboardingRequest::COMMUNITY_TYPES;
         $communityTypes = array_filter($communityTypes, fn ($type) => in_array($type['value'], $allowedValues, true));
+
+        // Enrich each entry with icon + icon_url from the seeded community_types
+        // table so the app can render the admin-picked personalised SVG (CategoryIcon
+        // renders icon_url with top priority). Communities have no venue/product
+        // split, so no applies_to is emitted here. Falls back gracefully.
+        $meta = CommunityType::query()
+            ->get(['slug', 'icon', 'icon_url'])
+            ->keyBy('slug');
+
+        $communityTypes = array_map(function (array $type) use ($meta): array {
+            $row = $meta->get($type['value']);
+
+            return [
+                ...$type,
+                'icon' => $row?->icon,
+                'icon_url' => $row?->icon_url,
+            ];
+        }, array_values($communityTypes));
 
         return response()->json([
             'success' => true,
