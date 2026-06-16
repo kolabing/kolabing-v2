@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\ChallengeController as AdminChallengeController;
 use App\Http\Controllers\Admin\ChallengeDefaultsController as AdminChallengeDefaultsController;
 use App\Http\Controllers\Admin\CrmController as AdminCrmController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\IconLibraryController as AdminIconLibraryController;
 use App\Http\Controllers\Admin\KolabController as AdminKolabController;
 use App\Http\Controllers\Admin\ManagedUserController;
 use App\Http\Controllers\Admin\OfferOptionController as AdminOfferOptionController;
@@ -74,6 +75,12 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::delete('/offer-options/{kind}/{id}', [AdminOfferOptionController::class, 'destroy'])->name('offer-options.destroy');
     Route::post('/offer-options/{kind}/{id}/toggle', [AdminOfferOptionController::class, 'toggle'])->name('offer-options.toggle');
     Route::post('/offer-options/{kind}/reorder', [AdminOfferOptionController::class, 'reorder'])->name('offer-options.reorder');
+
+    // Personalised-icon library — the SVGs the mobile app renders. Offer options and
+    // any other taxonomy pick from here; admins can upload new SVGs.
+    Route::get('/icons', [AdminIconLibraryController::class, 'index'])->name('icons.index');
+    Route::post('/icons', [AdminIconLibraryController::class, 'store'])->name('icons.store');
+    Route::delete('/icons/{icon}', [AdminIconLibraryController::class, 'destroy'])->name('icons.destroy');
 
     Route::prefix('gamification')->as('gamification.')->group(function (): void {
         Route::get('/challenges/defaults', [AdminChallengeDefaultsController::class, 'index'])->name('challenges.defaults.index');

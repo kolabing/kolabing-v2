@@ -337,8 +337,10 @@ class LookupController extends Controller
 
     /**
      * Map an active, sorted offer_options kind to the lookup response. Emits the
-     * shared shape { value, label, icon, is_active, sort_order } so every offer /
-     * product / venue taxonomy is consumed by one app model.
+     * shared shape { value, label, icon, icon_url, is_active, sort_order } so every
+     * offer / product / venue taxonomy is consumed by one app model. `icon_url` is the
+     * full public URL of the personalised SVG the admin picked (null when unset); the
+     * app's CategoryIcon widget renders it with top priority, falling back to `icon`.
      */
     private function offerOptionResponse(string $kind): JsonResponse
     {
@@ -346,11 +348,12 @@ class LookupController extends Controller
             ->where('kind', $kind)
             ->where('is_active', true)
             ->orderBy('sort_order')->orderBy('name')
-            ->get(['name', 'slug', 'icon', 'is_active', 'sort_order'])
+            ->get(['name', 'slug', 'icon', 'icon_url', 'is_active', 'sort_order'])
             ->map(fn ($o): array => [
                 'value' => $o->slug,
                 'label' => $o->name,
                 'icon' => $o->icon,
+                'icon_url' => $o->icon_url,
                 'is_active' => (bool) $o->is_active,
                 'sort_order' => (int) $o->sort_order,
             ])->all();

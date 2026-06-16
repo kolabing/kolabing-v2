@@ -29,7 +29,7 @@ class OfferOptionLookupTest extends TestCase
     public function test_lookup_returns_active_options_sorted(string $route, string $kind): void
     {
         OfferOption::query()->create(['kind' => $kind, 'slug' => 'zzz', 'name' => 'ZZZ', 'sort_order' => 2, 'is_active' => true]);
-        OfferOption::query()->create(['kind' => $kind, 'slug' => 'aaa', 'name' => 'AAA', 'icon' => 'star', 'sort_order' => 1, 'is_active' => true]);
+        OfferOption::query()->create(['kind' => $kind, 'slug' => 'aaa', 'name' => 'AAA', 'icon' => 'star', 'icon_url' => 'http://localhost/storage/category-icons/category-running.svg', 'sort_order' => 1, 'is_active' => true]);
         OfferOption::query()->create(['kind' => $kind, 'slug' => 'hidden', 'name' => 'Hidden', 'sort_order' => 3, 'is_active' => false]);
         // Option of a different kind must not leak in.
         $otherKind = $kind === OfferOption::KIND_NEED ? OfferOption::KIND_OFFERING : OfferOption::KIND_NEED;
@@ -45,11 +45,14 @@ class OfferOptionLookupTest extends TestCase
         $this->assertSame('zzz', $data[1]['value']);
         $this->assertSame('AAA', $data[0]['label']);
         $this->assertSame('star', $data[0]['icon']);
+        // icon_url is the full public URL of the picked personalised SVG.
+        $this->assertSame('http://localhost/storage/category-icons/category-running.svg', $data[0]['icon_url']);
+        $this->assertNull($data[1]['icon_url']); // null when unset
         $this->assertTrue($data[0]['is_active']);
         $this->assertSame(1, $data[0]['sort_order']);
-        // Shared shape: exactly value/label/icon/is_active/sort_order.
+        // Shared shape: exactly value/label/icon/icon_url/is_active/sort_order.
         $this->assertSame(
-            ['value', 'label', 'icon', 'is_active', 'sort_order'],
+            ['value', 'label', 'icon', 'icon_url', 'is_active', 'sort_order'],
             array_keys($data[0])
         );
         $this->assertSame(2, $response->json('meta.total'));

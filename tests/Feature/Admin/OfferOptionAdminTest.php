@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Admin;
 
+use App\Models\Icon;
 use App\Models\Kolab;
 use App\Models\OfferOption;
 use App\Models\User;
@@ -46,32 +47,36 @@ class OfferOptionAdminTest extends TestCase
         $this->assertTrue($option->is_active);
     }
 
-    public function test_edit_form_renders_lucide_icon_gallery_picker(): void
+    public function test_edit_form_renders_personalised_icon_library_picker(): void
     {
         $admin = $this->maintainer();
+        $libIcon = Icon::factory()->bundled()->create([
+            'slug' => 'running', 'label' => 'Running', 'filename' => 'category-running.svg',
+        ]);
         $option = OfferOption::query()->create([
-            'kind' => OfferOption::KIND_OFFERING, 'slug' => 'coffee_opt', 'name' => 'Coffee', 'icon' => 'coffee', 'is_active' => true,
+            'kind' => OfferOption::KIND_OFFERING, 'slug' => 'coffee_opt', 'name' => 'Coffee', 'is_active' => true,
         ]);
 
-        $response = $this->actingAs($admin, 'admin')
+        $this->actingAs($admin, 'admin')
             ->get(route('admin.offer-options.edit', ['kind' => OfferOption::KIND_OFFERING, 'id' => $option->id]))
             ->assertOk()
             ->assertSee('id="iconGallery"', false)
-            ->assertSee('id="iconFilter"', false)            // searchable filter box
-            ->assertSee('id="iconManual"', false)            // advanced fallback text field
-            ->assertSee('data-slug="coffee"', false)         // the saved icon cell is pre-selected
-            ->assertDontSee('data-lucide', false)            // no CDN <i data-lucide> placeholders
-            ->assertDontSee('unpkg.com', false);             // no external Lucide CDN
-
-        // Icons are server-rendered inline SVG (deploy-safe, no CDN, no JS timing).
-        $this->assertStringContainsString('<svg', $response->getContent());
+            ->assertSee('id="iconUrlValue"', false)              // hidden icon_url field is what submits
+            ->assertSee('name="icon_url"', false)
+            ->assertSee('data-url="'.$libIcon->url.'"', false)   // the library icon renders as a pickable cell
+            ->assertSee($libIcon->url, false)                    // its SVG <img src> is shown
+            ->assertSee(route('admin.icons.index'), false)       // link to upload to the library
+            ->assertDontSee('unpkg.com', false);                 // no external CDN
     }
 
-    public function test_update_persists_icon_slug_chosen_in_gallery(): void
+    public function test_update_persists_icon_url_chosen_from_library(): void
     {
         $admin = $this->maintainer();
+        $libIcon = Icon::factory()->bundled()->create([
+            'slug' => 'running', 'label' => 'Running', 'filename' => 'category-running.svg',
+        ]);
         $option = OfferOption::query()->create([
-            'kind' => OfferOption::KIND_OFFERING, 'slug' => 'opt_icon', 'name' => 'Opt', 'icon' => 'star', 'is_active' => true,
+            'kind' => OfferOption::KIND_OFFERING, 'slug' => 'opt_icon', 'name' => 'Opt', 'is_active' => true,
         ]);
 
         $this->actingAs($admin, 'admin')
@@ -79,11 +84,11 @@ class OfferOptionAdminTest extends TestCase
                 'kind' => OfferOption::KIND_OFFERING,
                 'name' => 'Opt',
                 'slug' => 'opt_icon',
-                'icon' => 'wine',
+                'icon_url' => $libIcon->url,
                 'is_active' => '1',
             ])->assertRedirect();
 
-        $this->assertSame('wine', $option->fresh()->icon);
+        $this->assertSame($libIcon->url, $option->fresh()->icon_url);
     }
 
     public function test_same_slug_allowed_across_kinds_but_not_within_a_kind(): void

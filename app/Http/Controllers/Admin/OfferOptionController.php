@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Icon;
 use App\Models\Kolab;
 use App\Models\OfferOption;
 use Illuminate\Contracts\View\View;
@@ -95,6 +96,7 @@ class OfferOptionController extends Controller
             'kind' => $kind,
             'labels' => self::LABELS,
             'option' => new OfferOption(['kind' => $kind]),
+            'iconLibrary' => $this->iconLibrary(),
         ]);
     }
 
@@ -107,7 +109,18 @@ class OfferOptionController extends Controller
             'kind' => $kind,
             'labels' => self::LABELS,
             'option' => $option,
+            'iconLibrary' => $this->iconLibrary(),
         ]);
+    }
+
+    /**
+     * The active personalised-icon library, for the offer-options edit picker.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, Icon>
+     */
+    private function iconLibrary()
+    {
+        return Icon::query()->active()->ordered()->get();
     }
 
     public function store(Request $request): RedirectResponse
@@ -182,8 +195,9 @@ class OfferOptionController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'slug' => ['nullable', 'string', 'max:100', 'regex:/^[a-z0-9_]+$/'],
             'icon' => ['nullable', 'string', 'max:50'],
+            'icon_url' => ['nullable', 'string', 'max:2048'], // public URL of a library icon
             'sort_order' => ['nullable', 'integer', 'min:0'],
-            'icon_svg' => ['nullable', 'file', 'mimetypes:image/svg+xml', 'max:128'], // ≤128KB
+            'icon_svg' => ['nullable', 'file', 'mimetypes:image/svg+xml', 'max:128'], // ≤128KB (legacy inline upload)
         ]);
 
         $slug = $data['slug']
@@ -207,13 +221,16 @@ class OfferOptionController extends Controller
             'name' => $data['name'],
             'slug' => $slug,
             'icon' => $data['icon'] ?? null,
+            // Primary path: the chosen library icon's public URL (the app renders this).
+            'icon_url' => ($data['icon_url'] ?? null) ?: null,
             'sort_order' => $data['sort_order'] ?? 0,
             'is_active' => $request->boolean('is_active', true),
         ];
 
+        // Legacy inline upload still supported; it overrides the picked URL.
         if ($request->hasFile('icon_svg')) {
-            $path = $request->file('icon_svg')->store('offer-option-icons', ['disk' => config('filesystems.default')]);
-            $out['icon_url'] = Storage::disk(config('filesystems.default'))->url($path);
+            $path = $request->file('icon_svg')->store('offer-option-icons', ['disk' => 'public']);
+            $out['icon_url'] = Storage::disk('public')->url($path);
         }
 
         return $out;

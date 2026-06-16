@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             BusinessTypeSeeder::class,
             CommunityTypeSeeder::class,
             OfferOptionSeeder::class,
+            IconSeeder::class,
             BadgeSeeder::class,
             SystemChallengeSeeder::class,
             XpEarnRuleSeeder::class,
