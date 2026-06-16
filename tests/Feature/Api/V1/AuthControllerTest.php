@@ -675,6 +675,63 @@ class AuthControllerTest extends TestCase
         );
     }
 
+    public function test_register_product_business_auto_offer_uses_submitted_product_type(): void
+    {
+        $city = City::factory()->create(['name' => 'Madrid', 'country' => 'Spain']);
+
+        $response = $this->postJson('/api/v1/auth/register/business', [
+            'email' => 'producttype@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Bean Brand',
+            'about' => 'Specialty coffee beans shipped nationwide',
+            'business_type' => 'retail',
+            'has_venue' => false,
+            'city_id' => $city->id,
+            'offering' => 'Single-origin coffee beans',
+            'product_type' => 'beverage',
+        ]);
+
+        $response->assertStatus(201);
+
+        $profile = Profile::where('email', 'producttype@example.com')->first();
+        $this->assertNotNull($profile);
+
+        // Submitted product_type is persisted on the business profile...
+        $this->assertSame('beverage', $profile->businessProfile->product_type);
+
+        // ...and reused by the auto-provisioned product-promotion kolab.
+        $this->assertDatabaseHas('kolabs', [
+            'creator_profile_id' => $profile->id,
+            'intent_type' => 'product_promotion',
+            'product_type' => 'beverage',
+        ]);
+    }
+
+    public function test_register_product_business_defaults_product_type_to_other(): void
+    {
+        $city = City::factory()->create(['name' => 'Madrid', 'country' => 'Spain']);
+
+        $this->postJson('/api/v1/auth/register/business', [
+            'email' => 'defaultpt@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Bean Brand',
+            'business_type' => 'retail',
+            'has_venue' => false,
+            'city_id' => $city->id,
+            'offering' => 'Single-origin coffee beans',
+        ])->assertStatus(201);
+
+        $profile = Profile::where('email', 'defaultpt@example.com')->first();
+        $this->assertSame('other', $profile->businessProfile->product_type);
+        $this->assertDatabaseHas('kolabs', [
+            'creator_profile_id' => $profile->id,
+            'intent_type' => 'product_promotion',
+            'product_type' => 'other',
+        ]);
+    }
+
     public function test_register_product_business_requires_city_when_no_venue(): void
     {
         $response = $this->postJson('/api/v1/auth/register/business', [

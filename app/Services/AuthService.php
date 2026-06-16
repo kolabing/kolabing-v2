@@ -356,6 +356,7 @@ class AuthService
                 'name' => $businessProfileData['name'],
                 'about' => $businessProfileData['about'],
                 'offering' => $businessProfileData['offering'] ?? null,
+                'product_type' => $businessProfileData['product_type'] ?? 'other',
                 'business_type' => $businessProfileData['categories'][0] ?? $businessProfileData['business_type'],
                 'has_venue' => $hasVenue,
                 'categories' => $businessProfileData['categories'],

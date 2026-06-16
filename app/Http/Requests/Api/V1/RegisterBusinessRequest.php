@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Requests\Api\V1;
 
 use App\Enums\VenueType;
+use App\Models\OfferOption;
 use App\Support\ApiDebugLogger;
+use App\Support\OfferOptionValues;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -82,6 +84,10 @@ class RegisterBusinessRequest extends FormRequest
             'target_city_ids' => ['nullable', 'array'],
             'target_city_ids.*' => ['uuid', 'distinct', 'exists:cities,id'],
             'offering' => ['nullable', 'string', 'max:2000'],
+            // Product path: optional product_type from the admin-managed taxonomy
+            // (offer_options kind=product_type). Defaults to 'other'; the auto-offer
+            // persists + reuses it.
+            'product_type' => ['nullable', 'string', 'in:'.implode(',', OfferOptionValues::for(OfferOption::KIND_PRODUCT_TYPE))],
             'offer_photos' => ['nullable', 'array'],
             'offer_photos.*' => ['string'],
             'phone_number' => ['nullable', 'string', 'regex:/^\+[1-9]\d{1,14}$/'],
@@ -246,6 +252,7 @@ class RegisterBusinessRequest extends FormRequest
      *     city_name: string|null,
      *     target_city_ids: array<int, string>,
      *     offering: string|null,
+     *     product_type: string,
      *     offer_photos: array<int, string>,
      *     instagram: string|null,
      *     website: string|null,
@@ -268,6 +275,7 @@ class RegisterBusinessRequest extends FormRequest
             'city_name' => $validated['city_name'] ?? null,
             'target_city_ids' => array_values($validated['target_city_ids'] ?? []),
             'offering' => $validated['offering'] ?? null,
+            'product_type' => $validated['product_type'] ?? 'other',
             'offer_photos' => array_values($validated['offer_photos'] ?? []),
             'instagram' => $validated['instagram'] ?? null,
             'website' => $validated['website'] ?? null,

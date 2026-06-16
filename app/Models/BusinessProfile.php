@@ -47,6 +47,7 @@ class BusinessProfile extends Model
         'name',
         'about',
         'offering',
+        'product_type',
         'business_type',
         'has_venue',
         'categories',

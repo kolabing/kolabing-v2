@@ -103,6 +103,7 @@ class OnboardingService
                 'name' => $data['name'],
                 'about' => $data['about'] ?? null,
                 'offering' => $data['offering'] ?? $businessProfile->offering,
+                'product_type' => $data['product_type'] ?? $businessProfile->product_type ?? 'other',
                 'business_type' => $categories[0] ?? $businessProfile->business_type,
                 'has_venue' => $hasVenue,
                 'categories' => $categories,
@@ -219,7 +220,7 @@ class OnboardingService
                     'offering' => ['products'],
                     'preferred_city' => $businessProfile->city_name,
                     'product_name' => $name,
-                    'product_type' => 'other',
+                    'product_type' => $businessProfile->product_type ?: 'other',
                 ];
             }
 

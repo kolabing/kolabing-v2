@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Requests\Api\V1;
 
 use App\Enums\VenueType;
+use App\Models\OfferOption;
+use App\Support\OfferOptionValues;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -77,6 +79,10 @@ class BusinessOnboardingRequest extends FormRequest
             'target_city_ids' => ['nullable', 'array'],
             'target_city_ids.*' => ['uuid', 'distinct', 'exists:cities,id'],
             'offering' => ['nullable', 'string', 'max:2000'],
+            // Product path: optional product_type from the admin-managed taxonomy
+            // (offer_options kind=product_type). Defaults to 'other'; the auto-offer
+            // persists + reuses it.
+            'product_type' => ['nullable', 'string', 'in:'.implode(',', OfferOptionValues::for(OfferOption::KIND_PRODUCT_TYPE))],
             'offer_photos' => ['nullable', 'array'],
             'offer_photos.*' => ['string'],
             'phone_number' => ['nullable', 'string', 'regex:/^\+[1-9]\d{1,14}$/'],
