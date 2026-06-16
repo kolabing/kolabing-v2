@@ -35,6 +35,9 @@
                         <th style="width:56px">Icon</th>
                         <th>Name</th>
                         <th>Slug</th>
+                        @if ($kind === 'business')
+                            <th>Shows for</th>
+                        @endif
                         <th class="text-center">In use</th>
                         <th class="text-center">Active</th>
                         <th class="text-right pr-3">Action</th>
@@ -55,6 +58,14 @@
                             </td>
                             <td class="font-weight-bold">{{ $t->name }}</td>
                             <td><code>{{ $t->slug }}</code></td>
+                            @if ($kind === 'business')
+                                <td>
+                                    @php($a = $t->applies_to ?? 'both')
+                                    <span class="badge badge-{{ $a === 'venue' ? 'info' : ($a === 'product' ? 'warning' : 'secondary') }}">
+                                        {{ $a === 'venue' ? 'Venue' : ($a === 'product' ? 'Product / service' : 'Both') }}
+                                    </span>
+                                </td>
+                            @endif
                             <td class="text-center">{{ $t->in_use }}</td>
                             <td class="text-center">
                                 <form method="POST" action="{{ route('admin.types.toggle', ['kind' => $kind, 'id' => $t->id]) }}" class="d-inline">
@@ -74,7 +85,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="text-center text-muted py-4">No types yet.</td></tr>
+                        <tr><td colspan="{{ $kind === 'business' ? 8 : 7 }}" class="text-center text-muted py-4">No types yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>

@@ -348,6 +348,12 @@ return [
         ],
         ['header' => 'PLATFORM'],
         [
+            'text' => 'Types',
+            'route' => 'admin.types.index',
+            'icon' => 'fas fa-fw fa-tags',
+            'active' => ['admin/types', 'admin/types/*'],
+        ],
+        [
             'text' => 'Offer options',
             'route' => 'admin.offer-options.index',
             'icon' => 'fas fa-fw fa-handshake',

@@ -9,6 +9,7 @@ use App\Models\BusinessProfile;
 use App\Models\BusinessType;
 use App\Models\Community;
 use App\Models\CommunityType;
+use App\Models\Icon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,12 +18,18 @@ use Illuminate\Support\Str;
 
 /**
  * Admin CRUD for the community/business type taxonomies — the single source of
- * truth the app reads via /lookup. Supports icon name (app-bundled SVG) +
- * uploaded SVG (icon_url), drag-drop reorder, and deactivate (retire without
- * deleting). See docs/plans/2026-06-10-type-source-of-truth-DECISION.md.
+ * truth the app reads via /lookup. Supports a personalised icon picked from the
+ * admin icon library (icon_url, the same library offer_options use), an optional
+ * Lucide icon-name fallback, drag-drop reorder, and deactivate (retire without
+ * deleting). Business types also carry `applies_to` (venue|product|both), which
+ * the business-onboarding category picker filters by. See
+ * docs/plans/2026-06-10-type-source-of-truth-DECISION.md.
  */
 class TypeController extends Controller
 {
+    /** Allowed onboarding-path values for a business type. */
+    private const APPLIES_TO = ['venue', 'product', 'both'];
+
     /** @return array{model: class-string, label: string} */
     private function kindConfig(string $kind): array
     {
@@ -63,7 +70,11 @@ class TypeController extends Controller
     {
         $kind = $this->resolveKind($request->query('kind'));
 
-        return view('admin.types.edit', ['kind' => $kind, 'type' => new ($this->kindConfig($kind)['model'])]);
+        return view('admin.types.edit', [
+            'kind' => $kind,
+            'type' => new ($this->kindConfig($kind)['model']),
+            'iconLibrary' => $this->iconLibrary(),
+        ]);
     }
 
     public function edit(Request $request, string $kind, string $id): View
@@ -71,7 +82,21 @@ class TypeController extends Controller
         $kind = $this->resolveKind($kind);
         $type = $this->kindConfig($kind)['model']::query()->findOrFail($id);
 
-        return view('admin.types.edit', ['kind' => $kind, 'type' => $type]);
+        return view('admin.types.edit', [
+            'kind' => $kind,
+            'type' => $type,
+            'iconLibrary' => $this->iconLibrary(),
+        ]);
+    }
+
+    /**
+     * The active personalised-icon library, for the type edit picker.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, Icon>
+     */
+    private function iconLibrary()
+    {
+        return Icon::query()->active()->ordered()->get();
     }
 
     public function store(Request $request): RedirectResponse
@@ -140,26 +165,38 @@ class TypeController extends Controller
     private function validated(Request $request, string $kind, ?string $ignoreId): array
     {
         $table = $kind === 'business' ? 'business_types' : 'community_types';
+        $isBusiness = $kind === 'business';
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'slug' => ['nullable', 'string', 'max:100', 'regex:/^[a-z0-9_]+$/',
                 "unique:{$table},slug".($ignoreId ? ",{$ignoreId}" : '')],
             'icon' => ['nullable', 'string', 'max:50'],
+            'icon_url' => ['nullable', 'string', 'max:2048'], // public URL of a library icon
             'sort_order' => ['nullable', 'integer', 'min:0'],
-            'icon_svg' => ['nullable', 'file', 'mimetypes:image/svg+xml', 'max:128'], // ≤128KB
+            'icon_svg' => ['nullable', 'file', 'mimetypes:image/svg+xml', 'max:128'], // ≤128KB (legacy inline upload)
+            // Onboarding path is a business-only concept; communities have no venue/product split.
+            'applies_to' => [$isBusiness ? 'required' : 'nullable', 'in:'.implode(',', self::APPLIES_TO)],
         ]);
 
         $out = [
             'name' => $data['name'],
             'slug' => $data['slug'] ?? Str::of($data['name'])->lower()->replaceMatches('/[^a-z0-9]+/', '_')->trim('_')->value(),
             'icon' => $data['icon'] ?? null,
+            // Primary path: the chosen library icon's public URL (the app renders this).
+            'icon_url' => ($data['icon_url'] ?? null) ?: null,
             'sort_order' => $data['sort_order'] ?? 0,
             'is_active' => $request->boolean('is_active', true),
         ];
 
+        if ($isBusiness) {
+            $out['applies_to'] = $data['applies_to'] ?? 'both';
+        }
+
+        // Legacy inline upload still supported; it overrides the picked URL.
         if ($request->hasFile('icon_svg')) {
-            $path = $request->file('icon_svg')->store('type-icons', ['disk' => config('filesystems.default')]);
-            $out['icon_url'] = Storage::disk(config('filesystems.default'))->url($path);
+            $path = $request->file('icon_svg')->store('type-icons', ['disk' => 'public']);
+            $out['icon_url'] = Storage::disk('public')->url($path);
         }
 
         return $out;

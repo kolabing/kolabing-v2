@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\OfferOptionController as AdminOfferOptionControll
 use App\Http\Controllers\Admin\RewardEconomicsController as AdminRewardEconomicsController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Admin\TaskController as AdminTaskController;
+use App\Http\Controllers\Admin\TypeController as AdminTypeController;
 use App\Http\Controllers\Admin\XpEarnRuleController as AdminXpEarnRuleController;
 use App\Http\Controllers\Admin\XpLevelController as AdminXpLevelController;
 use Illuminate\Support\Facades\Route;
@@ -75,6 +76,18 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::delete('/offer-options/{kind}/{id}', [AdminOfferOptionController::class, 'destroy'])->name('offer-options.destroy');
     Route::post('/offer-options/{kind}/{id}/toggle', [AdminOfferOptionController::class, 'toggle'])->name('offer-options.toggle');
     Route::post('/offer-options/{kind}/reorder', [AdminOfferOptionController::class, 'reorder'])->name('offer-options.reorder');
+
+    // Business / community type taxonomies — the lists the app shows (and the
+    // business onboarding filters by via applies_to). Source of truth the app reads
+    // via /lookup/{business-types,community-types}.
+    Route::get('/types', [AdminTypeController::class, 'index'])->name('types.index');
+    Route::get('/types/create', [AdminTypeController::class, 'create'])->name('types.create');
+    Route::post('/types', [AdminTypeController::class, 'store'])->name('types.store');
+    Route::get('/types/{kind}/{id}/edit', [AdminTypeController::class, 'edit'])->name('types.edit');
+    Route::put('/types/{kind}/{id}', [AdminTypeController::class, 'update'])->name('types.update');
+    Route::delete('/types/{kind}/{id}', [AdminTypeController::class, 'destroy'])->name('types.destroy');
+    Route::post('/types/{kind}/{id}/toggle', [AdminTypeController::class, 'toggle'])->name('types.toggle');
+    Route::post('/types/{kind}/reorder', [AdminTypeController::class, 'reorder'])->name('types.reorder');
 
     // Personalised-icon library — the SVGs the mobile app renders. Offer options and
     // any other taxonomy pick from here; admins can upload new SVGs.
