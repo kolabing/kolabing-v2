@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $name
  * @property string $slug
  * @property string|null $icon
+ * @property string|null $icon_url
  * @property string $applies_to
  * @property int $sort_order
  * @property bool $is_active
@@ -34,6 +35,7 @@ class BusinessType extends Model
         'name',
         'slug',
         'icon',
+        'icon_url',
         'applies_to',
         'sort_order',
         'is_active',
