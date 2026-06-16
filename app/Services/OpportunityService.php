@@ -4,20 +4,27 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\KolabStatus;
 use App\Enums\OfferStatus;
 use App\Enums\UserType;
 use App\Exceptions\FreemiumLimitExceededException;
 use App\Exceptions\SubscriptionRequiredException;
 use App\Models\CollabOpportunity;
+use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator as ConcretePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class OpportunityService
 {
+    public function __construct(
+        private readonly LegacyOpportunityBridgeService $legacyBridge = new LegacyOpportunityBridgeService,
+    ) {}
+
     /**
      * Browse published opportunities with filters.
      *
@@ -92,8 +99,14 @@ class OpportunityService
      */
     public function getMyOpportunities(Profile $profile, array $filters, int $perPage = 20): LengthAwarePaginator
     {
-        $query = CollabOpportunity::query()
+        // Phase 2 (kolab = source of truth): read the viewer's KOLABS, not the
+        // lazily-materialized collab_opportunities table, so a freshly created
+        // kolab lists immediately. Each kolab is mapped to an in-memory
+        // compatibility CollabOpportunity so the response shape (OpportunityResource,
+        // incl. offer_photo) is unchanged and the app needs no change.
+        $query = Kolab::query()
             ->where('creator_profile_id', $profile->id)
+            ->withCount('applications')
             ->with([
                 'creatorProfile' => function ($query) {
                     $query->with([
@@ -111,15 +124,51 @@ class OpportunityService
             ]);
 
         if (isset($filters['status']) && $filters['status'] !== '') {
-            $status = OfferStatus::tryFrom($filters['status']);
+            // OfferStatus values (draft|published|closed) map 1:1 to KolabStatus.
+            $status = KolabStatus::tryFrom($filters['status']);
             if ($status !== null) {
                 $query->where('status', $status);
             }
         }
 
-        return $query
+        /** @var LengthAwarePaginator $kolabs */
+        $kolabs = $query
             ->orderByDesc('created_at')
             ->paginate($perPage);
+
+        return $this->mapKolabPaginatorToOpportunities($kolabs);
+    }
+
+    /**
+     * Map a paginator of Kolab models to compatibility CollabOpportunity models,
+     * preserving pagination metadata so the controller's meta block is unchanged.
+     */
+    private function mapKolabPaginatorToOpportunities(LengthAwarePaginator $kolabs): LengthAwarePaginator
+    {
+        $opportunities = collect($kolabs->items())->map(function (Kolab $kolab): CollabOpportunity {
+            $opportunity = $this->legacyBridge->makeCompatibilityOpportunity($kolab);
+
+            // Preserve timestamps + applications_count for the resource (the
+            // compatibility object is not persisted, so they are not auto-set).
+            $opportunity->setRawAttributes(array_merge($opportunity->getAttributes(), [
+                'created_at' => $kolab->created_at,
+                'updated_at' => $kolab->updated_at,
+            ]), true);
+
+            if ($kolab->applications_count !== null) {
+                $opportunity->applications_count = $kolab->applications_count;
+            }
+
+            return $opportunity;
+        });
+
+        return new ConcretePaginator(
+            $opportunities,
+            $kolabs->total(),
+            $kolabs->perPage(),
+            $kolabs->currentPage(),
+            ['path' => ConcretePaginator::resolveCurrentPath()],
+        );
     }
 
     /**

@@ -77,6 +77,7 @@ class ApplicationService
         $application->loadMissing([
             'collaboration',
             'collabOpportunity.creatorProfile',
+            'kolab.creatorProfile',
             'applicantProfile.businessProfile',
             'applicantProfile.communityProfile',
         ]);
@@ -88,6 +89,7 @@ class ApplicationService
                     'applicantProfile.businessProfile',
                     'applicantProfile.communityProfile',
                     'collabOpportunity.creatorProfile',
+                    'kolab.creatorProfile',
                 ]),
                 'collaboration' => $application->collaboration->fresh(),
             ];
@@ -247,6 +249,7 @@ class ApplicationService
                 'applicantProfile.businessProfile',
                 'applicantProfile.communityProfile',
                 'collabOpportunity',
+                'kolab.creatorProfile',
             ])
             ->orderBy('created_at', 'desc');
 
@@ -273,6 +276,7 @@ class ApplicationService
                 'applicantProfile.businessProfile',
                 'applicantProfile.communityProfile',
                 'collabOpportunity.creatorProfile',
+                'kolab.creatorProfile',
                 'collaboration',
             ])
             ->findOrFail($id);

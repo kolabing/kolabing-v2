@@ -99,6 +99,7 @@ class ApplicationController extends Controller
                 'applicantProfile.businessProfile',
                 'applicantProfile.communityProfile',
                 'collabOpportunity.creatorProfile',
+                'kolab.creatorProfile',
             ]);
 
             return response()->json([
@@ -174,6 +175,7 @@ class ApplicationController extends Controller
                 'applicantProfile.businessProfile',
                 'applicantProfile.communityProfile',
                 'collabOpportunity.creatorProfile',
+                'kolab.creatorProfile',
             ]);
 
             $result['collaboration']->load([
@@ -182,6 +184,7 @@ class ApplicationController extends Controller
                 'businessProfile',
                 'communityProfile',
                 'collabOpportunity',
+                'kolab.creatorProfile',
             ]);
 
             return response()->json([
@@ -233,6 +236,7 @@ class ApplicationController extends Controller
                 'applicantProfile.businessProfile',
                 'applicantProfile.communityProfile',
                 'collabOpportunity.creatorProfile',
+                'kolab.creatorProfile',
             ]);
 
             return response()->json([
@@ -272,6 +276,7 @@ class ApplicationController extends Controller
                 'applicantProfile.businessProfile',
                 'applicantProfile.communityProfile',
                 'collabOpportunity.creatorProfile',
+                'kolab.creatorProfile',
             ]);
 
             return response()->json([

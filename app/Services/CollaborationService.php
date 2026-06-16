@@ -43,6 +43,7 @@ class CollaborationService
         $paginator = $query
             ->with([
                 'collabOpportunity',
+                'kolab.creatorProfile',
                 'creatorProfile.businessProfile.city',
                 'creatorProfile.communityProfile.city',
                 'applicantProfile.businessProfile.city',
@@ -68,6 +69,7 @@ class CollaborationService
         $collaboration = Collaboration::query()
             ->with([
                 'collabOpportunity',
+                'kolab.creatorProfile',
                 'creatorProfile.businessProfile.city',
                 'creatorProfile.communityProfile.city',
                 'applicantProfile.businessProfile.city',
@@ -104,6 +106,7 @@ class CollaborationService
 
         return $collaboration->fresh([
             'collabOpportunity',
+            'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
             'application',
@@ -142,6 +145,7 @@ class CollaborationService
 
         return $collaboration->fresh([
             'collabOpportunity',
+            'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
             'application',
@@ -169,6 +173,7 @@ class CollaborationService
 
         return $collaboration->fresh([
             'collabOpportunity',
+            'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
             'application',
@@ -195,6 +200,7 @@ class CollaborationService
 
         return $collaboration->fresh([
             'collabOpportunity',
+            'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
             'application',
@@ -243,6 +249,7 @@ class CollaborationService
 
         $fresh = $collaboration->fresh([
             'collabOpportunity',
+            'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
             'application',
@@ -318,6 +325,7 @@ class CollaborationService
 
             return $collaboration->load([
                 'collabOpportunity',
+                'kolab.creatorProfile',
                 'creatorProfile',
                 'applicantProfile',
                 'application',

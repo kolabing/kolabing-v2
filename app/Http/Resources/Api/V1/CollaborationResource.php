@@ -9,6 +9,7 @@ use App\Models\Collaboration;
 use App\Models\CollaborationFeedback;
 use App\Models\CollaborationReview;
 use App\Services\CollaborationFeedbackService;
+use App\Services\LegacyOpportunityBridgeService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -65,11 +66,11 @@ class CollaborationResource extends JsonResource
                     return (new ApplicationResource($this->application))->withoutOpportunity();
                 })
             ),
+            // Phase 2: prefer the related KOLAB (mapped to the OpportunitySummary
+            // shape via the bridge), falling back to the legacy collabOpportunity.
             'collab_opportunity' => $this->when(
                 $this->includeOpportunity,
-                fn () => $this->whenLoaded('collabOpportunity', function () {
-                    return new OpportunitySummaryResource($this->collabOpportunity);
-                })
+                fn () => $this->resolveOpportunitySummary()
             ),
             'creator_profile' => $this->whenLoaded('creatorProfile', function () {
                 return new ProfileSummaryResource($this->creatorProfile);
@@ -146,6 +147,23 @@ class CollaborationResource extends JsonResource
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Resolve the embedded opportunity summary, preferring the kolab relation.
+     */
+    private function resolveOpportunitySummary(): mixed
+    {
+        if ($this->relationLoaded('kolab') && $this->kolab !== null) {
+            $opportunity = app(LegacyOpportunityBridgeService::class)
+                ->makeCompatibilityOpportunity($this->kolab);
+
+            return new OpportunitySummaryResource($opportunity);
+        }
+
+        return $this->whenLoaded('collabOpportunity', function () {
+            return new OpportunitySummaryResource($this->collabOpportunity);
+        });
     }
 
     /**
