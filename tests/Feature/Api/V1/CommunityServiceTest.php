@@ -10,6 +10,7 @@ use App\Models\Profile;
 use App\Policies\CommunityPolicy;
 use App\Services\CommunityService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class CommunityServiceTest extends TestCase
@@ -41,6 +42,24 @@ class CommunityServiceTest extends TestCase
             $default->permissions
         );
         $this->assertSame(1, $community->tiers()->count());
+    }
+
+    public function test_create_uploads_base64_avatar_instead_of_persisting_data_uri(): void
+    {
+        config(['filesystems.uploads_disk' => 'public']);
+        Storage::fake('public');
+
+        $owner = Profile::factory()->community()->create();
+
+        $community = $this->service()->create($owner, [
+            'name' => 'Night Bikers',
+            'type' => 'fitness_community',
+            'avatar_url' => $this->tinyPngDataUri(),
+        ]);
+
+        $this->assertNotEmpty($community->avatar_url);
+        $this->assertStringStartsWith(rtrim((string) config('app.url'), '/').'/storage/', $community->avatar_url);
+        $this->assertStringNotContainsString('data:image/png;base64', $community->avatar_url);
     }
 
     public function test_second_community_throws_limit_reached(): void
@@ -96,5 +115,10 @@ class CommunityServiceTest extends TestCase
         ]);
 
         $this->assertFalse((new CommunityPolicy)->manage($suspended, $community));
+    }
+
+    private function tinyPngDataUri(): string
+    {
+        return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9oNcamcAAAAASUVORK5CYII=';
     }
 }
