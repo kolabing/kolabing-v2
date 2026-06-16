@@ -305,6 +305,109 @@ class OnboardingControllerTest extends TestCase
         );
     }
 
+    public function test_business_onboarding_product_path_auto_creates_one_published_kolab(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/onboarding/business', [
+                'name' => 'Bean Brand',
+                'about' => 'We roast single-origin beans.',
+                'business_type' => 'retail',
+                'has_venue' => false,
+                'city_id' => $this->city->id,
+                'offering' => 'Single-origin coffee beans',
+                'offer_photos' => [],
+            ]);
+
+        $response->assertStatus(200)->assertJsonPath('success', true);
+
+        $kolabs = \App\Models\Kolab::query()
+            ->where('creator_profile_id', $profile->id)
+            ->get();
+
+        $this->assertCount(1, $kolabs, 'Business onboarding should auto-create exactly one kolab.');
+
+        $kolab = $kolabs->first();
+        $this->assertSame(\App\Enums\IntentType::ProductPromotion, $kolab->intent_type);
+        $this->assertSame(\App\Enums\KolabStatus::Published, $kolab->status);
+        $this->assertNotNull($kolab->published_at, 'Auto-offer must be published live.');
+        $this->assertSame('Bean Brand', $kolab->title);
+        $this->assertSame('Bean Brand', $kolab->product_name);
+        $this->assertSame('other', $kolab->product_type);
+        $this->assertSame('Barcelona', $kolab->preferred_city);
+        $this->assertSame(['products'], $kolab->offering);
+    }
+
+    public function test_business_onboarding_venue_path_auto_creates_one_published_venue_kolab(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/onboarding/business', [
+                'name' => 'Cafe Barcelona',
+                'about' => 'A cozy cafe.',
+                'business_type' => 'cafe',
+                'city_id' => $this->city->id,
+                'primary_venue' => [
+                    'name' => 'Cafe Barcelona Terrace',
+                    'venue_type' => 'cafe',
+                    'capacity' => 80,
+                    'formatted_address' => 'Passeig de Gracia 1, Barcelona',
+                    'city' => 'Barcelona',
+                    'country' => 'Spain',
+                    'photos' => [],
+                ],
+            ]);
+
+        $response->assertStatus(200)->assertJsonPath('success', true);
+
+        $kolabs = \App\Models\Kolab::query()
+            ->where('creator_profile_id', $profile->id)
+            ->get();
+
+        $this->assertCount(1, $kolabs, 'Venue business onboarding should auto-create exactly one kolab.');
+
+        $kolab = $kolabs->first();
+        $this->assertSame(\App\Enums\IntentType::VenuePromotion, $kolab->intent_type);
+        $this->assertSame(\App\Enums\KolabStatus::Published, $kolab->status);
+        $this->assertNotNull($kolab->published_at);
+        $this->assertSame('Cafe Barcelona Terrace', $kolab->venue_name);
+        $this->assertSame('cafe', $kolab->venue_type);
+        $this->assertSame(80, $kolab->capacity);
+        $this->assertSame(['venue'], $kolab->offering);
+    }
+
+    public function test_business_onboarding_auto_offer_is_idempotent(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $payload = [
+            'name' => 'Bean Brand',
+            'business_type' => 'retail',
+            'has_venue' => false,
+            'city_id' => $this->city->id,
+            'offering' => 'Single-origin coffee beans',
+            'offer_photos' => [],
+        ];
+
+        $this->actingAs($profile)->putJson('/api/v1/onboarding/business', $payload)->assertStatus(200);
+        // Re-running onboarding must not create a second auto-offer.
+        $this->actingAs($profile)->putJson('/api/v1/onboarding/business', $payload)->assertStatus(200);
+
+        $this->assertSame(
+            1,
+            \App\Models\Kolab::query()->where('creator_profile_id', $profile->id)->count(),
+            'Re-running onboarding must not create a second auto-offer.'
+        );
+    }
+
     public function test_business_onboarding_validates_categories_limit(): void
     {
         $profile = Profile::factory()->business()->create();
