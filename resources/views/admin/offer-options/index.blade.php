@@ -84,11 +84,14 @@
         </div>
     </div>
 
+@endsection
+
+@section('js')
+    @parent
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script>
         (function () {
-            if (window.lucide) window.lucide.createIcons();
+            if (window.renderLucide) window.renderLucide();
             var rows = document.getElementById('optionRows');
             var form = document.getElementById('reorderForm');
             if (rows && window.Sortable) {

@@ -46,6 +46,41 @@ class OfferOptionAdminTest extends TestCase
         $this->assertTrue($option->is_active);
     }
 
+    public function test_edit_form_renders_lucide_icon_gallery_picker(): void
+    {
+        $admin = $this->maintainer();
+        $option = OfferOption::query()->create([
+            'kind' => OfferOption::KIND_OFFERING, 'slug' => 'coffee_opt', 'name' => 'Coffee', 'icon' => 'coffee', 'is_active' => true,
+        ]);
+
+        $this->actingAs($admin, 'admin')
+            ->get(route('admin.offer-options.edit', ['kind' => OfferOption::KIND_OFFERING, 'id' => $option->id]))
+            ->assertOk()
+            ->assertSee('id="iconGallery"', false)
+            ->assertSee('data-lucide="coffee"', false)   // the saved icon is rendered + pre-selected
+            ->assertSee('id="iconFilter"', false)         // searchable filter box
+            ->assertSee('id="iconManual"', false);        // advanced fallback text field
+    }
+
+    public function test_update_persists_icon_slug_chosen_in_gallery(): void
+    {
+        $admin = $this->maintainer();
+        $option = OfferOption::query()->create([
+            'kind' => OfferOption::KIND_OFFERING, 'slug' => 'opt_icon', 'name' => 'Opt', 'icon' => 'star', 'is_active' => true,
+        ]);
+
+        $this->actingAs($admin, 'admin')
+            ->put(route('admin.offer-options.update', ['kind' => OfferOption::KIND_OFFERING, 'id' => $option->id]), [
+                'kind' => OfferOption::KIND_OFFERING,
+                'name' => 'Opt',
+                'slug' => 'opt_icon',
+                'icon' => 'wine',
+                'is_active' => '1',
+            ])->assertRedirect();
+
+        $this->assertSame('wine', $option->fresh()->icon);
+    }
+
     public function test_same_slug_allowed_across_kinds_but_not_within_a_kind(): void
     {
         $admin = $this->maintainer();
