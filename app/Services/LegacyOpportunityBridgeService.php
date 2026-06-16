@@ -31,7 +31,7 @@ class LegacyOpportunityBridgeService
             return $opportunity;
         }
 
-        $exception = new ModelNotFoundException();
+        $exception = new ModelNotFoundException;
         $exception->setModel(CollabOpportunity::class, [$opportunityId]);
 
         throw $exception;
@@ -39,7 +39,7 @@ class LegacyOpportunityBridgeService
 
     private function persistCompatibilityOpportunity(Kolab $kolab): CollabOpportunity
     {
-        $opportunity = CollabOpportunity::query()->find($kolab->id) ?? new CollabOpportunity();
+        $opportunity = CollabOpportunity::query()->find($kolab->id) ?? new CollabOpportunity;
 
         $this->fillFromKolab($opportunity, $kolab);
         $opportunity->save();
@@ -48,12 +48,22 @@ class LegacyOpportunityBridgeService
         return $opportunity;
     }
 
-    private function makeCompatibilityOpportunity(Kolab $kolab): CollabOpportunity
+    /**
+     * Build an in-memory (un-persisted) compatibility CollabOpportunity from a
+     * kolab. Public so read paths (e.g. /me/opportunities, application /
+     * collaboration resources) can serialize a kolab through the existing
+     * Opportunity resources without round-tripping the collab_opportunities table.
+     */
+    public function makeCompatibilityOpportunity(Kolab $kolab): CollabOpportunity
     {
-        $opportunity = CollabOpportunity::query()->find($kolab->id) ?? new CollabOpportunity();
+        // In-memory only (never saved), so there is no need to load any existing
+        // compatibility row from the DB — fillFromKolab sets id = kolab.id, which
+        // is all callers need. This keeps read paths (and list mapping) DB-light.
+        $opportunity = new CollabOpportunity;
 
         $this->fillFromKolab($opportunity, $kolab);
         $opportunity->setRelation('creatorProfile', $kolab->creatorProfile);
+        $opportunity->exists = true;
 
         return $opportunity;
     }
