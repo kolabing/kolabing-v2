@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Api\V1;
 
 use App\Models\Profile;
+use App\Services\HandleService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -31,6 +32,15 @@ class UpdateProfileRequest extends FormRequest
                 'categories' => [$businessType],
             ]);
         }
+
+        // Normalise the handle (strip leading @, trim, lowercase) before validation
+        // so format + uniqueness are checked against the stored form. Same path as
+        // attendee onboarding (AttendeeOnboardingRequest).
+        if (is_string($this->input('handle'))) {
+            $this->merge([
+                'handle' => app(HandleService::class)->normalize($this->input('handle')),
+            ]);
+        }
     }
 
     /**
@@ -46,6 +56,17 @@ class UpdateProfileRequest extends FormRequest
         $baseRules = [
             'phone_number' => ['nullable', 'string', 'max:20'],
             'analytics_opt_out' => ['sometimes', 'boolean'],
+            // The universal @handle lives on the base `profiles` table for every
+            // user type. Format mirrors HandleService::FORMAT (the same charset/
+            // length onboarding enforces); uniqueness ignores the current profile
+            // so a user can re-save their own handle. Normalised in
+            // prepareForValidation().
+            'handle' => [
+                'sometimes',
+                'string',
+                'regex:'.HandleService::FORMAT,
+                Rule::unique('profiles', 'handle')->ignore($profile->id),
+            ],
         ];
 
         if ($profile->isBusiness()) {
@@ -57,6 +78,20 @@ class UpdateProfileRequest extends FormRequest
         }
 
         return array_merge($baseRules, $this->communityProfileRules());
+    }
+
+    /**
+     * Custom validation messages. Keeps the handle errors aligned with attendee
+     * onboarding (AttendeeOnboardingRequest).
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'handle.regex' => __('The handle must be 3 to 20 characters: lowercase letters, numbers, or underscores'),
+            'handle.unique' => __('That handle is already taken'),
+        ];
     }
 
     /**
@@ -115,13 +150,16 @@ class UpdateProfileRequest extends FormRequest
     }
 
     /**
-     * Get base profile data for update.
+     * Get base profile data for update. `handle` lives on the base `profiles`
+     * table and is shared by every user type, so it is persisted here (already
+     * normalised + uniqueness-validated above) regardless of business / community
+     * / attendee.
      *
-     * @return array{phone_number?: string|null, analytics_opt_out?: bool}
+     * @return array{phone_number?: string|null, analytics_opt_out?: bool, handle?: string}
      */
     public function getProfileData(): array
     {
-        return $this->safe()->only(['phone_number', 'analytics_opt_out']);
+        return $this->safe()->only(['phone_number', 'analytics_opt_out', 'handle']);
     }
 
     /**

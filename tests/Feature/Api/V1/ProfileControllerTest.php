@@ -634,4 +634,123 @@ class ProfileControllerTest extends TestCase
         $response->assertStatus(401)
             ->assertJsonPath('success', false);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Handle Update Tests (PUT /me/profile { handle })
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_update_profile_persists_handle(): void
+    {
+        $profile = Profile::factory()->community()->create(['handle' => null]);
+        CommunityProfile::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/me/profile', [
+                'handle' => 'MyHandle_01',
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true);
+
+        // Stored normalised (lowercase, @ stripped).
+        $this->assertDatabaseHas('profiles', [
+            'id' => $profile->id,
+            'handle' => 'myhandle_01',
+        ]);
+    }
+
+    public function test_update_profile_normalises_handle_stripping_at_and_casing(): void
+    {
+        $profile = Profile::factory()->attendee()->create(['handle' => null]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/me/profile', [
+                'handle' => '@CoolUser',
+            ]);
+
+        $response->assertOk();
+
+        $this->assertDatabaseHas('profiles', [
+            'id' => $profile->id,
+            'handle' => 'cooluser',
+        ]);
+    }
+
+    public function test_update_profile_rejects_duplicate_handle(): void
+    {
+        Profile::factory()->business()->create(['handle' => 'taken_handle']);
+
+        $profile = Profile::factory()->community()->create(['handle' => null]);
+        CommunityProfile::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/me/profile', [
+                'handle' => 'taken_handle',
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['handle']);
+
+        $this->assertDatabaseHas('profiles', [
+            'id' => $profile->id,
+            'handle' => null,
+        ]);
+    }
+
+    public function test_update_profile_allows_keeping_own_handle(): void
+    {
+        $profile = Profile::factory()->community()->create(['handle' => 'my_own']);
+        CommunityProfile::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/me/profile', [
+                'handle' => 'my_own',
+            ]);
+
+        $response->assertOk();
+
+        $this->assertDatabaseHas('profiles', [
+            'id' => $profile->id,
+            'handle' => 'my_own',
+        ]);
+    }
+
+    public function test_update_profile_rejects_malformed_handle(): void
+    {
+        $profile = Profile::factory()->community()->create(['handle' => null]);
+        CommunityProfile::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/me/profile', [
+                'handle' => 'ab', // too short (min 3)
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['handle']);
+    }
+
+    public function test_handle_available_returns_false_after_handle_set_via_profile_update(): void
+    {
+        $profile = Profile::factory()->community()->create(['handle' => null]);
+        CommunityProfile::factory()->create(['profile_id' => $profile->id]);
+
+        // Free before.
+        $this->actingAs($profile)
+            ->getJson('/api/v1/handle/available?handle=brand_new')
+            ->assertOk()
+            ->assertJsonPath('data.available', true);
+
+        // Claim it via profile update.
+        $this->actingAs($profile)
+            ->putJson('/api/v1/me/profile', ['handle' => 'brand_new'])
+            ->assertOk();
+
+        // Now taken.
+        $this->actingAs($profile)
+            ->getJson('/api/v1/handle/available?handle=brand_new')
+            ->assertOk()
+            ->assertJsonPath('data.available', false);
+    }
 }
