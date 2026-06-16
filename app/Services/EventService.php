@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\EventSignupStatus;
+use App\Enums\EventVisibility;
 use App\Enums\FileUploadType;
 use App\Enums\NotificationType;
 use App\Enums\UserType;
@@ -20,6 +21,13 @@ use Illuminate\Support\Facades\DB;
 
 class EventService
 {
+    /**
+     * Maximum number of photos an event gallery may hold in total. Each
+     * POST /events/{event}/photos request may add up to 5 (StoreEventPhotosRequest),
+     * but the gallery never grows past this cap.
+     */
+    public const int MAX_EVENT_PHOTOS = 20;
+
     public function __construct(
         private readonly FileUploadService $fileUploadService,
         private readonly NotificationService $notificationService,
@@ -108,6 +116,7 @@ class EventService
                     'partner_type' => $data['partner_type'],
                     'event_date' => $data['date'],
                     'attendee_count' => $data['attendee_count'],
+                    'visibility' => EventVisibility::Members->value,
                 ])
                 : $this->buildUpcoming($profile, $data);
 
@@ -134,6 +143,7 @@ class EventService
         return Event::query()->create([
             'profile_id' => $profile->id,
             'community_id' => $data['community_id'],
+            'city_id' => $data['city_id'] ?? null,
             'collaboration_id' => $data['collaboration_id'] ?? null,
             'name' => $data['name'],
             'partner_name' => $community?->name ?? $data['name'],
@@ -144,6 +154,7 @@ class EventService
             'location' => $data['location'] ?? null,
             'capacity' => $data['capacity'] ?? null,
             'tier_gate' => $data['tier_gate'] ?? null,
+            'visibility' => $data['visibility'] ?? EventVisibility::Members->value,
             'attendee_count' => 0,
         ]);
     }
@@ -182,7 +193,7 @@ class EventService
         if (array_key_exists('ends_at', $data)) {
             $updateData['ends_at'] = $data['ends_at'] !== null ? Carbon::parse($data['ends_at']) : null;
         }
-        foreach (['location', 'capacity', 'tier_gate'] as $field) {
+        foreach (['city_id', 'location', 'capacity', 'tier_gate', 'visibility'] as $field) {
             if (array_key_exists($field, $data)) {
                 $updateData[$field] = $data[$field];
             }
@@ -196,7 +207,8 @@ class EventService
     }
 
     /**
-     * Add photos to an existing event (gallery grows). Total capped at 5.
+     * Add photos to an existing event (gallery grows). Total capped at
+     * self::MAX_EVENT_PHOTOS (per-request count is capped at 5 in the request).
      *
      * @param  array<int, UploadedFile>  $photos
      *
@@ -206,7 +218,7 @@ class EventService
     {
         $existing = $event->photos()->count();
 
-        if ($existing + count($photos) > 5) {
+        if ($existing + count($photos) > self::MAX_EVENT_PHOTOS) {
             throw new \DomainException('photo_limit_reached');
         }
 

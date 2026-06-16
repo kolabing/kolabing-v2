@@ -209,7 +209,7 @@ class RealisticDataSeeder extends Seeder
             [
                 'name' => 'Sevilla Run Club',
                 'email' => 'hola@sevillarunclub.com',
-                'community_type' => 'run-club',
+                'community_type' => 'run_club',
                 'city' => 'Sevilla',
                 'about' => 'Weekly running group exploring Sevilla one kilometer at a time. Tuesday 7pm intervals at Parque Maria Luisa, Saturday 9am long runs along the Guadalquivir. All paces welcome.',
                 'instagram' => '@sevillarunclub',
@@ -220,7 +220,7 @@ class RealisticDataSeeder extends Seeder
             [
                 'name' => 'Malaga Fitness Tribe',
                 'email' => 'info@malagafitnesstribe.com',
-                'community_type' => 'fitness-community',
+                'community_type' => 'fitness_community',
                 'city' => 'Malaga',
                 'about' => 'Outdoor fitness community bringing the Costa del Sol together through beach workouts, HIIT sessions, and functional training. 300+ members strong and growing every week.',
                 'instagram' => '@malagafitnesstribe',
@@ -231,7 +231,7 @@ class RealisticDataSeeder extends Seeder
             [
                 'name' => 'Yoga y Bienestar Sevilla',
                 'email' => 'namaste@yogasevilla.es',
-                'community_type' => 'wellness-community',
+                'community_type' => 'wellness_community',
                 'city' => 'Sevilla',
                 'about' => 'Mindful movement and wellness community hosting outdoor yoga sessions, breathwork circles, and meditation meetups at iconic Sevillano locations. Inner peace, al aire libre.',
                 'instagram' => '@yogabienestar_sevilla',
@@ -242,7 +242,7 @@ class RealisticDataSeeder extends Seeder
             [
                 'name' => 'Tech Meetup BCN',
                 'email' => 'organizers@techmeetupbcn.dev',
-                'community_type' => 'tech-startup-community',
+                'community_type' => 'tech_startup_community',
                 'city' => 'Barcelona',
                 'about' => 'Barcelona\'s largest tech and startup community. Monthly talks on AI, product design, and growth. We connect founders, developers, and investors over craft beer and code.',
                 'instagram' => '@techmeetupbcn',
@@ -253,7 +253,7 @@ class RealisticDataSeeder extends Seeder
             [
                 'name' => 'Foodies Andalucia',
                 'email' => 'hola@foodiesandalucia.es',
-                'community_type' => 'food-community',
+                'community_type' => 'food_community',
                 'city' => 'Sevilla',
                 'about' => 'We eat our way through Andalucia so you don\'t have to guess. Tapas tours, market visits, cooking workshops, and restaurant pop-ups. 500+ food lovers and counting.',
                 'instagram' => '@foodiesandalucia',
@@ -264,7 +264,7 @@ class RealisticDataSeeder extends Seeder
             [
                 'name' => 'Sevilla Dance Collective',
                 'email' => 'baila@sevilladance.es',
-                'community_type' => 'dance-community',
+                'community_type' => 'dance_community',
                 'city' => 'Sevilla',
                 'about' => 'From flamenco to bachata, hip-hop to contemporary. We unite dancers of all styles for workshops, jams, and public performances across Sevilla. Come move with us.',
                 'instagram' => '@sevilladance',
@@ -275,7 +275,7 @@ class RealisticDataSeeder extends Seeder
             [
                 'name' => 'Malaga Photo Walk',
                 'email' => 'shoot@malagaphotowalk.com',
-                'community_type' => 'photography-community',
+                'community_type' => 'photography_community',
                 'city' => 'Malaga',
                 'about' => 'Monthly photography walks through Malaga\'s streets, markets, and coastline. Beginners to pros, phone or DSLR, everyone is welcome. We see the city through a lens.',
                 'instagram' => '@malagaphotowalk',
@@ -286,7 +286,7 @@ class RealisticDataSeeder extends Seeder
             [
                 'name' => 'GreenLife Community',
                 'email' => 'hola@greenlifegranada.org',
-                'community_type' => 'sustainability-community',
+                'community_type' => 'sustainability_community',
                 'city' => 'Granada',
                 'about' => 'Sustainability-focused community in Granada organizing beach clean-ups, zero-waste workshops, urban gardening projects, and eco-conscious networking events. Small actions, big impact.',
                 'instagram' => '@greenlifegranada',

@@ -9,6 +9,7 @@ use App\Enums\UserType;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
 use App\Models\Profile;
+use App\Services\FriendshipService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Str;
@@ -43,6 +44,7 @@ class PublicProfileResource extends JsonResource
         return [
             'id' => $this->id,
             'user_type' => $this->user_type->value,
+            'handle' => $this->resource->handle,
             // Attendee profiles have no name/avatar of their own, so fall back to
             // the base `profiles` record (profiles.name / profiles.avatar_url).
             'display_name' => $extendedProfile?->name ?? $this->resource->name,
@@ -53,7 +55,10 @@ class PublicProfileResource extends JsonResource
             'type_label' => $this->formatTypeLabel($rawType),
             'business_type' => $this->when($this->user_type === UserType::Business, fn () => $this->businessProfile?->primaryCategory()),
             'categories' => $this->when($this->user_type === UserType::Business, fn () => $businessCategories),
-            'city_name' => $extendedProfile?->city?->name,
+            // Attendees carry their city on the base profile; business/community
+            // carry it on the extended profile. Prefer the extended profile's
+            // city, fall back to the base profile's city.
+            'city_name' => $extendedProfile?->city?->name ?? $this->resource->city?->name,
             'instagram' => $extendedProfile?->instagram,
             'tiktok' => $this->user_type === UserType::Community
                 ? $extendedProfile?->tiktok
@@ -67,8 +72,25 @@ class PublicProfileResource extends JsonResource
                     ->orWhere('applicant_profile_id', $this->id)
                 )
                 ->count(),
+            'friend_status' => $this->resolveFriendStatus($request),
+            'friends_count' => app(FriendshipService::class)->friendsCountFor($this->resource),
             'recent_reviews' => $this->buildRecentReviews(),
         ];
+    }
+
+    /**
+     * Resolve friend_status for the authenticated viewer vs this profile.
+     * Returns 'self' for own profile, 'none' when unauthenticated.
+     */
+    private function resolveFriendStatus(Request $request): string
+    {
+        $viewer = $request->user();
+
+        if (! $viewer instanceof Profile) {
+            return 'none';
+        }
+
+        return app(FriendshipService::class)->statusFor($viewer, $this->resource);
     }
 
     /**
@@ -78,15 +100,15 @@ class PublicProfileResource extends JsonResource
     {
         return PublicProfileReviewResource::collection(
             CollaborationReview::query()
-            ->where('reviewed_profile_id', $this->id)
-            ->whereNotNull('rating')
-            ->with([
-                'reviewerProfile.businessProfile',
-                'reviewerProfile.communityProfile',
-            ])
-            ->orderByDesc('created_at')
-            ->limit(3)
-            ->get()
+                ->where('reviewed_profile_id', $this->id)
+                ->whereNotNull('rating')
+                ->with([
+                    'reviewerProfile.businessProfile',
+                    'reviewerProfile.communityProfile',
+                ])
+                ->orderByDesc('created_at')
+                ->limit(3)
+                ->get()
         )->resolve();
     }
 

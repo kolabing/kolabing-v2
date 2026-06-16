@@ -38,9 +38,12 @@ class GamificationStatsController extends Controller
      *
      * GET /api/v1/profiles/{profile}/game-card
      */
-    public function gameCard(Profile $profile): JsonResponse
+    public function gameCard(Request $request, Profile $profile): JsonResponse
     {
-        $data = $this->statsService->getGameCard($profile);
+        /** @var Profile|null $viewer */
+        $viewer = $request->user();
+
+        $data = $this->statsService->getGameCard($profile, $viewer);
 
         return response()->json([
             'success' => true,

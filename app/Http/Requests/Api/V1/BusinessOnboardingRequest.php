@@ -70,9 +70,9 @@ class BusinessOnboardingRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'about' => ['nullable', 'string', 'max:1000'],
-            'business_type' => ['required_without:categories', 'nullable', 'string', 'in:'.implode(',', self::BUSINESS_TYPES)],
+            'business_type' => ['required_without:categories', 'nullable', 'string', 'exists:business_types,slug'],
             'categories' => ['required_without:business_type', 'array', 'min:1', 'max:3'],
-            'categories.*' => ['string', 'distinct', 'in:'.implode(',', self::BUSINESS_TYPES)],
+            'categories.*' => ['string', 'distinct', 'exists:business_types,slug'],
             'has_venue' => ['required', 'boolean'],
             'city_id' => ['nullable', 'uuid', 'exists:cities,id', 'required_without:city_name', 'required_if:has_venue,false'],
             'city_name' => ['nullable', 'string', 'max:100', 'required_without:city_id'],

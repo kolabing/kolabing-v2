@@ -20,10 +20,10 @@ use Illuminate\Support\Str;
  * Admin CRUD for the community/business type taxonomies — the single source of
  * truth the app reads via /lookup. Supports a personalised icon picked from the
  * admin icon library (icon_url, the same library offer_options use), an optional
- * Lucide icon-name fallback, drag-drop reorder, and deactivate (retire without
- * deleting). Business types also carry `applies_to` (venue|product|both), which
- * the business-onboarding category picker filters by. See
- * docs/plans/2026-06-10-type-source-of-truth-DECISION.md.
+ * Lucide icon-name fallback, an uploaded SVG override, drag-drop reorder, and
+ * deactivate (retire without deleting). Business types also carry `applies_to`
+ * (venue|product|both), which the business-onboarding category picker filters
+ * by. See docs/plans/2026-06-10-type-source-of-truth-DECISION.md.
  */
 class TypeController extends Controller
 {
@@ -174,7 +174,7 @@ class TypeController extends Controller
             'icon' => ['nullable', 'string', 'max:50'],
             'icon_url' => ['nullable', 'string', 'max:2048'], // public URL of a library icon
             'sort_order' => ['nullable', 'integer', 'min:0'],
-            'icon_svg' => ['nullable', 'file', 'mimetypes:image/svg+xml', 'max:128'], // ≤128KB (legacy inline upload)
+            'icon_svg' => ['nullable', 'file', 'mimetypes:image/svg+xml', 'max:128'], // ≤128KB (inline upload override)
             // Onboarding path is a business-only concept; communities have no venue/product split.
             'applies_to' => [$isBusiness ? 'required' : 'nullable', 'in:'.implode(',', self::APPLIES_TO)],
         ]);
@@ -193,10 +193,10 @@ class TypeController extends Controller
             $out['applies_to'] = $data['applies_to'] ?? 'both';
         }
 
-        // Legacy inline upload still supported; it overrides the picked URL.
+        // Inline SVG upload still supported; it overrides the picked library URL.
         if ($request->hasFile('icon_svg')) {
-            $path = $request->file('icon_svg')->store('type-icons', ['disk' => 'public']);
-            $out['icon_url'] = Storage::disk('public')->url($path);
+            $path = $request->file('icon_svg')->store('type-icons', ['disk' => config('filesystems.default')]);
+            $out['icon_url'] = Storage::disk(config('filesystems.default'))->url($path);
         }
 
         return $out;

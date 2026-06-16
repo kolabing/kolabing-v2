@@ -9,7 +9,9 @@ use App\Enums\CommunityMemberStatus;
 use App\Models\AttendeeProfile;
 use App\Models\ChallengeCompletion;
 use App\Models\Community;
+use App\Models\CommunityBadgeAward;
 use App\Models\CommunityMember;
+use App\Models\CommunityPoints;
 use App\Models\Event;
 use App\Models\Profile;
 use Illuminate\Support\Collection;
@@ -17,6 +19,109 @@ use Illuminate\Support\Facades\DB;
 
 class LeaderboardService
 {
+    /**
+     * Per-community POINTS leaderboard (the canonical community ranking). Ranks
+     * active members by their community_points balance and enriches each row
+     * with the member's tier, badge_count, and points. Rows with 0 points are
+     * included so a new chapter still renders its roster.
+     *
+     * @return Collection<int, array{profile_id: string, display_name: string, profile_photo: string|null, points: int, tier: array{id: string, name: string, color: string|null}|null, badge_count: int, rank: int}>
+     */
+    public function getCommunityPointsLeaderboard(Community $community, int $limit = 50): Collection
+    {
+        $members = CommunityMember::query()
+            ->where('community_id', $community->id)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->with(['profile', 'tier'])
+            ->get();
+
+        if ($members->isEmpty()) {
+            return collect();
+        }
+
+        $profileIds = $members->pluck('profile_id')->all();
+
+        $points = CommunityPoints::query()
+            ->where('community_id', $community->id)
+            ->whereIn('profile_id', $profileIds)
+            ->pluck('points', 'profile_id');
+
+        $badgeCounts = CommunityBadgeAward::query()
+            ->where('community_id', $community->id)
+            ->whereIn('profile_id', $profileIds)
+            ->selectRaw('profile_id, COUNT(*) as c')
+            ->groupBy('profile_id')
+            ->pluck('c', 'profile_id');
+
+        $sorted = $members
+            ->sortByDesc(fn (CommunityMember $m): int => (int) ($points[$m->profile_id] ?? 0))
+            ->values()
+            ->take($limit);
+
+        $rank = 0;
+        $previousPoints = null;
+
+        return $sorted->map(function (CommunityMember $member) use ($points, $badgeCounts, &$rank, &$previousPoints): array {
+            $memberPoints = (int) ($points[$member->profile_id] ?? 0);
+
+            if ($memberPoints !== $previousPoints) {
+                $rank++;
+                $previousPoints = $memberPoints;
+            }
+
+            return [
+                'profile_id' => $member->profile_id,
+                'display_name' => $member->profile?->email ?? 'Unknown',
+                'profile_photo' => $member->profile?->avatar_url,
+                'points' => $memberPoints,
+                'tier' => $member->tier !== null ? [
+                    'id' => $member->tier->id,
+                    'name' => $member->tier->name,
+                    'color' => $member->tier->color,
+                ] : null,
+                'badge_count' => (int) ($badgeCounts[$member->profile_id] ?? 0),
+                'rank' => $rank,
+            ];
+        });
+    }
+
+    /**
+     * The authenticated member's row on the community POINTS leaderboard, or
+     * null when they are not an active member.
+     *
+     * @return array{profile_id: string, points: int, rank: int}|null
+     */
+    public function getMyCommunityPointsRank(Community $community, Profile $profile): ?array
+    {
+        $isMember = $community->members()
+            ->where('profile_id', $profile->id)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->exists();
+
+        if (! $isMember) {
+            return null;
+        }
+
+        $myPoints = (int) (CommunityPoints::query()
+            ->where('community_id', $community->id)
+            ->where('profile_id', $profile->id)
+            ->value('points') ?? 0);
+
+        $memberIds = $this->activeMemberIds($community);
+
+        $rank = CommunityPoints::query()
+            ->where('community_id', $community->id)
+            ->whereIn('profile_id', $memberIds)
+            ->where('points', '>', $myPoints)
+            ->count() + 1;
+
+        return [
+            'profile_id' => $profile->id,
+            'points' => $myPoints,
+            'rank' => $rank,
+        ];
+    }
+
     /**
      * Get the event leaderboard by aggregating verified challenge completion points.
      *

@@ -12,13 +12,15 @@ use App\Models\Community;
 use App\Models\CommunityMember;
 use App\Models\Profile;
 use App\Services\CommunityMemberService;
+use App\Services\HandleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class CommunityMemberController extends Controller
 {
     public function __construct(
-        private readonly CommunityMemberService $memberService
+        private readonly CommunityMemberService $memberService,
+        private readonly HandleService $handleService,
     ) {}
 
     /**
@@ -57,17 +59,18 @@ class CommunityMemberController extends Controller
 
         $data = $request->validated();
 
-        // Resolve the target: explicit profile_id, or the email on a Kolabing account.
+        // Resolve the target: explicit profile_id, the email on a Kolabing
+        // account, or an email/@handle passed via `identifier`.
         $targetProfileId = $data['profile_id'] ?? null;
 
         if ($targetProfileId === null) {
-            $target = Profile::where('email', $data['email'])->first();
+            $target = $this->resolveTarget($data);
 
             if ($target === null) {
                 return response()->json([
                     'success' => false,
                     'error' => 'profile_not_found',
-                    'message' => __('No Kolabing account found for that email.'),
+                    'message' => __('No Kolabing account found for that email or @handle.'),
                 ], 404);
             }
 
@@ -151,6 +154,33 @@ class CommunityMemberController extends Controller
             'success' => true,
             'data' => null,
         ]);
+    }
+
+    /**
+     * Resolve the target profile from validated add-member data. Accepts an
+     * exact `email`, or an `identifier` that is either an email or an @handle.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function resolveTarget(array $data): ?Profile
+    {
+        if (! empty($data['email'])) {
+            return Profile::where('email', $data['email'])->first();
+        }
+
+        $identifier = isset($data['identifier']) ? trim((string) $data['identifier']) : '';
+
+        if ($identifier === '') {
+            return null;
+        }
+
+        // An email-looking identifier (contains @ but not as a leading handle
+        // marker, and has a dot) resolves by email; otherwise by @handle.
+        if (str_contains($identifier, '@') && str_contains($identifier, '.') && ! str_starts_with($identifier, '@')) {
+            return Profile::where('email', mb_strtolower($identifier))->first();
+        }
+
+        return $this->handleService->resolve($identifier);
     }
 
     private function forbidden(): JsonResponse

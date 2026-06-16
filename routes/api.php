@@ -15,8 +15,13 @@ use App\Http\Controllers\Api\V1\CollaborationChallengeBonusController;
 use App\Http\Controllers\Api\V1\CollaborationChallengeController;
 use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\CollaborationQrCodeController;
+use App\Http\Controllers\Api\V1\CommunityBadgeController;
 use App\Http\Controllers\Api\V1\CommunityController;
+use App\Http\Controllers\Api\V1\CommunityGoalController;
+use App\Http\Controllers\Api\V1\CommunityJoinRequestController;
 use App\Http\Controllers\Api\V1\CommunityMemberController;
+use App\Http\Controllers\Api\V1\CommunityRewardController;
+use App\Http\Controllers\Api\V1\CommunityRewardsHubController;
 use App\Http\Controllers\Api\V1\CommunityTierController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
@@ -26,6 +31,7 @@ use App\Http\Controllers\Api\V1\EventDiscoveryController;
 use App\Http\Controllers\Api\V1\EventPhotoController;
 use App\Http\Controllers\Api\V1\EventRewardController;
 use App\Http\Controllers\Api\V1\EventSignupController;
+use App\Http\Controllers\Api\V1\FriendshipController;
 use App\Http\Controllers\Api\V1\GalleryController;
 use App\Http\Controllers\Api\V1\GamificationConfigController;
 use App\Http\Controllers\Api\V1\GamificationController;
@@ -33,6 +39,7 @@ use App\Http\Controllers\Api\V1\GamificationStatsController;
 use App\Http\Controllers\Api\V1\KolabController;
 use App\Http\Controllers\Api\V1\LeaderboardController;
 use App\Http\Controllers\Api\V1\LookupController;
+use App\Http\Controllers\Api\V1\MeRewardsOverviewController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OnboardingController;
@@ -131,6 +138,10 @@ Route::prefix('v1')->group(function (): void {
     Route::get('lookup/venue-types', [LookupController::class, 'venueTypes'])
         ->name('api.v1.lookup.venue-types');
 
+    // Universal @handle availability check (leaks no PII; usable pre-auth too).
+    Route::get('handle/available', [LookupController::class, 'handleAvailable'])
+        ->name('api.v1.handle.available');
+
     /*
     |--------------------------------------------------------------------------
     | Protected Routes
@@ -158,6 +169,11 @@ Route::prefix('v1')->group(function (): void {
         Route::put('onboarding/community', [OnboardingController::class, 'community'])
             ->middleware('user_type:community')
             ->name('api.v1.onboarding.community');
+
+        // Onboarding - Attendee only
+        Route::put('onboarding/attendee', [OnboardingController::class, 'attendee'])
+            ->middleware('user_type:attendee')
+            ->name('api.v1.onboarding.attendee');
 
         /*
         |--------------------------------------------------------------------------
@@ -379,12 +395,32 @@ Route::prefix('v1')->group(function (): void {
 
         Route::post('communities', [CommunityController::class, 'store'])
             ->name('api.v1.communities.store');
+        // Public discovery — must be registered before the {community} wildcard
+        // so "discover" is not captured as a route-model-bound community.
+        Route::get('communities/discover', [CommunityController::class, 'discover'])
+            ->name('api.v1.communities.discover');
+        // Token-based invite join — literal "join" segment before the {community}
+        // wildcard so the token is not mistaken for a community id.
+        Route::post('communities/join/{token}', [CommunityController::class, 'joinByToken'])
+            ->name('api.v1.communities.join-by-token');
         Route::get('communities/{community}', [CommunityController::class, 'show'])
             ->name('api.v1.communities.show');
         Route::patch('communities/{community}', [CommunityController::class, 'update'])
             ->name('api.v1.communities.update');
+        Route::get('communities/{community}/invite', [CommunityController::class, 'invite'])
+            ->name('api.v1.communities.invite');
         Route::post('communities/{community}/join', [CommunityController::class, 'join'])
             ->name('api.v1.communities.join');
+
+        // Invite-only join requests (request → leader approves/declines).
+        Route::post('communities/{community}/join-requests', [CommunityJoinRequestController::class, 'store'])
+            ->name('api.v1.communities.join-requests.store');
+        Route::get('communities/{community}/join-requests', [CommunityJoinRequestController::class, 'index'])
+            ->name('api.v1.communities.join-requests.index');
+        Route::post('join-requests/{joinRequest}/approve', [CommunityJoinRequestController::class, 'approve'])
+            ->name('api.v1.join-requests.approve');
+        Route::post('join-requests/{joinRequest}/decline', [CommunityJoinRequestController::class, 'decline'])
+            ->name('api.v1.join-requests.decline');
 
         Route::get('communities/{community}/tiers', [CommunityTierController::class, 'index'])
             ->name('api.v1.communities.tiers.index');
@@ -403,6 +439,58 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.communities.members.update');
         Route::delete('communities/{community}/members/{member}', [CommunityMemberController::class, 'destroy'])
             ->name('api.v1.communities.members.destroy');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Community gamification — goals, rewards, badges, points (per-community)
+        |--------------------------------------------------------------------------
+        | Leader CRUD is manage-gated in the controllers (owner / can_manage),
+        | like the roster & tier endpoints. Member reads are open to viewers.
+        */
+
+        // Goals
+        Route::get('communities/{community}/goals', [CommunityGoalController::class, 'index'])
+            ->name('api.v1.communities.goals.index');
+        Route::post('communities/{community}/goals', [CommunityGoalController::class, 'store'])
+            ->name('api.v1.communities.goals.store');
+        Route::put('goals/{goal}', [CommunityGoalController::class, 'update'])
+            ->name('api.v1.goals.update');
+        Route::delete('goals/{goal}', [CommunityGoalController::class, 'destroy'])
+            ->name('api.v1.goals.destroy');
+
+        // Rewards (leader CRUD)
+        Route::get('communities/{community}/rewards', [CommunityRewardController::class, 'index'])
+            ->name('api.v1.communities.rewards.index');
+        Route::post('communities/{community}/rewards', [CommunityRewardController::class, 'store'])
+            ->name('api.v1.communities.rewards.store');
+        Route::put('rewards/{reward}', [CommunityRewardController::class, 'update'])
+            ->name('api.v1.rewards.update');
+        Route::delete('rewards/{reward}', [CommunityRewardController::class, 'destroy'])
+            ->name('api.v1.rewards.destroy');
+
+        // Badges (leader CRUD)
+        Route::get('communities/{community}/badges', [CommunityBadgeController::class, 'index'])
+            ->name('api.v1.communities.badges.index');
+        Route::post('communities/{community}/badges', [CommunityBadgeController::class, 'store'])
+            ->name('api.v1.communities.badges.store');
+        Route::put('badges/{badge}', [CommunityBadgeController::class, 'update'])
+            ->name('api.v1.badges.update');
+        Route::delete('badges/{badge}', [CommunityBadgeController::class, 'destroy'])
+            ->name('api.v1.badges.destroy');
+
+        // Member rewards hub + redeem
+        Route::get('communities/{community}/rewards-hub', [CommunityRewardsHubController::class, 'show'])
+            ->name('api.v1.communities.rewards-hub');
+        Route::post('communities/{community}/rewards/{reward}/redeem', [CommunityRewardsHubController::class, 'redeem'])
+            ->name('api.v1.communities.rewards.redeem');
+
+        // Per-community POINTS leaderboard (tier + badge_count + points rows)
+        Route::get('communities/{community}/leaderboard', [LeaderboardController::class, 'communityLeaderboard'])
+            ->name('api.v1.communities.leaderboard');
+
+        // Personal rewards overview (global XP + partner rewards + per-community)
+        Route::get('me/rewards-overview', [MeRewardsOverviewController::class, 'show'])
+            ->name('api.v1.me.rewards-overview');
 
         /*
         |--------------------------------------------------------------------------
@@ -488,6 +576,12 @@ Route::prefix('v1')->group(function (): void {
         |--------------------------------------------------------------------------
         */
 
+        // Look up a profile's public card by exact email or @handle — must be
+        // registered before the {profile} wildcard so "lookup" is not captured
+        // as a route-model-bound profile.
+        Route::get('profiles/lookup', [ProfileController::class, 'lookup'])
+            ->name('api.v1.profiles.lookup');
+
         // View public profile
         Route::get('profiles/{profile}', [ProfileController::class, 'publicProfile'])
             ->name('api.v1.profiles.show');
@@ -503,6 +597,36 @@ Route::prefix('v1')->group(function (): void {
         // View profile's completed collaborations
         Route::get('profiles/{profile}/collaborations', [ProfileController::class, 'profileCollaborations'])
             ->name('api.v1.profiles.collaborations');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Friends (member-to-member friend graph, NF-17)
+        |--------------------------------------------------------------------------
+        */
+
+        // Send a friend request (auto-accepts a reverse pending request)
+        Route::post('friends/{profile}', [FriendshipController::class, 'store'])
+            ->name('api.v1.friends.store');
+
+        // Accept an incoming friend request
+        Route::post('friends/{profile}/accept', [FriendshipController::class, 'accept'])
+            ->name('api.v1.friends.accept');
+
+        // Decline an incoming friend request
+        Route::post('friends/{profile}/decline', [FriendshipController::class, 'decline'])
+            ->name('api.v1.friends.decline');
+
+        // Remove a friend or cancel an outgoing request
+        Route::delete('friends/{profile}', [FriendshipController::class, 'destroy'])
+            ->name('api.v1.friends.destroy');
+
+        // List my accepted friends (paginated)
+        Route::get('me/friends', [FriendshipController::class, 'index'])
+            ->name('api.v1.me.friends');
+
+        // List my incoming friend requests ({data, count})
+        Route::get('me/friend-requests', [FriendshipController::class, 'requests'])
+            ->name('api.v1.me.friend-requests');
 
         /*
         |--------------------------------------------------------------------------

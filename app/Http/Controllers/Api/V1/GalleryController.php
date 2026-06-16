@@ -16,7 +16,9 @@ use Illuminate\Http\Request;
 
 class GalleryController extends Controller
 {
-    private const int MAX_GALLERY_PHOTOS = 10;
+    private const int MAX_GALLERY_PHOTOS = 20;
+
+    private const int MAX_PER_REQUEST = 5;
 
     public function __construct(
         private readonly FileUploadService $fileUploadService
@@ -53,32 +55,46 @@ class GalleryController extends Controller
         /** @var Profile $profile */
         $profile = $request->user();
 
+        // Accept either the legacy single `photo` or a `photos[]` batch (up to 5).
+        $batch = $request->file('photos');
+        $files = is_array($batch) ? array_values($batch) : [$request->file('photo')];
+        $isBatch = is_array($batch);
+
         $currentCount = $profile->galleryPhotos()->count();
 
-        if ($currentCount >= self::MAX_GALLERY_PHOTOS) {
+        if ($currentCount + count($files) > self::MAX_GALLERY_PHOTOS) {
             return response()->json([
                 'success' => false,
                 'message' => __('You can upload a maximum of :max gallery photos.', ['max' => self::MAX_GALLERY_PHOTOS]),
             ], 422);
         }
 
-        $url = $this->fileUploadService->uploadFromFile(
-            $request->file('photo'),
-            FileUploadType::GalleryPhoto,
-            $profile->id
-        );
+        // caption only applies to the single-photo legacy shape.
+        $caption = $isBatch ? null : $request->validated('caption');
 
-        $photo = ProfileGalleryPhoto::query()->create([
-            'profile_id' => $profile->id,
-            'url' => $url,
-            'caption' => $request->validated('caption'),
-            'sort_order' => $currentCount,
-        ]);
+        $created = [];
+        foreach ($files as $i => $file) {
+            $url = $this->fileUploadService->uploadFromFile(
+                $file,
+                FileUploadType::GalleryPhoto,
+                $profile->id
+            );
+
+            $created[] = ProfileGalleryPhoto::query()->create([
+                'profile_id' => $profile->id,
+                'url' => $url,
+                'caption' => $caption,
+                'sort_order' => $currentCount + $i,
+            ]);
+        }
 
         return response()->json([
             'success' => true,
             'message' => __('Photo uploaded successfully.'),
-            'data' => new GalleryPhotoResource($photo),
+            // Single-photo requests keep the legacy object shape; batch returns a list.
+            'data' => $isBatch
+                ? GalleryPhotoResource::collection($created)
+                : new GalleryPhotoResource($created[0]),
         ], 201);
     }
 

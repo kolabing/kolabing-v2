@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\CommunityMemberStatus;
 use App\Enums\EventSignupStatus;
+use App\Enums\EventVisibility;
 use App\Enums\NotificationType;
 use App\Models\Community;
 use App\Models\CommunityMember;
@@ -47,13 +48,17 @@ class EventSignupService
         $this->assertEligible($event, $profile);
 
         return DB::transaction(function () use ($event, $profile): EventSignup {
-            // Lock this event's sign-ups so concurrent joins can't both take the
-            // last seat.
+            // Serialize all sign-ups for this event by locking the EVENT ROW (a
+            // single-row `SELECT ... FOR UPDATE`, legal on Postgres). We must NOT
+            // lock the count() below: Postgres forbids `FOR UPDATE` with an
+            // aggregate ("FOR UPDATE is not allowed with aggregate functions"),
+            // which 500'd every sign-up in prod while SQLite tests passed.
+            Event::query()->whereKey($event->id)->lockForUpdate()->first();
+
             $existing = EventSignup::query()
                 ->where('event_id', $event->id)
                 ->where('profile_id', $profile->id)
-                ->lockForUpdate()
-                ->first();
+                ->first(); // event-row lock already serializes us
 
             if ($existing !== null && $existing->status !== EventSignupStatus::Cancelled) {
                 return $existing; // already going or waitlisted — idempotent
@@ -62,8 +67,7 @@ class EventSignupService
             $goingCount = EventSignup::query()
                 ->where('event_id', $event->id)
                 ->where('status', EventSignupStatus::Going->value)
-                ->lockForUpdate()
-                ->count();
+                ->count(); // no lockForUpdate(): aggregate + FOR UPDATE is illegal on Postgres
 
             $hasRoom = $event->capacity === null || $goingCount < $event->capacity;
 
@@ -161,6 +165,11 @@ class EventSignupService
 
     private function assertEligible(Event $event, Profile $profile): void
     {
+        // Public events are open to everyone — no community membership required.
+        if ($event->visibility === EventVisibility::Public) {
+            return;
+        }
+
         // The community owner (leader) is always eligible.
         if (Community::query()->whereKey($event->community_id)->where('owner_profile_id', $profile->id)->exists()) {
             return;
@@ -195,6 +204,11 @@ class EventSignupService
     public function canAccess(Event $event, ?Profile $profile): bool
     {
         if ($event->community_id === null) {
+            return true;
+        }
+
+        // Public events are accessible to everyone.
+        if ($event->visibility === EventVisibility::Public) {
             return true;
         }
 

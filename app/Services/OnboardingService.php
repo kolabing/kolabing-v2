@@ -11,8 +11,10 @@ use App\Enums\JoinPolicy;
 use App\Models\Community;
 use App\Models\Kolab;
 use App\Models\Profile;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 /**
  * @phpstan-type BusinessOnboardingData array{
@@ -44,6 +46,14 @@ use Illuminate\Support\Facades\Log;
  *     website?: string|null,
  *     profile_photo?: string|null
  * }
+ * @phpstan-type AttendeeOnboardingData array{
+ *     name: string,
+ *     handle: string,
+ *     city_id?: string|null,
+ *     interests?: array<int, string>,
+ *     community_ids?: array<int, string>,
+ *     photo?: string|null
+ * }
  */
 class OnboardingService
 {
@@ -51,9 +61,82 @@ class OnboardingService
         private readonly ProfileService $profileService,
         private readonly FileUploadService $fileUploadService,
         private readonly BusinessVenueService $businessVenueService,
+        private readonly HandleService $handleService,
+        private readonly CommunityMemberService $communityMemberService,
         private readonly CommunityService $communityService,
-        private readonly KolabService $kolabService
+        private readonly KolabService $kolabService,
     ) {}
+
+    /**
+     * Complete attendee onboarding (re-runnable). Persists identity (name,
+     * handle, city, interests) on the base profile, uploads the photo to
+     * avatar_url, and auto-joins each OPEN community in community_ids
+     * (invite-only communities are skipped silently).
+     *
+     * @param  AttendeeOnboardingData  $data
+     *
+     * @throws ValidationException when the handle is taken or malformed.
+     */
+    public function completeAttendeeOnboarding(Profile $profile, array $data): Profile
+    {
+        $handle = $this->handleService->normalize($data['handle']);
+
+        if (! $this->handleService->isValidFormat($handle)) {
+            throw ValidationException::withMessages([
+                'handle' => __('The handle must be 3 to 20 characters: lowercase letters, numbers, or underscores'),
+            ]);
+        }
+
+        if (! $this->handleService->isAvailable($handle, $profile->id)) {
+            throw ValidationException::withMessages([
+                'handle' => __('That handle is already taken'),
+            ]);
+        }
+
+        return DB::transaction(function () use ($profile, $data, $handle): Profile {
+            $photoUrl = $this->handleProfilePhoto($data['photo'] ?? null, $profile->id);
+
+            $profile->update([
+                'name' => $data['name'],
+                'handle' => $handle,
+                'city_id' => $data['city_id'] ?? $profile->city_id,
+                'interests' => array_values(array_unique($data['interests'] ?? [])),
+                'avatar_url' => $photoUrl ?? $profile->avatar_url,
+            ]);
+
+            $this->autoJoinCommunities($profile, $data['community_ids'] ?? []);
+
+            $profile->refresh();
+            $this->profileService->loadProfileRelationships($profile);
+
+            return $profile;
+        });
+    }
+
+    /**
+     * Auto-join each OPEN community by id. Invite-only communities are ignored
+     * silently (the join service throws 'invite_only', which we swallow).
+     *
+     * @param  array<int, string>  $communityIds
+     */
+    private function autoJoinCommunities(Profile $profile, array $communityIds): void
+    {
+        if ($communityIds === []) {
+            return;
+        }
+
+        $communities = Community::query()
+            ->whereIn('id', array_values(array_unique($communityIds)))
+            ->get();
+
+        foreach ($communities as $community) {
+            try {
+                $this->communityMemberService->join($community, $profile);
+            } catch (DomainException) {
+                // invite-only — skip silently per the contract.
+            }
+        }
+    }
 
     /**
      * Complete business user onboarding.
@@ -289,6 +372,7 @@ class OnboardingService
 
             // Update community profile
             $communityProfile = $profile->communityProfile;
+            $resolvedPhoto = $profilePhotoUrl ?? $communityProfile->profile_photo;
             $communityProfile->update([
                 'name' => $data['name'],
                 'about' => $data['about'] ?? null,
@@ -298,13 +382,23 @@ class OnboardingService
                 'instagram' => $this->sanitizeSocialHandle($data['instagram'] ?? null),
                 'tiktok' => $this->sanitizeSocialHandle($data['tiktok'] ?? null),
                 'website' => $data['website'] ?? null,
-                'profile_photo' => $profilePhotoUrl ?? $communityProfile->profile_photo,
+                'profile_photo' => $resolvedPhoto,
             ]);
 
             // Auto-provision the management community (the member/attendee roster
             // + main chat) the first time a community onboards, so they never
-            // need the manual "New community" form. Idempotent + tolerant.
+            // need the manual "New community" form. Idempotent + tolerant; the
+            // SAME helper runs from the one-shot register path.
             $this->provisionManagementCommunity($profile);
+
+            // FX-13 forward-sync: a community account's profile photo and its
+            // community-group logo are ONE image. Mirror the onboarding photo
+            // onto the group (now guaranteed to exist after the auto-create).
+            if ($resolvedPhoto !== null) {
+                Community::query()
+                    ->where('owner_profile_id', $profile->id)
+                    ->update(['avatar_url' => $resolvedPhoto]);
+            }
 
             // Refresh and load relationships
             $profile->refresh();

@@ -116,8 +116,10 @@ class ChallengesAdminTest extends TestCase
 
     public function test_defaults_matrix_renders(): void
     {
-        BusinessType::query()->create(['slug' => 'cafe', 'name' => 'Café']);
-        CommunityType::query()->create(['slug' => 'run_club', 'name' => 'Run Club']);
+        // updateOrCreate: these types are now pre-seeded by the type-tables
+        // source-of-truth migration, so we must not collide on the unique slug.
+        BusinessType::query()->updateOrCreate(['slug' => 'cafe'], ['name' => 'Café']);
+        CommunityType::query()->updateOrCreate(['slug' => 'run_club'], ['name' => 'Run Club']);
         Challenge::factory()->create(['name' => 'Take a group photo', 'is_system' => true]);
 
         $this->actingAs($this->maintainer(), 'admin')
@@ -130,7 +132,7 @@ class ChallengesAdminTest extends TestCase
 
     public function test_defaults_matrix_save_writes_rows(): void
     {
-        BusinessType::query()->create(['slug' => 'coworking', 'name' => 'Coworking']);
+        BusinessType::query()->updateOrCreate(['slug' => 'coworking'], ['name' => 'Coworking']);
         $challenge = Challenge::factory()->create(['is_system' => true]);
 
         $this->actingAs($this->maintainer(), 'admin')

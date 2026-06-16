@@ -19,6 +19,7 @@ class EventSeries extends Model
 {
     /** @use HasFactory<\Database\Factories\EventSeriesFactory> */
     use HasFactory;
+
     use HasUuids;
 
     protected $table = 'event_series';
@@ -28,6 +29,7 @@ class EventSeries extends Model
      */
     protected $fillable = [
         'community_id',
+        'city_id',
         'profile_id',
         'name',
         'frequency',
@@ -37,6 +39,7 @@ class EventSeries extends Model
         'location',
         'capacity',
         'tier_gate',
+        'visibility',
         'chat_mode',
         'ends_mode',
         'ends_count',
@@ -53,6 +56,7 @@ class EventSeries extends Model
         return [
             'byweekday' => 'array',
             'tier_gate' => 'array',
+            'visibility' => \App\Enums\EventVisibility::class,
             'duration_minutes' => 'integer',
             'capacity' => 'integer',
             'ends_count' => 'integer',

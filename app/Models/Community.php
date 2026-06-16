@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Enums\CommunityType;
 use App\Enums\JoinPolicy;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 /**
  * @property string $id
@@ -20,17 +20,20 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $community_profile_id
  * @property string $name
  * @property string $slug
- * @property CommunityType $type
+ * @property string $type
  * @property string|null $description
  * @property string|null $avatar_url
  * @property bool $is_primary
+ * @property bool $is_featured
  * @property JoinPolicy $join_policy
+ * @property string|null $invite_token
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Profile $owner
  * @property-read CommunityProfile|null $communityProfile
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CommunityTier> $tiers
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CommunityMember> $members
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, CommunityJoinRequest> $joinRequests
  * @property-read CommunityTier|null $defaultTier
  */
 class Community extends Model
@@ -53,7 +56,9 @@ class Community extends Model
         'description',
         'avatar_url',
         'is_primary',
+        'is_featured',
         'join_policy',
+        'invite_token',
     ];
 
     /**
@@ -62,9 +67,13 @@ class Community extends Model
     protected function casts(): array
     {
         return [
-            'type' => CommunityType::class,
+            // `type` carries the real 17-slug community-type vocabulary
+            // (CommunityOnboardingRequest::COMMUNITY_TYPES) as a raw string.
+            // It is intentionally NOT cast to App\Enums\CommunityType (a 5-value
+            // placeholder); validation/matching happen against the 17-slug list.
             'join_policy' => JoinPolicy::class,
             'is_primary' => 'boolean',
+            'is_featured' => 'boolean',
         ];
     }
 
@@ -101,6 +110,38 @@ class Community extends Model
     }
 
     /**
+     * @return HasMany<CommunityJoinRequest, $this>
+     */
+    public function joinRequests(): HasMany
+    {
+        return $this->hasMany(CommunityJoinRequest::class);
+    }
+
+    /**
+     * @return HasMany<CommunityGoal, $this>
+     */
+    public function goals(): HasMany
+    {
+        return $this->hasMany(CommunityGoal::class);
+    }
+
+    /**
+     * @return HasMany<CommunityReward, $this>
+     */
+    public function rewards(): HasMany
+    {
+        return $this->hasMany(CommunityReward::class);
+    }
+
+    /**
+     * @return HasMany<CommunityBadge, $this>
+     */
+    public function badges(): HasMany
+    {
+        return $this->hasMany(CommunityBadge::class);
+    }
+
+    /**
      * @return HasOne<CommunityTier, $this>
      */
     public function defaultTier(): HasOne
@@ -116,5 +157,47 @@ class Community extends Model
         return $this->members()
             ->where('status', \App\Enums\CommunityMemberStatus::Active->value)
             ->count();
+    }
+
+    /**
+     * Canonical shareable join link, "<base>/<slug>". Always safe to share;
+     * open communities join straight from it, invite_only ones still require a
+     * token (use inviteUrlWithToken()).
+     */
+    public function inviteUrl(): string
+    {
+        $base = rtrim((string) config('communities.invite_base_url'), '/');
+
+        return $base.'/'.$this->slug;
+    }
+
+    /**
+     * Token-bearing invite link for invite_only communities. Returns the plain
+     * slug link for open communities (no token needed).
+     */
+    public function inviteUrlWithToken(): string
+    {
+        if ($this->join_policy !== JoinPolicy::InviteOnly) {
+            return $this->inviteUrl();
+        }
+
+        return $this->inviteUrl().'?invite='.$this->ensureInviteToken();
+    }
+
+    /**
+     * Lazily mint (and persist) the invite token. Idempotent: returns the
+     * existing token when one is already set.
+     */
+    public function ensureInviteToken(): string
+    {
+        if ($this->invite_token === null || $this->invite_token === '') {
+            do {
+                $token = Str::lower(Str::random(32));
+            } while (self::query()->where('invite_token', $token)->exists());
+
+            $this->forceFill(['invite_token' => $token])->save();
+        }
+
+        return (string) $this->invite_token;
     }
 }

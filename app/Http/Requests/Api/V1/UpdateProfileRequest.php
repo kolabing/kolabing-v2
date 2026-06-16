@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
-use App\Enums\UserType;
 use App\Models\Profile;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -49,11 +48,31 @@ class UpdateProfileRequest extends FormRequest
             'analytics_opt_out' => ['sometimes', 'boolean'],
         ];
 
-        if ($profile->user_type === UserType::Business) {
+        if ($profile->isBusiness()) {
             return array_merge($baseRules, $this->businessProfileRules());
         }
 
+        if ($profile->isAttendee()) {
+            return array_merge($baseRules, $this->attendeeProfileRules());
+        }
+
         return array_merge($baseRules, $this->communityProfileRules());
+    }
+
+    /**
+     * Get attendee profile specific validation rules. Attendee identity lives on
+     * the base `profiles` table (name, avatar_url, city_id), so only those fields
+     * are accepted.
+     *
+     * @return array<string, mixed>
+     */
+    private function attendeeProfileRules(): array
+    {
+        return [
+            'name' => ['nullable', 'string', 'max:255'],
+            'city_id' => ['nullable', 'uuid', Rule::exists('cities', 'id')],
+            'profile_photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
+        ];
     }
 
     /**
@@ -66,9 +85,9 @@ class UpdateProfileRequest extends FormRequest
         return [
             'name' => ['nullable', 'string', 'max:255'],
             'about' => ['nullable', 'string', 'max:2000'],
-            'business_type' => ['nullable', 'string', 'max:100', Rule::in(BusinessOnboardingRequest::BUSINESS_TYPES)],
+            'business_type' => ['nullable', 'string', 'max:100', Rule::exists('business_types', 'slug')],
             'categories' => ['sometimes', 'array', 'min:1', 'max:3'],
-            'categories.*' => ['string', 'distinct', Rule::in(BusinessOnboardingRequest::BUSINESS_TYPES)],
+            'categories.*' => ['string', 'distinct', Rule::exists('business_types', 'slug')],
             'city_id' => ['nullable', 'uuid', Rule::exists('cities', 'id')],
             'instagram' => ['nullable', 'string', 'max:255'],
             'website' => ['nullable', 'string', 'max:255', 'url'],
@@ -86,7 +105,7 @@ class UpdateProfileRequest extends FormRequest
         return [
             'name' => ['nullable', 'string', 'max:255'],
             'about' => ['nullable', 'string', 'max:2000'],
-            'community_type' => ['nullable', 'string', 'max:100', Rule::exists('community_types', 'name')],
+            'community_type' => ['nullable', 'string', 'max:100', Rule::exists('community_types', 'slug')],
             'community_size' => ['nullable', 'integer', 'min:1'],
             'city_id' => ['nullable', 'uuid', Rule::exists('cities', 'id')],
             'instagram' => ['nullable', 'string', 'max:255'],
@@ -149,6 +168,21 @@ class UpdateProfileRequest extends FormRequest
             'instagram',
             'tiktok',
             'website',
+        ]);
+    }
+
+    /**
+     * Get attendee profile data for update. Attendees store name + city on the
+     * base `profiles` record (the photo is handled separately in the controller
+     * and written to profiles.avatar_url).
+     *
+     * @return array<string, mixed>
+     */
+    public function getAttendeeProfileData(): array
+    {
+        return $this->only([
+            'name',
+            'city_id',
         ]);
     }
 

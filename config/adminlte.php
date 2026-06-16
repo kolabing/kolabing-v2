@@ -367,6 +367,30 @@ return [
         ],
         ['header' => 'GAMIFICATION'],
         [
+            'text' => 'Overview',
+            'route' => 'admin.gamification.overview',
+            'icon' => 'fas fa-fw fa-trophy',
+            'active' => ['admin/gamification/overview'],
+        ],
+        [
+            'text' => 'Community leaderboards',
+            'route' => 'admin.gamification.leaderboards.communities',
+            'icon' => 'fas fa-fw fa-ranking-star',
+            'active' => ['admin/gamification/leaderboards/communities', 'admin/gamification/leaderboards/communities/*'],
+        ],
+        [
+            'text' => 'Global XP leaderboard',
+            'route' => 'admin.gamification.leaderboards.global',
+            'icon' => 'fas fa-fw fa-earth-europe',
+            'active' => ['admin/gamification/leaderboards/global'],
+        ],
+        [
+            'text' => 'Partner rewards',
+            'route' => 'admin.gamification.partner-rewards.index',
+            'icon' => 'fas fa-fw fa-gift',
+            'active' => ['admin/gamification/partner-rewards', 'admin/gamification/partner-rewards/*'],
+        ],
+        [
             'text' => 'Challenges',
             'route' => 'admin.gamification.challenges.index',
             'icon' => 'fas fa-fw fa-flag-checkered',

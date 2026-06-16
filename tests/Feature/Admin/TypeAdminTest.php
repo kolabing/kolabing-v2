@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Admin;
 
+use App\Models\BusinessProfile;
 use App\Models\BusinessType;
 use App\Models\CommunityType;
 use App\Models\Icon;
@@ -32,9 +33,10 @@ class TypeAdminTest extends TestCase
     public function test_business_index_shows_applies_to_column(): void
     {
         $admin = $this->maintainer();
-        BusinessType::query()->create([
-            'name' => 'Cafe', 'slug' => 'cafe', 'applies_to' => 'venue', 'is_active' => true,
-        ]);
+        BusinessType::query()->updateOrCreate(
+            ['slug' => 'cafe'],
+            ['name' => 'Cafe', 'applies_to' => 'venue', 'is_active' => true],
+        );
 
         $this->actingAs($admin, 'admin')
             ->get(route('admin.types.index', ['kind' => 'business']))
@@ -49,9 +51,10 @@ class TypeAdminTest extends TestCase
         $libIcon = Icon::factory()->bundled()->create([
             'slug' => 'coffee', 'label' => 'Coffee', 'filename' => 'category-coffee.svg',
         ]);
-        $type = BusinessType::query()->create([
-            'name' => 'Cafe', 'slug' => 'cafe', 'applies_to' => 'product', 'is_active' => true,
-        ]);
+        $type = BusinessType::query()->updateOrCreate(
+            ['slug' => 'cafe'],
+            ['name' => 'Cafe', 'applies_to' => 'product', 'is_active' => true],
+        );
 
         $this->actingAs($admin, 'admin')
             ->get(route('admin.types.edit', ['kind' => 'business', 'id' => $type->id]))
@@ -67,9 +70,10 @@ class TypeAdminTest extends TestCase
     public function test_community_edit_form_has_no_applies_to_select(): void
     {
         $admin = $this->maintainer();
-        $type = CommunityType::query()->create([
-            'name' => 'Run Club', 'slug' => 'run_club', 'is_active' => true,
-        ]);
+        $type = CommunityType::query()->updateOrCreate(
+            ['slug' => 'run_club'],
+            ['name' => 'Run Club', 'is_active' => true],
+        );
 
         $this->actingAs($admin, 'admin')
             ->get(route('admin.types.edit', ['kind' => 'community', 'id' => $type->id]))
@@ -84,9 +88,10 @@ class TypeAdminTest extends TestCase
         $libIcon = Icon::factory()->bundled()->create([
             'slug' => 'coffee', 'label' => 'Coffee', 'filename' => 'category-coffee.svg',
         ]);
-        $type = BusinessType::query()->create([
-            'name' => 'Cafe', 'slug' => 'cafe', 'applies_to' => 'both', 'is_active' => true,
-        ]);
+        $type = BusinessType::query()->updateOrCreate(
+            ['slug' => 'cafe'],
+            ['name' => 'Cafe', 'applies_to' => 'both', 'is_active' => true],
+        );
 
         $this->actingAs($admin, 'admin')
             ->put(route('admin.types.update', ['kind' => 'business', 'id' => $type->id]), [
@@ -109,9 +114,10 @@ class TypeAdminTest extends TestCase
         $libIcon = Icon::factory()->bundled()->create([
             'slug' => 'run', 'label' => 'Run', 'filename' => 'category-run.svg',
         ]);
-        $type = CommunityType::query()->create([
-            'name' => 'Run Club', 'slug' => 'run_club', 'is_active' => true,
-        ]);
+        $type = CommunityType::query()->updateOrCreate(
+            ['slug' => 'run_club'],
+            ['name' => 'Run Club', 'is_active' => true],
+        );
 
         $this->actingAs($admin, 'admin')
             ->put(route('admin.types.update', ['kind' => 'community', 'id' => $type->id]), [
@@ -128,9 +134,10 @@ class TypeAdminTest extends TestCase
     public function test_applies_to_is_validated_against_allowed_values(): void
     {
         $admin = $this->maintainer();
-        $type = BusinessType::query()->create([
-            'name' => 'Cafe', 'slug' => 'cafe', 'applies_to' => 'both', 'is_active' => true,
-        ]);
+        $type = BusinessType::query()->updateOrCreate(
+            ['slug' => 'cafe'],
+            ['name' => 'Cafe', 'applies_to' => 'both', 'is_active' => true],
+        );
 
         $this->actingAs($admin, 'admin')
             ->put(route('admin.types.update', ['kind' => 'business', 'id' => $type->id]), [
@@ -159,5 +166,51 @@ class TypeAdminTest extends TestCase
         $this->assertNotNull($created);
         $this->assertSame('new_venue_type', $created->slug);
         $this->assertSame('venue', $created->applies_to);
+    }
+
+    public function test_create_type_with_slug_from_name(): void
+    {
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.types.store'), ['kind' => 'community', 'name' => 'Surf Club', 'icon' => 'waves', 'is_active' => '1'])
+            ->assertRedirect();
+
+        $type = CommunityType::query()->where('name', 'Surf Club')->first();
+        $this->assertSame('surf_club', $type->slug);   // auto-slug, underscore
+        $this->assertSame('waves', $type->icon);
+        $this->assertTrue($type->is_active);
+    }
+
+    public function test_destroy_deactivates_when_in_use_but_deletes_when_unused(): void
+    {
+        $admin = $this->maintainer();
+
+        // In use → deactivate, not delete.
+        $used = BusinessType::query()->create(['slug' => 'used_type', 'name' => 'Used', 'is_active' => true]);
+        BusinessProfile::factory()->create(['business_type' => 'used_type']);
+        $this->actingAs($admin, 'admin')
+            ->delete(route('admin.types.destroy', ['kind' => 'business', 'id' => $used->id]))->assertRedirect();
+        $this->assertDatabaseHas('business_types', ['id' => $used->id, 'is_active' => false]);
+
+        // Unused → hard delete.
+        $unused = BusinessType::query()->create(['slug' => 'unused_type', 'name' => 'Unused', 'is_active' => true]);
+        $this->actingAs($admin, 'admin')
+            ->delete(route('admin.types.destroy', ['kind' => 'business', 'id' => $unused->id]))->assertRedirect();
+        $this->assertDatabaseMissing('business_types', ['id' => $unused->id]);
+    }
+
+    public function test_toggle_and_reorder(): void
+    {
+        $admin = $this->maintainer();
+        $a = CommunityType::query()->create(['slug' => 'aaa', 'name' => 'AAA', 'sort_order' => 1, 'is_active' => true]);
+        $b = CommunityType::query()->create(['slug' => 'bbb', 'name' => 'BBB', 'sort_order' => 2, 'is_active' => true]);
+
+        $this->actingAs($admin, 'admin')
+            ->post(route('admin.types.toggle', ['kind' => 'community', 'id' => $a->id]))->assertRedirect();
+        $this->assertFalse($a->fresh()->is_active);
+
+        $this->actingAs($admin, 'admin')
+            ->post(route('admin.types.reorder', ['kind' => 'community']), ['order' => [$b->id, $a->id]])->assertRedirect();
+        $this->assertSame(1, $b->fresh()->sort_order);
+        $this->assertSame(2, $a->fresh()->sort_order);
     }
 }

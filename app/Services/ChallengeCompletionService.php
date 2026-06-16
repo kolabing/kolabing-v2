@@ -17,7 +17,8 @@ class ChallengeCompletionService
 {
     public function __construct(
         private readonly BadgeService $badgeService,
-        private readonly NotificationService $notificationService
+        private readonly NotificationService $notificationService,
+        private readonly CommunityPointsService $communityPointsService,
     ) {}
 
     /**
@@ -123,6 +124,17 @@ class ChallengeCompletionService
         // Check for badge milestones (after transaction)
         $result->challenger->attendeeProfile?->refresh();
         $this->badgeService->checkAndAwardBadges($result->challenger);
+
+        // Per-community POINTS earn (+ mirrored global XP) when the challenge's
+        // event is community-linked and the challenger is an active member.
+        try {
+            $this->communityPointsService->awardChallengeVerified($result);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Community points award on challenge verify failed', [
+                'completion_id' => $result->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return $result;
     }

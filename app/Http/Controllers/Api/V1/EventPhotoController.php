@@ -40,7 +40,7 @@ class EventPhotoController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => $e->getMessage(),
-                'message' => __('An event can have at most 5 photos.'),
+                'message' => __('An event can have at most :max photos.', ['max' => EventService::MAX_EVENT_PHOTOS]),
             ], 422);
         }
 

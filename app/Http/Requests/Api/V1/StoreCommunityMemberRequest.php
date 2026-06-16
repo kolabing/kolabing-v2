@@ -29,10 +29,12 @@ class StoreCommunityMemberRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Invite by the email on a Kolabing account (preferred); profile_id kept
-            // for backward-compat. Exactly one is required.
-            'email' => ['required_without:profile_id', 'email'],
-            'profile_id' => ['required_without:email', 'uuid', 'exists:profiles,id'],
+            // Add by the email OR @handle on a Kolabing account (preferred);
+            // profile_id kept for backward-compat. Exactly one identifier is
+            // required.
+            'email' => ['required_without_all:profile_id,identifier', 'email'],
+            'identifier' => ['required_without_all:profile_id,email', 'string', 'max:255'],
+            'profile_id' => ['required_without_all:email,identifier', 'uuid', 'exists:profiles,id'],
             'tier_id' => ['nullable', 'uuid', 'exists:community_tiers,id'],
         ];
     }
@@ -43,8 +45,9 @@ class StoreCommunityMemberRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'email.required_without' => 'An email or profile_id is required to add a member.',
-            'profile_id.required_without' => 'An email or profile_id is required to add a member.',
+            'email.required_without_all' => 'An email, @handle, or profile_id is required to add a member.',
+            'identifier.required_without_all' => 'An email, @handle, or profile_id is required to add a member.',
+            'profile_id.required_without_all' => 'An email, @handle, or profile_id is required to add a member.',
             'profile_id.exists' => 'No profile exists for the given profile_id.',
         ];
     }

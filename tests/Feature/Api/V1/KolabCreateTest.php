@@ -378,7 +378,10 @@ class KolabCreateTest extends TestCase
             'title' => 'Looking for a venue',
             'description' => 'We need a venue for our meetup.',
             'preferred_city' => 'Sevilla',
-            // Missing: needs, community_types, community_size, typical_attendance, offers_in_return
+            // Missing: needs, typical_attendance, offers_in_return.
+            // community_types + community_size are inherited from the creator's
+            // community_profile (KolabService::enrichCommunitySeekingData), so
+            // they are intentionally NOT required here.
         ];
 
         $response = $this->actingAs($profile)
@@ -387,10 +390,12 @@ class KolabCreateTest extends TestCase
         $response->assertStatus(422)
             ->assertJsonValidationErrors([
                 'needs',
-                'community_types',
-                'community_size',
                 'typical_attendance',
                 'offers_in_return',
+            ])
+            ->assertJsonMissingValidationErrors([
+                'community_types',
+                'community_size',
             ]);
     }
 

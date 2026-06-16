@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
-use App\Models\Community;
 use App\Models\CommunityMember;
 use App\Models\CommunityTier;
 use App\Models\Profile;

@@ -8,6 +8,7 @@ use App\Enums\IntentType;
 use App\Enums\UserType;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -20,6 +21,10 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string $id
  * @property string $email
  * @property string|null $phone_number
+ * @property string|null $name
+ * @property string|null $handle
+ * @property array<int, string>|null $interests
+ * @property string|null $city_id
  * @property UserType $user_type
  * @property string|null $google_id
  * @property string|null $apple_id
@@ -32,6 +37,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property \Illuminate\Support\Carbon|null $deleted_at
  * @property-read AttendeeProfile|null $attendeeProfile
+ * @property-read City|null $city
  * @property-read BusinessProfile|null $businessProfile
  * @property-read CommunityProfile|null $communityProfile
  * @property-read BusinessSubscription|null $subscription
@@ -80,6 +86,9 @@ class Profile extends Authenticatable
         'phone_number',
         'user_type',
         'name',
+        'handle',
+        'interests',
+        'city_id',
         'google_id',
         'apple_id',
         'password',
@@ -119,6 +128,7 @@ class Profile extends Authenticatable
             'is_test_user' => 'boolean',
             'last_active_at' => 'datetime',
             'analytics_opt_out' => 'boolean',
+            'interests' => 'array',
         ];
     }
 
@@ -150,6 +160,18 @@ class Profile extends Authenticatable
     public function attendeeProfile(): HasOne
     {
         return $this->hasOne(AttendeeProfile::class);
+    }
+
+    /**
+     * Get the city for this base profile (used by attendees, whose identity —
+     * name, avatar, city — lives on the base `profiles` record rather than an
+     * extended profile).
+     *
+     * @return BelongsTo<City, $this>
+     */
+    public function city(): BelongsTo
+    {
+        return $this->belongsTo(City::class);
     }
 
     /**
@@ -447,5 +469,32 @@ class Profile extends Authenticatable
         }
 
         return $this->communityProfile;
+    }
+
+    /**
+     * Determine whether the profile has completed its onboarding flow.
+     */
+    public function onboardingCompleted(): bool
+    {
+        if ($this->isAttendee()) {
+            return filled($this->name)
+                && filled($this->handle)
+                && filled($this->city_id)
+                && ! empty($this->interests);
+        }
+
+        if ($this->isBusiness()) {
+            return filled($this->businessProfile?->name)
+                && filled($this->businessProfile?->business_type)
+                && filled($this->businessProfile?->city_id);
+        }
+
+        if ($this->isCommunity()) {
+            return filled($this->communityProfile?->name)
+                && filled($this->communityProfile?->community_type)
+                && filled($this->communityProfile?->city_id);
+        }
+
+        return false;
     }
 }

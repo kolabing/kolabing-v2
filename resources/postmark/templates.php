@@ -26,7 +26,6 @@ declare(strict_types=1);
  * Existing/approved templates (business-welcome-01, community-welcome-01) are
  * intentionally NOT redefined here so the sync never clobbers them.
  */
-
 $app = 'https://kolabing.com';
 
 return [

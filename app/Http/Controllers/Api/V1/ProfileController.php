@@ -6,14 +6,16 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\FileUploadType;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\Api\V1\CommunityPublicProfileResource;
 use App\Http\Requests\Api\V1\UpdateProfileRequest;
+use App\Http\Resources\Api\V1\CommunityPublicProfileResource;
 use App\Http\Resources\Api\V1\PublicCollaborationResource;
 use App\Http\Resources\Api\V1\PublicProfileResource;
 use App\Http\Resources\Api\V1\PublicProfileReviewResource;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\Profile;
 use App\Services\FileUploadService;
+use App\Services\FriendshipService;
+use App\Services\HandleService;
 use App\Services\ProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,7 +25,51 @@ class ProfileController extends Controller
     public function __construct(
         private readonly ProfileService $profileService,
         private readonly FileUploadService $fileUploadService,
+        private readonly HandleService $handleService,
+        private readonly FriendshipService $friendshipService,
     ) {}
+
+    /**
+     * Look up a single profile's public card by exact email OR exact @handle.
+     * Reused by friend add-by-identifier and the leader member-add flow.
+     *
+     * GET /api/v1/profiles/lookup?q=<email-or-@handle>
+     */
+    public function lookup(Request $request): JsonResponse
+    {
+        /** @var Profile $viewer */
+        $viewer = $request->user();
+
+        $validated = $request->validate([
+            'q' => ['required', 'string', 'max:255'],
+        ]);
+
+        $q = trim($validated['q']);
+
+        $target = str_contains($q, '@') && str_contains($q, '.') && ! str_starts_with($q, '@')
+            ? Profile::query()->where('email', mb_strtolower($q))->first()
+            : $this->handleService->resolve($q);
+
+        if ($target === null) {
+            return response()->json([
+                'success' => false,
+                'error' => 'profile_not_found',
+                'message' => __('No Kolabing account found for that identifier.'),
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $target->id,
+                'name' => $target->getExtendedProfile()?->name ?? $target->name,
+                'handle' => $target->handle,
+                'avatar_url' => $target->avatar_url,
+                'user_type' => $target->user_type->value,
+                'friend_status' => $this->friendshipService->statusFor($viewer, $target),
+            ],
+        ]);
+    }
 
     /**
      * Get the authenticated user's full profile with subscription.
@@ -53,8 +99,35 @@ class ProfileController extends Controller
         /** @var Profile $profile */
         $profile = $request->user();
 
-        // Get profile data based on user type
+        // Get base profile data (phone_number, analytics_opt_out).
         $profileData = $request->getProfileData();
+
+        // Attendees have no extended profile: their identity (name, avatar, city)
+        // lives on the base `profiles` record. Merge attendee fields into the base
+        // profile update and write the photo to profiles.avatar_url.
+        if ($profile->isAttendee()) {
+            $profileData = array_merge($profileData, $request->getAttendeeProfileData());
+
+            if ($request->hasFile('profile_photo')) {
+                if ($profile->avatar_url) {
+                    $this->fileUploadService->delete($profile->avatar_url);
+                }
+
+                $profileData['avatar_url'] = $this->fileUploadService->uploadFromFile(
+                    $request->file('profile_photo'),
+                    FileUploadType::ProfilePhoto,
+                    $profile->id
+                );
+            }
+
+            $profile = $this->profileService->updateProfile($profile, $profileData, []);
+
+            return response()->json([
+                'success' => true,
+                'message' => __('Profile updated successfully'),
+                'data' => new UserResource($profile),
+            ]);
+        }
 
         $extendedProfileData = $profile->isBusiness()
             ? $request->getBusinessProfileData()

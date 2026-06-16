@@ -5,15 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\V1\BusinessOnboardingRequest;
-use App\Http\Requests\Api\V1\CommunityOnboardingRequest;
 use App\Http\Resources\Api\V1\CityResource;
-use App\Models\BusinessType;
 use App\Models\City;
 use App\Models\CitySuggestion;
-use App\Models\CommunityType;
 use App\Models\Profile;
 use App\Services\GooglePlacesService;
+use App\Services\HandleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,8 +18,44 @@ use Illuminate\Http\Request;
 class LookupController extends Controller
 {
     public function __construct(
-        private readonly GooglePlacesService $googlePlacesService
+        private readonly GooglePlacesService $googlePlacesService,
+        private readonly HandleService $handleService,
     ) {}
+
+    /**
+     * Check whether a `@handle` is available, returning suggestions on collision
+     * or when the requested handle is malformed.
+     *
+     * GET /api/v1/handle/available?handle=<h>
+     */
+    public function handleAvailable(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'handle' => ['required', 'string', 'max:30'],
+        ]);
+
+        $normalized = $this->handleService->normalize($validated['handle']);
+
+        if (! $this->handleService->isValidFormat($normalized)) {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'available' => false,
+                    'suggestions' => $this->handleService->suggestions($normalized),
+                ],
+            ]);
+        }
+
+        $available = $this->handleService->isAvailable($normalized);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'available' => $available,
+                'suggestions' => $available ? [] : $this->handleService->suggestions($normalized),
+            ],
+        ]);
+    }
 
     /**
      * Get the list of available cities.
@@ -146,35 +179,53 @@ class LookupController extends Controller
             ],
         ];
 
-        // Validate that all values match the allowed business types
-        $allowedValues = BusinessOnboardingRequest::BUSINESS_TYPES;
-        $businessTypes = array_filter($businessTypes, fn ($type) => in_array($type['value'], $allowedValues, true));
+        // RETIRED 2026-06-10: the $businessTypes array above is kept (not
+        // deleted) for reference only. Business types now live in the
+        // business_types table (manage in /admin/types) — the source used here.
+        // See docs/plans/2026-06-10-type-source-of-truth-DECISION.md.
+        return $this->typeListResponse(\App\Models\BusinessType::query(), withAppliesTo: true);
+    }
 
-        // Enrich each entry with icon + icon_url + applies_to from the seeded
-        // business_types table so the app can render and goal-filter the category
-        // pills. `icon_url` is the admin-picked personalised SVG (CategoryIcon
-        // renders it with top priority). Falls back gracefully if a row is missing.
-        $meta = BusinessType::query()
-            ->get(['slug', 'icon', 'icon_url', 'applies_to'])
-            ->keyBy('slug');
+    /**
+     * Map an active, sorted *_types query to the lookup response. Emits both
+     * value/label (legacy keys) and id/name/slug/icon/icon_url (current app),
+     * so it stays compatible across app versions. When the column exists,
+     * `applies_to` is included (business types only — communities have no
+     * venue/product split).
+     */
+    private function typeListResponse(\Illuminate\Database\Eloquent\Builder $query, bool $withAppliesTo = false): JsonResponse
+    {
+        $columns = ['id', 'name', 'slug', 'icon', 'icon_url'];
 
-        $businessTypes = array_map(function (array $type) use ($meta): array {
-            $row = $meta->get($type['value']);
+        if ($withAppliesTo) {
+            $columns[] = 'applies_to';
+        }
 
-            return [
-                ...$type,
-                'icon' => $row?->icon,
-                'icon_url' => $row?->icon_url,
-                'applies_to' => $row?->applies_to ?? 'both',
-            ];
-        }, array_values($businessTypes));
+        $data = $query->where('is_active', true)
+            ->orderBy('sort_order')->orderBy('name')
+            ->get($columns)
+            ->map(function ($t) use ($withAppliesTo): array {
+                $row = [
+                    'id' => $t->id,
+                    'value' => $t->slug,
+                    'slug' => $t->slug,
+                    'label' => $t->name,
+                    'name' => $t->name,
+                    'icon' => $t->icon,
+                    'icon_url' => $t->icon_url,
+                ];
+
+                if ($withAppliesTo) {
+                    $row['applies_to'] = $t->applies_to ?? 'both';
+                }
+
+                return $row;
+            })->all();
 
         return response()->json([
             'success' => true,
-            'data' => $businessTypes,
-            'meta' => [
-                'total' => count($businessTypes),
-            ],
+            'data' => $data,
+            'meta' => ['total' => count($data)],
         ]);
     }
 
@@ -273,35 +324,12 @@ class LookupController extends Controller
             ],
         ];
 
-        // Validate that all values match the allowed community types
-        $allowedValues = CommunityOnboardingRequest::COMMUNITY_TYPES;
-        $communityTypes = array_filter($communityTypes, fn ($type) => in_array($type['value'], $allowedValues, true));
-
-        // Enrich each entry with icon + icon_url from the seeded community_types
-        // table so the app can render the admin-picked personalised SVG (CategoryIcon
-        // renders icon_url with top priority). Communities have no venue/product
-        // split, so no applies_to is emitted here. Falls back gracefully.
-        $meta = CommunityType::query()
-            ->get(['slug', 'icon', 'icon_url'])
-            ->keyBy('slug');
-
-        $communityTypes = array_map(function (array $type) use ($meta): array {
-            $row = $meta->get($type['value']);
-
-            return [
-                ...$type,
-                'icon' => $row?->icon,
-                'icon_url' => $row?->icon_url,
-            ];
-        }, array_values($communityTypes));
-
-        return response()->json([
-            'success' => true,
-            'data' => array_values($communityTypes),
-            'meta' => [
-                'total' => count($communityTypes),
-            ],
-        ]);
+        // RETIRED 2026-06-10: the $communityTypes array above is kept (not
+        // deleted) for reference only. Community types now live in the
+        // community_types table (manage in /admin/types) — the source used here.
+        // icon_url (admin-picked personalised SVG) is emitted by typeListResponse;
+        // communities have no venue/product split so no applies_to here.
+        return $this->typeListResponse(\App\Models\CommunityType::query());
     }
 
     /**

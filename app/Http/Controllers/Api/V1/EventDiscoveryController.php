@@ -18,12 +18,21 @@ class EventDiscoveryController extends Controller
 
     public function __invoke(DiscoverEventsRequest $request): JsonResponse
     {
-        $lat = (float) $request->validated('lat');
-        $lng = (float) $request->validated('lng');
+        $latRaw = $request->validated('lat');
+        $lngRaw = $request->validated('lng');
+        $lat = $latRaw !== null ? (float) $latRaw : null;
+        $lng = $lngRaw !== null ? (float) $lngRaw : null;
         $radius = (float) ($request->validated('radius_km') ?? 50);
         $perPage = (int) ($request->validated('limit') ?? 10);
 
-        $paginator = $this->discoveryService->discoverNearby($lat, $lng, $radius, $perPage);
+        /** @var array{city_id?: string, date?: string, type?: string} $filters */
+        $filters = [
+            'city_id' => $request->validated('city_id'),
+            'date' => $request->validated('date'),
+            'type' => $request->validated('type'),
+        ];
+
+        $paginator = $this->discoveryService->discover($lat, $lng, $radius, $perPage, $filters);
 
         return response()->json([
             'success' => true,

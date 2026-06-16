@@ -67,9 +67,9 @@ class AuthController extends Controller
         if (isset($result['error'])) {
             return response()->json([
                 'success' => false,
-                'message' => __('User type mismatch'),
+                'message' => $result['code'] === 409 ? __('User type mismatch') : $result['error'],
                 'errors' => [
-                    'user_type' => [$result['error']],
+                    ($result['field'] ?? 'user_type') => [$result['error']],
                 ],
             ], $result['code']);
         }
@@ -99,7 +99,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Authenticate an existing user via Apple Sign In (login-only).
+     * Authenticate or register a user via Apple Sign In.
      *
      * POST /api/v1/auth/apple
      */
@@ -119,9 +119,13 @@ class AuthController extends Controller
             ], 400);
         }
 
-        $result = $this->authService->authenticateWithApple($appleUserData);
+        $result = $this->authService->authenticateWithApple(
+            $appleUserData,
+            $request->getUserType(),
+            $validated['name'] ?? null
+        );
 
-        if (! $result) {
+        if ($result === null) {
             return response()->json([
                 'success' => false,
                 'message' => __('No account found with this Apple ID. Please register first.'),
@@ -129,19 +133,35 @@ class AuthController extends Controller
             ], 404);
         }
 
-        $this->postHog->capture($result['profile'], 'login_completed', [
-            'method' => 'apple',
-        ]);
+        if (isset($result['error'])) {
+            return response()->json([
+                'success' => false,
+                'message' => __('User type mismatch'),
+                'errors' => [
+                    'user_type' => [$result['error']],
+                ],
+            ], $result['code']);
+        }
+
+        $message = $result['is_new_user']
+            ? __('Registration successful')
+            : __('Login successful');
+
+        $this->postHog->capture(
+            $result['profile'],
+            $result['is_new_user'] ? 'user_registered' : 'login_completed',
+            ['method' => 'apple'],
+        );
 
         return response()->json([
             'success' => true,
-            'message' => __('Login successful'),
+            'message' => $message,
             'data' => [
                 'token' => $result['token'],
                 'token_type' => 'Bearer',
                 'refresh_token' => $result['refresh_token'],
                 'refresh_token_expires_at' => $result['refresh_token_expires_at'],
-                'is_new_user' => false,
+                'is_new_user' => $result['is_new_user'],
                 'user' => new UserResource($result['profile']),
             ],
         ]);

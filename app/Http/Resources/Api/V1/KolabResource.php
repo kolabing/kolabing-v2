@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Resources\Api\V1;
 
-use App\Models\Application;
 use App\Enums\IntentType;
+use App\Models\Application;
 use App\Models\Kolab;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -42,6 +42,11 @@ class KolabResource extends JsonResource
             ),
             'preferred_city' => $this->preferred_city,
             'area' => $this->area,
+            // Cover photo for the offer (collab_opportunities.offer_photo). The
+            // Opportunity resources expose this; the My Kolabs (offers) list
+            // read it via Kolab too so cards show the same image instead of a
+            // placeholder when media[] is empty.
+            'offer_photo' => $this->offer_photo,
             'media' => $this->normalizeMediaCollection($this->media),
             'availability_mode' => $this->availability_mode,
             'availability_start' => $this->availability_start?->format('Y-m-d'),

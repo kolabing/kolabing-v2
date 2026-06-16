@@ -308,7 +308,7 @@ class NotificationService
         $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'collabOpportunity']);
 
         $title = "Today's your Kolab! 🎉";
-        $body = "Your collaboration is happening today. Have a great Kolab!";
+        $body = 'Your collaboration is happening today. Have a great Kolab!';
 
         foreach ([$collaboration->creatorProfile, $collaboration->applicantProfile] as $profile) {
             if ($this->reminderAlreadySent($profile->id, NotificationType::CollabDayReminder, $collaboration->id)) {

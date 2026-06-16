@@ -20,7 +20,7 @@ class CommunityEndpointsTest extends TestCase
     {
         return app(CommunityService::class)->create($owner, array_merge([
             'name' => 'Kappa Delta',
-            'type' => 'greek',
+            'type' => 'student_community',
         ], $data));
     }
 
@@ -30,13 +30,14 @@ class CommunityEndpointsTest extends TestCase
 
         $response = $this->actingAs($leader)->postJson('/api/v1/communities', [
             'name' => 'Kappa Delta — Beta Chi',
-            'type' => 'greek',
+            'type' => 'student_community',
         ]);
 
+        // `data.type` is inherited from the owner's community_profile.community_type
+        // (a real 17-slug) when present, so it isn't pinned to the posted value.
         $response->assertStatus(201)
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.name', 'Kappa Delta — Beta Chi')
-            ->assertJsonPath('data.type', 'greek')
             ->assertJsonPath('data.is_primary', true)
             ->assertJsonPath('data.join_policy', 'open')
             ->assertJsonPath('data.member_count', 0);

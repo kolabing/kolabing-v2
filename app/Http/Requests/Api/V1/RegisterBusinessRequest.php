@@ -73,9 +73,9 @@ class RegisterBusinessRequest extends FormRequest
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'name' => ['required', 'string', 'max:255'],
             'about' => ['nullable', 'string', 'max:1000'],
-            'business_type' => ['required_without:categories', 'nullable', 'string', 'in:'.implode(',', self::BUSINESS_TYPES)],
+            'business_type' => ['required_without:categories', 'nullable', 'string', 'exists:business_types,slug'],
             'categories' => ['required_without:business_type', 'array', 'min:1', 'max:3'],
-            'categories.*' => ['string', 'distinct', 'in:'.implode(',', self::BUSINESS_TYPES)],
+            'categories.*' => ['string', 'distinct', 'exists:business_types,slug'],
             'has_venue' => ['required', 'boolean'],
             // Venue path requires a city via id or name; product path always
             // needs a concrete city_id (derived app-side from the first target).

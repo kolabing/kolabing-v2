@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\EventVisibility;
 use App\Enums\UserType;
 use App\Models\Community;
 use App\Models\Event;
@@ -49,6 +50,7 @@ class EventSeriesService
         return DB::transaction(function () use ($profile, $data, $rec, $startsAt, $duration): EventSeries {
             $series = EventSeries::query()->create([
                 'community_id' => $data['community_id'],
+                'city_id' => $data['city_id'] ?? null,
                 'profile_id' => $profile->id,
                 'name' => $data['name'],
                 'frequency' => $rec['frequency'],
@@ -58,6 +60,7 @@ class EventSeriesService
                 'location' => $data['location'] ?? null,
                 'capacity' => $data['capacity'] ?? null,
                 'tier_gate' => $data['tier_gate'] ?? null,
+                'visibility' => $data['visibility'] ?? EventVisibility::Members->value,
                 'chat_mode' => $rec['chat_mode'] ?? 'per_event',
                 'ends_mode' => $rec['ends_mode'] ?? 'never',
                 'ends_count' => $rec['ends_count'] ?? null,
@@ -111,6 +114,9 @@ class EventSeriesService
                 Event::query()->create([
                     'profile_id' => $series->profile_id,
                     'community_id' => $series->community_id,
+                    // Occurrences inherit the series city so a public recurring
+                    // series surfaces in city discover like a one-off does.
+                    'city_id' => $series->city_id,
                     'series_id' => $series->id,
                     'occurrence_index' => $index,
                     'name' => $series->name,
@@ -124,6 +130,11 @@ class EventSeriesService
                     'location' => $series->location,
                     'capacity' => $series->capacity,
                     'tier_gate' => $series->tier_gate,
+                    // Occurrences inherit the series visibility so a public series
+                    // surfaces in discover and a tier series stays tier-gated.
+                    'visibility' => $series->visibility instanceof EventVisibility
+                        ? $series->visibility->value
+                        : ($series->visibility ?? EventVisibility::Members->value),
                     'attendee_count' => 0,
                 ]);
                 $created++;
@@ -171,6 +182,7 @@ class EventSeriesService
         return DB::transaction(function () use ($event, $recurrence, $startsAt, $duration): EventSeries {
             $series = EventSeries::query()->create([
                 'community_id' => $event->community_id,
+                'city_id' => $event->city_id,
                 'profile_id' => $event->profile_id,
                 'name' => $event->name,
                 'frequency' => $recurrence['frequency'],
@@ -180,6 +192,9 @@ class EventSeriesService
                 'location' => $event->location,
                 'capacity' => $event->capacity,
                 'tier_gate' => $event->tier_gate,
+                'visibility' => $event->visibility instanceof EventVisibility
+                    ? $event->visibility->value
+                    : ($event->visibility ?? EventVisibility::Members->value),
                 'chat_mode' => $recurrence['chat_mode'] ?? 'per_event',
                 'ends_mode' => $recurrence['ends_mode'] ?? 'never',
                 'ends_count' => $recurrence['ends_count'] ?? null,
@@ -223,7 +238,7 @@ class EventSeriesService
         $series = EventSeries::query()->find($event->series_id);
         if ($series !== null) {
             $tpl = [];
-            foreach (['name', 'location', 'capacity', 'tier_gate'] as $f) {
+            foreach (['name', 'city_id', 'location', 'capacity', 'tier_gate', 'visibility'] as $f) {
                 if (array_key_exists($f, $data)) {
                     $tpl[$f] = $data[$f];
                 }
@@ -247,7 +262,7 @@ class EventSeriesService
         $count = 0;
         foreach ($query->get() as $occ) {
             $patch = [];
-            foreach (['name', 'location', 'capacity', 'tier_gate'] as $f) {
+            foreach (['name', 'city_id', 'location', 'capacity', 'tier_gate', 'visibility'] as $f) {
                 if (array_key_exists($f, $data)) {
                     $patch[$f] = $data[$f];
                 }

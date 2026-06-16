@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Support\AppleSubscriptionProducts;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class VerifyAppleTransactionRequest extends FormRequest
 {
@@ -21,7 +23,7 @@ class VerifyAppleTransactionRequest extends FormRequest
         return [
             'transaction_id' => ['required', 'string'],
             'original_transaction_id' => ['required', 'string'],
-            'product_id' => ['required', 'string'],
+            'product_id' => ['required', 'string', Rule::in(AppleSubscriptionProducts::all())],
             'referral_code' => ['nullable', 'string'],
         ];
     }

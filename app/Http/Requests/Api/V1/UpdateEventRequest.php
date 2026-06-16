@@ -29,10 +29,14 @@ class UpdateEventRequest extends FormRequest
             // Upcoming-event fields (NF-16 edit). future allowed.
             'starts_at' => ['sometimes', 'date'],
             'ends_at' => ['sometimes', 'nullable', 'date', 'after:starts_at'],
+            // The event's own city (where it happens); drives city discover.
+            'city_id' => ['sometimes', 'nullable', 'uuid', 'exists:cities,id'],
             'location' => ['sometimes', 'nullable', 'string', 'max:255'],
             'capacity' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'tier_gate' => ['sometimes', 'nullable', 'array'],
             'tier_gate.*' => ['uuid'],
+            // Visibility: public (surfaces in city discover) | members | tier.
+            'visibility' => ['sometimes', Rule::enum(\App\Enums\EventVisibility::class)],
 
             // Edit → make recurring: a recurrence block on a non-series event
             // converts it into a series (this event becomes occurrence 0).

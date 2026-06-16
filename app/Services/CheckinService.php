@@ -18,6 +18,7 @@ class CheckinService
     public function __construct(
         private readonly BadgeService $badgeService,
         private readonly TierAssignmentService $tierAssignmentService,
+        private readonly CommunityPointsService $communityPointsService,
     ) {}
 
     /**
@@ -69,6 +70,19 @@ class CheckinService
             $profile->attendeeProfile->increment('total_events_attended');
             $profile->attendeeProfile->refresh();
             $this->badgeService->checkAndAwardBadges($profile);
+        }
+
+        // Per-community POINTS earn (+ mirrored global XP) when the event is
+        // community-linked and the attendee is an active member. Never breaks
+        // the check-in itself.
+        try {
+            $this->communityPointsService->awardEventCheckin($event, $profile->id, $checkin);
+        } catch (\Throwable $e) {
+            Log::warning('Community points award on check-in failed', [
+                'profile_id' => $profile->id,
+                'event_id' => $event->id,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         $this->evaluateCommunityTiers($profile);

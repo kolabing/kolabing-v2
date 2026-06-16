@@ -21,7 +21,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $name
  * @property string|null $created_by
  * @property \Illuminate\Support\Carbon|null $last_message_at
- * @property int $unread_count  Transient, set by ChatService for the active-chats list.
+ * @property int $unread_count Transient, set by ChatService for the active-chats list.
  * @property-read Application|null $application
  */
 class ChatThread extends Model

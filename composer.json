@@ -17,6 +17,7 @@
         "league/flysystem-aws-s3-v3": "^3.31",
         "mallardduck/blade-lucide-icons": "^1.26",
         "posthog/posthog-php": "^4.5",
+        "sentry/sentry-laravel": "^4.26",
         "stripe/stripe-php": "*"
     },
     "require-dev": {

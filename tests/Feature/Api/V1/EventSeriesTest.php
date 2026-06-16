@@ -9,6 +9,7 @@ use App\Models\Event;
 use App\Models\EventSeries;
 use App\Models\Profile;
 use App\Services\CommunityService;
+use App\Services\EventDiscoveryService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -29,6 +30,23 @@ class EventSeriesTest extends TestCase
     {
         Carbon::setTestNow();
         parent::tearDown();
+    }
+
+    /**
+     * Names of events the public discover feed (non-geo, no filters) returns.
+     * Discover only ever shows is_active + visibility=public events, so we mark
+     * the series occurrences active first to exercise the visibility gate.
+     *
+     * @return list<string>
+     */
+    private function discoverNames(string $seriesId): array
+    {
+        Event::query()->where('series_id', $seriesId)->update(['is_active' => true]);
+
+        return app(EventDiscoveryService::class)
+            ->discover(null, null)
+            ->pluck('name')
+            ->all();
     }
 
     public function test_weekly_multiday_series_with_count_creates_exact_occurrences(): void
@@ -239,6 +257,103 @@ class EventSeriesTest extends TestCase
             $this->assertSame('New Place', $e->location);
         }
         $this->assertSame(50, \App\Models\EventSeries::query()->find($seriesId)->capacity);
+    }
+
+    public function test_public_recurring_series_materialises_public_occurrences_shown_in_discover(): void
+    {
+        Carbon::setTestNow('2026-07-01 08:00:00');
+        $leader = Profile::factory()->community()->create();
+        $community = $this->community($leader);
+
+        $seriesId = $this->actingAs($leader)->postJson('/api/v1/events', [
+            'community_id' => $community->id,
+            'name' => 'Public Sunday Run',
+            'starts_at' => '2026-07-05T09:00:00+00:00',
+            'visibility' => 'public',
+            'recurrence' => [
+                'frequency' => 'weekly', 'byweekday' => [0],
+                'ends_mode' => 'count', 'ends_count' => 4,
+            ],
+        ])->assertStatus(201)->json('series_id');
+
+        // Series + every occurrence carry visibility = public.
+        $this->assertDatabaseHas('event_series', [
+            'id' => $seriesId,
+            'visibility' => 'public',
+        ]);
+        $occurrences = Event::query()->where('series_id', $seriesId)->get();
+        $this->assertCount(4, $occurrences);
+        foreach ($occurrences as $occ) {
+            $this->assertSame('public', $occ->visibility->value);
+        }
+
+        // Public occurrences surface in the public discover feed.
+        $this->assertContains('Public Sunday Run', $this->discoverNames($seriesId));
+    }
+
+    public function test_members_recurring_series_stays_hidden_from_discover(): void
+    {
+        Carbon::setTestNow('2026-07-01 08:00:00');
+        $leader = Profile::factory()->community()->create();
+        $community = $this->community($leader);
+
+        // No visibility → defaults to members.
+        $seriesId = $this->actingAs($leader)->postJson('/api/v1/events', [
+            'community_id' => $community->id,
+            'name' => 'Members Only Run',
+            'starts_at' => '2026-07-05T09:00:00+00:00',
+            'recurrence' => [
+                'frequency' => 'weekly', 'byweekday' => [0],
+                'ends_mode' => 'count', 'ends_count' => 4,
+            ],
+        ])->assertStatus(201)->json('series_id');
+
+        $this->assertDatabaseHas('event_series', [
+            'id' => $seriesId,
+            'visibility' => 'members',
+        ]);
+        foreach (Event::query()->where('series_id', $seriesId)->get() as $occ) {
+            $this->assertSame('members', $occ->visibility->value);
+        }
+
+        // Even when active, members occurrences never leak into public discover.
+        $this->assertNotContains('Members Only Run', $this->discoverNames($seriesId));
+    }
+
+    public function test_tier_recurring_series_occurrences_carry_tier_gate(): void
+    {
+        Carbon::setTestNow('2026-07-01 08:00:00');
+        $leader = Profile::factory()->community()->create();
+        $community = $this->community($leader);
+
+        $tierGate = ['11111111-1111-4111-8111-111111111111'];
+
+        $seriesId = $this->actingAs($leader)->postJson('/api/v1/events', [
+            'community_id' => $community->id,
+            'name' => 'Gold Tier Run',
+            'starts_at' => '2026-07-05T09:00:00+00:00',
+            'visibility' => 'tier',
+            'tier_gate' => $tierGate,
+            'recurrence' => [
+                'frequency' => 'weekly', 'byweekday' => [0],
+                'ends_mode' => 'count', 'ends_count' => 4,
+            ],
+        ])->assertStatus(201)->json('series_id');
+
+        $this->assertDatabaseHas('event_series', [
+            'id' => $seriesId,
+            'visibility' => 'tier',
+        ]);
+
+        $occurrences = Event::query()->where('series_id', $seriesId)->get();
+        $this->assertCount(4, $occurrences);
+        foreach ($occurrences as $occ) {
+            $this->assertSame('tier', $occ->visibility->value);
+            $this->assertSame($tierGate, $occ->tier_gate);
+        }
+
+        // Tier occurrences never leak into the public discover feed.
+        $this->assertNotContains('Gold Tier Run', $this->discoverNames($seriesId));
     }
 
     public function test_scoped_edit_following_updates_this_and_later_only(): void

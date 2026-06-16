@@ -140,7 +140,7 @@ class LookupControllerTest extends TestCase
                     '*' => [
                         'value',
                         'label',
-                        'description',
+                        'slug',
                         'icon',
                         'icon_url',
                         'applies_to',
@@ -151,6 +151,7 @@ class LookupControllerTest extends TestCase
                 ],
             ]);
 
+        // Now sourced from the business_types table (single source of truth).
         $values = collect($response->json('data'))->pluck('value')->toArray();
         $this->assertContains('cafe', $values);
         $this->assertContains('restaurant', $values);
@@ -433,7 +434,7 @@ class LookupControllerTest extends TestCase
                     '*' => [
                         'value',
                         'label',
-                        'description',
+                        'slug',
                         'icon',
                         'icon_url',
                     ],
@@ -443,6 +444,7 @@ class LookupControllerTest extends TestCase
                 ],
             ]);
 
+        // Now sourced from the community_types table (single source of truth).
         $values = collect($response->json('data'))->pluck('value')->toArray();
         $this->assertContains('run_club', $values);
         $this->assertContains('fitness_community', $values);

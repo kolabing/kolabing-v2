@@ -104,6 +104,14 @@
                 <input id="iconManual" name="icon" value="{{ $currentIcon }}" class="form-control" placeholder="e.g. dumbbell" autocomplete="off">
             </div>
 
+            <div class="form-group">
+                <label>Or upload an SVG override <small class="text-muted">(replaces the picked library icon; ≤128 KB)</small></label>
+                <input type="file" name="icon_svg" accept="image/svg+xml" class="form-control-file">
+                @if ($type->icon_url)
+                    <small class="text-muted d-block mt-1">Current: <img src="{{ $type->icon_url }}" style="width:20px;height:20px;object-fit:contain"> {{ $type->icon_url }}</small>
+                @endif
+            </div>
+
             <div class="form-group form-check">
                 <input type="hidden" name="is_active" value="0">
                 <input class="form-check-input" type="checkbox" name="is_active" value="1" id="isActive" @checked(old('is_active', $type->is_active ?? true))>

@@ -13,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * @property string $id
  * @property string $profile_id
+ * @property string|null $community_id
+ * @property string|null $city_id
  * @property string $name
  * @property string $partner_name
  * @property string $partner_type
@@ -26,6 +28,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $location
  * @property int|null $capacity
  * @property array<int, mixed>|null $tier_gate
+ * @property string $visibility
  * @property string|null $collaboration_id
  * @property int $max_challenges_per_attendee
  * @property bool $is_active
@@ -51,6 +54,7 @@ class Event extends Model
     protected $fillable = [
         'profile_id',
         'community_id',
+        'city_id',
         'series_id',
         'occurrence_index',
         'collaboration_id',
@@ -67,6 +71,7 @@ class Event extends Model
         'location',
         'capacity',
         'tier_gate',
+        'visibility',
         'max_challenges_per_attendee',
         'is_active',
         'checkin_token',
@@ -87,6 +92,7 @@ class Event extends Model
             'location_lng' => 'decimal:7',
             'capacity' => 'integer',
             'tier_gate' => 'array',
+            'visibility' => \App\Enums\EventVisibility::class,
             'max_challenges_per_attendee' => 'integer',
             'is_active' => 'boolean',
         ];
@@ -127,6 +133,17 @@ class Event extends Model
     public function community(): BelongsTo
     {
         return $this->belongsTo(Community::class);
+    }
+
+    /**
+     * The event's own city (where it happens). Nullable; discover falls back to
+     * the host community's profile city when this is null.
+     *
+     * @return BelongsTo<City, $this>
+     */
+    public function city(): BelongsTo
+    {
+        return $this->belongsTo(City::class);
     }
 
     /**

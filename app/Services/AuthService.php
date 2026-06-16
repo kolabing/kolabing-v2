@@ -90,12 +90,12 @@ class AuthService
     ) {}
 
     /**
-     * Authenticate an existing user via Apple Sign In (login-only, no registration).
+     * Authenticate or register a user via Apple Sign In.
      *
      * @param  AppleUserData  $appleUserData
-     * @return AuthResult|null Returns null when no account found
+     * @return AuthResult|array{error: string, code: int}|null
      */
-    public function authenticateWithApple(array $appleUserData): ?array
+    public function authenticateWithApple(array $appleUserData, ?UserType $userType = null, ?string $name = null): ?array
     {
         $query = Profile::query()->where('apple_id', $appleUserData['apple_id']);
 
@@ -106,14 +106,43 @@ class AuthService
         $profile = $query->first();
 
         if (! $profile) {
-            return null;
+            if ($userType === null) {
+                return null;
+            }
+
+            if (empty($appleUserData['email'])) {
+                return [
+                    'error' => __('Apple email is required to register a new account'),
+                    'code' => 422,
+                    'field' => 'email',
+                ];
+            }
+
+            return $this->registerAppleUser($appleUserData, $userType, $name);
+        }
+
+        if ($userType !== null && $profile->user_type !== $userType) {
+            return [
+                'error' => 'User already exists with a different user type',
+                'code' => 409,
+            ];
         }
 
         $this->revokeExistingMobileTokens($profile);
 
+        $updates = [];
+
         // Link apple_id if signing in by email for the first time with Apple
         if (! $profile->apple_id) {
-            $profile->update(['apple_id' => $appleUserData['apple_id']]);
+            $updates['apple_id'] = $appleUserData['apple_id'];
+        }
+
+        if ($name !== null && $name !== '' && blank($profile->name)) {
+            $updates['name'] = $name;
+        }
+
+        if (! empty($updates)) {
+            $profile->update($updates);
             $profile->refresh();
         }
 
@@ -122,6 +151,55 @@ class AuthService
         return [
             'profile' => $profile,
             'is_new_user' => false,
+            ...$this->issueTokenPair($profile),
+        ];
+    }
+
+    /**
+     * Register a new Apple user.
+     *
+     * @param  AppleUserData  $appleUserData
+     * @return AuthResult
+     */
+    private function registerAppleUser(array $appleUserData, UserType $userType, ?string $name = null): array
+    {
+        $profile = DB::transaction(function () use ($appleUserData, $userType, $name): Profile {
+            $profile = Profile::query()->create([
+                'email' => $appleUserData['email'],
+                'apple_id' => $appleUserData['apple_id'],
+                'user_type' => $userType,
+                'name' => $name,
+                'email_verified_at' => now(),
+            ]);
+
+            if ($userType === UserType::Business) {
+                BusinessProfile::query()->create([
+                    'profile_id' => $profile->id,
+                ]);
+
+                BusinessSubscription::query()->create([
+                    'profile_id' => $profile->id,
+                    'source' => SubscriptionSource::AppleIap,
+                    'status' => SubscriptionStatus::Inactive,
+                ]);
+            } elseif ($userType === UserType::Attendee) {
+                AttendeeProfile::query()->create([
+                    'profile_id' => $profile->id,
+                ]);
+            } else {
+                CommunityProfile::query()->create([
+                    'profile_id' => $profile->id,
+                ]);
+            }
+
+            return $profile;
+        });
+
+        $this->loadProfileRelationships($profile);
+
+        return [
+            'profile' => $profile,
+            'is_new_user' => true,
             ...$this->issueTokenPair($profile),
         ];
     }
