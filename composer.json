@@ -16,6 +16,7 @@
         "laravel/tinker": "^2.10.1",
         "league/flysystem-aws-s3-v3": "^3.31",
         "posthog/posthog-php": "^4.5",
+        "sentry/sentry-laravel": "^4.26",
         "stripe/stripe-php": "*"
     },
     "require-dev": {
