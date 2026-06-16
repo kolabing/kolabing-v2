@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\CommunityType;
 use App\Enums\FileUploadType;
+use App\Enums\JoinPolicy;
+use App\Models\Community;
 use App\Models\Profile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -40,7 +43,8 @@ class OnboardingService
     public function __construct(
         private readonly ProfileService $profileService,
         private readonly FileUploadService $fileUploadService,
-        private readonly BusinessVenueService $businessVenueService
+        private readonly BusinessVenueService $businessVenueService,
+        private readonly CommunityService $communityService
     ) {}
 
     /**
@@ -128,12 +132,46 @@ class OnboardingService
                 'profile_photo' => $profilePhotoUrl ?? $communityProfile->profile_photo,
             ]);
 
+            // Auto-provision the management community (the member/attendee roster
+            // + main chat) the first time a community onboards, so they never
+            // need the manual "New community" form. Idempotent: only when the
+            // owner has none yet.
+            if (Community::query()->where('owner_profile_id', $profile->id)->doesntExist()) {
+                $this->communityService->create($profile, [
+                    'name' => $data['name'],
+                    'type' => $this->mapCommunityType($data['community_type']),
+                    'join_policy' => JoinPolicy::Open->value,
+                    'community_profile_id' => $communityProfile->id,
+                ]);
+            }
+
             // Refresh and load relationships
             $profile->refresh();
             $this->profileService->loadProfileRelationships($profile);
 
             return $profile;
         });
+    }
+
+    /**
+     * Map a community profile's taxonomy slug (from /community-types) to the
+     * coarse Community management-entity type enum. Unknown slugs fall back to
+     * "other" — the management community's type is not user-facing taxonomy.
+     */
+    private function mapCommunityType(string $slug): string
+    {
+        $s = strtolower($slug);
+
+        return match (true) {
+            str_contains($s, 'run') => CommunityType::Running->value,
+            str_contains($s, 'fitness'),
+            str_contains($s, 'wellness'),
+            str_contains($s, 'sport') => CommunityType::Fitness->value,
+            str_contains($s, 'business'),
+            str_contains($s, 'coworking'),
+            str_contains($s, 'professional') => CommunityType::Business->value,
+            default => CommunityType::Other->value,
+        };
     }
 
     /**
