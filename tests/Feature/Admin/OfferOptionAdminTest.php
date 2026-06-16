@@ -53,13 +53,18 @@ class OfferOptionAdminTest extends TestCase
             'kind' => OfferOption::KIND_OFFERING, 'slug' => 'coffee_opt', 'name' => 'Coffee', 'icon' => 'coffee', 'is_active' => true,
         ]);
 
-        $this->actingAs($admin, 'admin')
+        $response = $this->actingAs($admin, 'admin')
             ->get(route('admin.offer-options.edit', ['kind' => OfferOption::KIND_OFFERING, 'id' => $option->id]))
             ->assertOk()
             ->assertSee('id="iconGallery"', false)
-            ->assertSee('data-lucide="coffee"', false)   // the saved icon is rendered + pre-selected
-            ->assertSee('id="iconFilter"', false)         // searchable filter box
-            ->assertSee('id="iconManual"', false);        // advanced fallback text field
+            ->assertSee('id="iconFilter"', false)            // searchable filter box
+            ->assertSee('id="iconManual"', false)            // advanced fallback text field
+            ->assertSee('data-slug="coffee"', false)         // the saved icon cell is pre-selected
+            ->assertDontSee('data-lucide', false)            // no CDN <i data-lucide> placeholders
+            ->assertDontSee('unpkg.com', false);             // no external Lucide CDN
+
+        // Icons are server-rendered inline SVG (deploy-safe, no CDN, no JS timing).
+        $this->assertStringContainsString('<svg', $response->getContent());
     }
 
     public function test_update_persists_icon_slug_chosen_in_gallery(): void

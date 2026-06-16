@@ -79,9 +79,9 @@
             <div class="form-group">
                 <label class="d-block mb-2">Icon</label>
                 <div class="d-flex align-items-center mb-2">
-                    <span class="d-inline-flex align-items-center justify-content-center mr-2"
+                    <span id="iconPreview" class="d-inline-flex align-items-center justify-content-center mr-2"
                           style="width:48px;height:48px;border:1px solid #ced4da;border-radius:8px;background:#f8f9fa">
-                        <i id="iconPreview" data-lucide="{{ $current ?: 'help-circle' }}" style="width:28px;height:28px"></i>
+                        @include('admin.partials.lucide', ['slug' => $current ?: 'help-circle', 'class' => 'lucide-28'])
                     </span>
                     <div>
                         <div class="text-muted small">Selected slug</div>
@@ -98,7 +98,7 @@
                         <button type="button" class="icon-cell btn btn-outline-secondary p-1 d-flex align-items-center justify-content-center"
                                 data-slug="{{ $slug }}" title="{{ $slug }}"
                                 style="aspect-ratio:1/1;height:44px {{ $current === $slug ? ';border-color:#007bff;background:#e7f1ff' : '' }}">
-                            <i data-lucide="{{ $slug }}" style="width:22px;height:22px"></i>
+                            @include('admin.partials.lucide', ['slug' => $slug, 'class' => 'lucide-22'])
                         </button>
                     @endforeach
                 </div>
@@ -139,7 +139,10 @@
     @parent
     <script>
         (function () {
-            // Lucide itself + window.renderLucide() come from the admin layout.
+            // Icons are server-rendered inline SVG (no CDN, no createIcons). The
+            // preview is updated by CLONING the matching gallery cell's SVG, so it
+            // always shows a real icon. Manual slugs not in the gallery fall back to
+            // the neutral placeholder SVG (the preview's initial help-circle).
             var hidden = document.getElementById('iconValue');
             var manual = document.getElementById('iconManual');
             var filter = document.getElementById('iconFilter');
@@ -147,7 +150,24 @@
             var selectedLabel = document.getElementById('iconSelectedLabel');
             var preview = document.getElementById('iconPreview');
 
-            function renderIcons() { if (window.renderLucide) { window.renderLucide(); } }
+            // Stash the original placeholder SVG (help-circle) for fallback.
+            var placeholderSvg = preview.querySelector('svg');
+            placeholderSvg = placeholderSvg ? placeholderSvg.cloneNode(true) : null;
+
+            function cellFor(slug) {
+                if (!slug) { return null; }
+                return gallery.querySelector('.icon-cell[data-slug="' + (window.CSS && CSS.escape ? CSS.escape(slug) : slug) + '"]');
+            }
+
+            function setPreviewSvg(svg) {
+                preview.innerHTML = '';
+                if (svg) {
+                    var clone = svg.cloneNode(true);
+                    clone.classList.remove('lucide-22');
+                    clone.classList.add('lucide-28');
+                    preview.appendChild(clone);
+                }
+            }
 
             function setIcon(slug, opts) {
                 opts = opts || {};
@@ -156,21 +176,16 @@
                 selectedLabel.textContent = slug || '— none —';
                 if (!opts.fromManual) { manual.value = slug; }
 
-                // Re-render the prominent preview.
-                var fresh = document.createElement('i');
-                fresh.id = 'iconPreview';
-                fresh.setAttribute('data-lucide', slug || 'help-circle');
-                fresh.style.width = '28px'; fresh.style.height = '28px';
-                preview.replaceWith(fresh); preview = fresh;
+                var cell = cellFor(slug);
+                var svg = cell ? cell.querySelector('svg') : null;
+                setPreviewSvg(svg || placeholderSvg);
 
                 // Highlight the matching gallery cell.
-                gallery.querySelectorAll('.icon-cell').forEach(function (cell) {
-                    var on = cell.getAttribute('data-slug') === slug && slug !== '';
-                    cell.style.borderColor = on ? '#007bff' : '';
-                    cell.style.background = on ? '#e7f1ff' : '';
+                gallery.querySelectorAll('.icon-cell').forEach(function (c) {
+                    var on = c.getAttribute('data-slug') === slug && slug !== '';
+                    c.style.borderColor = on ? '#007bff' : '';
+                    c.style.background = on ? '#e7f1ff' : '';
                 });
-
-                renderIcons();
             }
 
             gallery.querySelectorAll('.icon-cell').forEach(function (cell) {
@@ -186,8 +201,6 @@
                     cell.style.display = match ? '' : 'none';
                 });
             });
-
-            renderIcons();
         })();
     </script>
 @stop

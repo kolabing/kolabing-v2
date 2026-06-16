@@ -51,7 +51,7 @@
                                 @if ($o->icon_url)
                                     <img src="{{ $o->icon_url }}" alt="" style="width:24px;height:24px;object-fit:contain">
                                 @elseif ($o->icon)
-                                    <i data-lucide="{{ $o->icon }}" style="width:22px;height:22px"></i>
+                                    @include('admin.partials.lucide', ['slug' => $o->icon, 'class' => 'lucide-22'])
                                 @else
                                     <span class="text-muted">—</span>
                                 @endif
