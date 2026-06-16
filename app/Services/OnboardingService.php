@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\CommunityType;
 use App\Enums\FileUploadType;
+use App\Enums\JoinPolicy;
 use App\Models\Community;
 use App\Models\Profile;
 use DomainException;
@@ -54,6 +56,7 @@ class OnboardingService
         private readonly BusinessVenueService $businessVenueService,
         private readonly HandleService $handleService,
         private readonly CommunityMemberService $communityMemberService,
+        private readonly CommunityService $communityService,
     ) {}
 
     /**
@@ -213,13 +216,22 @@ class OnboardingService
                 'profile_photo' => $resolvedPhoto,
             ]);
 
+            // Auto-provision the management community (member/attendee roster +
+            // main chat) the first time a community onboards, so they never need
+            // the manual "New community" form. Idempotent: only when the owner
+            // has none yet. The create path inherits profile_photo as its avatar.
+            if (Community::query()->where('owner_profile_id', $profile->id)->doesntExist()) {
+                $this->communityService->create($profile, [
+                    'name' => $data['name'],
+                    'type' => $this->mapCommunityType($data['community_type']),
+                    'join_policy' => JoinPolicy::Open->value,
+                    'community_profile_id' => $communityProfile->id,
+                ]);
+            }
+
             // FX-13 forward-sync: a community account's profile photo and its
-            // community-group logo are ONE image. ProfileService::updateProfile
-            // mirrors profile_photo -> Community.avatar_url, but onboarding writes
-            // the community_profile directly and bypassed that mirror, so the photo
-            // picked at onboarding never reached an already-created group. Mirror it
-            // here too (no-op when the leader has no group yet; the group's create
-            // path inherits this same profile_photo as its avatar).
+            // community-group logo are ONE image. Mirror the onboarding photo
+            // onto the group (now guaranteed to exist after the auto-create).
             if ($resolvedPhoto !== null) {
                 Community::query()
                     ->where('owner_profile_id', $profile->id)
@@ -232,6 +244,27 @@ class OnboardingService
 
             return $profile;
         });
+    }
+
+    /**
+     * Map a community profile's taxonomy slug (from /community-types) to the
+     * coarse Community management-entity type enum. Unknown slugs fall back to
+     * "other" — the management community's type is not user-facing taxonomy.
+     */
+    private function mapCommunityType(string $slug): string
+    {
+        $s = strtolower($slug);
+
+        return match (true) {
+            str_contains($s, 'run') => CommunityType::Running->value,
+            str_contains($s, 'fitness'),
+            str_contains($s, 'wellness'),
+            str_contains($s, 'sport') => CommunityType::Fitness->value,
+            str_contains($s, 'business'),
+            str_contains($s, 'coworking'),
+            str_contains($s, 'professional') => CommunityType::Business->value,
+            default => CommunityType::Other->value,
+        };
     }
 
     /**

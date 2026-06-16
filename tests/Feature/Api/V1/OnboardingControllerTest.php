@@ -522,6 +522,17 @@ class OnboardingControllerTest extends TestCase
         $this->assertEquals('Maria Garcia', $communityProfile->name);
         $this->assertEquals('run_club', $communityProfile->community_type);
         $this->assertEquals($this->city->id, $communityProfile->city_id);
+
+        // Onboarding auto-provisions the management community (member roster +
+        // default tier + main chat) so the user never needs the manual form.
+        $community = \App\Models\Community::query()
+            ->where('owner_profile_id', $profile->id)
+            ->first();
+        $this->assertNotNull($community, 'Onboarding should auto-create a community.');
+        $this->assertEquals('Maria Garcia', $community->name);
+        $this->assertEquals($communityProfile->id, $community->community_profile_id);
+        $this->assertTrue($community->is_primary);
+        $this->assertTrue($community->tiers()->where('is_default', true)->exists());
     }
 
     private function tinyPngDataUri(): string
