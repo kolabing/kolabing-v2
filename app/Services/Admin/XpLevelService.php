@@ -7,6 +7,7 @@ namespace App\Services\Admin;
 use App\Models\XpLevel;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /**
@@ -38,18 +39,24 @@ class XpLevelService
      */
     public function update(XpLevel $level, array $data): XpLevel
     {
-        $level->fill($data);
-        $level->save();
+        // Save and validate inside a transaction: validateLadder() reads the
+        // persisted rows, so the edit must be committed to be checked, but a
+        // failing check must roll the save back rather than leave an invalid
+        // ladder in the DB. Throwing inside the closure aborts the transaction.
+        return DB::transaction(function () use ($level, $data): XpLevel {
+            $level->fill($data);
+            $level->save();
 
-        $errors = $this->validateLadder();
+            $errors = $this->validateLadder();
 
-        if ($errors !== []) {
-            throw new InvalidArgumentException(implode(' ', $errors));
-        }
+            if ($errors !== []) {
+                throw new InvalidArgumentException(implode(' ', $errors));
+            }
 
-        Cache::forget(XpEarnRuleService::CACHE_KEY);
+            Cache::forget(XpEarnRuleService::CACHE_KEY);
 
-        return $level->fresh();
+            return $level->fresh();
+        });
     }
 
     /**

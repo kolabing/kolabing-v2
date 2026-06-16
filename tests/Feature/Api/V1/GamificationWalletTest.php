@@ -53,6 +53,7 @@ class GamificationWalletTest extends TestCase
             ->assertJsonPath('data.points', 0)
             ->assertJsonPath('data.redeemed_points', 0)
             ->assertJsonPath('data.available_points', 0)
+            ->assertJsonPath('data.referral_available_points', 0)
             ->assertJsonPath('data.eur_value', 0)
             ->assertJsonPath('data.progress', 0)
             ->assertJsonPath('data.can_withdraw', false)
@@ -60,8 +61,10 @@ class GamificationWalletTest extends TestCase
             ->assertJsonPath('data.withdrawal_threshold', 375);
     }
 
-    public function test_wallet_returns_existing_wallet_with_points(): void
+    public function test_wallet_xp_points_are_not_cash_convertible(): void
     {
+        // 127 XP points (reputation) but zero referral rewards: the wallet
+        // shows the XP balance, yet eur_value/can_withdraw stay zero/false.
         $profile = $this->createCommunityProfile();
         Wallet::factory()->create([
             'profile_id' => $profile->id,
@@ -75,19 +78,23 @@ class GamificationWalletTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('data.points', 127)
             ->assertJsonPath('data.available_points', 127)
-            ->assertJsonPath('data.eur_value', 25.4)
+            ->assertJsonPath('data.referral_available_points', 0)
+            ->assertJsonPath('data.eur_value', 0)
             ->assertJsonPath('data.can_withdraw', false);
     }
 
-    public function test_wallet_shows_can_withdraw_true_when_eligible(): void
+    public function test_wallet_eur_value_reflects_referral_rewards(): void
     {
+        // 8 referral conversions × 50 = 400 referral points → ≥ 375 threshold.
         $profile = $this->createCommunityProfile();
-        Wallet::factory()->withdrawable()->create(['profile_id' => $profile->id]);
+        PointLedger::factory()->count(8)->forProfile($profile)->referralConversion()->create();
 
         $response = $this->actingAs($profile)
             ->getJson('/api/v1/gamification/wallet');
 
         $response->assertOk()
+            ->assertJsonPath('data.referral_available_points', 400)
+            ->assertJsonPath('data.eur_value', 80) // 400 × €0.20
             ->assertJsonPath('data.can_withdraw', true)
             ->assertJsonPath('data.progress', 1);
     }
@@ -276,6 +283,8 @@ class GamificationWalletTest extends TestCase
     {
         $profile = $this->createCommunityProfile();
         Wallet::factory()->withdrawable()->create(['profile_id' => $profile->id]);
+        // Referral rewards back the withdrawal: 8 × 50 = 400 ≥ 375 threshold.
+        PointLedger::factory()->count(8)->forProfile($profile)->referralConversion()->create();
 
         $response = $this->actingAs($profile)
             ->postJson('/api/v1/gamification/withdrawal', [
@@ -308,10 +317,11 @@ class GamificationWalletTest extends TestCase
         ]);
     }
 
-    public function test_withdrawal_fails_with_insufficient_points(): void
+    public function test_withdrawal_fails_with_insufficient_referral_rewards(): void
     {
         $profile = $this->createCommunityProfile();
-        Wallet::factory()->withPoints(120)->create(['profile_id' => $profile->id]);
+        // 2 referral conversions = 100 points, below the 375 threshold.
+        PointLedger::factory()->count(2)->forProfile($profile)->referralConversion()->create();
 
         $response = $this->actingAs($profile)
             ->postJson('/api/v1/gamification/withdrawal', [
@@ -321,7 +331,24 @@ class GamificationWalletTest extends TestCase
 
         $response->assertStatus(400)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('message', 'Insufficient points. Need 375, have 120.');
+            ->assertJsonPath('message', 'Insufficient referral rewards. Need 375, have 100.');
+    }
+
+    public function test_withdrawal_fails_when_only_xp_no_referrals(): void
+    {
+        // Plenty of XP reputation but no referral rewards: not withdrawable.
+        $profile = $this->createCommunityProfile();
+        Wallet::factory()->withdrawable()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->postJson('/api/v1/gamification/withdrawal', [
+                'iban' => 'ES7921000813610123456789',
+                'account_holder' => 'BCN Running Club SL',
+            ]);
+
+        $response->assertStatus(400)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Insufficient referral rewards. Need 375, have 0.');
     }
 
     public function test_withdrawal_fails_with_pending_withdrawal(): void

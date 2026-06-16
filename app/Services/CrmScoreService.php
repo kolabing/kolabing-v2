@@ -11,9 +11,10 @@ use App\Models\CrmScoreWeight;
  * Computes a CRM account's score from its metrics + the admin-adjustable
  * crm_score_weights.
  *
- * - business: Y/N fit factors → sum of points (out of 100).
- * - ambassador: contribution = sum(count × points per metric).
- * - community: not scored (0).
+ * - business: Y/N fit factors → sum of points (capped at 100).
+ * - community: Y/N fit factors → sum of points (capped at 100), same shape
+ *   as business but with its own weight set.
+ * - ambassador: contribution = sum(count × points per metric), uncapped.
  */
 class CrmScoreService
 {
@@ -82,7 +83,7 @@ class CrmScoreService
             return $total;
         }
 
-        return 0; // communities not scored
+        return 0; // unknown type
     }
 
     public function recalculate(CrmAccount $account): CrmAccount

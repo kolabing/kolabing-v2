@@ -4,125 +4,63 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Http\Requests\Api\V1\CommunityOnboardingRequest;
 use App\Models\CommunityType;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class CommunityTypeSeeder extends Seeder
 {
     /**
-     * Seed the community_types table with Spanish market focused community types.
+     * Display name + icon per canonical slug. Keyed by the underscore slugs in
+     * CommunityOnboardingRequest::COMMUNITY_TYPES, which is the single source of
+     * truth the API validates and the app sends/stores on profiles.
+     *
+     * @var array<string, array{name: string, icon: string}>
+     */
+    private const META = [
+        'run_club' => ['name' => 'Run Club', 'icon' => 'footprints'],
+        'fitness_community' => ['name' => 'Fitness Community', 'icon' => 'dumbbell'],
+        'wellness_community' => ['name' => 'Wellness Community', 'icon' => 'heart'],
+        'art_creative_community' => ['name' => 'Art & Creative Community', 'icon' => 'palette'],
+        'photography_community' => ['name' => 'Photography Community', 'icon' => 'camera'],
+        'music_community' => ['name' => 'Music Community', 'icon' => 'music'],
+        'dance_community' => ['name' => 'Dance Community', 'icon' => 'music-2'],
+        'tech_startup_community' => ['name' => 'Tech / Startup Community', 'icon' => 'laptop'],
+        'book_club' => ['name' => 'Book Club', 'icon' => 'book'],
+        'sustainability_community' => ['name' => 'Sustainability Community', 'icon' => 'leaf'],
+        'food_community' => ['name' => 'Food Community', 'icon' => 'utensils'],
+        'travel_community' => ['name' => 'Travel Community', 'icon' => 'plane'],
+        'student_community' => ['name' => 'Student Community', 'icon' => 'graduation-cap'],
+        'professional_networking_community' => ['name' => 'Professional / Networking Community', 'icon' => 'users'],
+        'business_coworking' => ['name' => 'Business / Coworking', 'icon' => 'briefcase'],
+        'hobby_community' => ['name' => 'Hobby Community', 'icon' => 'star'],
+        'other' => ['name' => 'Other', 'icon' => 'ellipsis'],
+    ];
+
+    /**
+     * Seed community_types as an exact mirror of the canonical underscore
+     * slug list. Stale slugs (e.g. the old hyphenated ones) are pruned so
+     * the table is a true source of truth.
      */
     public function run(): void
     {
-        $types = $this->getCommunityTypes();
+        $slugs = CommunityOnboardingRequest::COMMUNITY_TYPES;
 
-        foreach ($types as $index => $type) {
+        foreach (array_values($slugs) as $index => $slug) {
+            $meta = self::META[$slug] ?? ['name' => Str::headline($slug), 'icon' => 'ellipsis'];
+
             CommunityType::query()->updateOrCreate(
-                ['slug' => $type['slug']],
+                ['slug' => $slug],
                 [
-                    'name' => $type['name'],
-                    'slug' => $type['slug'],
-                    'icon' => $type['icon'],
+                    'name' => $meta['name'],
+                    'icon' => $meta['icon'],
                     'sort_order' => $index + 1,
                     'is_active' => true,
                 ]
             );
         }
-    }
 
-    /**
-     * Get all community types for the Spanish market.
-     *
-     * @return array<int, array{name: string, slug: string, icon: string}>
-     */
-    private function getCommunityTypes(): array
-    {
-        return [
-            [
-                'name' => 'Run Club',
-                'slug' => 'run-club',
-                'icon' => 'running',
-            ],
-            [
-                'name' => 'Fitness Community',
-                'slug' => 'fitness-community',
-                'icon' => 'dumbbell',
-            ],
-            [
-                'name' => 'Wellness Community',
-                'slug' => 'wellness-community',
-                'icon' => 'heart',
-            ],
-            [
-                'name' => 'Art & Creative Community',
-                'slug' => 'art-creative-community',
-                'icon' => 'palette',
-            ],
-            [
-                'name' => 'Photography Community',
-                'slug' => 'photography-community',
-                'icon' => 'camera',
-            ],
-            [
-                'name' => 'Music Community',
-                'slug' => 'music-community',
-                'icon' => 'music',
-            ],
-            [
-                'name' => 'Dance Community',
-                'slug' => 'dance-community',
-                'icon' => 'music-2',
-            ],
-            [
-                'name' => 'Tech / Startup Community',
-                'slug' => 'tech-startup-community',
-                'icon' => 'laptop',
-            ],
-            [
-                'name' => 'Book Club',
-                'slug' => 'book-club',
-                'icon' => 'book',
-            ],
-            [
-                'name' => 'Sustainability Community',
-                'slug' => 'sustainability-community',
-                'icon' => 'leaf',
-            ],
-            [
-                'name' => 'Food Community',
-                'slug' => 'food-community',
-                'icon' => 'utensils',
-            ],
-            [
-                'name' => 'Travel Community',
-                'slug' => 'travel-community',
-                'icon' => 'plane',
-            ],
-            [
-                'name' => 'Student Community',
-                'slug' => 'student-community',
-                'icon' => 'graduation-cap',
-            ],
-            [
-                'name' => 'Professional / Networking Community',
-                'slug' => 'professional-networking-community',
-                'icon' => 'users',
-            ],
-            [
-                'name' => 'Business / Coworking',
-                'slug' => 'business-coworking',
-                'icon' => 'briefcase',
-            ],
-            [
-                'name' => 'Hobby Community',
-                'slug' => 'hobby-community',
-                'icon' => 'star',
-            ],
-            [
-                'name' => 'Other',
-                'slug' => 'other',
-                'icon' => 'ellipsis',
-            ],
-        ];
+        CommunityType::query()->whereNotIn('slug', $slugs)->delete();
     }
 }

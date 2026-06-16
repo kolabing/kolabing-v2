@@ -142,11 +142,15 @@ class GamificationController extends Controller
         $economics = $this->economics->current();
         $thresholdPoints = $economics->withdrawalThresholdPoints();
 
-        $availablePoints = $wallet->getAvailablePoints();
+        // Withdrawals are backed by REFERRAL rewards only. XP earned from
+        // challenges, reviews, UGC, collaborations, etc. is reputation and is
+        // never cash-convertible (see Wallet::getReferralAvailablePoints()).
+        $availablePoints = $wallet->getReferralAvailablePoints();
+
         if ($availablePoints < $thresholdPoints) {
             return response()->json([
                 'success' => false,
-                'message' => "Insufficient points. Need {$thresholdPoints}, have {$availablePoints}.",
+                'message' => "Insufficient referral rewards. Need {$thresholdPoints}, have {$availablePoints}.",
             ], 400);
         }
 
