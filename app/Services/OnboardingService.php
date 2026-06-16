@@ -124,7 +124,7 @@ class OnboardingService
             // business lands with one live listing and never has to open the
             // create form. Idempotent + tolerant: a failure here must not break
             // onboarding.
-            $this->autoProvisionBusinessKolab($profile);
+            $this->provisionBusinessAutoOffer($profile);
 
             // Refresh and load relationships
             $profile->refresh();
@@ -141,8 +141,13 @@ class OnboardingService
      * Free tier = exactly one auto-offer. Idempotent: skips when the business
      * already owns any kolab. has_venue=true -> VenuePromotion (requires a
      * primary_venue on the profile); otherwise -> ProductPromotion.
+     *
+     * Public + shared so BOTH onboarding-complete and the one-shot register
+     * path (AuthService::registerBusiness) provision the same auto-offer with
+     * identical logic. Must be invoked AFTER the business profile (name, city,
+     * primary_venue) is persisted so the composed kolab has the right data.
      */
-    private function autoProvisionBusinessKolab(Profile $profile): void
+    public function provisionBusinessAutoOffer(Profile $profile): void
     {
         $businessProfile = $profile->businessProfile;
 
@@ -297,16 +302,8 @@ class OnboardingService
 
             // Auto-provision the management community (the member/attendee roster
             // + main chat) the first time a community onboards, so they never
-            // need the manual "New community" form. Idempotent: only when the
-            // owner has none yet.
-            if (Community::query()->where('owner_profile_id', $profile->id)->doesntExist()) {
-                $this->communityService->create($profile, [
-                    'name' => $data['name'],
-                    'type' => $this->mapCommunityType($data['community_type']),
-                    'join_policy' => JoinPolicy::Open->value,
-                    'community_profile_id' => $communityProfile->id,
-                ]);
-            }
+            // need the manual "New community" form. Idempotent + tolerant.
+            $this->provisionManagementCommunity($profile);
 
             // Refresh and load relationships
             $profile->refresh();
@@ -314,6 +311,46 @@ class OnboardingService
 
             return $profile;
         });
+    }
+
+    /**
+     * Create the management community (member/attendee roster + main chat) for a
+     * freshly onboarded/registered community owner, so they never need the manual
+     * "New community" form.
+     *
+     * Public + shared so BOTH onboarding-complete and the one-shot register path
+     * (AuthService::registerCommunity) provision the same community with identical
+     * logic. Idempotent: skips when the owner already owns a community. Tolerant:
+     * a failure here is logged and must never break registration/onboarding.
+     * Must be invoked AFTER the community profile (name, type) is persisted.
+     */
+    public function provisionManagementCommunity(Profile $profile): void
+    {
+        $communityProfile = $profile->communityProfile;
+
+        if ($communityProfile === null) {
+            return;
+        }
+
+        // Idempotent: never create a second management community.
+        if (Community::query()->where('owner_profile_id', $profile->id)->exists()) {
+            return;
+        }
+
+        try {
+            $this->communityService->create($profile, [
+                'name' => $communityProfile->name,
+                'type' => $this->mapCommunityType($communityProfile->community_type),
+                'join_policy' => JoinPolicy::Open->value,
+                'community_profile_id' => $communityProfile->id,
+            ]);
+        } catch (\Throwable $e) {
+            // Never let management-community provisioning break registration.
+            Log::error('Failed to auto-provision management community', [
+                'profile_id' => $profile->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

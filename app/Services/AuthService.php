@@ -85,7 +85,8 @@ class AuthService
 {
     public function __construct(
         private readonly BusinessVenueService $businessVenueService,
-        private readonly FileUploadService $fileUploadService
+        private readonly FileUploadService $fileUploadService,
+        private readonly OnboardingService $onboardingService
     ) {}
 
     /**
@@ -376,6 +377,14 @@ class AuthService
                 'status' => SubscriptionStatus::Inactive,
             ]);
 
+            // The app registers businesses in one shot via this path (it never
+            // calls PUT /onboarding/business), so the free auto-offer must be
+            // provisioned here too, using the SAME shared logic as the
+            // onboarding-complete path. Runs after the business profile (name,
+            // city, primary_venue) is persisted; idempotent + tolerant.
+            $profile->refresh();
+            $this->onboardingService->provisionBusinessAutoOffer($profile);
+
             return $profile;
         });
 
@@ -440,6 +449,14 @@ class AuthService
                 'website' => $communityProfileData['website'],
                 'profile_photo' => $communityProfileData['profile_photo'],
             ]);
+
+            // The app registers communities in one shot via this path (it never
+            // calls PUT /onboarding/community), so the management community must
+            // be provisioned here too, using the SAME shared logic as the
+            // onboarding-complete path. Runs after the community profile (name,
+            // type) is persisted; idempotent + tolerant.
+            $profile->refresh();
+            $this->onboardingService->provisionManagementCommunity($profile);
 
             return $profile;
         });

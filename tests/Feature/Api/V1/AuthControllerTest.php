@@ -1363,6 +1363,168 @@ class AuthControllerTest extends TestCase
         $this->assertTrue(Hash::check('password123', $profile->password));
     }
 
+    // ── Register path auto-provisioning ─────────────────────────────────────
+    // The app registers business/community accounts in ONE SHOT via these
+    // endpoints (it never calls PUT /onboarding/{business,community} for these
+    // roles), so the same auto-provisions that fire on onboarding-complete must
+    // fire here too, using the shared OnboardingService logic.
+
+    public function test_register_community_auto_creates_one_primary_community(): void
+    {
+        $city = City::factory()->create();
+
+        $this->postJson('/api/v1/auth/register/community', [
+            'email' => 'autocomm@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Auto Run Club',
+            'community_type' => 'run_club',
+            'city_id' => $city->id,
+        ])->assertStatus(201);
+
+        $profile = Profile::where('email', 'autocomm@example.com')->firstOrFail();
+
+        $communities = \App\Models\Community::query()
+            ->where('owner_profile_id', $profile->id)
+            ->get();
+
+        $this->assertCount(1, $communities, 'Register should auto-create exactly one community.');
+        $this->assertTrue((bool) $communities->first()->is_primary, 'Auto-created community must be primary.');
+        $this->assertSame('Auto Run Club', $communities->first()->name);
+    }
+
+    public function test_register_business_product_path_auto_creates_one_published_product_kolab(): void
+    {
+        $city = City::factory()->create();
+
+        $this->postJson('/api/v1/auth/register/business', [
+            'email' => 'autoprodbiz@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Bean Brand',
+            'about' => 'Specialty coffee beans',
+            'business_type' => 'retail',
+            'has_venue' => false,
+            'city_id' => $city->id,
+            'offering' => 'Single-origin beans',
+            'offer_photos' => [],
+        ])->assertStatus(201);
+
+        $profile = Profile::where('email', 'autoprodbiz@example.com')->firstOrFail();
+
+        $kolabs = \App\Models\Kolab::query()
+            ->where('creator_profile_id', $profile->id)
+            ->get();
+
+        $this->assertCount(1, $kolabs, 'Business register should auto-create exactly one kolab.');
+        $kolab = $kolabs->first();
+        $this->assertSame(\App\Enums\IntentType::ProductPromotion, $kolab->intent_type);
+        $this->assertNotNull($kolab->published_at, 'Auto-offer must be published live.');
+    }
+
+    public function test_register_business_venue_path_auto_creates_one_published_venue_kolab(): void
+    {
+        $city = City::factory()->create();
+
+        $this->postJson('/api/v1/auth/register/business', [
+            'email' => 'autovenuebiz@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Cafe Barcelona',
+            'about' => 'A cozy cafe',
+            'business_type' => 'cafe',
+            'has_venue' => true,
+            'city_id' => $city->id,
+            'primary_venue' => [
+                'name' => 'Cafe Barcelona Terrace',
+                'venue_type' => 'cafe',
+                'capacity' => 80,
+                'formatted_address' => 'Carrer de Mallorca 1, Barcelona',
+                'city' => $city->name,
+                'country' => $city->country,
+                'photos' => [],
+            ],
+        ])->assertStatus(201);
+
+        $profile = Profile::where('email', 'autovenuebiz@example.com')->firstOrFail();
+
+        $kolabs = \App\Models\Kolab::query()
+            ->where('creator_profile_id', $profile->id)
+            ->get();
+
+        $this->assertCount(1, $kolabs, 'Venue business register should auto-create exactly one kolab.');
+        $kolab = $kolabs->first();
+        $this->assertSame(\App\Enums\IntentType::VenuePromotion, $kolab->intent_type);
+        $this->assertNotNull($kolab->published_at);
+    }
+
+    public function test_register_then_onboarding_does_not_double_create_community(): void
+    {
+        $city = City::factory()->create();
+
+        $register = $this->postJson('/api/v1/auth/register/community', [
+            'email' => 'idemcomm@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Idempotent Club',
+            'community_type' => 'run_club',
+            'city_id' => $city->id,
+        ]);
+        $register->assertStatus(201);
+
+        $profile = Profile::where('email', 'idemcomm@example.com')->firstOrFail();
+
+        // Now also hit the onboarding-complete endpoint (which runs the same
+        // shared provision). It must NOT create a second community.
+        $this->actingAs($profile)->putJson('/api/v1/onboarding/community', [
+            'name' => 'Idempotent Club',
+            'community_type' => 'run_club',
+            'city_id' => $city->id,
+        ])->assertStatus(200);
+
+        $this->assertSame(
+            1,
+            \App\Models\Community::query()->where('owner_profile_id', $profile->id)->count(),
+            'Register + onboarding must not create a second community.'
+        );
+    }
+
+    public function test_register_then_onboarding_does_not_double_create_kolab(): void
+    {
+        $city = City::factory()->create();
+
+        $this->postJson('/api/v1/auth/register/business', [
+            'email' => 'idembiz@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Bean Brand',
+            'about' => 'Specialty coffee beans',
+            'business_type' => 'retail',
+            'has_venue' => false,
+            'city_id' => $city->id,
+            'offering' => 'Single-origin beans',
+            'offer_photos' => [],
+        ])->assertStatus(201);
+
+        $profile = Profile::where('email', 'idembiz@example.com')->firstOrFail();
+
+        // Now also hit the onboarding-complete endpoint. It must NOT create a
+        // second auto-offer.
+        $this->actingAs($profile)->putJson('/api/v1/onboarding/business', [
+            'name' => 'Bean Brand',
+            'business_type' => 'retail',
+            'has_venue' => false,
+            'city_id' => $city->id,
+            'offering' => 'Single-origin beans',
+        ])->assertStatus(200);
+
+        $this->assertSame(
+            1,
+            \App\Models\Kolab::query()->where('creator_profile_id', $profile->id)->count(),
+            'Register + onboarding must not create a second auto-offer.'
+        );
+    }
+
     private function tinyPngDataUri(): string
     {
         return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9oNcamcAAAAASUVORK5CYII=';
