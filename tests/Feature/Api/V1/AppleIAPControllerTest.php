@@ -92,6 +92,28 @@ class AppleIAPControllerTest extends TestCase
             ]);
     }
 
+    public function test_verify_rejects_unknown_product_id_before_calling_apple(): void
+    {
+        $profile = $this->createBusinessProfile();
+
+        $mock = $this->partialAppleIAPService();
+        $mock->shouldNotReceive('verifyTransaction');
+
+        $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', [
+            'transaction_id' => '2000000111111111',
+            'original_transaction_id' => '2000000000000001',
+            'product_id' => 'com.kolabing.old.subscription.monthly',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonStructure([
+                'success',
+                'message',
+                'errors' => ['product_id'],
+            ]);
+    }
+
     public function test_verify_returns_400_when_apple_rejects_transaction(): void
     {
         $profile = $this->createBusinessProfile();

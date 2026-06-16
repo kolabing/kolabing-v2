@@ -29,6 +29,9 @@ class AppleIAPController extends Controller
     {
         /** @var Profile $profile */
         $profile = $request->user();
+        $transactionId = (string) $request->input('transaction_id');
+        $originalTransactionId = (string) $request->input('original_transaction_id');
+        $productId = (string) $request->input('product_id');
 
         if (! $profile->isBusiness()) {
             return response()->json([
@@ -37,7 +40,6 @@ class AppleIAPController extends Controller
             ], 403);
         }
 
-        $transactionId = (string) $request->input('transaction_id');
         $existingSubscription = $this->appleIAPService->findSubscriptionByTransactionId($transactionId);
 
         if ($existingSubscription !== null) {
@@ -55,13 +57,20 @@ class AppleIAPController extends Controller
             $transactionData = $this->appleIAPService->verifyTransaction($transactionId);
             $this->appleIAPService->assertTransactionMatchesRequest(
                 $transactionData,
-                (string) $request->input('original_transaction_id'),
-                (string) $request->input('product_id'),
+                $originalTransactionId,
+                $productId,
             );
         } catch (\RuntimeException $e) {
             Log::warning('Apple IAP verify failed', [
+                'exception_class' => $e::class,
                 'error' => $e->getMessage(),
                 'transaction_id' => $transactionId,
+                'original_transaction_id' => $originalTransactionId,
+                'product_id' => $productId,
+                'profile_id' => $profile->id,
+                'profile_type' => $profile->user_type->value,
+                'iap_environment' => config('services.apple.iap_environment'),
+                'apple_bundle_id' => config('services.apple.bundle_id'),
             ]);
 
             return $this->invalidAppleVerificationResponse($transactionId);
@@ -87,9 +96,15 @@ class AppleIAPController extends Controller
             });
         } catch (\RuntimeException $e) {
             Log::warning('Apple IAP subscription sync failed', [
+                'exception_class' => $e::class,
                 'error' => $e->getMessage(),
                 'transaction_id' => $transactionId,
+                'original_transaction_id' => $originalTransactionId,
+                'product_id' => $productId,
                 'profile_id' => $profile->id,
+                'profile_type' => $profile->user_type->value,
+                'transaction_profile_id' => $transactionData['profileId'] ?? null,
+                'iap_environment' => config('services.apple.iap_environment'),
             ]);
 
             return $this->invalidAppleVerificationResponse($transactionId);
