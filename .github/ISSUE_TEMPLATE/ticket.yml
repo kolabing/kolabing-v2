@@ -1,0 +1,108 @@
+name: Ticket
+description: Standard work item — every feature, bug, chore, or docs task uses this same structure.
+title: "[Ticket]: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for **all** work items so every ticket has the same structure.
+        After creating it, add the issue to the **Kolabing Engineering** project board
+        and set Work Type, Priority, Area, Mobile Impact, and Status.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What needs to be done and why, in 1–3 sentences.
+      placeholder: As a <role>, I want <capability> so that <value>.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context / background
+      description: Why now? Link related tickets, PRs, docs, or discussions.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Concrete, testable outcomes that define "done".
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+  - type: dropdown
+    id: work_type
+    attributes:
+      label: Work Type
+      options:
+        - Feature
+        - Bug
+        - Refactor
+        - Chore
+        - Docs
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0 Urgent
+        - P1 High
+        - P2 Medium
+        - P3 Low
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Backend
+        - Mobile
+        - Admin
+        - Infra
+        - Docs
+    validations:
+      required: true
+  - type: dropdown
+    id: mobile_impact
+    attributes:
+      label: Mobile impact (kolabing-app)
+      description: Does this change the API contract (payload shape, endpoints, enums, auth, error codes) the mobile app depends on?
+      options:
+        - "No — backend/admin only"
+        - "Yes — mobile changes required (describe below)"
+    validations:
+      required: true
+  - type: textarea
+    id: mobile_details
+    attributes:
+      label: Mobile impact details
+      description: If "Yes" above, describe the contract change and link the kolabing-app ticket/PR. Otherwise write "N/A".
+      placeholder: N/A
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Technical notes / scope
+      description: Implementation notes, affected services/files, and anything explicitly out of scope.
+    validations:
+      required: false
+  - type: textarea
+    id: definition_of_done
+    attributes:
+      label: Definition of done
+      value: |
+        - [ ] Tests added/updated (`php artisan test` green)
+        - [ ] `vendor/bin/pint` clean
+        - [ ] Docs synced (BACKLOG.md / ROLES docs / BACKEND-SCHEMA.md as needed)
+        - [ ] PR opened with the PR template and linked to this ticket (`Closes #`)
+    validations:
+      required: false
