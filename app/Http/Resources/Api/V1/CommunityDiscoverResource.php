@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Enums\VerificationStatus;
 use App\Models\Community;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -34,7 +35,19 @@ class CommunityDiscoverResource extends JsonResource
             'is_featured' => $this->is_featured,
             'matched' => (bool) ($this->getAttribute('interest_matched') ?? false),
             'leader_name' => $this->resolveLeaderName(),
+            // Verified tick for the discover card. Channels are never exposed here.
+            'verification_status' => $this->resolveVerificationStatus(),
+            'is_verified' => $this->resolveVerificationStatus() === VerificationStatus::Verified->value,
         ];
+    }
+
+    /**
+     * The owner community_profile's verification status (defaults to unverified).
+     */
+    private function resolveVerificationStatus(): string
+    {
+        return $this->communityProfile?->verification_status
+            ?? VerificationStatus::Unverified->value;
     }
 
     /**

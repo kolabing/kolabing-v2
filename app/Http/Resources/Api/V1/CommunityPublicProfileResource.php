@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Http\Resources\Api\V1\Concerns\EmitsVerificationFields;
 use App\Models\Profile;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -13,6 +14,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class CommunityPublicProfileResource extends JsonResource
 {
+    use EmitsVerificationFields;
+
     /**
      * Transform the resource into an array.
      *
@@ -33,6 +36,7 @@ class CommunityPublicProfileResource extends JsonResource
             'tiktok' => $this->communityProfile?->tiktok,
             'website' => $this->communityProfile?->website,
             'profile_photo' => $this->communityProfile?->profile_photo,
+            ...$this->verificationFields($this->communityProfile, $request, $this->id),
             'gallery' => $this->getAttribute('community_public_gallery') ?? [],
             'photos' => $this->getAttribute('community_public_photos') ?? [],
             'past_events' => $this->getAttribute('community_public_past_events') ?? [],
