@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
-use App\Models\CollabOpportunity;
 use App\Models\Event;
 use App\Models\EventPhoto;
+use App\Models\Kolab;
 use App\Models\Profile;
 use App\Models\ProfileGalleryPhoto;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -23,7 +23,7 @@ class OpportunityPortfolioPhotosTest extends TestCase
         $event = Event::factory()->forProfile($business)->create();
         EventPhoto::factory()->count(3)->for($event)->create();
 
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->forCreator($business)
             ->published()
             ->create();
@@ -47,7 +47,7 @@ class OpportunityPortfolioPhotosTest extends TestCase
 
         ProfileGalleryPhoto::factory()->count(2)->for($business, 'profile')->create();
 
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->forCreator($business)
             ->published()
             ->create();
@@ -72,7 +72,7 @@ class OpportunityPortfolioPhotosTest extends TestCase
         EventPhoto::factory()->count(8)->for($event)->create();
         ProfileGalleryPhoto::factory()->count(5)->for($business, 'profile')->create();
 
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->forCreator($business)
             ->published()
             ->create();
@@ -92,7 +92,7 @@ class OpportunityPortfolioPhotosTest extends TestCase
     {
         $business = Profile::factory()->business()->create();
 
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->forCreator($business)
             ->published()
             ->create();
@@ -116,7 +116,7 @@ class OpportunityPortfolioPhotosTest extends TestCase
         $event = Event::factory()->forProfile($business)->create();
         EventPhoto::factory()->count(2)->for($event)->create();
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->forCreator($business)
             ->published()
             ->create();

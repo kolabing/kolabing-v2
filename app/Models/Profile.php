@@ -42,7 +42,6 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read CommunityProfile|null $communityProfile
  * @property-read BusinessSubscription|null $subscription
  * @property-read NotificationPreference|null $notificationPreferences
- * @property-read \Illuminate\Database\Eloquent\Collection<int, CollabOpportunity> $createdOpportunities
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Application> $applications
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Collaboration> $createdCollaborations
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Collaboration> $appliedCollaborations
@@ -192,16 +191,6 @@ class Profile extends Authenticatable
     public function notificationPreferences(): HasOne
     {
         return $this->hasOne(NotificationPreference::class);
-    }
-
-    /**
-     * Get opportunities created by this profile.
-     *
-     * @return HasMany<CollabOpportunity, $this>
-     */
-    public function createdOpportunities(): HasMany
-    {
-        return $this->hasMany(CollabOpportunity::class, 'creator_profile_id');
     }
 
     /**

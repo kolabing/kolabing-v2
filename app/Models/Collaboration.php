@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * @property string $id
  * @property string $application_id
- * @property string $collab_opportunity_id
+ * @property string|null $collab_opportunity_id
  * @property string|null $kolab_id
  * @property string $creator_profile_id
  * @property string $applicant_profile_id
@@ -30,7 +30,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Application $application
- * @property-read CollabOpportunity $collabOpportunity
  * @property-read Kolab|null $kolab
  * @property-read Profile $creatorProfile
  * @property-read Profile $applicantProfile
@@ -102,17 +101,7 @@ class Collaboration extends Model
     }
 
     /**
-     * Get the collaboration opportunity.
-     *
-     * @return BelongsTo<CollabOpportunity, $this>
-     */
-    public function collabOpportunity(): BelongsTo
-    {
-        return $this->belongsTo(CollabOpportunity::class, 'collab_opportunity_id');
-    }
-
-    /**
-     * Get the kolab this collaboration is for (Phase 1 source-of-truth FK).
+     * Get the canonical Kolab.
      *
      * @return BelongsTo<Kolab, $this>
      */

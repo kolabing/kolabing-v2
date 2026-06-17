@@ -1033,7 +1033,7 @@
 <!-- NAV -->
 <header>
   <div class="logo">
-    <img class="logo-mark" src="assets/kolabing-logo.png" alt="kolabing"/>
+    <img class="logo-mark" src="/brand/logo-mark.svg" alt="kolabing"/>
   </div>
   <nav>
     <a href="#how-it-works">how it works</a>
@@ -1577,7 +1577,7 @@ COMMUNITIES GET PERKS.</div>
 <footer>
   <div class="footer-inner">
     <div class="logo">
-      <img class="logo-mark logo-mark--footer" src="assets/kolabing-logo.png" alt="kolabing"/>
+      <img class="logo-mark logo-mark--footer" src="/brand/logo-mark.svg" alt="kolabing"/>
     </div>
     <div class="footer-links">
       <a href="#">terms</a>

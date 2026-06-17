@@ -160,6 +160,7 @@ class DashboardTest extends TestCase
                             'status',
                             'scheduled_date',
                             'opportunity' => ['id', 'title', 'categories'],
+                            'kolab' => ['id', 'title'],
                             'partner' => ['id', 'name', 'user_type'],
                         ],
                     ],

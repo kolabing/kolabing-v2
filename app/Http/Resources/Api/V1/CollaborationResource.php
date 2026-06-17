@@ -9,7 +9,6 @@ use App\Models\Collaboration;
 use App\Models\CollaborationFeedback;
 use App\Models\CollaborationReview;
 use App\Services\CollaborationFeedbackService;
-use App\Services\LegacyOpportunityBridgeService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -66,11 +65,19 @@ class CollaborationResource extends JsonResource
                     return (new ApplicationResource($this->application))->withoutOpportunity();
                 })
             ),
-            // Phase 2: prefer the related KOLAB (mapped to the OpportunitySummary
-            // shape via the bridge), falling back to the legacy collabOpportunity.
+            'kolab_id' => $this->kolab_id,
+            'collab_opportunity_id' => $this->kolab_id,
+            'kolab' => $this->when(
+                $this->includeOpportunity,
+                fn () => $this->whenLoaded('kolab', function () {
+                    return new KolabResource($this->kolab);
+                })
+            ),
             'collab_opportunity' => $this->when(
                 $this->includeOpportunity,
-                fn () => $this->resolveOpportunitySummary()
+                fn () => $this->whenLoaded('kolab', function () {
+                    return new OpportunitySummaryResource($this->kolab);
+                })
             ),
             'creator_profile' => $this->whenLoaded('creatorProfile', function () {
                 return new ProfileSummaryResource($this->creatorProfile);
@@ -150,23 +157,6 @@ class CollaborationResource extends JsonResource
     }
 
     /**
-     * Resolve the embedded opportunity summary, preferring the kolab relation.
-     */
-    private function resolveOpportunitySummary(): mixed
-    {
-        if ($this->relationLoaded('kolab') && $this->kolab !== null) {
-            $opportunity = app(LegacyOpportunityBridgeService::class)
-                ->makeCompatibilityOpportunity($this->kolab);
-
-            return new OpportunitySummaryResource($opportunity);
-        }
-
-        return $this->whenLoaded('collabOpportunity', function () {
-            return new OpportunitySummaryResource($this->collabOpportunity);
-        });
-    }
-
-    /**
      * Subscription-lapse re-gate flag (ROLES-AND-PERMISSIONS.md §2.8).
      *
      * Returns true ONLY when the viewing profile is a business
@@ -225,6 +215,10 @@ class CollaborationResource extends JsonResource
      */
     private function feedbackRows(): \Illuminate\Support\Collection
     {
+        if ($this->resource->relationLoaded('feedbacks')) {
+            return $this->resource->feedbacks;
+        }
+
         /** @var \Illuminate\Support\Collection<int, CollaborationFeedback>|null $cached */
         static $cache = [];
 

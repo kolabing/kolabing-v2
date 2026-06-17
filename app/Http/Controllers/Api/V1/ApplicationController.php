@@ -13,9 +13,9 @@ use App\Http\Resources\Api\V1\ApplicationCollection;
 use App\Http\Resources\Api\V1\ApplicationResource;
 use App\Http\Resources\Api\V1\CollaborationResource;
 use App\Models\Application;
+use App\Models\Kolab;
 use App\Models\Profile;
 use App\Services\ApplicationService;
-use App\Services\LegacyOpportunityBridgeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
@@ -25,7 +25,6 @@ class ApplicationController extends Controller
 {
     public function __construct(
         private readonly ApplicationService $applicationService,
-        private readonly LegacyOpportunityBridgeService $legacyOpportunityBridgeService,
     ) {}
 
     /**
@@ -37,9 +36,9 @@ class ApplicationController extends Controller
     {
         /** @var Profile $profile */
         $profile = $request->user();
-        $opportunity = $this->legacyOpportunityBridgeService->resolveOrFail($opportunity);
+        $kolab = Kolab::query()->findOrFail($opportunity);
 
-        if ($profile->cannot('viewApplications', $opportunity)) {
+        if ($profile->id !== $kolab->creator_profile_id) {
             return response()->json([
                 'success' => false,
                 'message' => __('You are not authorized to view applications for this opportunity'),
@@ -53,7 +52,7 @@ class ApplicationController extends Controller
         $perPage = min((int) $request->query('per_page', 20), 100);
 
         $applications = $this->applicationService->getForOpportunity(
-            $opportunity,
+            $kolab,
             $filters,
             $perPage
         );
@@ -79,9 +78,9 @@ class ApplicationController extends Controller
     {
         /** @var Profile $profile */
         $profile = $request->user();
-        $opportunity = $this->legacyOpportunityBridgeService->resolveOrFail($opportunity, true);
+        $kolab = Kolab::query()->findOrFail($opportunity);
 
-        if ($profile->cannot('create', [Application::class, $opportunity])) {
+        if ($profile->cannot('create', [Application::class, $kolab])) {
             return response()->json([
                 'success' => false,
                 'message' => __('You are not authorized to apply to this opportunity'),
@@ -91,14 +90,13 @@ class ApplicationController extends Controller
         try {
             $application = $this->applicationService->apply(
                 $profile,
-                $opportunity,
+                $kolab,
                 $request->validated()
             );
 
             $application->load([
                 'applicantProfile.businessProfile',
                 'applicantProfile.communityProfile',
-                'collabOpportunity.creatorProfile',
                 'kolab.creatorProfile',
             ]);
 
@@ -174,7 +172,6 @@ class ApplicationController extends Controller
             $result['application']->load([
                 'applicantProfile.businessProfile',
                 'applicantProfile.communityProfile',
-                'collabOpportunity.creatorProfile',
                 'kolab.creatorProfile',
             ]);
 
@@ -183,7 +180,6 @@ class ApplicationController extends Controller
                 'applicantProfile',
                 'businessProfile',
                 'communityProfile',
-                'collabOpportunity',
                 'kolab.creatorProfile',
             ]);
 
@@ -235,7 +231,6 @@ class ApplicationController extends Controller
             $application->load([
                 'applicantProfile.businessProfile',
                 'applicantProfile.communityProfile',
-                'collabOpportunity.creatorProfile',
                 'kolab.creatorProfile',
             ]);
 
@@ -275,7 +270,6 @@ class ApplicationController extends Controller
             $application->load([
                 'applicantProfile.businessProfile',
                 'applicantProfile.communityProfile',
-                'collabOpportunity.creatorProfile',
                 'kolab.creatorProfile',
             ]);
 

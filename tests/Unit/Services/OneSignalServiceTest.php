@@ -45,7 +45,7 @@ class OneSignalServiceTest extends TestCase
         );
 
         Http::assertSent(function (Request $request): bool {
-            return $request['subtitle'] === 'Messages'
+            return $request['subtitle'] === ['en' => 'Messages']
                 && $request['ios_category'] === 'kolabing_messages'
                 && $request['buttons'][0]['id'] === 'open_message_thread'
                 && ! array_key_exists('unsupported', $request->data())

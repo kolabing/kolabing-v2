@@ -17,8 +17,7 @@ use Illuminate\Support\Facades\DB;
  * This migration calls InverseLegacyOpportunityBridgeService::backfillAll(),
  * which:
  *   1. Creates a kolab (with id = opportunity.id) for every collab_opportunity
- *      that has no matching kolab — the faithful inverse of
- *      LegacyOpportunityBridgeService::fillFromKolab().
+ *      that has no matching kolab.
  *   2. Sets applications.kolab_id / collaborations.kolab_id = collab_opportunity_id
  *      for the now-backfilled rows.
  *

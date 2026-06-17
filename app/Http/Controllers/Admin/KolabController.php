@@ -33,14 +33,14 @@ class KolabController extends Controller
             ->selectSub(
                 Application::query()
                     ->selectRaw('count(*)')
-                    ->whereColumn('collab_opportunity_id', 'kolabs.id')
+                    ->whereColumn('kolab_id', 'kolabs.id')
                     ->where('status', ApplicationStatus::Pending->value),
                 'pending_applications_count'
             )
             ->selectSub(
                 Application::query()
                     ->selectRaw('count(*)')
-                    ->whereColumn('collab_opportunity_id', 'kolabs.id')
+                    ->whereColumn('kolab_id', 'kolabs.id')
                     ->where('status', ApplicationStatus::Accepted->value),
                 'accepted_applications_count'
             )
@@ -113,7 +113,7 @@ class KolabController extends Controller
     public function cancelCollaboration(CancelKolabCollaborationRequest $request, Kolab $kolab): RedirectResponse
     {
         $collaboration = Collaboration::query()
-            ->where('collab_opportunity_id', $kolab->id)
+            ->where('kolab_id', $kolab->id)
             ->first();
 
         abort_if($collaboration === null, 404, 'No collaboration to cancel for this Kolab.');
@@ -128,7 +128,7 @@ class KolabController extends Controller
     public function completeCollaboration(CompleteKolabCollaborationRequest $request, Kolab $kolab): RedirectResponse
     {
         $collaboration = Collaboration::query()
-            ->where('collab_opportunity_id', $kolab->id)
+            ->where('kolab_id', $kolab->id)
             ->first();
 
         abort_if($collaboration === null, 404, 'No collaboration to complete for this Kolab.');

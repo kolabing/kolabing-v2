@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Resources\Api\V1;
 
 use App\Models\Application;
-use App\Services\LegacyOpportunityBridgeService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -36,17 +35,24 @@ class ApplicationResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        // Phase 2: source the embedded opportunity object from the related KOLAB
-        // when present (mapped through the bridge to the same OpportunitySummary
-        // shape), falling back to the legacy collabOpportunity otherwise.
+        $kolabResource = $this->when(
+            $this->includeOpportunity,
+            fn () => $this->whenLoaded('kolab', function () {
+                return new KolabResource($this->kolab);
+            })
+        );
         $opportunityResource = $this->when(
             $this->includeOpportunity,
-            fn () => $this->resolveOpportunitySummary()
+            fn () => $this->whenLoaded('kolab', function () {
+                return new OpportunitySummaryResource($this->kolab);
+            })
         );
 
         return [
             'id' => $this->id,
-            'collab_opportunity_id' => $this->collab_opportunity_id,
+            'kolab_id' => $this->kolab_id,
+            'kolab' => $kolabResource,
+            'collab_opportunity_id' => $this->kolab_id,
             'collab_opportunity' => $opportunityResource,
             'opportunity' => $opportunityResource,
             'applicant_profile' => $this->whenLoaded('applicantProfile', function () {
@@ -63,26 +69,5 @@ class ApplicationResource extends JsonResource
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
-    }
-
-    /**
-     * Resolve the embedded opportunity summary, preferring the kolab relation.
-     *
-     * Returns the OpportunitySummaryResource when either relation is loaded and
-     * present; otherwise a missing-value marker so the key behaves exactly as the
-     * old `whenLoaded` did (omitted when nothing is loaded).
-     */
-    private function resolveOpportunitySummary(): mixed
-    {
-        if ($this->relationLoaded('kolab') && $this->kolab !== null) {
-            $opportunity = app(LegacyOpportunityBridgeService::class)
-                ->makeCompatibilityOpportunity($this->kolab);
-
-            return new OpportunitySummaryResource($opportunity);
-        }
-
-        return $this->whenLoaded('collabOpportunity', function () {
-            return new OpportunitySummaryResource($this->collabOpportunity);
-        });
     }
 }

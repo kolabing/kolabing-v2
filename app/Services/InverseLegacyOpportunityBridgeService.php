@@ -12,14 +12,10 @@ use App\Models\CollabOpportunity;
 use App\Models\Kolab;
 
 /**
- * Inverse of LegacyOpportunityBridgeService.
+ * Materializes canonical kolabs from legacy collab_opportunities.
  *
- * LegacyOpportunityBridgeService::fillFromKolab() materializes a
- * collab_opportunities row FROM a kolab (with id = kolab.id). This service does
- * the reverse: it materializes a kolabs row FROM a legacy collab_opportunity
- * that never had a backing kolab (pre-bridge rows), reusing the SAME id so that
- * existing applications.collab_opportunity_id / collaborations.collab_opportunity_id
- * values keep resolving and can be re-pointed to kolab_id.
+ * This is intentionally one-way: legacy rows are read as migration source data,
+ * then applications/collaborations are re-pointed to kolab_id.
  *
  * It is idempotent: if a kolab with the opportunity's id already exists, it is a
  * no-op and returns that kolab.
@@ -124,7 +120,7 @@ class InverseLegacyOpportunityBridgeService
     }
 
     /**
-     * Reverse of LegacyOpportunityBridgeService::mapStatus().
+     * Map legacy status into the closest canonical Kolab status.
      * OfferStatus::Completed has no KolabStatus equivalent; treat it as Closed.
      */
     private function mapStatus(OfferStatus $status): KolabStatus
@@ -157,8 +153,7 @@ class InverseLegacyOpportunityBridgeService
     }
 
     /**
-     * Reverse of LegacyOpportunityBridgeService::mapVenueMode(), but only
-     * meaningful for CommunitySeeking kolabs (the only intent that stores a
+     * Preserve legacy venue mode for CommunitySeeking kolabs (the only intent that stores a
      * venue_preference). For VenuePromotion/ProductPromotion the forward bridge
      * derives venue_mode from the intent itself, so we leave it null.
      */

@@ -8,12 +8,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\DiscoverEventsRequest;
 use App\Http\Resources\Api\V1\EventResource;
 use App\Services\EventDiscoveryService;
+use App\Services\EventSignupService;
 use Illuminate\Http\JsonResponse;
 
 class EventDiscoveryController extends Controller
 {
     public function __construct(
-        private readonly EventDiscoveryService $discoveryService
+        private readonly EventDiscoveryService $discoveryService,
+        private readonly EventSignupService $eventSignupService,
     ) {}
 
     public function __invoke(DiscoverEventsRequest $request): JsonResponse
@@ -33,6 +35,7 @@ class EventDiscoveryController extends Controller
         ];
 
         $paginator = $this->discoveryService->discover($lat, $lng, $radius, $perPage, $filters);
+        $this->eventSignupService->hydrateSummaries($paginator->items(), $request->user());
 
         return response()->json([
             'success' => true,

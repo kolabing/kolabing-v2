@@ -158,7 +158,7 @@ class Kolab extends Model
     }
 
     /**
-     * Get the applications submitted against this kolab (Phase 1 SoT FK).
+     * Get all applications for this Kolab.
      *
      * @return HasMany<Application, $this>
      */
@@ -168,7 +168,7 @@ class Kolab extends Model
     }
 
     /**
-     * Get the collaborations formed from this kolab (Phase 1 SoT FK).
+     * Get all collaborations for this Kolab.
      *
      * @return HasMany<Collaboration, $this>
      */

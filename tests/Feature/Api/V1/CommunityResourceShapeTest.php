@@ -37,6 +37,8 @@ class CommunityResourceShapeTest extends TestCase
         // Unauthenticated viewer (no request user) → null-safe CTA defaults.
         $this->assertFalse($array['is_member']);
         $this->assertNull($array['my_join_request_status']);
+        $this->assertSame(0, $array['my_points']);
+        $this->assertNull($array['my_tier']);
     }
 
     public function test_tier_resource_always_returns_permission_buckets(): void

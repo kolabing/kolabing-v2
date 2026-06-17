@@ -67,11 +67,11 @@ class KolabManagementTest extends TestCase
         $kolab = $this->kolabWithOpportunity(['title' => 'Receiving Kolab']);
 
         Application::factory()->pending()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'applicant_profile_id' => Profile::factory()->community(),
         ]);
         Application::factory()->pending()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'applicant_profile_id' => Profile::factory()->community(),
         ]);
 
@@ -87,9 +87,9 @@ class KolabManagementTest extends TestCase
     {
         $active = $this->kolabWithOpportunity(['title' => 'Has Active Collab']);
         Collaboration::factory()->active()->create([
-            'collab_opportunity_id' => $active->id,
+            'kolab_id' => $active->id,
             'application_id' => Application::factory()->accepted()->create([
-                'collab_opportunity_id' => $active->id,
+                'kolab_id' => $active->id,
                 'applicant_profile_id' => Profile::factory()->community(),
             ])->id,
             'creator_profile_id' => $active->creator_profile_id,
@@ -109,16 +109,16 @@ class KolabManagementTest extends TestCase
         // Pending-match only (no collab row yet).
         $pendingMatch = $this->kolabWithOpportunity(['title' => 'Pending Match Kolab']);
         Application::factory()->accepted()->create([
-            'collab_opportunity_id' => $pendingMatch->id,
+            'kolab_id' => $pendingMatch->id,
             'applicant_profile_id' => Profile::factory()->community(),
         ]);
 
         // Active collab (post-acceptance, still running).
         $activeCollab = $this->kolabWithOpportunity(['title' => 'Active Collab Kolab']);
         Collaboration::factory()->active()->create([
-            'collab_opportunity_id' => $activeCollab->id,
+            'kolab_id' => $activeCollab->id,
             'application_id' => Application::factory()->accepted()->create([
-                'collab_opportunity_id' => $activeCollab->id,
+                'kolab_id' => $activeCollab->id,
                 'applicant_profile_id' => Profile::factory()->community(),
             ])->id,
             'creator_profile_id' => $activeCollab->creator_profile_id,
@@ -127,9 +127,9 @@ class KolabManagementTest extends TestCase
         // Completed collab (post-acceptance, done).
         $completedCollab = $this->kolabWithOpportunity(['title' => 'Completed Collab Kolab']);
         Collaboration::factory()->completed()->create([
-            'collab_opportunity_id' => $completedCollab->id,
+            'kolab_id' => $completedCollab->id,
             'application_id' => Application::factory()->accepted()->create([
-                'collab_opportunity_id' => $completedCollab->id,
+                'kolab_id' => $completedCollab->id,
                 'applicant_profile_id' => Profile::factory()->community(),
             ])->id,
             'creator_profile_id' => $completedCollab->creator_profile_id,
@@ -152,9 +152,9 @@ class KolabManagementTest extends TestCase
         // Completed collab.
         $completed = $this->kolabWithOpportunity(['title' => 'Completed Done Kolab']);
         Collaboration::factory()->completed()->create([
-            'collab_opportunity_id' => $completed->id,
+            'kolab_id' => $completed->id,
             'application_id' => Application::factory()->accepted()->create([
-                'collab_opportunity_id' => $completed->id,
+                'kolab_id' => $completed->id,
                 'applicant_profile_id' => Profile::factory()->community(),
             ])->id,
             'creator_profile_id' => $completed->creator_profile_id,
@@ -163,9 +163,9 @@ class KolabManagementTest extends TestCase
         // Cancelled collab.
         $cancelled = $this->kolabWithOpportunity(['title' => 'Cancelled Done Kolab']);
         Collaboration::factory()->cancelled()->create([
-            'collab_opportunity_id' => $cancelled->id,
+            'kolab_id' => $cancelled->id,
             'application_id' => Application::factory()->accepted()->create([
-                'collab_opportunity_id' => $cancelled->id,
+                'kolab_id' => $cancelled->id,
                 'applicant_profile_id' => Profile::factory()->community(),
             ])->id,
             'creator_profile_id' => $cancelled->creator_profile_id,
@@ -177,9 +177,9 @@ class KolabManagementTest extends TestCase
         // Still active — should NOT appear under Done.
         $active = $this->kolabWithOpportunity(['title' => 'Still Active Kolab']);
         Collaboration::factory()->active()->create([
-            'collab_opportunity_id' => $active->id,
+            'kolab_id' => $active->id,
             'application_id' => Application::factory()->accepted()->create([
-                'collab_opportunity_id' => $active->id,
+                'kolab_id' => $active->id,
                 'applicant_profile_id' => Profile::factory()->community(),
             ])->id,
             'creator_profile_id' => $active->creator_profile_id,
@@ -209,11 +209,11 @@ class KolabManagementTest extends TestCase
     {
         $kolab = $this->kolabWithOpportunity();
         $application = Application::factory()->accepted()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'applicant_profile_id' => Profile::factory()->community(),
         ]);
         $collaboration = Collaboration::factory()->active()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'application_id' => $application->id,
             'creator_profile_id' => $kolab->creator_profile_id,
             'scheduled_date' => now()->addDays(7),
@@ -251,11 +251,11 @@ class KolabManagementTest extends TestCase
     {
         $kolab = $this->kolabWithOpportunity();
         $application = Application::factory()->accepted()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'applicant_profile_id' => Profile::factory()->community(),
         ]);
         $collaboration = Collaboration::factory()->active()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'application_id' => $application->id,
             'creator_profile_id' => $kolab->creator_profile_id,
         ]);
@@ -274,9 +274,9 @@ class KolabManagementTest extends TestCase
     {
         $kolab = $this->kolabWithOpportunity();
         Collaboration::factory()->active()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'application_id' => Application::factory()->accepted()->create([
-                'collab_opportunity_id' => $kolab->id,
+                'kolab_id' => $kolab->id,
                 'applicant_profile_id' => Profile::factory()->community(),
             ])->id,
             'creator_profile_id' => $kolab->creator_profile_id,

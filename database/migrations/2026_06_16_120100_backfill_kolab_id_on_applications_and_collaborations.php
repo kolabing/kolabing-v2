@@ -9,10 +9,7 @@ use Illuminate\Support\Facades\DB;
  * Phase 1 data backfill. Sets kolab_id = collab_opportunity_id for every row
  * whose collab_opportunity_id is already a real kolab id.
  *
- * This is safe because LegacyOpportunityBridgeService persists the compatibility
- * collab_opportunities row with id = kolab.id (see
- * persistCompatibilityOpportunity / fillFromKolab: `$opportunity->id = $kolab->id`).
- * So for every kolab-originated row, collab_opportunity_id already equals the
+ * This is safe for rows where collab_opportunity_id already equals a canonical
  * kolab id.
  *
  * Rows whose collab_opportunity_id is NOT in kolabs are "true legacy" (pre-bridge

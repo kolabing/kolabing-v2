@@ -7,7 +7,6 @@ namespace App\Services;
 use App\Enums\CollaborationStatus;
 use App\Enums\KolabStatus;
 use App\Enums\NotificationType;
-use App\Enums\OfferStatus;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
 use App\Models\Community;
@@ -115,8 +114,7 @@ class ProfileService
      *   1. Frees the email by scrubbing it to a non-conflicting placeholder so
      *      the address can be re-registered (the unique index on profiles.email
      *      survives the soft delete, so the live value must be released).
-     *   2. Closes the user's open posts (draft/published kolabs and
-     *      collab_opportunities) so they no longer surface anywhere.
+     *   2. Closes the user's open kolabs so they no longer surface anywhere.
      *   3. Cancels the user's scheduled/active collaborations and notifies the
      *      counterparty in-app. Completed collaborations are left intact.
      *   4. Revokes all tokens.
@@ -132,14 +130,10 @@ class ProfileService
                 'email' => "deleted+{$profile->id}@kolabing.invalid",
             ])->save();
 
-            // 2. Close the user's open posts (both post systems).
+            // 2. Close the user's open kolabs.
             $profile->kolabs()
                 ->whereIn('status', [KolabStatus::Draft, KolabStatus::Published])
                 ->update(['status' => KolabStatus::Closed]);
-
-            $profile->createdOpportunities()
-                ->whereIn('status', [OfferStatus::Draft, OfferStatus::Published])
-                ->update(['status' => OfferStatus::Closed]);
 
             // 3. Cancel scheduled/active collaborations and notify the counterparty.
             $this->cancelActiveCollaborations($profile);
@@ -165,7 +159,7 @@ class ProfileService
                 $q->where('creator_profile_id', $profile->id)
                     ->orWhere('applicant_profile_id', $profile->id);
             })
-            ->with(['creatorProfile', 'applicantProfile', 'collabOpportunity'])
+            ->with(['creatorProfile', 'applicantProfile', 'kolab'])
             ->get();
 
         foreach ($collaborations as $collaboration) {
@@ -182,7 +176,7 @@ class ProfileService
                 continue;
             }
 
-            $title = $collaboration->collabOpportunity?->title ?? 'a collaboration';
+            $title = $collaboration->kolab?->title ?? 'a collaboration';
 
             $this->notificationService->createNotification(
                 recipient: $counterparty,
@@ -209,7 +203,7 @@ class ProfileService
                     ->orWhere('applicant_profile_id', $profile->id);
             })
             ->with([
-                'collabOpportunity',
+                'kolab',
                 'event',
                 'creatorProfile.businessProfile',
                 'creatorProfile.communityProfile',
@@ -476,7 +470,7 @@ class ProfileService
                     ->orWhere('applicant_profile_id', $profile->id);
             })
             ->with([
-                'collabOpportunity',
+                'kolab',
                 'creatorProfile.businessProfile',
                 'creatorProfile.communityProfile',
                 'applicantProfile.businessProfile',
@@ -492,7 +486,7 @@ class ProfileService
 
                 return [
                     'id' => $collaboration->id,
-                    'title' => $collaboration->collabOpportunity?->title,
+                    'title' => $collaboration->kolab?->title,
                     'partner_name' => $partner?->getExtendedProfile()?->name,
                     'partner_avatar_url' => $partner?->avatar_url,
                     'completed_at' => $collaboration->completed_at?->toIso8601String(),

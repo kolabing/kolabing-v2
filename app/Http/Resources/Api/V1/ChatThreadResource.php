@@ -52,9 +52,10 @@ class ChatThreadResource extends JsonResource
         }
 
         $application = $this->application;
+        $opportunity = $application->kolab;
         $participants = [
             $application->applicantProfile,
-            $application->collabOpportunity?->creatorProfile,
+            $opportunity?->creatorProfile,
         ];
 
         $summary = [];

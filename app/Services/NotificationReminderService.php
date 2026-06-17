@@ -53,10 +53,15 @@ class NotificationReminderService
 
     public function syncApplicationPendingReminder(Application $application): void
     {
-        $application->loadMissing('collabOpportunity');
+        $application->loadMissing('kolab');
+        $opportunity = $application->kolab;
+
+        if ($opportunity === null) {
+            return;
+        }
 
         $this->syncReminder(
-            profileId: $application->collabOpportunity->creator_profile_id,
+            profileId: $opportunity->creator_profile_id,
             type: NotificationType::ApplicationPending,
             entityId: $application->id,
             entityType: self::ENTITY_APPLICATION,
@@ -248,7 +253,7 @@ class NotificationReminderService
     private function refreshApplicationPendingReminder(NotificationReminder $reminder): bool
     {
         $application = Application::query()
-            ->with('collabOpportunity')
+            ->with('kolab')
             ->find($reminder->entity_id);
 
         if ($application === null || $application->status !== ApplicationStatus::Pending) {
@@ -257,8 +262,15 @@ class NotificationReminderService
             return false;
         }
 
+        $opportunity = $application->kolab;
+        if ($opportunity === null) {
+            $this->cancelExistingReminder($reminder);
+
+            return false;
+        }
+
         $this->syncReminder(
-            profileId: $application->collabOpportunity->creator_profile_id,
+            profileId: $opportunity->creator_profile_id,
             type: NotificationType::ApplicationPending,
             entityId: $application->id,
             entityType: self::ENTITY_APPLICATION,

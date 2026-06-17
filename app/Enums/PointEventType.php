@@ -7,6 +7,7 @@ namespace App\Enums;
 enum PointEventType: string
 {
     case CollaborationComplete = 'collaboration_complete';
+    case KolabPublished = 'kolab_published';
     case FirstKolabBonus = 'first_kolab_bonus';
     case ReviewPosted = 'review_posted';
     case UgcPosted = 'ugc_posted';
@@ -33,6 +34,7 @@ enum PointEventType: string
     {
         return match ($this) {
             self::CollaborationComplete => 10,
+            self::KolabPublished => 30,
             self::FirstKolabBonus => 50,
             self::ReviewPosted => 10,
             self::UgcPosted => 10,

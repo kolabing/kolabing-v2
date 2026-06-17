@@ -39,14 +39,14 @@ class CollaborationCompletionTest extends TestCase
         ]);
 
         $application = Application::factory()->create([
-            'collab_opportunity_id' => $opportunity->id,
+            'kolab_id' => $kolab->id,
             'applicant_profile_id' => $community->id,
             'applicant_profile_type' => UserType::Community,
             'status' => ApplicationStatus::Accepted,
         ]);
 
         $collab = Collaboration::factory()->active()->create([
-            'collab_opportunity_id' => $opportunity->id,
+            'kolab_id' => $kolab->id,
             'application_id' => $application->id,
             'creator_profile_id' => $business->id,
             'applicant_profile_id' => $community->id,

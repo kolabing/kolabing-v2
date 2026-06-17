@@ -36,7 +36,7 @@ class LifecycleTimestampsTest extends TestCase
     {
         $kolab = $this->kolab();
         $application = Application::factory()->pending()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'applicant_profile_id' => Profile::factory()->community(),
             'applicant_profile_type' => UserType::Community,
         ]);
@@ -54,7 +54,7 @@ class LifecycleTimestampsTest extends TestCase
         $kolab = $this->kolab();
         $applicant = Profile::factory()->community()->create();
         $application = Application::factory()->pending()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'applicant_profile_id' => $applicant->id,
             'applicant_profile_type' => UserType::Community,
         ]);
@@ -75,7 +75,7 @@ class LifecycleTimestampsTest extends TestCase
     {
         $kolab = $this->kolab();
         $application = Application::factory()->pending()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'applicant_profile_id' => Profile::factory()->community(),
             'applicant_profile_type' => UserType::Community,
         ]);
@@ -89,7 +89,7 @@ class LifecycleTimestampsTest extends TestCase
     {
         $kolab = $this->kolab();
         $application = Application::factory()->pending()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'applicant_profile_id' => Profile::factory()->community(),
             'applicant_profile_type' => UserType::Community,
         ]);
@@ -103,12 +103,12 @@ class LifecycleTimestampsTest extends TestCase
     {
         $kolab = $this->kolab();
         $application = Application::factory()->accepted()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'applicant_profile_id' => Profile::factory()->community(),
             'applicant_profile_type' => UserType::Community,
         ]);
         $collaboration = Collaboration::factory()->active()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'application_id' => $application->id,
             'creator_profile_id' => $kolab->creator_profile_id,
         ]);
@@ -128,12 +128,12 @@ class LifecycleTimestampsTest extends TestCase
         $kolab = $this->kolab();
         $cancelledBy = Profile::factory()->community()->create();
         $application = Application::factory()->accepted()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'applicant_profile_id' => $cancelledBy->id,
             'applicant_profile_type' => UserType::Community,
         ]);
         $collaboration = Collaboration::factory()->active()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'application_id' => $application->id,
             'creator_profile_id' => $kolab->creator_profile_id,
             'applicant_profile_id' => $cancelledBy->id,

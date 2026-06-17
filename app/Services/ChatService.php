@@ -127,9 +127,9 @@ class ChatService
      *
      * @return array<string, int>
      */
-    public function getUnreadCountByApplication(Profile $profile): array
+    public function getUnreadCountByApplication(Profile $profile, ?Collection $applicationIds = null): array
     {
-        $applicationIds = $this->getParticipatingApplicationIds($profile);
+        $applicationIds ??= $this->getParticipatingApplicationIds($profile);
 
         return ChatMessage::query()
             ->whereIn('application_id', $applicationIds)
@@ -151,8 +151,8 @@ class ChatService
             return false;
         }
 
-        // Load the opportunity with creator
-        $application->loadMissing('collabOpportunity');
+        $application->loadMissing('kolab');
+        $opportunity = $application->kolab;
 
         // Applicant can always participate
         if ($application->applicant_profile_id === $profile->id) {
@@ -160,7 +160,7 @@ class ChatService
         }
 
         // Opportunity creator can participate
-        if ($application->collabOpportunity->creator_profile_id === $profile->id) {
+        if ($opportunity !== null && $opportunity->creator_profile_id === $profile->id) {
             return true;
         }
 
@@ -172,13 +172,18 @@ class ChatService
      */
     public function getOtherParticipant(Profile $profile, Application $application): ?Profile
     {
-        $application->loadMissing(['collabOpportunity.creatorProfile', 'applicantProfile']);
+        $application->loadMissing(['kolab.creatorProfile', 'applicantProfile']);
+        $opportunity = $application->kolab;
 
-        if ($application->applicant_profile_id === $profile->id) {
-            return $application->collabOpportunity->creatorProfile;
+        if ($opportunity === null) {
+            return null;
         }
 
-        if ($application->collabOpportunity->creator_profile_id === $profile->id) {
+        if ($application->applicant_profile_id === $profile->id) {
+            return $opportunity->creatorProfile;
+        }
+
+        if ($opportunity->creator_profile_id === $profile->id) {
             return $application->applicantProfile;
         }
 
@@ -229,8 +234,8 @@ class ChatService
                 'application.collaboration',
                 'application.applicantProfile.businessProfile',
                 'application.applicantProfile.communityProfile',
-                'application.collabOpportunity.creatorProfile.businessProfile',
-                'application.collabOpportunity.creatorProfile.communityProfile',
+                'application.kolab.creatorProfile.businessProfile',
+                'application.kolab.creatorProfile.communityProfile',
             ]);
 
         if ($profile->isBusiness()) {
@@ -239,7 +244,7 @@ class ChatService
 
         $threads = $query->orderByDesc('last_message_at')->get();
 
-        $unreadByApplication = $this->getUnreadCountByApplication($profile);
+        $unreadByApplication = $this->getUnreadCountByApplication($profile, $applicationIds);
 
         foreach ($threads as $thread) {
             $thread->unread_count = $unreadByApplication[$thread->application_id] ?? 0;
@@ -504,7 +509,9 @@ class ChatService
             ])
             ->get();
 
-        $visible = $threads->filter(function (ChatThread $thread) use ($ownedIds, $memberByCommunity, $profile): bool {
+        $bannedThreadIds = $this->bannedThreadIds($profile, $threads);
+
+        $visible = $threads->filter(function (ChatThread $thread) use ($ownedIds, $memberByCommunity, $bannedThreadIds): bool {
             if ($thread->type === ChatThreadType::CommunityMain) {
                 return true; // already scoped to owned/joined communities
             }
@@ -520,16 +527,14 @@ class ChatService
             if ($member->can_manage) {
                 return true;
             }
-            if ($this->isBanned($thread, $profile)) {
+            if ($bannedThreadIds->contains($thread->id)) {
                 return false;
             }
 
             return in_array($thread->slug, $this->tierChatChannels($member->tier), true);
         });
 
-        foreach ($visible as $thread) {
-            $thread->unread_count = $this->unreadForThread($profile, $thread);
-        }
+        $this->attachUnreadCounts($profile, $visible);
 
         return $visible->values();
     }
@@ -611,14 +616,15 @@ class ChatService
                     $query->orWhereIn('community_id', $managedCommunityIds);
                 }
             })
-            ->get()
-            // Per-member block hides the thread from the blocked viewer (managers
-            // are never banned, so this only affects going-but-blocked members).
-            ->reject(fn (ChatThread $thread): bool => $this->isBanned($thread, $profile));
+            ->get();
 
-        foreach ($threads as $thread) {
-            $thread->unread_count = $this->unreadForThread($profile, $thread);
-        }
+        $bannedThreadIds = $this->bannedThreadIds($profile, $threads);
+
+        // Per-member block hides the thread from the blocked viewer (managers
+        // are never banned, so this only affects going-but-blocked members).
+        $threads = $threads->reject(fn (ChatThread $thread): bool => $bannedThreadIds->contains($thread->id));
+
+        $this->attachUnreadCounts($profile, $threads);
 
         return $threads->values();
     }
@@ -875,6 +881,53 @@ class ChatService
     }
 
     /**
+     * @param  Collection<int, ChatThread>  $threads
+     */
+    private function attachUnreadCounts(Profile $profile, Collection $threads): void
+    {
+        $threadIds = $threads->pluck('id')->filter()->values();
+        if ($threadIds->isEmpty()) {
+            return;
+        }
+
+        $counts = ChatMessage::query()
+            ->leftJoin('chat_thread_reads', function ($join) use ($profile): void {
+                $join->on('chat_messages.thread_id', '=', 'chat_thread_reads.thread_id')
+                    ->where('chat_thread_reads.profile_id', '=', $profile->id);
+            })
+            ->whereIn('chat_messages.thread_id', $threadIds)
+            ->where('chat_messages.sender_profile_id', '!=', $profile->id)
+            ->where(function ($query): void {
+                $query->whereNull('chat_thread_reads.last_read_at')
+                    ->orWhereColumn('chat_messages.created_at', '>', 'chat_thread_reads.last_read_at');
+            })
+            ->selectRaw('chat_messages.thread_id, COUNT(*) as aggregate')
+            ->groupBy('chat_messages.thread_id')
+            ->pluck('aggregate', 'chat_messages.thread_id');
+
+        foreach ($threads as $thread) {
+            $thread->unread_count = (int) ($counts[$thread->id] ?? 0);
+        }
+    }
+
+    /**
+     * @param  Collection<int, ChatThread>  $threads
+     * @return Collection<int, string>
+     */
+    private function bannedThreadIds(Profile $profile, Collection $threads): Collection
+    {
+        $threadIds = $threads->pluck('id')->filter()->values();
+        if ($threadIds->isEmpty()) {
+            return collect();
+        }
+
+        return ChatThreadBan::query()
+            ->whereIn('thread_id', $threadIds)
+            ->where('profile_id', $profile->id)
+            ->pluck('thread_id');
+    }
+
+    /**
      * The chat-channel slugs a tier grants (permissions.chat_channels).
      *
      * @return array<int, string>
@@ -920,7 +973,7 @@ class ChatService
 
         // Applications where user is the opportunity creator
         $asCreator = Application::query()
-            ->whereHas('collabOpportunity', function ($q) use ($profile) {
+            ->whereHas('kolab', function ($q) use ($profile): void {
                 $q->where('creator_profile_id', $profile->id);
             })
             ->pluck('id');

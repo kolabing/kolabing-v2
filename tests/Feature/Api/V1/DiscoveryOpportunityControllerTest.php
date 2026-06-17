@@ -10,7 +10,6 @@ use App\Models\City;
 use App\Models\CommunityProfile;
 use App\Models\Kolab;
 use App\Models\Profile;
-use App\Services\LegacyOpportunityBridgeService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
@@ -911,11 +910,8 @@ class DiscoveryOpportunityControllerTest extends TestCase
             'availability_end' => now()->addDays(8),
         ]);
 
-        $compatibilityOpportunity = app(LegacyOpportunityBridgeService::class)
-            ->resolveOrFail($appliedKolab->id, true);
-
         Application::factory()
-            ->forOpportunity($compatibilityOpportunity)
+            ->forKolab($appliedKolab)
             ->forApplicant($viewer)
             ->create();
 
@@ -972,11 +968,8 @@ class DiscoveryOpportunityControllerTest extends TestCase
             'availability_end' => now()->addDays(8),
         ]);
 
-        $compatibilityOpportunity = app(LegacyOpportunityBridgeService::class)
-            ->resolveOrFail($appliedKolab->id, true);
-
         Application::factory()
-            ->forOpportunity($compatibilityOpportunity)
+            ->forKolab($appliedKolab)
             ->forApplicant($viewer)
             ->create();
 

@@ -6,8 +6,10 @@ namespace App\Services;
 
 use App\Enums\IntentType;
 use App\Enums\KolabStatus;
+use App\Enums\PointEventType;
 use App\Exceptions\SubscriptionRequiredException;
 use App\Models\Kolab;
+use App\Models\PointLedger;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,6 +22,7 @@ class KolabService
 {
     public function __construct(
         private readonly NotificationReminderService $notificationReminderService,
+        private readonly GamificationWalletService $walletService,
     ) {}
 
     /**
@@ -39,14 +42,40 @@ class KolabService
     {
         $query = Kolab::query()
             ->where('status', KolabStatus::Published)
-            ->with('creatorProfile');
+            ->withCount('applications')
+            ->with([
+                'creatorProfile' => function ($query) {
+                    $query->with([
+                        'events' => function ($q) {
+                            $q->orderByDesc('event_date')->limit(5);
+                        },
+                        'events.photos' => function ($q) {
+                            $q->orderBy('sort_order')->limit(10);
+                        },
+                        'galleryPhotos' => function ($q) {
+                            $q->orderBy('sort_order')->limit(10);
+                        },
+                    ]);
+                },
+            ]);
 
         $this->applyRecipientVisibilityScope($query, $viewer);
+        $this->excludeAlreadyAppliedKolabs($query, $viewer);
         $this->applyFilters($query, $filters);
 
         return $query
             ->orderByDesc('published_at')
             ->paginate($perPage);
+    }
+
+    private function excludeAlreadyAppliedKolabs(Builder $query, Profile $viewer): void
+    {
+        $query->whereNotExists(function ($subQuery) use ($viewer): void {
+            $subQuery->selectRaw('1')
+                ->from('applications')
+                ->whereColumn('applications.kolab_id', 'kolabs.id')
+                ->where('applications.applicant_profile_id', $viewer->id);
+        });
     }
 
     /**
@@ -58,6 +87,7 @@ class KolabService
     {
         $query = Kolab::query()
             ->where('creator_profile_id', $profile->id)
+            ->withCount('applications')
             ->with('creatorProfile');
 
         if (isset($filters['status']) && $filters['status'] !== '') {
@@ -216,6 +246,7 @@ class KolabService
 
         $kolab->refresh();
         $this->notificationReminderService->syncKolabDraftReminder($kolab);
+        $this->awardPublishXpOnce($kolab);
 
         return $kolab;
     }
@@ -251,7 +282,9 @@ class KolabService
      *     intent_type?: string,
      *     city?: string,
      *     venue_type?: string,
+     *     venue_mode?: string,
      *     product_type?: string,
+     *     categories?: array<string>|string,
      *     needs?: array<string>,
      *     community_types?: array<string>,
      *     search?: string,
@@ -274,8 +307,29 @@ class KolabService
             $query->where('venue_type', $filters['venue_type']);
         }
 
+        if (isset($filters['venue_mode']) && $filters['venue_mode'] !== '') {
+            $venuePreference = match ($filters['venue_mode']) {
+                'business_venue' => 'business_provides',
+                'community_venue' => 'community_provides',
+                default => 'no_venue',
+            };
+            $query->where('venue_preference', $venuePreference);
+        }
+
         if (isset($filters['product_type']) && $filters['product_type'] !== '') {
             $query->where('product_type', $filters['product_type']);
+        }
+
+        if (isset($filters['categories']) && ! empty($filters['categories'])) {
+            $categories = is_array($filters['categories'])
+                ? $filters['categories']
+                : [$filters['categories']];
+
+            $query->where(function (Builder $q) use ($categories) {
+                foreach ($categories as $category) {
+                    $q->orWhereJsonContains('community_types', $category);
+                }
+            });
         }
 
         if (isset($filters['needs']) && ! empty($filters['needs'])) {
@@ -306,6 +360,22 @@ class KolabService
                     $q->whereRaw('LOWER(kolabs.title) LIKE ?', [$searchTerm])
                         ->orWhereRaw('LOWER(kolabs.description) LIKE ?', [$searchTerm]);
                 }
+
+                $q->orWhereHas('creatorProfile.businessProfile', function (Builder $bq) use ($searchTerm, $likeOperator) {
+                    if ($likeOperator === 'ilike') {
+                        $bq->where('name', 'ilike', $searchTerm);
+                    } else {
+                        $bq->whereRaw('LOWER(name) LIKE ?', [$searchTerm]);
+                    }
+                });
+
+                $q->orWhereHas('creatorProfile.communityProfile', function (Builder $cq) use ($searchTerm, $likeOperator) {
+                    if ($likeOperator === 'ilike') {
+                        $cq->where('name', 'ilike', $searchTerm);
+                    } else {
+                        $cq->whereRaw('LOWER(name) LIKE ?', [$searchTerm]);
+                    }
+                });
             });
         }
     }
@@ -329,6 +399,26 @@ class KolabService
         $driver = DB::connection()->getDriverName();
 
         return $driver === 'pgsql' ? 'ilike' : 'like';
+    }
+
+    private function awardPublishXpOnce(Kolab $kolab): void
+    {
+        $alreadyAwarded = PointLedger::query()
+            ->where('profile_id', $kolab->creator_profile_id)
+            ->where('event_type', PointEventType::KolabPublished)
+            ->where('reference_id', $kolab->id)
+            ->exists();
+
+        if ($alreadyAwarded) {
+            return;
+        }
+
+        $this->walletService->awardPoints(
+            $kolab->creator_profile_id,
+            PointEventType::KolabPublished,
+            $kolab->id,
+            'Kolab published'
+        );
     }
 
     /**

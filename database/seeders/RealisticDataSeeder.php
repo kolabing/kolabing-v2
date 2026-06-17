@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
-use App\Enums\OfferStatus;
+use App\Enums\IntentType;
+use App\Enums\KolabStatus;
 use App\Enums\UserType;
 use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
 use App\Models\City;
-use App\Models\CollabOpportunity;
 use App\Models\CommunityProfile;
 use App\Models\Event;
 use App\Models\EventPhoto;
+use App\Models\Kolab;
 use App\Models\Profile;
 use App\Models\ProfileGalleryPhoto;
 use Illuminate\Database\Seeder;
@@ -53,7 +54,7 @@ class RealisticDataSeeder extends Seeder
         $this->command->info('  Events: '.Event::query()->count());
         $this->command->info('  Event Photos: '.EventPhoto::query()->count());
         $this->command->info('  Gallery Photos: '.ProfileGalleryPhoto::query()->count());
-        $this->command->info('  Opportunities: '.CollabOpportunity::query()->count());
+        $this->command->info('  Kolabs: '.Kolab::query()->count());
     }
 
     /**
@@ -728,22 +729,27 @@ class RealisticDataSeeder extends Seeder
             foreach ($opportunities as $opp) {
                 $cityName = $opp['preferred_city'];
 
-                CollabOpportunity::query()->create([
+                Kolab::query()->create([
                     'creator_profile_id' => $profileData['profile']->id,
-                    'creator_profile_type' => UserType::Business,
+                    'intent_type' => IntentType::VenuePromotion,
                     'title' => $opp['title'],
                     'description' => $opp['description'],
-                    'status' => OfferStatus::Published,
-                    'business_offer' => $opp['business_offer'],
-                    'community_deliverables' => $opp['community_deliverables'],
-                    'categories' => $opp['categories'],
+                    'status' => KolabStatus::Published,
+                    'offering' => $opp['business_offer'],
+                    'expects' => $opp['community_deliverables'],
+                    'community_types' => $opp['categories'],
                     'availability_mode' => 'flexible',
                     'availability_start' => now()->addDays(rand(3, 14))->toDateString(),
                     'availability_end' => now()->addDays(rand(30, 60))->toDateString(),
-                    'venue_mode' => $opp['venue_mode'],
-                    'address' => $this->randomSpanishAddress(),
+                    'venue_preference' => $this->mapDemoVenuePreference($opp['venue_mode']),
+                    'venue_address' => $this->randomSpanishAddress(),
                     'preferred_city' => $cityName,
-                    'offer_photo' => 'https://picsum.photos/seed/offer-'.$this->offerPhotoCounter++.'/800/600',
+                    'media' => [[
+                        'url' => 'https://picsum.photos/seed/offer-'.$this->offerPhotoCounter++.'/800/600',
+                        'type' => 'image',
+                        'thumbnail_url' => null,
+                        'sort_order' => 0,
+                    ]],
                     'published_at' => now()->subDays(rand(1, 30)),
                 ]);
             }
@@ -917,26 +923,40 @@ class RealisticDataSeeder extends Seeder
             $opportunities = $opportunitySets[$index] ?? $opportunitySets[0];
 
             foreach ($opportunities as $opp) {
-                CollabOpportunity::query()->create([
+                Kolab::query()->create([
                     'creator_profile_id' => $profileData['profile']->id,
-                    'creator_profile_type' => UserType::Community,
+                    'intent_type' => IntentType::CommunitySeeking,
                     'title' => $opp['title'],
                     'description' => $opp['description'],
-                    'status' => OfferStatus::Published,
-                    'business_offer' => $opp['business_offer'],
-                    'community_deliverables' => $opp['community_deliverables'],
-                    'categories' => $opp['categories'],
+                    'status' => KolabStatus::Published,
+                    'offers_in_return' => $opp['business_offer'],
+                    'needs' => $opp['community_deliverables'],
+                    'community_types' => $opp['categories'],
                     'availability_mode' => 'flexible',
                     'availability_start' => now()->addDays(rand(3, 14))->toDateString(),
                     'availability_end' => now()->addDays(rand(30, 60))->toDateString(),
-                    'venue_mode' => 'partner_venue',
-                    'address' => null,
+                    'venue_preference' => 'business_provides',
+                    'venue_address' => null,
                     'preferred_city' => $opp['preferred_city'],
-                    'offer_photo' => 'https://picsum.photos/seed/offer-'.$this->offerPhotoCounter++.'/800/600',
+                    'media' => [[
+                        'url' => 'https://picsum.photos/seed/offer-'.$this->offerPhotoCounter++.'/800/600',
+                        'type' => 'image',
+                        'thumbnail_url' => null,
+                        'sort_order' => 0,
+                    ]],
                     'published_at' => now()->subDays(rand(1, 30)),
                 ]);
             }
         }
+    }
+
+    private function mapDemoVenuePreference(string $legacyVenueMode): string
+    {
+        return match ($legacyVenueMode) {
+            'our_venue', 'business_venue' => 'business_provides',
+            'community_venue', 'partner_venue' => 'community_provides',
+            default => 'no_venue',
+        };
     }
 
     /**

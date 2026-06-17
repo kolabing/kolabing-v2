@@ -133,8 +133,14 @@ class OneSignalService
      */
     private function filterMessageOptions(array $messageOptions): array
     {
-        return collect($messageOptions)
+        $options = collect($messageOptions)
             ->filter(fn (mixed $value, string $key): bool => in_array($key, self::MESSAGE_OPTION_KEYS, true) && $value !== null)
             ->all();
+
+        if (isset($options['subtitle']) && is_string($options['subtitle'])) {
+            $options['subtitle'] = ['en' => $options['subtitle']];
+        }
+
+        return $options;
     }
 }

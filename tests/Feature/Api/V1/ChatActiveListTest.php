@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Enums\ChatThreadType;
 use App\Models\Application;
+use App\Models\ChatMessage;
 use App\Models\ChatThread;
 use App\Models\CollabOpportunity;
+use App\Models\Community;
+use App\Models\CommunityMember;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ChatActiveListTest extends TestCase
@@ -72,6 +77,58 @@ class ChatActiveListTest extends TestCase
             ->assertJsonPath('data.0.type', 'collaboration')
             ->assertJsonPath('data.0.application_id', $application->id)
             ->assertJsonPath('data.0.unread_count', 1);
+    }
+
+    public function test_active_chats_bulk_loads_community_thread_unread_counts(): void
+    {
+        $member = Profile::factory()->attendee()->create();
+        $sender = Profile::factory()->community()->create();
+
+        for ($i = 0; $i < 3; $i++) {
+            $community = Community::factory()->create();
+            CommunityMember::factory()->forCommunity($community)->create([
+                'profile_id' => $member->id,
+                'status' => 'active',
+            ]);
+
+            $thread = ChatThread::query()->create([
+                'type' => ChatThreadType::CommunityMain->value,
+                'community_id' => $community->id,
+                'name' => "Community {$i}",
+                'last_message_at' => now()->addMinutes($i),
+            ]);
+
+            ChatMessage::query()->create([
+                'application_id' => Application::factory()->create()->id,
+                'thread_id' => $thread->id,
+                'sender_profile_id' => $sender->id,
+                'content' => "Message {$i}",
+            ]);
+        }
+
+        $threadReadQueries = 0;
+        $threadMessageCountQueries = 0;
+        DB::listen(function ($query) use (&$threadReadQueries, &$threadMessageCountQueries): void {
+            if (str_contains($query->sql, 'from "chat_thread_reads"')) {
+                $threadReadQueries++;
+            }
+
+            if (str_contains($query->sql, 'count(*) as aggregate')
+                && str_contains($query->sql, 'from "chat_messages"')
+                && str_contains($query->sql, '"thread_id" = ?')) {
+                $threadMessageCountQueries++;
+            }
+        });
+
+        $this->actingAs($member)->getJson('/api/v1/chats')
+            ->assertStatus(200)
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('data.0.unread_count', 1)
+            ->assertJsonPath('data.1.unread_count', 1)
+            ->assertJsonPath('data.2.unread_count', 1);
+
+        $this->assertLessThanOrEqual(1, $threadReadQueries);
+        $this->assertSame(0, $threadMessageCountQueries);
     }
 
     public function test_unread_count_endpoint_totals_across_threads(): void

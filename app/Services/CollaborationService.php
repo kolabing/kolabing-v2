@@ -42,7 +42,7 @@ class CollaborationService
 
         $paginator = $query
             ->with([
-                'collabOpportunity',
+                'kolab',
                 'kolab.creatorProfile',
                 // The collaboration's own business/community profiles carry the
                 // partner logo (profile_photo) the Active/Finished cards show —
@@ -57,6 +57,7 @@ class CollaborationService
                 'application',
                 'challenges',
                 'challengeBonuses',
+                'feedbacks',
                 'reviews',
             ])
             ->orderByDesc('created_at')
@@ -74,7 +75,7 @@ class CollaborationService
     {
         $collaboration = Collaboration::query()
             ->with([
-                'collabOpportunity',
+                'kolab',
                 'kolab.creatorProfile',
                 // The collaboration's own business/community profiles carry the
                 // partner logo (profile_photo) the Active/Finished cards show —
@@ -89,6 +90,7 @@ class CollaborationService
                 'application',
                 'challenges',
                 'challengeBonuses',
+                'feedbacks',
                 'reviews',
             ])
             ->findOrFail($id);
@@ -117,7 +119,7 @@ class CollaborationService
         ]);
 
         return $collaboration->fresh([
-            'collabOpportunity',
+            'kolab',
             'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
@@ -156,7 +158,7 @@ class CollaborationService
         ]);
 
         return $collaboration->fresh([
-            'collabOpportunity',
+            'kolab',
             'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
@@ -184,7 +186,7 @@ class CollaborationService
         ]);
 
         return $collaboration->fresh([
-            'collabOpportunity',
+            'kolab',
             'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
@@ -211,7 +213,7 @@ class CollaborationService
         ]);
 
         return $collaboration->fresh([
-            'collabOpportunity',
+            'kolab',
             'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
@@ -260,7 +262,7 @@ class CollaborationService
         ]);
 
         $fresh = $collaboration->fresh([
-            'collabOpportunity',
+            'kolab',
             'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
@@ -271,7 +273,7 @@ class CollaborationService
 
         $this->postHog->capture($distinctProfile, 'collaboration_cancelled_server_side', [
             'collaboration_id' => $fresh->id,
-            'kolab_id' => $fresh->collab_opportunity_id,
+            'kolab_id' => $fresh->kolab_id,
             'cancelled_by_profile_id' => $cancelledBy?->id,
             'cancelled_by_role' => $cancelledBy?->user_type->value ?? 'maintainer',
         ]);
@@ -300,9 +302,13 @@ class CollaborationService
             throw CollaborationException::collaborationAlreadyExists();
         }
 
-        $application->loadMissing(['collabOpportunity.creatorProfile', 'applicantProfile']);
+        $application->loadMissing(['kolab.creatorProfile', 'applicantProfile']);
 
-        $opportunity = $application->collabOpportunity;
+        $opportunity = $application->kolab;
+        if ($opportunity === null) {
+            throw CollaborationException::applicationNotAccepted();
+        }
+
         $creatorProfile = $opportunity->creatorProfile;
         $applicantProfile = $application->applicantProfile;
 
@@ -311,7 +317,6 @@ class CollaborationService
 
         return DB::transaction(function () use (
             $application,
-            $opportunity,
             $creatorProfile,
             $applicantProfile,
             $businessProfileId,
@@ -320,7 +325,8 @@ class CollaborationService
         ): Collaboration {
             $collaboration = Collaboration::create([
                 'application_id' => $application->id,
-                'collab_opportunity_id' => $opportunity->id,
+                'collab_opportunity_id' => null,
+                'kolab_id' => $application->kolab_id,
                 'creator_profile_id' => $creatorProfile->id,
                 'applicant_profile_id' => $applicantProfile->id,
                 'business_profile_id' => $businessProfileId,
@@ -336,7 +342,7 @@ class CollaborationService
                 ->seedForCollaboration($collaboration);
 
             return $collaboration->load([
-                'collabOpportunity',
+                'kolab',
                 'kolab.creatorProfile',
                 'creatorProfile',
                 'applicantProfile',
