@@ -10,7 +10,6 @@ use Illuminate\Http\Resources\Json\JsonResource;
 /**
  * Lightweight opportunity resource for nested data in other resources.
  * Used within ApplicationResource and CollaborationResource to prevent deep nesting.
- *
  */
 class OpportunitySummaryResource extends JsonResource
 {

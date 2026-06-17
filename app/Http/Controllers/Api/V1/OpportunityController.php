@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\IntentType;
+use App\Exceptions\SubscriptionRequiredException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\CreateOpportunityRequest;
 use App\Http\Requests\Api\V1\UpdateOpportunityRequest;
 use App\Http\Resources\Api\V1\KolabCollection;
 use App\Http\Resources\Api\V1\KolabResource;
-use App\Enums\IntentType;
-use App\Exceptions\SubscriptionRequiredException;
 use App\Models\Kolab;
 use App\Models\Profile;
 use App\Services\KolabService;
