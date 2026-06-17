@@ -209,6 +209,130 @@ class CommunityVerificationTest extends TestCase
         $this->assertSame('verified', $resource['verification_status']);
     }
 
+    public function test_is_public_persists_on_registration_default_false_when_absent(): void
+    {
+        $city = City::factory()->create();
+
+        $response = $this->postJson('/api/v1/auth/register/community', [
+            'email' => 'pub@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Public Channels Club',
+            'community_type' => 'run_club',
+            'city_id' => $city->id,
+            'verification_channels' => [
+                ['type' => 'instagram', 'url' => 'https://instagram.com/pub', 'is_public' => true],
+                ['type' => 'email', 'url' => 'owner@club.example.com'], // is_public absent => false
+            ],
+        ]);
+
+        $response->assertStatus(201);
+
+        $profile = Profile::where('email', 'pub@example.com')->firstOrFail();
+        $channels = $profile->communityProfile->verification_channels;
+
+        $this->assertTrue($channels[0]['is_public']);
+        $this->assertFalse($channels[1]['is_public']);
+        $this->assertSame('email', $channels[1]['type']);
+    }
+
+    public function test_register_community_accepts_email_and_phone_channel_types(): void
+    {
+        $city = City::factory()->create();
+
+        $response = $this->postJson('/api/v1/auth/register/community', [
+            'email' => 'contact@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Contact Club',
+            'community_type' => 'run_club',
+            'city_id' => $city->id,
+            'verification_channels' => [
+                ['type' => 'email', 'url' => 'hello@contactclub.example.com', 'is_public' => true],
+                ['type' => 'phone', 'url' => '+34612345678', 'is_public' => false],
+            ],
+        ]);
+
+        $response->assertStatus(201);
+    }
+
+    public function test_owner_profile_includes_full_channels_with_is_public_and_public_channels(): void
+    {
+        $profile = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $profile->id,
+            'verification_status' => VerificationStatus::Verified->value,
+            'verified_at' => now(),
+            'verification_channels' => [
+                ['type' => 'instagram', 'url' => 'https://instagram.com/owner', 'is_public' => true],
+                ['type' => 'phone', 'url' => '+34600000000', 'is_public' => false],
+            ],
+        ]);
+
+        $response = $this->actingAs($profile)->getJson('/api/v1/me/profile');
+
+        $response->assertOk()
+            // Owner gets the FULL list (with is_public per item).
+            ->assertJsonPath('data.community_profile.verification_channels.0.is_public', true)
+            ->assertJsonPath('data.community_profile.verification_channels.1.is_public', false)
+            ->assertJsonPath('data.community_profile.verification_channels.1.type', 'phone')
+            // Owner ALSO gets public_channels (the compact widget row).
+            ->assertJsonPath('data.community_profile.public_channels.0.type', 'instagram')
+            ->assertJsonCount(1, 'data.community_profile.public_channels');
+
+        // public_channels never leaks is_public or the private item.
+        $public = $response->json('data.community_profile.public_channels');
+        $this->assertArrayNotHasKey('is_public', $public[0]);
+        $this->assertSame('instagram', $public[0]['type']);
+    }
+
+    public function test_non_owner_business_gets_public_channels_only_and_no_private_data(): void
+    {
+        $community = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $community->id,
+            'verification_status' => VerificationStatus::Verified->value,
+            'verification_channels' => [
+                ['type' => 'instagram', 'url' => 'https://instagram.com/biz-sees', 'is_public' => true],
+                ['type' => 'phone', 'url' => '+34611111111', 'is_public' => false],
+            ],
+        ]);
+
+        $business = Profile::factory()->business()->create();
+
+        $community->load('communityProfile');
+        $resource = (new \App\Http\Resources\Api\V1\CommunityPublicProfileResource($community))
+            ->toArray(\Illuminate\Http\Request::create('/', 'GET')->setUserResolver(fn () => $business));
+
+        // Always present: is_verified + public_channels (public items only).
+        $this->assertTrue($resource['is_verified']);
+        $this->assertCount(1, $resource['public_channels']);
+        $this->assertSame('instagram', $resource['public_channels'][0]['type']);
+        $this->assertArrayNotHasKey('is_public', $resource['public_channels'][0]);
+
+        // Private fields are NOT exposed to a non-owner viewer.
+        $this->assertArrayNotHasKey('verification_channels', $resource);
+        $this->assertArrayNotHasKey('verification_flagged_at', $resource);
+    }
+
+    public function test_register_community_still_requires_at_least_one_channel_when_present(): void
+    {
+        $city = City::factory()->create();
+
+        $response = $this->postJson('/api/v1/auth/register/community', [
+            'email' => 'empty@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'name' => 'Empty Channels Club',
+            'community_type' => 'run_club',
+            'city_id' => $city->id,
+            'verification_channels' => [],
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonStructure(['errors' => ['verification_channels']]);
+    }
+
     public function test_admin_verification_index_pending_filter(): void
     {
         $pending = Profile::factory()->community()->create();
