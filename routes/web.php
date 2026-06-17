@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
 use App\Http\Controllers\Admin\ChallengeController as AdminChallengeController;
 use App\Http\Controllers\Admin\ChallengeDefaultsController as AdminChallengeDefaultsController;
+use App\Http\Controllers\Admin\CommunityVerificationController as AdminCommunityVerificationController;
 use App\Http\Controllers\Admin\CrmController as AdminCrmController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\GamificationController as AdminGamificationController;
@@ -41,6 +42,12 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::delete('/users/{profile}', [ManagedUserController::class, 'destroy'])->name('users.destroy');
     Route::post('/users/{profile}/subscription/grant', [ManagedUserController::class, 'grantSubscription'])->name('users.subscription.grant');
     Route::post('/users/{profile}/subscription/revoke', [ManagedUserController::class, 'revokeSubscription'])->name('users.subscription.revoke');
+
+    // Community verification — submit proof channels (mobile), maintainer verifies
+    // / rejects here. State lives on community_profiles.verification_*.
+    Route::get('/community-verification', [AdminCommunityVerificationController::class, 'index'])->name('community-verification.index');
+    Route::post('/users/{profile}/verification/verify', [AdminCommunityVerificationController::class, 'verify'])->name('users.verification.verify');
+    Route::post('/users/{profile}/verification/reject', [AdminCommunityVerificationController::class, 'reject'])->name('users.verification.reject');
 
     Route::get('/kolabs', [AdminKolabController::class, 'index'])->name('kolabs.index');
     Route::get('/kolabs/{kolab}/edit', [AdminKolabController::class, 'edit'])->name('kolabs.edit');
