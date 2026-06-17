@@ -45,11 +45,21 @@
             @if (count($channels) > 0)
                 <ul class="list-unstyled mb-3">
                     @foreach ($channels as $channel)
+                        @php $isPublic = filter_var($channel['is_public'] ?? false, FILTER_VALIDATE_BOOLEAN); @endphp
                         <li class="mb-1">
                             <span class="badge badge-light text-uppercase mr-1">{{ $channel['type'] ?? '—' }}</span>
                             <a href="{{ $channel['url'] ?? '#' }}" target="_blank" rel="noopener noreferrer">
                                 {{ $channel['url'] ?? '—' }}
                             </a>
+                            @if ($isPublic)
+                                <span class="badge badge-success ml-1" title="Visible to businesses">
+                                    <i class="fas fa-eye"></i> Public
+                                </span>
+                            @else
+                                <span class="badge badge-secondary ml-1" title="Hidden from businesses (verification only)">
+                                    <i class="fas fa-eye-slash"></i> Private
+                                </span>
+                            @endif
                         </li>
                     @endforeach
                 </ul>

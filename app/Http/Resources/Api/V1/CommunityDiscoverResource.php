@@ -35,9 +35,11 @@ class CommunityDiscoverResource extends JsonResource
             'is_featured' => $this->is_featured,
             'matched' => (bool) ($this->getAttribute('interest_matched') ?? false),
             'leader_name' => $this->resolveLeaderName(),
-            // Verified tick for the discover card. Channels are never exposed here.
+            // Verified tick for the discover card. Private channels are never
+            // exposed here; only the community's public channels { type, url }.
             'verification_status' => $this->resolveVerificationStatus(),
             'is_verified' => $this->resolveVerificationStatus() === VerificationStatus::Verified->value,
+            'public_channels' => $this->communityProfile?->publicChannels() ?? [],
         ];
     }
 
