@@ -26,6 +26,8 @@ enum NotificationType: string
     case CommunityJoinRequested = 'community_join_requested';
     case CommunityJoinApproved = 'community_join_approved';
     case CommunityJoinDeclined = 'community_join_declined';
+    case CommunityVerified = 'community_verified';
+    case CommunityVerificationRejected = 'community_verification_rejected';
 
     /**
      * @return array<string>
