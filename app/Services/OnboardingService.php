@@ -373,7 +373,7 @@ class OnboardingService
             // Update community profile
             $communityProfile = $profile->communityProfile;
             $resolvedPhoto = $profilePhotoUrl ?? $communityProfile->profile_photo;
-            $communityProfile->update([
+            $communityProfile->fill([
                 'name' => $data['name'],
                 'about' => $data['about'] ?? null,
                 'community_type' => $data['community_type'],
@@ -384,6 +384,16 @@ class OnboardingService
                 'website' => $data['website'] ?? null,
                 'profile_photo' => $resolvedPhoto,
             ]);
+
+            // Verification: when proof channels are submitted during onboarding,
+            // run the shared transition (unverified/rejected → pending; verified
+            // stays verified but is flagged for admin re-check).
+            $channels = $data['verification_channels'] ?? null;
+            if (is_array($channels) && $channels !== []) {
+                $communityProfile->applyVerificationChannelSubmission($channels);
+            }
+
+            $communityProfile->save();
 
             // Auto-provision the management community (the member/attendee roster
             // + main chat) the first time a community onboards, so they never

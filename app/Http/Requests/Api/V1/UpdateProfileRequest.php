@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Http\Requests\Concerns\ValidatesVerificationChannels;
 use App\Models\Profile;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateProfileRequest extends FormRequest
 {
+    use ValidatesVerificationChannels;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -112,7 +115,18 @@ class UpdateProfileRequest extends FormRequest
             'tiktok' => ['nullable', 'string', 'max:255'],
             'website' => ['nullable', 'string', 'max:255', 'url'],
             'profile_photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
+            ...$this->verificationChannelRules(),
         ];
+    }
+
+    /**
+     * Custom validation messages.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return $this->verificationChannelMessages();
     }
 
     /**

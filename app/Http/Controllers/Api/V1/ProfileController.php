@@ -153,6 +153,23 @@ class ProfileController extends Controller
             $extendedProfileData['profile_photo'] = $url;
         }
 
+        // Verification: communities can submit/edit their proof channels via the
+        // profile edit. Run the shared transition (unverified/rejected → pending;
+        // verified stays verified but is flagged for admin re-check) BEFORE the
+        // generic update so the resolved status/flag persist alongside the rest.
+        if ($profile->isCommunity()) {
+            $channels = $request->verificationChannels();
+
+            if ($channels !== null && $channels !== [] && $profile->communityProfile) {
+                $profile->communityProfile->applyVerificationChannelSubmission($channels);
+
+                $extendedProfileData['verification_channels'] = $profile->communityProfile->verification_channels;
+                $extendedProfileData['verification_status'] = $profile->communityProfile->verification_status;
+                $extendedProfileData['verification_flagged_at'] = $profile->communityProfile->verification_flagged_at;
+                $extendedProfileData['rejection_reason'] = $profile->communityProfile->rejection_reason;
+            }
+        }
+
         $profile = $this->profileService->updateProfile(
             $profile,
             $profileData,

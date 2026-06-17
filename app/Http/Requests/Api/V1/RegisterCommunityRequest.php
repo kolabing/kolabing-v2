@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Enums\VerificationStatus;
+use App\Http\Requests\Concerns\ValidatesVerificationChannels;
 use App\Support\ApiDebugLogger;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -11,6 +13,8 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 
 class RegisterCommunityRequest extends FormRequest
 {
+    use ValidatesVerificationChannels;
+
     /**
      * Valid community types.
      *
@@ -65,6 +69,7 @@ class RegisterCommunityRequest extends FormRequest
             'tiktok' => ['nullable', 'string', 'max:255', 'regex:/^@?[a-zA-Z0-9._]+$/'],
             'website' => ['nullable', 'url', 'max:255'],
             'profile_photo' => ['nullable', 'string'],
+            ...$this->verificationChannelRules(),
         ];
     }
 
@@ -76,6 +81,7 @@ class RegisterCommunityRequest extends FormRequest
     public function messages(): array
     {
         return [
+            ...$this->verificationChannelMessages(),
             'email.required' => __('The email field is required'),
             'email.email' => __('The email must be a valid email address'),
             'email.unique' => __('This email is already registered'),
@@ -152,7 +158,7 @@ class RegisterCommunityRequest extends FormRequest
     {
         $validated = $this->validated();
 
-        return [
+        $data = [
             'name' => $validated['name'],
             'about' => $validated['about'] ?? null,
             'community_type' => $validated['community_type'],
@@ -163,5 +169,15 @@ class RegisterCommunityRequest extends FormRequest
             'website' => $validated['website'] ?? null,
             'profile_photo' => $validated['profile_photo'] ?? null,
         ];
+
+        // A fresh community is always unverified, so submitting channels at
+        // registration moves it straight to pending review.
+        $channels = $this->verificationChannels();
+        if ($channels !== null && $channels !== []) {
+            $data['verification_channels'] = $channels;
+            $data['verification_status'] = VerificationStatus::Pending->value;
+        }
+
+        return $data;
     }
 }
