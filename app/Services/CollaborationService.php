@@ -44,6 +44,12 @@ class CollaborationService
             ->with([
                 'collabOpportunity',
                 'kolab.creatorProfile',
+                // The collaboration's own business/community profiles carry the
+                // partner logo (profile_photo) the Active/Finished cards show —
+                // load them so CollaborationResource surfaces business_profile /
+                // community_profile (otherwise whenLoaded omits them -> no photo).
+                'businessProfile',
+                'communityProfile',
                 'creatorProfile.businessProfile.city',
                 'creatorProfile.communityProfile.city',
                 'applicantProfile.businessProfile.city',
@@ -70,6 +76,12 @@ class CollaborationService
             ->with([
                 'collabOpportunity',
                 'kolab.creatorProfile',
+                // The collaboration's own business/community profiles carry the
+                // partner logo (profile_photo) the Active/Finished cards show —
+                // load them so CollaborationResource surfaces business_profile /
+                // community_profile (otherwise whenLoaded omits them -> no photo).
+                'businessProfile',
+                'communityProfile',
                 'creatorProfile.businessProfile.city',
                 'creatorProfile.communityProfile.city',
                 'applicantProfile.businessProfile.city',
