@@ -17,6 +17,39 @@ where that ticket stands and what's next, then help with it.
 
 ---
 
+## MUST FOLLOW — Pull requests & branching (every change that ships)
+
+`master` is a **protected branch**: no direct pushes, and **only `olucvolkan` can
+merge**. All work lands through a pull request.
+
+- **Never commit or push to `master` directly.** Create a feature/fix branch
+  (`feat/…`, `fix/…`, `chore/…`) and open a PR into `master`.
+- **Every PR MUST use the repository PR template**
+  ([`.github/pull_request_template.md`](.github/pull_request_template.md)) and
+  **every mandatory section MUST be filled in** before review. Sections marked
+  REQUIRED are non-negotiable; if one does not apply, write `N/A` with a one-line
+  reason — never leave it blank. Do not delete template headings.
+- **Mobile impact is mandatory.** If a change touches the API contract (JSON payload
+  shape, new/renamed endpoints, enum values, auth, or error codes), the PR MUST say
+  so in the *Mobile impact (kolabing-app)* section, describe the contract change, and
+  link the corresponding `kolabing-app` ticket/PR. "No mobile changes required" must
+  be an explicit, deliberate choice — not an omission.
+- **Link the tracking item.** Every PR must reference its GitHub Projects item /
+  issue with a closing keyword (`Closes #123`). New work starts as a Projects item
+  first (see below), then a branch, then a PR.
+- Before requesting review: `php artisan test` green and `vendor/bin/pint` clean,
+  with counts pasted into the *Testing* section.
+- Keep the docs-sync rules in this file satisfied (BACKLOG, ROLES docs,
+  BACKEND-SCHEMA) and tick them in the PR template's *Docs & rules updated* section.
+
+### Project tracking (GitHub Projects)
+Every new piece of work — feature, fix, or chore — is tracked as an item on the
+repo's GitHub Project board before/while it is built, and its PR links back to that
+item. The board is the live view of what is in flight; `BACKLOG.md` remains the
+narrative source of truth and must stay in sync with it.
+
+---
+
 ## MUST READ — Backlog (every session, before anything else)
 
 At the START of every session, read [BACKLOG.md](BACKLOG.md) and list its current
