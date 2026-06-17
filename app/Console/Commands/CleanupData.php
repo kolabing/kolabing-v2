@@ -6,8 +6,6 @@ namespace App\Console\Commands;
 
 use App\Enums\CollaborationStatus;
 use App\Enums\KolabStatus;
-use App\Enums\OfferStatus;
-use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
 use App\Models\Kolab;
 use Illuminate\Console\Command;
@@ -44,9 +42,6 @@ class CleanupData extends Command
         $orphanKolabs = Kolab::whereDoesntHave('creatorProfile')
             ->whereIn('status', [KolabStatus::Draft, KolabStatus::Published])
             ->get();
-        $orphanOpps = CollabOpportunity::whereDoesntHave('creatorProfile')
-            ->whereIn('status', [OfferStatus::Draft, OfferStatus::Published])
-            ->get();
         // Orphaned active collaborations (a participant was deleted) -> cancel.
         $orphanCollabs = Collaboration::where(fn ($q) => $q
             ->whereDoesntHave('creatorProfile')
@@ -55,7 +50,6 @@ class CleanupData extends Command
             ->get();
 
         $this->section('Orphaned kolabs (deleted creator)', $orphanKolabs, fn ($k) => "{$k->id} :: ".$this->trim($k->title));
-        $this->section('Orphaned opportunities (deleted creator)', $orphanOpps, fn ($o) => "{$o->id} :: ".$this->trim($o->title));
         $this->section('Orphaned active collaborations', $orphanCollabs, fn ($c) => "{$c->id} (status {$c->status->value})");
 
         // 2) Test-data kolabs (heuristic) -> close (or hard-delete with --delete-test).
@@ -70,12 +64,9 @@ class CleanupData extends Command
             return self::SUCCESS;
         }
 
-        DB::transaction(function () use ($orphanKolabs, $orphanOpps, $orphanCollabs, $testKolabs, $deleteTest): void {
+        DB::transaction(function () use ($orphanKolabs, $orphanCollabs, $testKolabs, $deleteTest): void {
             foreach ($orphanKolabs as $k) {
                 $k->update(['status' => KolabStatus::Closed]);
-            }
-            foreach ($orphanOpps as $o) {
-                $o->update(['status' => OfferStatus::Closed]);
             }
             foreach ($orphanCollabs as $c) {
                 $c->update(['status' => CollaborationStatus::Cancelled]);

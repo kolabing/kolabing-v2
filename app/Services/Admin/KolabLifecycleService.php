@@ -152,12 +152,9 @@ class KolabLifecycleService
 
         $collaborations = Collaboration::query()
             ->with(['businessProfile', 'communityProfile'])
-            ->where(function ($query) use ($ids): void {
-                $query->whereIn('kolab_id', $ids)
-                    ->orWhereIn('collab_opportunity_id', $ids);
-            })
+            ->whereIn('kolab_id', $ids)
             ->get()
-            ->keyBy(fn (Collaboration $collaboration): ?string => $collaboration->kolab_id ?? $collaboration->collab_opportunity_id);
+            ->keyBy('kolab_id');
 
         return collect($kolabs)->mapWithKeys(function (Kolab $kolab) use ($collaborations): array {
             $collaboration = $collaborations->get($kolab->id);
@@ -195,10 +192,7 @@ class KolabLifecycleService
 
         Application::query()
             ->toBase()
-            ->where(function ($query) use ($kolab): void {
-                $query->where('kolab_id', $kolab->id)
-                    ->orWhere('collab_opportunity_id', $kolab->id);
-            })
+            ->where('kolab_id', $kolab->id)
             ->selectRaw('status, count(*) as total')
             ->groupBy('status')
             ->get()
@@ -208,20 +202,14 @@ class KolabLifecycleService
 
         $recent = Application::query()
             ->with('applicantProfile.businessProfile', 'applicantProfile.communityProfile')
-            ->where(function ($query) use ($kolab): void {
-                $query->where('kolab_id', $kolab->id)
-                    ->orWhere('collab_opportunity_id', $kolab->id);
-            })
+            ->where('kolab_id', $kolab->id)
             ->latest()
             ->limit(8)
             ->get();
 
         $collaboration = Collaboration::query()
             ->with(['businessProfile', 'communityProfile', 'event'])
-            ->where(function ($query) use ($kolab): void {
-                $query->where('kolab_id', $kolab->id)
-                    ->orWhere('collab_opportunity_id', $kolab->id);
-            })
+            ->where('kolab_id', $kolab->id)
             ->first();
 
         $reviews = $collaboration
@@ -253,27 +241,18 @@ class KolabLifecycleService
     {
         $hasCollabWith = fn (CollaborationStatus $status) => function ($sub) use ($status): void {
             $sub->from('collaborations')
-                ->where(function ($query): void {
-                    $query->whereColumn('collaborations.kolab_id', 'kolabs.id')
-                        ->orWhereColumn('collaborations.collab_opportunity_id', 'kolabs.id');
-                })
+                ->whereColumn('collaborations.kolab_id', 'kolabs.id')
                 ->where('collaborations.status', $status->value);
         };
 
         $hasAnyCollab = function ($sub): void {
             $sub->from('collaborations')
-                ->where(function ($query): void {
-                    $query->whereColumn('collaborations.kolab_id', 'kolabs.id')
-                        ->orWhereColumn('collaborations.collab_opportunity_id', 'kolabs.id');
-                });
+                ->whereColumn('collaborations.kolab_id', 'kolabs.id');
         };
 
         $hasApplicationWith = fn (ApplicationStatus $status) => function ($sub) use ($status): void {
             $sub->from('applications')
-                ->where(function ($query): void {
-                    $query->whereColumn('applications.kolab_id', 'kolabs.id')
-                        ->orWhereColumn('applications.collab_opportunity_id', 'kolabs.id');
-                })
+                ->whereColumn('applications.kolab_id', 'kolabs.id')
                 ->where('applications.status', $status->value);
         };
 

@@ -162,7 +162,6 @@ class NotificationService
     {
         $application->loadMissing([
             'kolab.creatorProfile',
-            'collabOpportunity.creatorProfile',
             'applicantProfile',
         ]);
 
@@ -208,7 +207,6 @@ class NotificationService
     {
         $application->loadMissing([
             'kolab.creatorProfile',
-            'collabOpportunity.creatorProfile',
             'applicantProfile.businessProfile',
             'applicantProfile.communityProfile',
         ]);
@@ -244,7 +242,6 @@ class NotificationService
     {
         $application->loadMissing([
             'kolab.creatorProfile',
-            'collabOpportunity.creatorProfile',
             'applicantProfile',
         ]);
 
@@ -278,7 +275,6 @@ class NotificationService
     {
         $application->loadMissing([
             'kolab.creatorProfile',
-            'collabOpportunity.creatorProfile',
             'applicantProfile',
         ]);
 
@@ -329,7 +325,7 @@ class NotificationService
      */
     public function notifyCollabDayReminder(Collaboration $collaboration): void
     {
-        $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'kolab', 'collabOpportunity']);
+        $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'kolab']);
 
         $title = "Today's your Kolab! 🎉";
         $body = 'Your collaboration is happening today. Have a great Kolab!';
@@ -388,12 +384,9 @@ class NotificationService
             ->exists();
     }
 
-    /**
-     * Return the canonical Kolab for new applications, with a legacy fallback.
-     */
     private function applicationOpportunity(Application $application): mixed
     {
-        return $application->kolab ?? $application->collabOpportunity;
+        return $application->kolab;
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\PointEventType;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -48,28 +49,33 @@ class Wallet extends Model
         return $this->belongsTo(Profile::class);
     }
 
+    /**
+     * Total XP points available (reputation). NOT cash-convertible.
+     */
     public function getAvailablePoints(): int
     {
         return $this->points - $this->redeemed_points;
     }
 
-    public function getEurValue(): float
+    /**
+     * Points available to withdraw as cash. Backed by REFERRAL rewards ONLY —
+     * XP from challenges, reviews, UGC and collaborations is reputation and is
+     * never cash-convertible. Computed from the point ledger as referral
+     * credits minus amounts already withdrawn, so it stays self-consistent
+     * with the withdrawal flow.
+     */
+    public function getReferralAvailablePoints(): int
     {
-        return round($this->getAvailablePoints() * 0.20, 2);
-    }
+        $earned = (int) PointLedger::query()
+            ->where('profile_id', $this->profile_id)
+            ->where('event_type', PointEventType::ReferralConversion)
+            ->sum('points');
 
-    public function getProgress(): float
-    {
-        $available = $this->getAvailablePoints();
-        if ($available <= 0) {
-            return 0.0;
-        }
+        $withdrawn = abs((int) PointLedger::query()
+            ->where('profile_id', $this->profile_id)
+            ->where('event_type', PointEventType::Withdrawal)
+            ->sum('points'));
 
-        return round(min($available / 375, 1.0), 4);
-    }
-
-    public function canWithdraw(): bool
-    {
-        return $this->getAvailablePoints() >= 375 && ! $this->pending_withdrawal;
+        return max(0, $earned - $withdrawn);
     }
 }

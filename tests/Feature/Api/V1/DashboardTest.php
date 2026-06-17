@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Enums\KolabStatus;
 use App\Models\Application;
 use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
+use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -38,10 +40,10 @@ class DashboardTest extends TestCase
     {
         $business = Profile::factory()->business()->create();
 
-        // Create opportunities in various statuses
-        CollabOpportunity::factory()->forCreator($business)->create(); // draft
-        CollabOpportunity::factory()->published()->forCreator($business)->count(3)->create();
-        CollabOpportunity::factory()->closed()->forCreator($business)->create();
+        // Phase 2: opportunity stats are counted off the viewer's KOLABS.
+        Kolab::factory()->create(['creator_profile_id' => $business->id, 'status' => KolabStatus::Draft]);
+        Kolab::factory()->count(3)->create(['creator_profile_id' => $business->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
+        Kolab::factory()->create(['creator_profile_id' => $business->id, 'status' => KolabStatus::Closed]);
 
         $response = $this->actingAs($business)
             ->getJson('/api/v1/me/dashboard');
@@ -158,6 +160,7 @@ class DashboardTest extends TestCase
                             'status',
                             'scheduled_date',
                             'opportunity' => ['id', 'title', 'categories'],
+                            'kolab' => ['id', 'title'],
                             'partner' => ['id', 'name', 'user_type'],
                         ],
                     ],

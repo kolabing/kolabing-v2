@@ -42,12 +42,17 @@ class KolabResource extends JsonResource
             ),
             'preferred_city' => $this->preferred_city,
             'area' => $this->area,
+            // Cover photo for the offer (collab_opportunities.offer_photo). The
+            // Opportunity resources expose this; the My Kolabs (offers) list
+            // read it via Kolab too so cards show the same image instead of a
+            // placeholder when media[] is empty.
+            'offer_photo' => $this->resolveOfferPhoto(),
             'media' => $this->normalizeMediaCollection($this->media),
             'availability_mode' => $this->availability_mode,
             'availability_start' => $this->availability_start?->format('Y-m-d'),
             'availability_end' => $this->availability_end?->format('Y-m-d'),
             'selected_time' => $this->selected_time,
-            'recurring_days' => $this->recurring_days ?? [],
+            'recurring_days' => $this->recurring_days,
             'needs' => $this->needs ?? [],
             'community_types' => $this->community_types ?? [],
             'community_size' => $this->community_size,
@@ -121,6 +126,13 @@ class KolabResource extends JsonResource
         }
 
         return $type === 'photo' ? 'image' : $type;
+    }
+
+    private function resolveOfferPhoto(): ?string
+    {
+        $media = $this->normalizeMediaCollection($this->media);
+
+        return $media[0]['url'] ?? null;
     }
 
     /**
@@ -201,10 +213,7 @@ class KolabResource extends JsonResource
         }
 
         return Application::query()
-            ->where(function ($query): void {
-                $query->where('kolab_id', $this->id)
-                    ->orWhere('collab_opportunity_id', $this->id);
-            })
+            ->where('kolab_id', $this->id)
             ->where('applicant_profile_id', $viewer->id)
             ->exists();
     }

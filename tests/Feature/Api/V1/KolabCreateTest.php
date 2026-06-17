@@ -6,6 +6,7 @@ namespace Tests\Feature\Api\V1;
 
 use App\Models\BusinessProfile;
 use App\Models\Kolab;
+use App\Models\OfferOption;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -236,6 +237,100 @@ class KolabCreateTest extends TestCase
         ]);
     }
 
+    public function test_product_promotion_accepts_admin_managed_product_type(): void
+    {
+        // Admin-added product_type slug not present in the PHP enum fallback.
+        OfferOption::query()->create([
+            'kind' => OfferOption::KIND_PRODUCT_TYPE,
+            'slug' => 'pet_supplies',
+            'name' => 'Pet Supplies',
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $business = Profile::factory()->business()->create();
+
+        $payload = [
+            'intent_type' => 'product_promotion',
+            'title' => 'Premium pet treats for community dog meetups',
+            'description' => 'We make premium pet treats and want to partner with local dog-owner communities.',
+            'preferred_city' => 'Madrid',
+            'product_name' => 'PawFuel Treats',
+            'product_type' => 'pet_supplies',
+            'offering' => ['products'],
+        ];
+
+        $this->actingAs($business)
+            ->postJson('/api/v1/kolabs', $payload)
+            ->assertStatus(201)
+            ->assertJsonPath('data.product_type', 'pet_supplies');
+    }
+
+    public function test_product_promotion_rejects_unknown_product_type(): void
+    {
+        // Seed at least one active product_type so validation is DB-driven (the
+        // table is the source of truth once it has rows).
+        OfferOption::query()->create([
+            'kind' => OfferOption::KIND_PRODUCT_TYPE,
+            'slug' => 'beverage',
+            'name' => 'Beverage',
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $business = Profile::factory()->business()->create();
+
+        $payload = [
+            'intent_type' => 'product_promotion',
+            'title' => 'Unknown product type kolab',
+            'description' => 'This kolab uses a product_type that is not in the active taxonomy.',
+            'preferred_city' => 'Madrid',
+            'product_name' => 'Mystery Item',
+            'product_type' => 'not_a_real_product_type',
+            'offering' => ['products'],
+        ];
+
+        $this->actingAs($business)
+            ->postJson('/api/v1/kolabs', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['product_type']);
+    }
+
+    public function test_venue_promotion_rejects_unknown_venue_type(): void
+    {
+        OfferOption::query()->create([
+            'kind' => OfferOption::KIND_VENUE_TYPE,
+            'slug' => 'restaurant',
+            'name' => 'Restaurant',
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $business = Profile::factory()->business()->create();
+        $business->businessProfile?->update([
+            'primary_venue' => ['name' => 'Test Venue', 'city' => 'Madrid'],
+        ]);
+
+        $payload = [
+            'intent_type' => 'venue_promotion',
+            'title' => 'Bad venue type',
+            'description' => 'This venue promotion uses a venue_type outside the active taxonomy.',
+            'venue_name' => 'Test Venue',
+            'venue_type' => 'not_a_real_venue_type',
+            'capacity' => 50,
+            'venue_address' => '123 Test St, Madrid',
+            'offering' => ['venue'],
+            'availability_mode' => 'flexible',
+            'availability_start' => now()->addDay()->toDateString(),
+            'media' => [['url' => 'https://example.com/p.jpg', 'type' => 'image']],
+        ];
+
+        $this->actingAs($business)
+            ->postJson('/api/v1/kolabs', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['venue_type']);
+    }
+
     public function test_community_user_cannot_create_business_only_kolab_intent(): void
     {
         $community = Profile::factory()->community()->create();
@@ -283,7 +378,10 @@ class KolabCreateTest extends TestCase
             'title' => 'Looking for a venue',
             'description' => 'We need a venue for our meetup.',
             'preferred_city' => 'Sevilla',
-            // Missing: needs, community_types, community_size, typical_attendance, offers_in_return
+            // Missing: needs, typical_attendance, offers_in_return.
+            // community_types + community_size are inherited from the creator's
+            // community_profile (KolabService::enrichCommunitySeekingData), so
+            // they are intentionally NOT required here.
         ];
 
         $response = $this->actingAs($profile)
@@ -292,10 +390,12 @@ class KolabCreateTest extends TestCase
         $response->assertStatus(422)
             ->assertJsonValidationErrors([
                 'needs',
-                'community_types',
-                'community_size',
                 'typical_attendance',
                 'offers_in_return',
+            ])
+            ->assertJsonMissingValidationErrors([
+                'community_types',
+                'community_size',
             ]);
     }
 

@@ -15,10 +15,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $name
  * @property string|null $about
  * @property string|null $business_type
+ * @property bool $has_venue
  * @property array<int, string>|null $categories
  * @property string|null $city_id
  * @property string|null $city_name
  * @property string|null $city_country
+ * @property array<int, string>|null $target_city_ids
+ * @property string|null $offering
+ * @property array<int, string>|null $offer_photos
  * @property string|null $instagram
  * @property string|null $website
  * @property string|null $profile_photo
@@ -42,15 +46,20 @@ class BusinessProfile extends Model
         'profile_id',
         'name',
         'about',
+        'offering',
+        'product_type',
         'business_type',
+        'has_venue',
         'categories',
         'city_id',
         'city_name',
         'city_country',
+        'target_city_ids',
         'instagram',
         'website',
         'profile_photo',
         'primary_venue',
+        'offer_photos',
     ];
 
     /**
@@ -61,8 +70,11 @@ class BusinessProfile extends Model
     protected function casts(): array
     {
         return [
+            'has_venue' => 'boolean',
             'categories' => 'array',
+            'target_city_ids' => 'array',
             'primary_venue' => 'array',
+            'offer_photos' => 'array',
         ];
     }
 

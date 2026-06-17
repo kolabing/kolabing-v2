@@ -22,7 +22,7 @@ class MarketingSeoTest extends TestCase
         $response->assertSee('href="#how-it-works"', false);
         $response->assertSee('href="#faq"', false);
         $response->assertSee('href="#cta"', false);
-        $response->assertSee('/brand/logo-mark.svg', false);
+        $response->assertSee('assets/kolabing-logo.png', false);
         $response->assertSee('uploads/Screenshot 2026-05-16 at 22.47.19.png', false);
         $response->assertSee('uploads/Gemini_Generated_Image_j3ohygj3ohygj3oh.png', false);
         $response->assertSee('uploads/Gemini_Generated_Image_rfno1grfno1grfno.png', false);

@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $name
  * @property string $slug
  * @property string|null $icon
+ * @property string|null $icon_url
  * @property int $sort_order
  * @property bool $is_active
  * @property \Illuminate\Support\Carbon|null $created_at

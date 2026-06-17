@@ -8,7 +8,6 @@ use App\Enums\ApplicationStatus;
 use App\Enums\CollaborationStatus;
 use App\Enums\KolabStatus;
 use App\Models\Application;
-use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
 use App\Models\Kolab;
 use App\Models\Profile;
@@ -66,22 +65,11 @@ class DashboardService
             ->groupBy('status')
             ->pluck('count', 'status');
 
-        $legacyOpportunities = CollabOpportunity::query()
-            ->where('creator_profile_id', $profile->id)
-            ->whereNotExists(function ($query): void {
-                $query->selectRaw('1')
-                    ->from('kolabs')
-                    ->whereColumn('kolabs.id', 'collab_opportunities.id');
-            })
-            ->selectRaw('status, COUNT(*) as count')
-            ->groupBy('status')
-            ->pluck('count', 'status');
-
         return [
-            'total' => (int) ($kolabs->sum() + $legacyOpportunities->sum()),
-            'published' => (int) (($kolabs[KolabStatus::Published->value] ?? 0) + ($legacyOpportunities['published'] ?? 0)),
-            'draft' => (int) (($kolabs[KolabStatus::Draft->value] ?? 0) + ($legacyOpportunities['draft'] ?? 0)),
-            'closed' => (int) (($kolabs[KolabStatus::Closed->value] ?? 0) + ($legacyOpportunities['closed'] ?? 0)),
+            'total' => (int) $kolabs->sum(),
+            'published' => (int) ($kolabs[KolabStatus::Published->value] ?? 0),
+            'draft' => (int) ($kolabs[KolabStatus::Draft->value] ?? 0),
+            'closed' => (int) ($kolabs[KolabStatus::Closed->value] ?? 0),
         ];
     }
 
@@ -93,12 +81,8 @@ class DashboardService
     private function getReceivedApplicationStats(Profile $profile): array
     {
         $applications = Application::query()
-            ->where(function ($query) use ($profile): void {
-                $query->whereHas('kolab', function ($q) use ($profile): void {
-                    $q->where('creator_profile_id', $profile->id);
-                })->orWhereHas('collabOpportunity', function ($q) use ($profile): void {
-                    $q->where('creator_profile_id', $profile->id);
-                });
+            ->whereHas('kolab', function ($q) use ($profile) {
+                $q->where('creator_profile_id', $profile->id);
             })
             ->selectRaw('status, COUNT(*) as count')
             ->groupBy('status')
@@ -171,7 +155,12 @@ class DashboardService
                 $q->whereNull('scheduled_date')
                     ->orWhere('scheduled_date', '>=', now()->toDateString());
             })
-            ->with(['kolab:id,title,community_types,availability_start', 'collabOpportunity:id,title,categories,availability_start', 'applicantProfile.communityProfile:id,profile_id,name', 'creatorProfile.businessProfile:id,profile_id,name'])
+            ->with([
+                'kolab:id,creator_profile_id,title,description,status,intent_type,community_types,seeking_communities,offering,needs,expects,offers_in_return,venue_preference,venue_address,offer_headline,base_offer,negotiation_triggers,availability_mode,availability_start,availability_end,selected_time,recurring_days,preferred_city,media,past_events,recipient_community_id,published_at',
+                'kolab.creatorProfile:id,user_type,avatar_url',
+                'applicantProfile.communityProfile:id,profile_id,name',
+                'creatorProfile.businessProfile:id,profile_id,name',
+            ])
             ->orderBy('scheduled_date')
             ->limit(5)
             ->get();

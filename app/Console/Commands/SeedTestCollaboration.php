@@ -6,11 +6,12 @@ namespace App\Console\Commands;
 
 use App\Enums\ApplicationStatus;
 use App\Enums\CollaborationStatus;
-use App\Enums\OfferStatus;
+use App\Enums\IntentType;
+use App\Enums\KolabStatus;
 use App\Enums\UserType;
 use App\Models\Application;
-use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
+use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
@@ -24,7 +25,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Authorship mirrors how a real accepted collaboration is formed
  * (see App\Services\ApplicationService::accept + createCollaboration):
- *   - the COMMUNITY (realrunclub@gmail.com) creates + publishes the opportunity
+ *   - the COMMUNITY (realrunclub@gmail.com) creates + publishes the Kolab
  *   - the BUSINESS (hello@eixample46.com) applies and is accepted
  *   - a Collaboration row is created, status = scheduled, scheduled_date = yesterday
  *
@@ -98,19 +99,22 @@ class SeedTestCollaboration extends Command
         $yesterday = Carbon::yesterday();
 
         $collaboration = DB::transaction(function () use ($business, $community, $yesterday): Collaboration {
-            // 1) The COMMUNITY creates + publishes the opportunity (the "creator").
-            $opportunity = CollabOpportunity::create([
+            // 1) The COMMUNITY creates + publishes the Kolab (the "creator").
+            $kolab = Kolab::create([
                 'creator_profile_id' => $community->id,
-                'creator_profile_type' => UserType::Community,
+                'intent_type' => IntentType::CommunitySeeking,
                 'title' => '[TEST] Finish-flow collaboration',
                 'description' => 'Seeded by kolabing:seed-test-collaboration to exercise the finish/close collaboration flow. Safe to delete.',
-                'status' => OfferStatus::Published,
+                'status' => KolabStatus::Published,
+                'preferred_city' => $community->communityProfile->city?->name ?? 'Barcelona',
+                'availability_mode' => 'flexible',
                 'published_at' => Carbon::now(),
             ]);
 
             // 2) The BUSINESS applies and is accepted (the "applicant").
             $application = Application::create([
-                'collab_opportunity_id' => $opportunity->id,
+                'collab_opportunity_id' => null,
+                'kolab_id' => $kolab->id,
                 'applicant_profile_id' => $business->id,
                 'applicant_profile_type' => UserType::Business,
                 'message' => '[TEST] Seeded accepted application.',
@@ -121,7 +125,8 @@ class SeedTestCollaboration extends Command
             //    creator = community (created the opportunity), applicant = business.
             return Collaboration::create([
                 'application_id' => $application->id,
-                'collab_opportunity_id' => $opportunity->id,
+                'collab_opportunity_id' => null,
+                'kolab_id' => $kolab->id,
                 'creator_profile_id' => $community->id,
                 'applicant_profile_id' => $business->id,
                 'business_profile_id' => $business->businessProfile->id,

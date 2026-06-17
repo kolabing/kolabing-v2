@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Enums\KolabStatus;
 use App\Models\Application;
-use App\Models\CollabOpportunity;
+use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -29,11 +30,12 @@ class OpportunityListingTest extends TestCase
 
     public function test_my_opportunities_returns_only_own_opportunities(): void
     {
+        // Phase 2: /me/opportunities reads the viewer's KOLABS, not collab_opportunities.
         $owner = Profile::factory()->business()->create();
         $other = Profile::factory()->business()->create();
 
-        CollabOpportunity::factory()->count(3)->published()->forCreator($owner)->create();
-        CollabOpportunity::factory()->count(2)->published()->forCreator($other)->create();
+        Kolab::factory()->count(3)->create(['creator_profile_id' => $owner->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
+        Kolab::factory()->count(2)->create(['creator_profile_id' => $other->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
 
         $response = $this->actingAs($owner)
             ->getJson('/api/v1/me/opportunities');
@@ -47,9 +49,9 @@ class OpportunityListingTest extends TestCase
     {
         $owner = Profile::factory()->business()->create();
 
-        CollabOpportunity::factory()->forCreator($owner)->create(); // draft
-        CollabOpportunity::factory()->published()->forCreator($owner)->create();
-        CollabOpportunity::factory()->closed()->forCreator($owner)->create();
+        Kolab::factory()->create(['creator_profile_id' => $owner->id, 'status' => KolabStatus::Draft]);
+        Kolab::factory()->create(['creator_profile_id' => $owner->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
+        Kolab::factory()->create(['creator_profile_id' => $owner->id, 'status' => KolabStatus::Closed]);
 
         $response = $this->actingAs($owner)
             ->getJson('/api/v1/me/opportunities');
@@ -62,8 +64,8 @@ class OpportunityListingTest extends TestCase
     {
         $owner = Profile::factory()->business()->create();
 
-        CollabOpportunity::factory()->forCreator($owner)->create(); // draft
-        CollabOpportunity::factory()->count(2)->published()->forCreator($owner)->create();
+        Kolab::factory()->create(['creator_profile_id' => $owner->id, 'status' => KolabStatus::Draft]);
+        Kolab::factory()->count(2)->create(['creator_profile_id' => $owner->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
 
         $response = $this->actingAs($owner)
             ->getJson('/api/v1/me/opportunities?status=published');
@@ -75,7 +77,7 @@ class OpportunityListingTest extends TestCase
     public function test_my_opportunities_returns_correct_structure(): void
     {
         $owner = Profile::factory()->business()->create();
-        CollabOpportunity::factory()->published()->forCreator($owner)->create();
+        Kolab::factory()->create(['creator_profile_id' => $owner->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
 
         $response = $this->actingAs($owner)
             ->getJson('/api/v1/me/opportunities');
@@ -87,18 +89,15 @@ class OpportunityListingTest extends TestCase
                     'data' => [
                         '*' => [
                             'id',
+                            'intent_type',
                             'title',
                             'description',
                             'status',
-                            'business_offer',
-                            'community_deliverables',
-                            'categories',
+                            'creator_profile',
                             'availability_mode',
                             'availability_start',
                             'availability_end',
-                            'venue_mode',
                             'preferred_city',
-                            'is_own',
                             'created_at',
                             'updated_at',
                         ],
@@ -143,9 +142,9 @@ class OpportunityListingTest extends TestCase
         $viewer = Profile::factory()->business()->create();
         $communityCreator = Profile::factory()->community()->create();
 
-        CollabOpportunity::factory()->forCreator($communityCreator)->create(); // draft
-        CollabOpportunity::factory()->count(2)->published()->forCreator($communityCreator)->create();
-        CollabOpportunity::factory()->closed()->forCreator($communityCreator)->create();
+        Kolab::factory()->create(['creator_profile_id' => $communityCreator->id, 'status' => KolabStatus::Draft]);
+        Kolab::factory()->count(2)->create(['creator_profile_id' => $communityCreator->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
+        Kolab::factory()->create(['creator_profile_id' => $communityCreator->id, 'status' => KolabStatus::Closed]);
 
         $response = $this->actingAs($viewer)
             ->getJson('/api/v1/opportunities');
@@ -162,22 +161,20 @@ class OpportunityListingTest extends TestCase
         $businessCreator = Profile::factory()->business()->create();
         $communityCreator = Profile::factory()->community()->create();
 
-        CollabOpportunity::factory()->count(2)->published()->forCreator($businessCreator)->create();
-        CollabOpportunity::factory()->count(3)->published()->forCreator($communityCreator)->create();
+        Kolab::factory()->count(2)->create(['creator_profile_id' => $businessCreator->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
+        Kolab::factory()->count(3)->create(['creator_profile_id' => $communityCreator->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
 
-        // Business viewer should see community opportunities
         $response = $this->actingAs($businessViewer)
             ->getJson('/api/v1/opportunities');
 
         $response->assertStatus(200)
-            ->assertJsonPath('meta.total', 3);
+            ->assertJsonPath('meta.total', 5);
 
-        // Community viewer should see business opportunities
         $response = $this->actingAs($communityViewer)
             ->getJson('/api/v1/opportunities');
 
         $response->assertStatus(200)
-            ->assertJsonPath('meta.total', 2);
+            ->assertJsonPath('meta.total', 5);
     }
 
     public function test_browse_opportunities_explicit_creator_type_overrides_default(): void
@@ -185,9 +182,8 @@ class OpportunityListingTest extends TestCase
         $businessViewer = Profile::factory()->business()->create();
         $businessCreator = Profile::factory()->business()->create();
 
-        CollabOpportunity::factory()->count(2)->published()->forCreator($businessCreator)->create();
+        Kolab::factory()->count(2)->create(['creator_profile_id' => $businessCreator->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
 
-        // Business viewer explicitly requesting business-type opportunities
         $response = $this->actingAs($businessViewer)
             ->getJson('/api/v1/opportunities?creator_type=business');
 
@@ -206,13 +202,12 @@ class OpportunityListingTest extends TestCase
         $businessViewer = Profile::factory()->business()->create();
         $communityCreator = Profile::factory()->community()->create();
 
-        $opportunity1 = CollabOpportunity::factory()->published()->forCreator($communityCreator)->create();
-        $opportunity2 = CollabOpportunity::factory()->published()->forCreator($communityCreator)->create();
-        CollabOpportunity::factory()->published()->forCreator($communityCreator)->create(); // not applied
+        $opportunity1 = Kolab::factory()->create(['creator_profile_id' => $communityCreator->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
+        $opportunity2 = Kolab::factory()->create(['creator_profile_id' => $communityCreator->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
+        Kolab::factory()->create(['creator_profile_id' => $communityCreator->id, 'status' => KolabStatus::Published, 'published_at' => now()]); // not applied
 
-        // Viewer applied to opportunity1 (pending) and opportunity2 (declined)
-        Application::factory()->forOpportunity($opportunity1)->forApplicant($businessViewer)->pending()->create();
-        Application::factory()->forOpportunity($opportunity2)->forApplicant($businessViewer)->declined()->create();
+        Application::factory()->forKolab($opportunity1)->forApplicant($businessViewer)->pending()->create();
+        Application::factory()->forKolab($opportunity2)->forApplicant($businessViewer)->declined()->create();
 
         $response = $this->actingAs($businessViewer)
             ->getJson('/api/v1/opportunities');
@@ -226,10 +221,10 @@ class OpportunityListingTest extends TestCase
         $businessViewer = Profile::factory()->business()->create();
         $communityCreator = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($communityCreator)->create();
-        CollabOpportunity::factory()->published()->forCreator($communityCreator)->create(); // not applied
+        $opportunity = Kolab::factory()->create(['creator_profile_id' => $communityCreator->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
+        Kolab::factory()->create(['creator_profile_id' => $communityCreator->id, 'status' => KolabStatus::Published, 'published_at' => now()]); // not applied
 
-        Application::factory()->forOpportunity($opportunity)->forApplicant($businessViewer)->withdrawn()->create();
+        Application::factory()->forKolab($opportunity)->forApplicant($businessViewer)->withdrawn()->create();
 
         $response = $this->actingAs($businessViewer)
             ->getJson('/api/v1/opportunities');
@@ -243,10 +238,10 @@ class OpportunityListingTest extends TestCase
         $businessViewer = Profile::factory()->business()->create();
         $communityCreator = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($communityCreator)->create();
-        CollabOpportunity::factory()->count(2)->published()->forCreator($communityCreator)->create();
+        $opportunity = Kolab::factory()->create(['creator_profile_id' => $communityCreator->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
+        Kolab::factory()->count(2)->create(['creator_profile_id' => $communityCreator->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
 
-        Application::factory()->forOpportunity($opportunity)->forApplicant($businessViewer)->accepted()->create();
+        Application::factory()->forKolab($opportunity)->forApplicant($businessViewer)->accepted()->create();
 
         $response = $this->actingAs($businessViewer)
             ->getJson('/api/v1/opportunities');
@@ -261,10 +256,9 @@ class OpportunityListingTest extends TestCase
         $otherBusiness = Profile::factory()->business()->create();
         $communityCreator = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($communityCreator)->create();
+        $opportunity = Kolab::factory()->create(['creator_profile_id' => $communityCreator->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
 
-        // Another user applied, not the viewer
-        Application::factory()->forOpportunity($opportunity)->forApplicant($otherBusiness)->pending()->create();
+        Application::factory()->forKolab($opportunity)->forApplicant($otherBusiness)->pending()->create();
 
         $response = $this->actingAs($businessViewer)
             ->getJson('/api/v1/opportunities');

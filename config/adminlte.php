@@ -353,6 +353,18 @@ return [
             'icon' => 'fas fa-fw fa-tags',
             'active' => ['admin/types', 'admin/types/*'],
         ],
+        [
+            'text' => 'Offer options',
+            'route' => 'admin.offer-options.index',
+            'icon' => 'fas fa-fw fa-handshake',
+            'active' => ['admin/offer-options', 'admin/offer-options/*'],
+        ],
+        [
+            'text' => 'Icons',
+            'route' => 'admin.icons.index',
+            'icon' => 'fas fa-fw fa-icons',
+            'active' => ['admin/icons', 'admin/icons/*'],
+        ],
         ['header' => 'GAMIFICATION'],
         [
             'text' => 'Overview',

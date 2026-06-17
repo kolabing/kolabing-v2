@@ -55,6 +55,7 @@ class CommunityOnboardingRequest extends FormRequest
             'about' => ['nullable', 'string', 'max:1000'],
             // Source of truth: community_types table (admin-managed). Constant retired.
             'community_type' => ['required', 'string', 'exists:community_types,slug'],
+            'community_size' => ['nullable', 'integer', 'min:1'],
             'city_id' => ['required', 'uuid', 'exists:cities,id'],
             'phone_number' => ['nullable', 'string', 'regex:/^\+[1-9]\d{1,14}$/'],
             'instagram' => ['nullable', 'string', 'max:255', 'regex:/^@?[a-zA-Z0-9._]+$/'],

@@ -536,10 +536,7 @@ class DiscoveryOpportunityService
         $query->whereNotExists(function ($subQuery) use ($viewer): void {
             $subQuery->selectRaw('1')
                 ->from('applications')
-                ->where(function ($query): void {
-                    $query->whereColumn('applications.kolab_id', 'kolabs.id')
-                        ->orWhereColumn('applications.collab_opportunity_id', 'kolabs.id');
-                })
+                ->whereColumn('applications.kolab_id', 'kolabs.id')
                 ->where('applications.applicant_profile_id', $viewer->id);
         });
     }

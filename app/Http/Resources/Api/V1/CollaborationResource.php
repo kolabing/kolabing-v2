@@ -65,12 +65,18 @@ class CollaborationResource extends JsonResource
                     return (new ApplicationResource($this->application))->withoutOpportunity();
                 })
             ),
-            'collab_opportunity' => $this->when($this->includeOpportunity, fn () => $this->opportunityResource()),
             'kolab_id' => $this->kolab_id,
+            'collab_opportunity_id' => $this->kolab_id,
             'kolab' => $this->when(
                 $this->includeOpportunity,
                 fn () => $this->whenLoaded('kolab', function () {
                     return new KolabResource($this->kolab);
+                })
+            ),
+            'collab_opportunity' => $this->when(
+                $this->includeOpportunity,
+                fn () => $this->whenLoaded('kolab', function () {
+                    return new OpportunitySummaryResource($this->kolab);
                 })
             ),
             'creator_profile' => $this->whenLoaded('creatorProfile', function () {
@@ -178,19 +184,6 @@ class CollaborationResource extends JsonResource
 
         return $this->status === CollaborationStatus::Scheduled
             || $this->status === CollaborationStatus::Active;
-    }
-
-    private function opportunityResource(): mixed
-    {
-        if ($this->resource->relationLoaded('kolab') && $this->kolab !== null) {
-            return new KolabResource($this->kolab);
-        }
-
-        if ($this->resource->relationLoaded('collabOpportunity') && $this->collabOpportunity !== null) {
-            return new OpportunitySummaryResource($this->collabOpportunity);
-        }
-
-        return null;
     }
 
     /**

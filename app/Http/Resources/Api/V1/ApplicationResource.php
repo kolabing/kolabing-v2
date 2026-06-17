@@ -41,21 +41,18 @@ class ApplicationResource extends JsonResource
                 return new KolabResource($this->kolab);
             })
         );
-
-        $legacyOpportunityResource = $this->when(
+        $opportunityResource = $this->when(
             $this->includeOpportunity,
-            fn () => $this->whenLoaded('collabOpportunity', function () {
-                return new OpportunitySummaryResource($this->collabOpportunity);
+            fn () => $this->whenLoaded('kolab', function () {
+                return new OpportunitySummaryResource($this->kolab);
             })
         );
 
-        $opportunityResource = $this->kolab !== null ? $kolabResource : $legacyOpportunityResource;
-
         return [
             'id' => $this->id,
-            'collab_opportunity_id' => $this->collab_opportunity_id,
             'kolab_id' => $this->kolab_id,
             'kolab' => $kolabResource,
+            'collab_opportunity_id' => $this->kolab_id,
             'collab_opportunity' => $opportunityResource,
             'opportunity' => $opportunityResource,
             'applicant_profile' => $this->whenLoaded('applicantProfile', function () {

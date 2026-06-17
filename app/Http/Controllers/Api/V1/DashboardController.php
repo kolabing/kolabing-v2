@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
 class DashboardController extends Controller
 {
     public function __construct(
-        private readonly DashboardService $dashboardService
+        private readonly DashboardService $dashboardService,
     ) {}
 
     /**
@@ -30,18 +30,24 @@ class DashboardController extends Controller
             ? $this->dashboardService->getBusinessDashboard($profile)
             : $this->dashboardService->getCommunityDashboard($profile);
 
-        // Transform upcoming collaborations for the response
         $upcomingCollaborations = $data['upcoming_collaborations']->map(function ($collaboration) use ($profile) {
-            $opportunity = $collaboration->kolab ?? $collaboration->collabOpportunity;
+            $kolab = $collaboration->kolab;
+            $opportunity = [
+                'id' => $kolab?->id,
+                'title' => $kolab?->title,
+                'categories' => $kolab?->community_types ?? [],
+            ];
 
             return [
                 'id' => $collaboration->id,
                 'status' => $collaboration->status->value,
                 'scheduled_date' => $collaboration->scheduled_date?->toDateString(),
-                'opportunity' => [
-                    'id' => $opportunity?->id,
-                    'title' => $opportunity?->title,
-                    'categories' => $opportunity?->categories ?? $opportunity?->community_types,
+                'opportunity' => $opportunity,
+                'kolab' => [
+                    'id' => $kolab?->id,
+                    'title' => $kolab?->title,
+                    'intent_type' => $kolab?->intent_type?->value,
+                    'community_types' => $kolab?->community_types,
                 ],
                 'partner' => $this->getPartnerInfo($collaboration, $profile),
             ];

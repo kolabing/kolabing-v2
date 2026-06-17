@@ -8,6 +8,7 @@ use App\Enums\CollaborationStatus;
 use App\Models\Application;
 use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
+use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -35,7 +36,8 @@ class CollaborationFactory extends Factory
 
         return [
             'application_id' => Application::factory(),
-            'collab_opportunity_id' => CollabOpportunity::factory()->published(),
+            'collab_opportunity_id' => null,
+            'kolab_id' => Kolab::factory()->published(),
             'creator_profile_id' => $creator,
             'applicant_profile_id' => $applicant,
             'business_profile_id' => null,
@@ -123,8 +125,42 @@ class CollaborationFactory extends Factory
      */
     public function forOpportunity(CollabOpportunity $opportunity): static
     {
+        if (! Kolab::query()->whereKey($opportunity->id)->exists()) {
+            (new Kolab)->forceFill([
+                'id' => $opportunity->id,
+                'creator_profile_id' => $opportunity->creator_profile_id,
+                'recipient_community_id' => $opportunity->recipient_community_id,
+                'intent_type' => \App\Enums\IntentType::CommunitySeeking,
+                'status' => \App\Enums\KolabStatus::Published,
+                'title' => $opportunity->title,
+                'description' => $opportunity->description,
+                'offer_headline' => $opportunity->offer_headline,
+                'base_offer' => $opportunity->base_offer,
+                'negotiation_triggers' => $opportunity->negotiation_triggers,
+                'preferred_city' => $opportunity->preferred_city ?? 'Barcelona',
+                'availability_mode' => $opportunity->availability_mode ?? 'flexible',
+                'availability_start' => $opportunity->availability_start,
+                'availability_end' => $opportunity->availability_end,
+                'selected_time' => $opportunity->selected_time,
+                'recurring_days' => $opportunity->recurring_days,
+                'published_at' => $opportunity->published_at ?? now(),
+            ])->save();
+        }
+
         return $this->state(fn (array $attributes) => [
-            'collab_opportunity_id' => $opportunity->id,
+            'collab_opportunity_id' => null,
+            'kolab_id' => $opportunity->id,
+        ]);
+    }
+
+    /**
+     * Set the canonical Kolab.
+     */
+    public function forKolab(Kolab $kolab): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'collab_opportunity_id' => null,
+            'kolab_id' => $kolab->id,
         ]);
     }
 

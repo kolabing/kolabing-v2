@@ -53,17 +53,22 @@ use Laravel\Sanctum\PersonalAccessToken;
  *     about: string|null,
  *     business_type: string|null,
  *     categories: array<int, string>,
+ *     has_venue: bool,
  *     city_id: string|null,
  *     city_name: string|null,
+ *     target_city_ids: array<int, string>,
+ *     offering: string|null,
+ *     offer_photos: array<int, string>,
  *     instagram: string|null,
  *     website: string|null,
  *     profile_photo: string|null,
- *     primary_venue: array<string, mixed>
+ *     primary_venue: array<string, mixed>|null
  * }
  * @phpstan-type CommunityProfileData array{
  *     name: string,
  *     about: string|null,
  *     community_type: string,
+ *     community_size: int|null,
  *     city_id: string,
  *     instagram: string|null,
  *     tiktok: string|null,
@@ -80,7 +85,8 @@ class AuthService
 {
     public function __construct(
         private readonly BusinessVenueService $businessVenueService,
-        private readonly FileUploadService $fileUploadService
+        private readonly FileUploadService $fileUploadService,
+        private readonly OnboardingService $onboardingService
     ) {}
 
     /**
@@ -403,12 +409,22 @@ class AuthService
                 $businessProfileData['profile_photo'],
                 $profile->id
             );
+
+            $hasVenue = $businessProfileData['has_venue'] ?? true;
+            $primaryVenueInput = $businessProfileData['primary_venue'] ?? null;
+
             $resolvedCity = $this->businessVenueService->resolveCity(
                 $businessProfileData['city_id'],
-                $businessProfileData['city_name'] ?? $businessProfileData['primary_venue']['city'] ?? null
+                $businessProfileData['city_name'] ?? $primaryVenueInput['city'] ?? null
             );
-            $primaryVenue = $this->businessVenueService->normalizePrimaryVenue(
-                $businessProfileData['primary_venue'],
+
+            $primaryVenue = ($hasVenue && is_array($primaryVenueInput))
+                ? $this->businessVenueService->normalizePrimaryVenue($primaryVenueInput, $profile->id)
+                : null;
+
+            $targetCityIds = array_values($businessProfileData['target_city_ids'] ?? []);
+            $offerPhotos = $this->businessVenueService->normalizePhotos(
+                $businessProfileData['offer_photos'] ?? [],
                 $profile->id
             );
 
@@ -417,15 +433,20 @@ class AuthService
                 'profile_id' => $profile->id,
                 'name' => $businessProfileData['name'],
                 'about' => $businessProfileData['about'],
+                'offering' => $businessProfileData['offering'] ?? null,
+                'product_type' => $businessProfileData['product_type'] ?? 'other',
                 'business_type' => $businessProfileData['categories'][0] ?? $businessProfileData['business_type'],
+                'has_venue' => $hasVenue,
                 'categories' => $businessProfileData['categories'],
                 'city_id' => $resolvedCity?->id,
-                'city_name' => $resolvedCity?->name ?? $businessProfileData['city_name'] ?? $primaryVenue['city'],
-                'city_country' => $resolvedCity?->country ?? $primaryVenue['country'],
+                'city_name' => $resolvedCity?->name ?? $businessProfileData['city_name'] ?? $primaryVenue['city'] ?? null,
+                'city_country' => $resolvedCity?->country ?? $primaryVenue['country'] ?? null,
+                'target_city_ids' => $targetCityIds === [] ? null : $targetCityIds,
                 'instagram' => $businessProfileData['instagram'],
                 'website' => $businessProfileData['website'],
                 'profile_photo' => $profilePhotoUrl,
                 'primary_venue' => $primaryVenue,
+                'offer_photos' => $offerPhotos === [] ? null : $offerPhotos,
             ]);
 
             // Create inactive subscription for business users
@@ -434,6 +455,14 @@ class AuthService
                 'source' => SubscriptionSource::AppleIap,
                 'status' => SubscriptionStatus::Inactive,
             ]);
+
+            // The app registers businesses in one shot via this path (it never
+            // calls PUT /onboarding/business), so the free auto-offer must be
+            // provisioned here too, using the SAME shared logic as the
+            // onboarding-complete path. Runs after the business profile (name,
+            // city, primary_venue) is persisted; idempotent + tolerant.
+            $profile->refresh();
+            $this->onboardingService->provisionBusinessAutoOffer($profile);
 
             return $profile;
         });
@@ -492,12 +521,21 @@ class AuthService
                 'name' => $communityProfileData['name'],
                 'about' => $communityProfileData['about'],
                 'community_type' => $communityProfileData['community_type'],
+                'community_size' => $communityProfileData['community_size'] ?? null,
                 'city_id' => $communityProfileData['city_id'],
                 'instagram' => $communityProfileData['instagram'],
                 'tiktok' => $communityProfileData['tiktok'],
                 'website' => $communityProfileData['website'],
                 'profile_photo' => $communityProfileData['profile_photo'],
             ]);
+
+            // The app registers communities in one shot via this path (it never
+            // calls PUT /onboarding/community), so the management community must
+            // be provisioned here too, using the SAME shared logic as the
+            // onboarding-complete path. Runs after the community profile (name,
+            // type) is persisted; idempotent + tolerant.
+            $profile->refresh();
+            $this->onboardingService->provisionManagementCommunity($profile);
 
             return $profile;
         });

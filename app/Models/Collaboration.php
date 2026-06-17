@@ -30,7 +30,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Application $application
- * @property-read CollabOpportunity $collabOpportunity
  * @property-read Kolab|null $kolab
  * @property-read Profile $creatorProfile
  * @property-read Profile $applicantProfile
@@ -99,16 +98,6 @@ class Collaboration extends Model
     public function application(): BelongsTo
     {
         return $this->belongsTo(Application::class);
-    }
-
-    /**
-     * Get the collaboration opportunity.
-     *
-     * @return BelongsTo<CollabOpportunity, $this>
-     */
-    public function collabOpportunity(): BelongsTo
-    {
-        return $this->belongsTo(CollabOpportunity::class, 'collab_opportunity_id');
     }
 
     /**

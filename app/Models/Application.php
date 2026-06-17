@@ -24,7 +24,6 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property ApplicationStatus $status
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
- * @property-read CollabOpportunity $collabOpportunity
  * @property-read Kolab|null $kolab
  * @property-read Profile $applicantProfile
  * @property-read Collaboration|null $collaboration
@@ -67,16 +66,6 @@ class Application extends Model
             'declined_at' => 'datetime',
             'withdrawn_at' => 'datetime',
         ];
-    }
-
-    /**
-     * Get the collaboration opportunity this application is for.
-     *
-     * @return BelongsTo<CollabOpportunity, $this>
-     */
-    public function collabOpportunity(): BelongsTo
-    {
-        return $this->belongsTo(CollabOpportunity::class, 'collab_opportunity_id');
     }
 
     /**

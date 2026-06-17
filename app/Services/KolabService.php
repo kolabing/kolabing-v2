@@ -42,14 +42,39 @@ class KolabService
     {
         $query = Kolab::query()
             ->where('status', KolabStatus::Published)
-            ->with('creatorProfile');
+            ->with([
+                'creatorProfile' => function ($query) {
+                    $query->with([
+                        'events' => function ($q) {
+                            $q->orderByDesc('event_date')->limit(5);
+                        },
+                        'events.photos' => function ($q) {
+                            $q->orderBy('sort_order')->limit(10);
+                        },
+                        'galleryPhotos' => function ($q) {
+                            $q->orderBy('sort_order')->limit(10);
+                        },
+                    ]);
+                },
+            ]);
 
         $this->applyRecipientVisibilityScope($query, $viewer);
+        $this->excludeAlreadyAppliedKolabs($query, $viewer);
         $this->applyFilters($query, $filters);
 
         return $query
             ->orderByDesc('published_at')
             ->paginate($perPage);
+    }
+
+    private function excludeAlreadyAppliedKolabs(Builder $query, Profile $viewer): void
+    {
+        $query->whereNotExists(function ($subQuery) use ($viewer): void {
+            $subQuery->selectRaw('1')
+                ->from('applications')
+                ->whereColumn('applications.kolab_id', 'kolabs.id')
+                ->where('applications.applicant_profile_id', $viewer->id);
+        });
     }
 
     /**
@@ -88,6 +113,10 @@ class KolabService
 
         if ($data['intent_type'] === IntentType::VenuePromotion->value) {
             $data = $this->enrichVenuePromotionData($creator, $data);
+        }
+
+        if ($data['intent_type'] === IntentType::CommunitySeeking->value) {
+            $data = $this->enrichCommunitySeekingData($creator, $data);
         }
 
         $kolab = Kolab::query()->create([
@@ -146,6 +175,10 @@ class KolabService
 
         if ($intentType === IntentType::VenuePromotion->value) {
             $data = $this->enrichVenuePromotionData($kolab->creatorProfile, $data);
+        }
+
+        if ($intentType === IntentType::CommunitySeeking->value) {
+            $data = $this->enrichCommunitySeekingData($kolab->creatorProfile, $data);
         }
 
         $kolab->update($data);
@@ -247,7 +280,9 @@ class KolabService
      *     intent_type?: string,
      *     city?: string,
      *     venue_type?: string,
+     *     venue_mode?: string,
      *     product_type?: string,
+     *     categories?: array<string>|string,
      *     needs?: array<string>,
      *     community_types?: array<string>,
      *     search?: string,
@@ -270,8 +305,29 @@ class KolabService
             $query->where('venue_type', $filters['venue_type']);
         }
 
+        if (isset($filters['venue_mode']) && $filters['venue_mode'] !== '') {
+            $venuePreference = match ($filters['venue_mode']) {
+                'business_venue' => 'business_provides',
+                'community_venue' => 'community_provides',
+                default => 'no_venue',
+            };
+            $query->where('venue_preference', $venuePreference);
+        }
+
         if (isset($filters['product_type']) && $filters['product_type'] !== '') {
             $query->where('product_type', $filters['product_type']);
+        }
+
+        if (isset($filters['categories']) && ! empty($filters['categories'])) {
+            $categories = is_array($filters['categories'])
+                ? $filters['categories']
+                : [$filters['categories']];
+
+            $query->where(function (Builder $q) use ($categories) {
+                foreach ($categories as $category) {
+                    $q->orWhereJsonContains('community_types', $category);
+                }
+            });
         }
 
         if (isset($filters['needs']) && ! empty($filters['needs'])) {
@@ -302,6 +358,22 @@ class KolabService
                     $q->whereRaw('LOWER(kolabs.title) LIKE ?', [$searchTerm])
                         ->orWhereRaw('LOWER(kolabs.description) LIKE ?', [$searchTerm]);
                 }
+
+                $q->orWhereHas('creatorProfile.businessProfile', function (Builder $bq) use ($searchTerm, $likeOperator) {
+                    if ($likeOperator === 'ilike') {
+                        $bq->where('name', 'ilike', $searchTerm);
+                    } else {
+                        $bq->whereRaw('LOWER(name) LIKE ?', [$searchTerm]);
+                    }
+                });
+
+                $q->orWhereHas('creatorProfile.communityProfile', function (Builder $cq) use ($searchTerm, $likeOperator) {
+                    if ($likeOperator === 'ilike') {
+                        $cq->where('name', 'ilike', $searchTerm);
+                    } else {
+                        $cq->whereRaw('LOWER(name) LIKE ?', [$searchTerm]);
+                    }
+                });
             });
         }
     }
@@ -368,6 +440,35 @@ class KolabService
         $data['venue_type'] = $primaryVenue['venue_type'] ?? null;
         $data['capacity'] = $primaryVenue['capacity'] ?? null;
         $data['venue_address'] = $primaryVenue['formatted_address'] ?? null;
+
+        return $data;
+    }
+
+    /**
+     * Inherit the community's self-describing fields (type + size) from its
+     * profile so they are NOT re-asked on every kolab — they already live on the
+     * community_profile (set at onboarding). typical_attendance is intentionally
+     * NOT inherited: it varies per kolab and stays a per-kolab input.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function enrichCommunitySeekingData(Profile $creator, array $data): array
+    {
+        $creator->loadMissing('communityProfile');
+        $profile = $creator->communityProfile;
+
+        if ($profile === null) {
+            return $data;
+        }
+
+        if (empty($data['community_types']) && ! empty($profile->community_type)) {
+            $data['community_types'] = [$profile->community_type];
+        }
+
+        if (empty($data['community_size']) && $profile->community_size !== null) {
+            $data['community_size'] = $profile->community_size;
+        }
 
         return $data;
     }

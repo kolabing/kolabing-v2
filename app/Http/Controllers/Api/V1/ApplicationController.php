@@ -13,7 +13,6 @@ use App\Http\Resources\Api\V1\ApplicationCollection;
 use App\Http\Resources\Api\V1\ApplicationResource;
 use App\Http\Resources\Api\V1\CollaborationResource;
 use App\Models\Application;
-use App\Models\CollabOpportunity;
 use App\Models\Kolab;
 use App\Models\Profile;
 use App\Services\ApplicationService;
@@ -37,10 +36,9 @@ class ApplicationController extends Controller
     {
         /** @var Profile $profile */
         $profile = $request->user();
-        $kolab = Kolab::query()->find($opportunity);
-        $opportunityModel = $kolab ?? CollabOpportunity::query()->findOrFail($opportunity);
+        $kolab = Kolab::query()->findOrFail($opportunity);
 
-        if ($profile->id !== $opportunityModel->creator_profile_id) {
+        if ($profile->id !== $kolab->creator_profile_id) {
             return response()->json([
                 'success' => false,
                 'message' => __('You are not authorized to view applications for this opportunity'),
@@ -54,7 +52,7 @@ class ApplicationController extends Controller
         $perPage = min((int) $request->query('per_page', 20), 100);
 
         $applications = $this->applicationService->getForOpportunity(
-            $opportunityModel,
+            $kolab,
             $filters,
             $perPage
         );
@@ -80,10 +78,9 @@ class ApplicationController extends Controller
     {
         /** @var Profile $profile */
         $profile = $request->user();
-        $kolab = Kolab::query()->find($opportunity);
-        $opportunityModel = $kolab ?? CollabOpportunity::query()->findOrFail($opportunity);
+        $kolab = Kolab::query()->findOrFail($opportunity);
 
-        if ($profile->cannot('create', [Application::class, $opportunityModel])) {
+        if ($profile->cannot('create', [Application::class, $kolab])) {
             return response()->json([
                 'success' => false,
                 'message' => __('You are not authorized to apply to this opportunity'),
@@ -93,7 +90,7 @@ class ApplicationController extends Controller
         try {
             $application = $this->applicationService->apply(
                 $profile,
-                $opportunityModel,
+                $kolab,
                 $request->validated()
             );
 
@@ -101,7 +98,6 @@ class ApplicationController extends Controller
                 'applicantProfile.businessProfile',
                 'applicantProfile.communityProfile',
                 'kolab.creatorProfile',
-                'collabOpportunity.creatorProfile',
             ]);
 
             return response()->json([
@@ -275,7 +271,6 @@ class ApplicationController extends Controller
                 'applicantProfile.businessProfile',
                 'applicantProfile.communityProfile',
                 'kolab.creatorProfile',
-                'collabOpportunity.creatorProfile',
             ]);
 
             return response()->json([

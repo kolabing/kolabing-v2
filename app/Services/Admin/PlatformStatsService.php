@@ -135,20 +135,14 @@ class PlatformStatsService
             ->selectSub(
                 Application::query()
                     ->selectRaw('count(*)')
-                    ->where(function ($query): void {
-                        $query->whereColumn('kolab_id', 'kolabs.id')
-                            ->orWhereColumn('collab_opportunity_id', 'kolabs.id');
-                    })
+                    ->whereColumn('kolab_id', 'kolabs.id')
                     ->where('status', ApplicationStatus::Pending->value),
                 'pending_applications_count'
             )
             ->selectSub(
                 Application::query()
                     ->selectRaw('count(*)')
-                    ->where(function ($query): void {
-                        $query->whereColumn('kolab_id', 'kolabs.id')
-                            ->orWhereColumn('collab_opportunity_id', 'kolabs.id');
-                    })
+                    ->whereColumn('kolab_id', 'kolabs.id')
                     ->where('status', ApplicationStatus::Accepted->value),
                 'accepted_applications_count'
             )
@@ -196,12 +190,9 @@ class PlatformStatsService
 
         // Median applications per published kolab (sqlite-safe via PHP).
         $perKolabCounts = Application::query()->toBase()
-            ->selectRaw('coalesce(kolab_id, collab_opportunity_id) as canonical_kolab_id')
+            ->selectRaw('kolab_id as canonical_kolab_id')
             ->selectRaw('count(*) as c')
-            ->where(function ($query): void {
-                $query->whereNotNull('kolab_id')
-                    ->orWhereNotNull('collab_opportunity_id');
-            })
+            ->whereNotNull('kolab_id')
             ->groupBy('canonical_kolab_id')
             ->pluck('c')
             ->map(fn ($v) => (int) $v)

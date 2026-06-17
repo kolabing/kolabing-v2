@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Requests\Api\V1;
 
 use App\Enums\IntentType;
+use App\Models\OfferOption;
+use App\Support\OfferOptionValues;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -12,22 +14,6 @@ use Illuminate\Validation\Validator as ValidationValidator;
 
 class CreateKolabRequest extends FormRequest
 {
-    /**
-     * @var array<int, string>
-     */
-    private const OFFERING_VALUES = [
-        'venue',
-        'venue_space',
-        'food_drink',
-        'free_drinks',
-        'discount',
-        'products',
-        'social_media',
-        'content_creation',
-        'sponsorship',
-        'other',
-    ];
-
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -74,28 +60,31 @@ class CreateKolabRequest extends FormRequest
 
             // Community Seeking fields
             'needs' => ['required_if:intent_type,community_seeking', 'nullable', 'array'],
-            'needs.*' => ['string', 'in:venue,food_drink,sponsor,products,discount,other'],
-            'community_types' => ['required_if:intent_type,community_seeking', 'nullable', 'array'],
+            'needs.*' => ['string', 'in:'.implode(',', OfferOptionValues::for(OfferOption::KIND_NEED))],
+            // community_types + community_size are inherited from the creator's
+            // community_profile (KolabService::enrichCommunitySeekingData), so
+            // they are NOT required here — the app no longer asks for them.
+            'community_types' => ['nullable', 'array'],
             'community_types.*' => ['string'],
-            'community_size' => ['required_if:intent_type,community_seeking', 'nullable', 'integer', 'min:1'],
+            'community_size' => ['nullable', 'integer', 'min:1'],
             'typical_attendance' => ['required_if:intent_type,community_seeking', 'nullable', 'integer', 'min:1'],
             'offers_in_return' => ['required_if:intent_type,community_seeking', 'nullable', 'array'],
-            'offers_in_return.*' => ['string', 'in:social_media,event_activation,product_placement,community_reach,review_feedback'],
+            'offers_in_return.*' => ['string', 'in:'.implode(',', OfferOptionValues::for(OfferOption::KIND_DELIVERABLE))],
             'venue_preference' => ['nullable', 'string', 'in:business_provides,community_provides,no_venue'],
 
             // Venue Promotion fields
             'venue_name' => ['nullable', 'string', 'max:255'],
-            'venue_type' => ['nullable', 'string', 'in:restaurant,cafe,bar_lounge,hotel,coworking,sports_facility,event_space,rooftop,beach_club,retail_store,other'],
+            'venue_type' => ['nullable', 'string', 'in:'.implode(',', OfferOptionValues::for(OfferOption::KIND_VENUE_TYPE))],
             'capacity' => ['nullable', 'integer', 'min:1'],
             'venue_address' => ['nullable', 'string', 'max:500'],
 
             // Product Promotion fields
             'product_name' => ['required_if:intent_type,product_promotion', 'nullable', 'string', 'max:255'],
-            'product_type' => ['required_if:intent_type,product_promotion', 'nullable', 'string', 'in:food_product,beverage,health_beauty,sports_equipment,fashion,tech_gadget,experience_service,other'],
+            'product_type' => ['required_if:intent_type,product_promotion', 'nullable', 'string', 'in:'.implode(',', OfferOptionValues::for(OfferOption::KIND_PRODUCT_TYPE))],
 
             // Business Targeting fields (required unless community_seeking)
             'offering' => ['required_unless:intent_type,community_seeking', 'nullable', 'array'],
-            'offering.*' => ['string', 'in:'.implode(',', self::OFFERING_VALUES)],
+            'offering.*' => ['string', 'in:'.implode(',', OfferOptionValues::for(OfferOption::KIND_OFFERING))],
 
             // Optional fields
             'area' => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -114,7 +103,7 @@ class CreateKolabRequest extends FormRequest
             'seeking_communities.*' => ['string'],
             'min_community_size' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'expects' => ['sometimes', 'nullable', 'array'],
-            'expects.*' => ['string', 'in:social_media,event_activation,product_placement,community_reach,review_feedback'],
+            'expects.*' => ['string', 'in:'.implode(',', OfferOptionValues::for(OfferOption::KIND_DELIVERABLE))],
             'past_events' => ['sometimes', 'nullable', 'array'],
             'past_events.*.name' => ['required_with:past_events', 'string', 'max:255'],
             'past_events.*.date' => ['required_with:past_events', 'date'],

@@ -58,6 +58,7 @@ class RegisterCommunityRequest extends FormRequest
             'about' => ['nullable', 'string', 'max:1000'],
             // Source of truth: community_types table (admin-managed). Constant retired.
             'community_type' => ['required', 'string', 'exists:community_types,slug'],
+            'community_size' => ['nullable', 'integer', 'min:1'],
             'city_id' => ['required', 'uuid', 'exists:cities,id'],
             'phone_number' => ['nullable', 'string', 'regex:/^\+[1-9]\d{1,14}$/'],
             'instagram' => ['nullable', 'string', 'max:255', 'regex:/^@?[a-zA-Z0-9._]+$/'],
@@ -139,6 +140,7 @@ class RegisterCommunityRequest extends FormRequest
      *     name: string,
      *     about: string|null,
      *     community_type: string,
+     *     community_size: int|null,
      *     city_id: string,
      *     instagram: string|null,
      *     tiktok: string|null,
@@ -154,6 +156,7 @@ class RegisterCommunityRequest extends FormRequest
             'name' => $validated['name'],
             'about' => $validated['about'] ?? null,
             'community_type' => $validated['community_type'],
+            'community_size' => $validated['community_size'] ?? null,
             'city_id' => $validated['city_id'],
             'instagram' => $validated['instagram'] ?? null,
             'tiktok' => $validated['tiktok'] ?? null,

@@ -142,6 +142,8 @@ class LookupControllerTest extends TestCase
                         'label',
                         'slug',
                         'icon',
+                        'icon_url',
+                        'applies_to',
                     ],
                 ],
                 'meta' => [
@@ -156,6 +158,39 @@ class LookupControllerTest extends TestCase
         $this->assertContains('bar', $values);
         $this->assertContains('gym', $values);
         $this->assertContains('other', $values);
+    }
+
+    public function test_business_types_endpoint_exposes_icon_and_applies_to_from_seed(): void
+    {
+        $this->seed(\Database\Seeders\BusinessTypeSeeder::class);
+
+        $response = $this->getJson('/api/v1/lookup/business-types');
+
+        $response->assertStatus(200);
+
+        $byValue = collect($response->json('data'))->keyBy('value');
+
+        $this->assertSame('coffee', $byValue['cafe']['icon']);
+        $this->assertSame('venue', $byValue['cafe']['applies_to']);
+        $this->assertSame('both', $byValue['retail']['applies_to']);
+        $this->assertSame('both', $byValue['other']['applies_to']);
+
+        // icon_url is always present in the shape (null until an admin picks one).
+        $this->assertArrayHasKey('icon_url', $byValue['cafe']);
+    }
+
+    public function test_business_types_endpoint_exposes_icon_url_picked_by_admin(): void
+    {
+        $this->seed(\Database\Seeders\BusinessTypeSeeder::class);
+        \App\Models\BusinessType::query()->where('slug', 'cafe')
+            ->update(['icon_url' => 'https://cdn.example.test/storage/category-icons/category-cafe.svg']);
+
+        $byValue = collect($this->getJson('/api/v1/lookup/business-types')->json('data'))->keyBy('value');
+
+        $this->assertSame(
+            'https://cdn.example.test/storage/category-icons/category-cafe.svg',
+            $byValue['cafe']['icon_url'],
+        );
     }
 
     public function test_business_types_endpoint_is_public(): void
@@ -401,6 +436,7 @@ class LookupControllerTest extends TestCase
                         'label',
                         'slug',
                         'icon',
+                        'icon_url',
                     ],
                 ],
                 'meta' => [
@@ -424,6 +460,23 @@ class LookupControllerTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true);
+    }
+
+    public function test_community_types_endpoint_exposes_icon_url_picked_by_admin(): void
+    {
+        $this->seed(\Database\Seeders\CommunityTypeSeeder::class);
+        \App\Models\CommunityType::query()->where('slug', 'run_club')
+            ->update(['icon' => 'run', 'icon_url' => 'https://cdn.example.test/storage/category-icons/category-run.svg']);
+
+        $byValue = collect($this->getJson('/api/v1/lookup/community-types')->json('data'))->keyBy('value');
+
+        $this->assertSame('run', $byValue['run_club']['icon']);
+        $this->assertSame(
+            'https://cdn.example.test/storage/category-icons/category-run.svg',
+            $byValue['run_club']['icon_url'],
+        );
+        // Communities have no venue/product split — no applies_to is emitted.
+        $this->assertArrayNotHasKey('applies_to', $byValue['run_club']);
     }
 
     /**

@@ -2,6 +2,51 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+---
+
+## CONTRIBUTOR ROUTING — Volkan → Reverb real-time ticket
+
+If the current user is *Volkan* — they introduce themselves as Volkan, the git
+user / commit author is Volkan (volkanoluc@gmail.com), or they ask about
+*Reverb, WebSockets, real-time chat, broadcasting, or live messages* — then
+BEFORE anything else, read and surface
+[docs/tickets/2026-06-05-reverb-realtime-chat-VOLKAN.md](docs/tickets/2026-06-05-reverb-realtime-chat-VOLKAN.md)
+and orient the conversation around it: it is his assigned task (turning on
+real-time chat — ops daemons + Flutter Echo client). Lead with a short summary of
+where that ticket stands and what's next, then help with it.
+
+---
+
+## MUST READ — Backlog (every session, before anything else)
+
+At the START of every session, read [BACKLOG.md](BACKLOG.md) and list its current
+contents back to the user (the three sections: New Features, Incomplete Features,
+Fixes). It is the single source of truth for outstanding work. You MUST keep it in
+sync as you work, following its "Maintenance rules":
+- A New Feature you begin → move to *Incomplete Features*.
+- An Incomplete Feature verified working end-to-end → remove it.
+- A bug you detect → add to *Fixes* immediately; once the fix is *confirmed*
+  (tested, not just written), strike it through with the date, then remove later.
+- Update the Last updated: date whenever you edit it.
+
+---
+
+## MUST READ — Backend schema (before any data/model/API/DB change)
+
+Read [docs/BACKEND-SCHEMA.md](docs/BACKEND-SCHEMA.md) before changing anything that
+touches data, models, API payloads, JSON keys, or the database. It documents the
+*real production Postgres schema* (Laravel backend, db main). Hard rules:
+- *Never invent columns, tables, or enum values* — if it's not in that doc (or the
+  live schema), it does not exist. Verify before relying on a field.
+- *Never hardcode* IDs, emails, city/category names, or sample records in app code;
+  fetch from the API. Identity lives in profiles (+ business_profiles /
+  community_profiles), NOT the users table.
+- Lifecycle: collab_opportunities → applications → collaborations (+ reviews /
+  feedback). GET /collaborations is viewer-scoped. The business paywall is
+  backend-enforced; never bypass it.
+
+---
+
 ## MUST READ — Roles & Permissions (before planning OR executing changes)
 
 Before planning or writing any code that touches **user roles, permissions, the paywall, the Explore feed, profiles, onboarding, the create/apply flows, the admin operator surfaces, the attendee gamification track, the community-members & tiers surface, or subscription state**, read BOTH:

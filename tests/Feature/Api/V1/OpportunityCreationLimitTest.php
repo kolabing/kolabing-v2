@@ -34,13 +34,7 @@ class OpportunityCreationLimitTest extends TestCase
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Freemium Gate: 1 free collaboration, then subscription required
-    |--------------------------------------------------------------------------
-    */
-
-    public function test_business_without_subscription_and_no_collabs_can_create_opportunity(): void
+    public function test_legacy_opportunity_create_endpoint_writes_only_kolab(): void
     {
         $business = Profile::factory()->business()->create();
 
@@ -48,108 +42,11 @@ class OpportunityCreationLimitTest extends TestCase
             ->postJson('/api/v1/opportunities', $this->validOpportunityData());
 
         $response->assertStatus(201)
-            ->assertJsonPath('success', true);
-    }
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.title', 'Test Opportunity');
 
-    public function test_business_without_subscription_and_one_collab_cannot_create_opportunity(): void
-    {
-        $business = Profile::factory()->business()->create();
-
-        Collaboration::factory()->forCreator($business)->create();
-
-        $response = $this->actingAs($business)
-            ->postJson('/api/v1/opportunities', $this->validOpportunityData());
-
-        $response->assertStatus(402)
-            ->assertJsonPath('success', false)
-            ->assertJsonPath('requires_subscription', true);
-    }
-
-    public function test_business_without_subscription_and_multiple_collabs_cannot_create_opportunity(): void
-    {
-        $business = Profile::factory()->business()->create();
-
-        Collaboration::factory()->count(3)->forCreator($business)->create();
-
-        $response = $this->actingAs($business)
-            ->postJson('/api/v1/opportunities', $this->validOpportunityData());
-
-        $response->assertStatus(402)
-            ->assertJsonPath('success', false)
-            ->assertJsonPath('requires_subscription', true);
-    }
-
-    public function test_business_with_active_subscription_and_collabs_can_create_opportunity(): void
-    {
-        $business = Profile::factory()->business()->create();
-        BusinessSubscription::factory()->active()->create(['profile_id' => $business->id]);
-
-        Collaboration::factory()->count(3)->forCreator($business)->create();
-
-        $response = $this->actingAs($business)
-            ->postJson('/api/v1/opportunities', $this->validOpportunityData());
-
-        $response->assertStatus(201)
-            ->assertJsonPath('success', true);
-    }
-
-    public function test_community_user_can_create_opportunities_regardless_of_collabs(): void
-    {
-        $community = Profile::factory()->community()->create();
-
-        // Community profiles are always the applicant side in collaborations; creator_profile_id is always a business
-        Collaboration::factory()->count(5)->forApplicant($community)->create();
-
-        $response = $this->actingAs($community)
-            ->postJson('/api/v1/opportunities', $this->validOpportunityData());
-
-        $response->assertStatus(201)
-            ->assertJsonPath('success', true);
-    }
-
-    public function test_all_collab_statuses_count_toward_limit(): void
-    {
-        $business = Profile::factory()->business()->create();
-
-        // One cancelled collaboration still triggers the gate
-        Collaboration::factory()->cancelled()->forCreator($business)->create();
-
-        $response = $this->actingAs($business)
-            ->postJson('/api/v1/opportunities', $this->validOpportunityData());
-
-        $response->assertStatus(402)
-            ->assertJsonPath('success', false)
-            ->assertJsonPath('requires_subscription', true);
-    }
-
-    public function test_business_with_cancelled_subscription_and_collab_is_blocked(): void
-    {
-        $business = Profile::factory()->business()->create();
-        BusinessSubscription::factory()->cancelled()->create(['profile_id' => $business->id]);
-
-        Collaboration::factory()->forCreator($business)->create();
-
-        $response = $this->actingAs($business)
-            ->postJson('/api/v1/opportunities', $this->validOpportunityData());
-
-        $response->assertStatus(402)
-            ->assertJsonPath('success', false)
-            ->assertJsonPath('requires_subscription', true);
-    }
-
-    public function test_business_with_past_due_subscription_and_collab_is_blocked(): void
-    {
-        $business = Profile::factory()->business()->create();
-        BusinessSubscription::factory()->pastDue()->create(['profile_id' => $business->id]);
-
-        Collaboration::factory()->forCreator($business)->create();
-
-        $response = $this->actingAs($business)
-            ->postJson('/api/v1/opportunities', $this->validOpportunityData());
-
-        $response->assertStatus(402)
-            ->assertJsonPath('success', false)
-            ->assertJsonPath('requires_subscription', true);
+        $this->assertDatabaseCount('kolabs', 1);
+        $this->assertDatabaseCount('collab_opportunities', 0);
     }
 
     /*

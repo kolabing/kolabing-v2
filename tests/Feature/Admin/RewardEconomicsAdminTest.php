@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Admin;
 
+use App\Models\PointLedger;
 use App\Models\Profile;
 use App\Models\RewardEconomics;
 use App\Models\User;
@@ -93,6 +94,8 @@ class RewardEconomicsAdminTest extends TestCase
             'redeemed_points' => 0,
             'pending_withdrawal' => false,
         ]);
+        // Referral rewards back the withdrawal: 9 × 50 = 450 ≥ 400 threshold.
+        PointLedger::factory()->count(9)->forProfile($profile)->referralConversion()->create();
 
         $response = $this->actingAs($profile)
             ->postJson(route('api.v1.gamification.withdrawal'), [
@@ -108,12 +111,8 @@ class RewardEconomicsAdminTest extends TestCase
     public function test_withdrawal_blocked_below_threshold(): void
     {
         $profile = Profile::factory()->community()->create();
-        Wallet::factory()->create([
-            'profile_id' => $profile->id,
-            'points' => 374,
-            'redeemed_points' => 0,
-            'pending_withdrawal' => false,
-        ]);
+        // 374 referral points: one short of the default 375 threshold.
+        PointLedger::factory()->forProfile($profile)->referralConversion()->create(['points' => 374]);
 
         $response = $this->actingAs($profile)
             ->postJson(route('api.v1.gamification.withdrawal'), [
@@ -122,7 +121,7 @@ class RewardEconomicsAdminTest extends TestCase
             ]);
 
         $response->assertStatus(400)
-            ->assertJsonPath('message', 'Insufficient points. Need 375, have 374.');
+            ->assertJsonPath('message', 'Insufficient referral rewards. Need 375, have 374.');
     }
 
     public function test_admin_edit_busts_economics_cache(): void

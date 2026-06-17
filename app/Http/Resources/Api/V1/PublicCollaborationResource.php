@@ -42,7 +42,7 @@ class PublicCollaborationResource extends JsonResource
 
         return [
             'id' => $this->id,
-            'title' => ($this->kolab ?? $this->collabOpportunity)?->title,
+            'title' => $this->kolab?->title,
             'partner_name' => $partner?->getExtendedProfile()?->name,
             'partner_avatar_url' => $partner?->avatar_url,
             'completed_at' => $this->completed_at?->toIso8601String(),

@@ -32,7 +32,11 @@ class CommunityResource extends JsonResource
             'slug' => $this->slug,
             'type' => $this->type,
             'description' => $this->description,
-            'avatar_url' => $this->avatar_url,
+            // Fall back to the owner community profile's logo when the community
+            // row has no avatar (logos are set on community_profiles.profile_photo
+            // at onboarding) — matches CommunityPublicProfileResource so the
+            // community preview/cards render the picture. App normalizes the URL.
+            'avatar_url' => $this->avatar_url ?: $this->communityProfile?->profile_photo,
             'is_primary' => $this->is_primary,
             'join_policy' => $this->join_policy->value,
             // Canonical shareable join link (always present). For invite_only

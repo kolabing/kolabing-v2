@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\Application;
-use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
 use App\Models\Community;
 use App\Models\Kolab;
@@ -13,7 +12,6 @@ use App\Policies\ApplicationPolicy;
 use App\Policies\CollaborationPolicy;
 use App\Policies\CommunityPolicy;
 use App\Policies\KolabPolicy;
-use App\Policies\OpportunityPolicy;
 use App\Services\PostmarkClient;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Gate;
@@ -64,7 +62,6 @@ class AppServiceProvider extends ServiceProvider
      */
     private function registerPolicies(): void
     {
-        Gate::policy(CollabOpportunity::class, OpportunityPolicy::class);
         Gate::policy(Application::class, ApplicationPolicy::class);
         Gate::policy(Collaboration::class, CollaborationPolicy::class);
         Gate::policy(Kolab::class, KolabPolicy::class);

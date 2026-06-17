@@ -122,6 +122,22 @@ Route::prefix('v1')->group(function (): void {
     Route::get('lookup/community-types', [LookupController::class, 'communityTypes'])
         ->name('api.v1.lookup.community-types');
 
+    // Kolab offer taxonomies (admin-managed in /admin/offer-options).
+    Route::get('lookup/offerings', [LookupController::class, 'offerings'])
+        ->name('api.v1.lookup.offerings');
+
+    Route::get('lookup/deliverables', [LookupController::class, 'deliverables'])
+        ->name('api.v1.lookup.deliverables');
+
+    Route::get('lookup/needs', [LookupController::class, 'needs'])
+        ->name('api.v1.lookup.needs');
+
+    Route::get('lookup/product-types', [LookupController::class, 'productTypes'])
+        ->name('api.v1.lookup.product-types');
+
+    Route::get('lookup/venue-types', [LookupController::class, 'venueTypes'])
+        ->name('api.v1.lookup.venue-types');
+
     // Universal @handle availability check (leaks no PII; usable pre-auth too).
     Route::get('handle/available', [LookupController::class, 'handleAvailable'])
         ->name('api.v1.handle.available');

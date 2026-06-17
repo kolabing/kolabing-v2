@@ -268,6 +268,146 @@ class OnboardingControllerTest extends TestCase
         $this->assertSame('google-place-id', $profile->businessProfile->primary_venue['place_id']);
     }
 
+    public function test_business_onboarding_product_path_without_venue_succeeds(): void
+    {
+        $other = City::factory()->create(['name' => 'Madrid']);
+
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/onboarding/business', [
+                'name' => 'Bean Brand',
+                'business_type' => 'retail',
+                'has_venue' => false,
+                'city_id' => $this->city->id,
+                'target_city_ids' => [$this->city->id, $other->id],
+                'offering' => 'Single-origin coffee beans',
+                'offer_photos' => [],
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.business_profile.has_venue', false)
+            ->assertJsonPath('data.business_profile.offering', 'Single-origin coffee beans')
+            ->assertJsonPath('data.business_profile.primary_venue', null);
+
+        $profile->refresh();
+        $profile->load('businessProfile');
+
+        $this->assertFalse($profile->businessProfile->has_venue);
+        $this->assertNull($profile->businessProfile->primary_venue);
+        $this->assertEquals($this->city->id, $profile->businessProfile->city_id);
+        $this->assertEquals(
+            [$this->city->id, $other->id],
+            $profile->businessProfile->target_city_ids
+        );
+    }
+
+    public function test_business_onboarding_product_path_auto_creates_one_published_kolab(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/onboarding/business', [
+                'name' => 'Bean Brand',
+                'about' => 'We roast single-origin beans.',
+                'business_type' => 'retail',
+                'has_venue' => false,
+                'city_id' => $this->city->id,
+                'offering' => 'Single-origin coffee beans',
+                'offer_photos' => [],
+            ]);
+
+        $response->assertStatus(200)->assertJsonPath('success', true);
+
+        $kolabs = \App\Models\Kolab::query()
+            ->where('creator_profile_id', $profile->id)
+            ->get();
+
+        $this->assertCount(1, $kolabs, 'Business onboarding should auto-create exactly one kolab.');
+
+        $kolab = $kolabs->first();
+        $this->assertSame(\App\Enums\IntentType::ProductPromotion, $kolab->intent_type);
+        $this->assertSame(\App\Enums\KolabStatus::Published, $kolab->status);
+        $this->assertNotNull($kolab->published_at, 'Auto-offer must be published live.');
+        $this->assertSame('Bean Brand', $kolab->title);
+        $this->assertSame('Bean Brand', $kolab->product_name);
+        $this->assertSame('other', $kolab->product_type);
+        $this->assertSame('Barcelona', $kolab->preferred_city);
+        $this->assertSame(['products'], $kolab->offering);
+    }
+
+    public function test_business_onboarding_venue_path_auto_creates_one_published_venue_kolab(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/onboarding/business', [
+                'name' => 'Cafe Barcelona',
+                'about' => 'A cozy cafe.',
+                'business_type' => 'cafe',
+                'city_id' => $this->city->id,
+                'primary_venue' => [
+                    'name' => 'Cafe Barcelona Terrace',
+                    'venue_type' => 'cafe',
+                    'capacity' => 80,
+                    'formatted_address' => 'Passeig de Gracia 1, Barcelona',
+                    'city' => 'Barcelona',
+                    'country' => 'Spain',
+                    'photos' => [],
+                ],
+            ]);
+
+        $response->assertStatus(200)->assertJsonPath('success', true);
+
+        $kolabs = \App\Models\Kolab::query()
+            ->where('creator_profile_id', $profile->id)
+            ->get();
+
+        $this->assertCount(1, $kolabs, 'Venue business onboarding should auto-create exactly one kolab.');
+
+        $kolab = $kolabs->first();
+        $this->assertSame(\App\Enums\IntentType::VenuePromotion, $kolab->intent_type);
+        $this->assertSame(\App\Enums\KolabStatus::Published, $kolab->status);
+        $this->assertNotNull($kolab->published_at);
+        $this->assertSame('Cafe Barcelona Terrace', $kolab->venue_name);
+        $this->assertSame('cafe', $kolab->venue_type);
+        $this->assertSame(80, $kolab->capacity);
+        $this->assertSame(['venue'], $kolab->offering);
+    }
+
+    public function test_business_onboarding_auto_offer_is_idempotent(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->create(['profile_id' => $profile->id]);
+
+        $payload = [
+            'name' => 'Bean Brand',
+            'business_type' => 'retail',
+            'has_venue' => false,
+            'city_id' => $this->city->id,
+            'offering' => 'Single-origin coffee beans',
+            'offer_photos' => [],
+        ];
+
+        $this->actingAs($profile)->putJson('/api/v1/onboarding/business', $payload)->assertStatus(200);
+        // Re-running onboarding must not create a second auto-offer.
+        $this->actingAs($profile)->putJson('/api/v1/onboarding/business', $payload)->assertStatus(200);
+
+        $this->assertSame(
+            1,
+            \App\Models\Kolab::query()->where('creator_profile_id', $profile->id)->count(),
+            'Re-running onboarding must not create a second auto-offer.'
+        );
+    }
+
     public function test_business_onboarding_validates_categories_limit(): void
     {
         $profile = Profile::factory()->business()->create();
@@ -522,6 +662,38 @@ class OnboardingControllerTest extends TestCase
         $this->assertEquals('Maria Garcia', $communityProfile->name);
         $this->assertEquals('run_club', $communityProfile->community_type);
         $this->assertEquals($this->city->id, $communityProfile->city_id);
+
+        // Onboarding auto-provisions the management community (member roster +
+        // default tier + main chat) so the user never needs the manual form.
+        $community = \App\Models\Community::query()
+            ->where('owner_profile_id', $profile->id)
+            ->first();
+        $this->assertNotNull($community, 'Onboarding should auto-create a community.');
+        $this->assertEquals('Maria Garcia', $community->name);
+        $this->assertEquals($communityProfile->id, $community->community_profile_id);
+        $this->assertTrue($community->is_primary);
+        $this->assertTrue($community->tiers()->where('is_default', true)->exists());
+    }
+
+    public function test_community_onboarding_persists_community_size(): void
+    {
+        $profile = Profile::factory()->community()->create();
+        CommunityProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+
+        $response = $this->actingAs($profile)
+            ->putJson('/api/v1/onboarding/community', [
+                'name' => 'Maria Garcia',
+                'community_type' => 'run_club',
+                'community_size' => 320,
+                'city_id' => $this->city->id,
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.community_profile.community_size', 320);
+
+        $profile->refresh();
+        $this->assertEquals(320, $profile->communityProfile->community_size);
     }
 
     private function tinyPngDataUri(): string

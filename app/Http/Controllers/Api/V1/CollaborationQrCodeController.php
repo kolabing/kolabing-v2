@@ -38,11 +38,11 @@ class CollaborationQrCodeController extends Controller
             $event = $collaboration->event;
 
             if (! $event) {
-                $collaboration->loadMissing(['collabOpportunity', 'applicantProfile']);
+                $collaboration->loadMissing(['kolab', 'applicantProfile']);
 
                 $event = Event::create([
                     'profile_id' => $collaboration->creator_profile_id,
-                    'name' => $collaboration->collabOpportunity?->title ?? 'Collaboration Event',
+                    'name' => $collaboration->kolab?->title ?? 'Collaboration Event',
                     'partner_name' => $collaboration->applicantProfile?->display_name ?? 'Partner',
                     'partner_type' => $collaboration->applicantProfile?->user_type?->value ?? 'community',
                     'event_date' => $collaboration->scheduled_date ?? now(),

@@ -146,9 +146,13 @@ class ChatService
      */
     public function canParticipate(Profile $profile, Application $application): bool
     {
-        // Load the opportunity with creator
-        $application->loadMissing(['kolab', 'collabOpportunity']);
-        $opportunity = $application->kolab ?? $application->collabOpportunity;
+        // Chat is read-only once an application is no longer pending/accepted.
+        if ($application->isDeclined() || $application->isWithdrawn()) {
+            return false;
+        }
+
+        $application->loadMissing('kolab');
+        $opportunity = $application->kolab;
 
         // Applicant can always participate
         if ($application->applicant_profile_id === $profile->id) {
@@ -168,8 +172,8 @@ class ChatService
      */
     public function getOtherParticipant(Profile $profile, Application $application): ?Profile
     {
-        $application->loadMissing(['kolab.creatorProfile', 'collabOpportunity.creatorProfile', 'applicantProfile']);
-        $opportunity = $application->kolab ?? $application->collabOpportunity;
+        $application->loadMissing(['kolab.creatorProfile', 'applicantProfile']);
+        $opportunity = $application->kolab;
 
         if ($opportunity === null) {
             return null;
@@ -232,8 +236,6 @@ class ChatService
                 'application.applicantProfile.communityProfile',
                 'application.kolab.creatorProfile.businessProfile',
                 'application.kolab.creatorProfile.communityProfile',
-                'application.collabOpportunity.creatorProfile.businessProfile',
-                'application.collabOpportunity.creatorProfile.communityProfile',
             ]);
 
         if ($profile->isBusiness()) {
@@ -971,12 +973,8 @@ class ChatService
 
         // Applications where user is the opportunity creator
         $asCreator = Application::query()
-            ->where(function ($query) use ($profile): void {
-                $query->whereHas('kolab', function ($q) use ($profile): void {
-                    $q->where('creator_profile_id', $profile->id);
-                })->orWhereHas('collabOpportunity', function ($q) use ($profile): void {
-                    $q->where('creator_profile_id', $profile->id);
-                });
+            ->whereHas('kolab', function ($q) use ($profile): void {
+                $q->where('creator_profile_id', $profile->id);
             })
             ->pluck('id');
 

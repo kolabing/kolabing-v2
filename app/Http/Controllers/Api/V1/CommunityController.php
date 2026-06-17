@@ -39,7 +39,10 @@ class CommunityController extends Controller
         /** @var Profile $profile */
         $profile = $request->user();
 
-        $communities = $profile->ownedCommunities()->latest()->get();
+        $communities = $profile->ownedCommunities()
+            ->with('communityProfile')
+            ->latest()
+            ->get();
 
         return response()->json([
             'success' => true,

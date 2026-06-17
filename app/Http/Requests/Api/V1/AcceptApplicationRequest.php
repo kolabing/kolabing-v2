@@ -58,8 +58,8 @@ class AcceptApplicationRequest extends FormRequest
                 return;
             }
 
-            $application->loadMissing(['kolab', 'collabOpportunity']);
-            $opportunity = $application->kolab ?? $application->collabOpportunity;
+            $application->loadMissing('kolab');
+            $opportunity = $application->kolab;
 
             if ($opportunity === null) {
                 return;

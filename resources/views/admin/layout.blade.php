@@ -46,3 +46,29 @@
 
     @yield('admin_content')
 @stop
+
+{{-- Lucide icons are rendered SERVER-SIDE as inline SVG via
+     @include('admin.partials.lucide', ...) (blade-lucide-icons / blade-icons).
+     No external CDN and no client-side createIcons() timing, so the icons render
+     identically locally and in production. The same Lucide slugs are what the
+     mobile app renders, so admins see exactly what users see.
+     window.renderLucide is kept as a no-op shim so any legacy caller is safe. --}}
+@section('css')
+    @parent
+    <style>
+        .lucide-icon { display: inline-block; vertical-align: middle; width: 1em; height: 1em; stroke-width: 2; }
+        .lucide-22 { width: 22px; height: 22px; }
+        .lucide-24 { width: 24px; height: 24px; }
+        .lucide-28 { width: 28px; height: 28px; }
+        .lucide-missing { opacity: .35; }
+    </style>
+@stop
+
+@section('js')
+    @parent
+    <script>
+        // Icons are inline SVG now; nothing to render client-side. Shim kept so
+        // any older view that calls window.renderLucide() does not error.
+        window.renderLucide = function () {};
+    </script>
+@stop
