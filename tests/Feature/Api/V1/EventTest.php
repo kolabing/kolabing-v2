@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Enums\EventSignupStatus;
 use App\Models\BusinessProfile;
 use App\Models\CommunityProfile;
 use App\Models\Event;
 use App\Models\EventPhoto;
+use App\Models\EventSignup;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -130,6 +133,47 @@ class EventTest extends TestCase
             ->assertJsonCount(2, 'data.events')
             ->assertJsonPath('data.pagination.total_count', 5)
             ->assertJsonPath('data.pagination.per_page', 2);
+    }
+
+    public function test_list_events_bulk_loads_signup_summary_without_per_event_queries(): void
+    {
+        $profile = $this->createBusinessProfile();
+        $events = Event::factory()->count(3)->forProfile($profile)->create([
+            'starts_at' => now()->addDays(2),
+            'ends_at' => now()->addDays(2)->addHours(2),
+        ]);
+
+        EventSignup::query()->create([
+            'event_id' => $events[0]->id,
+            'profile_id' => $profile->id,
+            'status' => EventSignupStatus::Going->value,
+        ]);
+        EventSignup::query()->create([
+            'event_id' => $events[1]->id,
+            'profile_id' => $profile->id,
+            'status' => EventSignupStatus::Waitlisted->value,
+            'waitlist_position' => 1,
+        ]);
+
+        $eventSignupQueries = 0;
+        DB::listen(function ($query) use (&$eventSignupQueries): void {
+            if (str_contains($query->sql, 'from "event_signups"')) {
+                $eventSignupQueries++;
+            }
+        });
+
+        $response = $this->actingAs($profile)
+            ->getJson('/api/v1/events?limit=3')
+            ->assertStatus(200);
+
+        $payloadById = collect($response->json('data.events'))->keyBy('id');
+        $this->assertSame(1, $payloadById[$events[0]->id]['going_count']);
+        $this->assertSame('going', $payloadById[$events[0]->id]['my_signup']['status']);
+        $this->assertSame(1, $payloadById[$events[1]->id]['waitlist_count']);
+        $this->assertSame('waitlisted', $payloadById[$events[1]->id]['my_signup']['status']);
+        $this->assertNull($payloadById[$events[2]->id]['my_signup']);
+
+        $this->assertLessThanOrEqual(2, $eventSignupQueries);
     }
 
     public function test_list_events_max_limit_is_50(): void

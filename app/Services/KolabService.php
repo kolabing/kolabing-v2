@@ -6,8 +6,10 @@ namespace App\Services;
 
 use App\Enums\IntentType;
 use App\Enums\KolabStatus;
+use App\Enums\PointEventType;
 use App\Exceptions\SubscriptionRequiredException;
 use App\Models\Kolab;
+use App\Models\PointLedger;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,6 +22,7 @@ class KolabService
 {
     public function __construct(
         private readonly NotificationReminderService $notificationReminderService,
+        private readonly GamificationWalletService $walletService,
     ) {}
 
     /**
@@ -208,6 +211,7 @@ class KolabService
 
         $kolab->refresh();
         $this->notificationReminderService->syncKolabDraftReminder($kolab);
+        $this->awardPublishXpOnce($kolab);
 
         return $kolab;
     }
@@ -321,6 +325,26 @@ class KolabService
         $driver = DB::connection()->getDriverName();
 
         return $driver === 'pgsql' ? 'ilike' : 'like';
+    }
+
+    private function awardPublishXpOnce(Kolab $kolab): void
+    {
+        $alreadyAwarded = PointLedger::query()
+            ->where('profile_id', $kolab->creator_profile_id)
+            ->where('event_type', PointEventType::KolabPublished)
+            ->where('reference_id', $kolab->id)
+            ->exists();
+
+        if ($alreadyAwarded) {
+            return;
+        }
+
+        $this->walletService->awardPoints(
+            $kolab->creator_profile_id,
+            PointEventType::KolabPublished,
+            $kolab->id,
+            'Kolab published'
+        );
     }
 
     /**

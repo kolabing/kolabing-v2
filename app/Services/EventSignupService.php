@@ -14,6 +14,7 @@ use App\Models\Event;
 use App\Models\EventSignup;
 use App\Models\Profile;
 use DomainException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -152,6 +153,80 @@ class EventSignupService
     }
 
     /**
+     * Attach per-viewer signup counts and access booleans to a list of events in
+     * bulk so API resources do not run count/member queries for each row.
+     *
+     * @param  iterable<int, Event>  $events
+     */
+    public function hydrateSummaries(iterable $events, ?Profile $viewer): void
+    {
+        $events = collect($events)->values();
+        if ($events->isEmpty()) {
+            return;
+        }
+
+        $eventIds = $events->pluck('id')->filter()->values();
+
+        $counts = EventSignup::query()
+            ->whereIn('event_id', $eventIds)
+            ->whereIn('status', [
+                EventSignupStatus::Going->value,
+                EventSignupStatus::Waitlisted->value,
+            ])
+            ->selectRaw('event_id, status, COUNT(*) as aggregate')
+            ->groupBy('event_id', 'status')
+            ->get()
+            ->groupBy('event_id');
+
+        $viewerSignups = $viewer === null
+            ? collect()
+            : EventSignup::query()
+                ->whereIn('event_id', $eventIds)
+                ->where('profile_id', $viewer->id)
+                ->get()
+                ->keyBy('event_id');
+
+        $communityIds = $events->pluck('community_id')->filter()->unique()->values();
+        $ownedCommunityIds = collect();
+        $memberships = collect();
+
+        if ($viewer !== null && $communityIds->isNotEmpty()) {
+            $ownedCommunityIds = Community::query()
+                ->whereIn('id', $communityIds)
+                ->where('owner_profile_id', $viewer->id)
+                ->pluck('id');
+
+            $memberships = CommunityMember::query()
+                ->whereIn('community_id', $communityIds)
+                ->where('profile_id', $viewer->id)
+                ->where('status', CommunityMemberStatus::Active->value)
+                ->get()
+                ->keyBy('community_id');
+        }
+
+        foreach ($events as $event) {
+            $eventCounts = $counts->get($event->id, collect());
+            $event->setAttribute(
+                'going_count',
+                (int) ($eventCounts->firstWhere('status', EventSignupStatus::Going->value)?->aggregate ?? 0)
+            );
+            $event->setAttribute(
+                'waitlist_count',
+                (int) ($eventCounts->firstWhere('status', EventSignupStatus::Waitlisted->value)?->aggregate ?? 0)
+            );
+
+            $signup = $viewerSignups->get($event->id);
+            $event->setAttribute('viewer_signup_status', $signup?->status?->value);
+            $event->setAttribute('viewer_signup_waitlist_position', $signup?->waitlist_position);
+
+            $event->setAttribute(
+                'viewer_can_access',
+                $this->canAccessFromLoadedState($event, $viewer, $ownedCommunityIds, $memberships)
+            );
+        }
+    }
+
+    /**
      * Whether a profile currently holds a `going` seat (drives chat access).
      */
     public function isGoing(Event $event, Profile $profile): bool
@@ -161,6 +236,46 @@ class EventSignupService
             ->where('profile_id', $profile->id)
             ->where('status', EventSignupStatus::Going->value)
             ->exists();
+    }
+
+    /**
+     * @param  Collection<int, string>  $ownedCommunityIds
+     * @param  Collection<string, CommunityMember>  $memberships
+     */
+    private function canAccessFromLoadedState(
+        Event $event,
+        ?Profile $viewer,
+        Collection $ownedCommunityIds,
+        Collection $memberships
+    ): bool {
+        if ($event->community_id === null) {
+            return true;
+        }
+
+        $visibility = $event->visibility instanceof EventVisibility
+            ? $event->visibility
+            : EventVisibility::tryFrom((string) $event->visibility);
+
+        if ($visibility === EventVisibility::Public) {
+            return true;
+        }
+
+        if ($viewer === null) {
+            return false;
+        }
+
+        if ($ownedCommunityIds->contains($event->community_id)) {
+            return true;
+        }
+
+        $member = $memberships->get($event->community_id);
+        if ($member === null) {
+            return false;
+        }
+
+        $gate = $event->tier_gate ?? [];
+
+        return ! (is_array($gate) && $gate !== [] && ! in_array($member->tier_id, $gate, true));
     }
 
     private function assertEligible(Event $event, Profile $profile): void

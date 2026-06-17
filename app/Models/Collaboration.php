@@ -15,7 +15,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * @property string $id
  * @property string $application_id
- * @property string $collab_opportunity_id
+ * @property string|null $collab_opportunity_id
+ * @property string|null $kolab_id
  * @property string $creator_profile_id
  * @property string $applicant_profile_id
  * @property string $business_profile_id
@@ -30,6 +31,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Application $application
  * @property-read CollabOpportunity $collabOpportunity
+ * @property-read Kolab|null $kolab
  * @property-read Profile $creatorProfile
  * @property-read Profile $applicantProfile
  * @property-read BusinessProfile $businessProfile
@@ -51,6 +53,7 @@ class Collaboration extends Model
     protected $fillable = [
         'application_id',
         'collab_opportunity_id',
+        'kolab_id',
         'creator_profile_id',
         'applicant_profile_id',
         'business_profile_id',
@@ -106,6 +109,16 @@ class Collaboration extends Model
     public function collabOpportunity(): BelongsTo
     {
         return $this->belongsTo(CollabOpportunity::class, 'collab_opportunity_id');
+    }
+
+    /**
+     * Get the canonical Kolab.
+     *
+     * @return BelongsTo<Kolab, $this>
+     */
+    public function kolab(): BelongsTo
+    {
+        return $this->belongsTo(Kolab::class, 'kolab_id');
     }
 
     /**

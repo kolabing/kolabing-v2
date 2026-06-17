@@ -15,7 +15,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * @property string $id
- * @property string $collab_opportunity_id
+ * @property string|null $collab_opportunity_id
+ * @property string|null $kolab_id
  * @property string $applicant_profile_id
  * @property UserType $applicant_profile_type
  * @property string|null $message
@@ -24,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read CollabOpportunity $collabOpportunity
+ * @property-read Kolab|null $kolab
  * @property-read Profile $applicantProfile
  * @property-read Collaboration|null $collaboration
  * @property-read \Illuminate\Database\Eloquent\Collection<int, ChatMessage> $chatMessages
@@ -40,6 +42,7 @@ class Application extends Model
      */
     protected $fillable = [
         'collab_opportunity_id',
+        'kolab_id',
         'applicant_profile_id',
         'applicant_profile_type',
         'message',
@@ -74,6 +77,16 @@ class Application extends Model
     public function collabOpportunity(): BelongsTo
     {
         return $this->belongsTo(CollabOpportunity::class, 'collab_opportunity_id');
+    }
+
+    /**
+     * Get the canonical Kolab this application is for.
+     *
+     * @return BelongsTo<Kolab, $this>
+     */
+    public function kolab(): BelongsTo
+    {
+        return $this->belongsTo(Kolab::class, 'kolab_id');
     }
 
     /**

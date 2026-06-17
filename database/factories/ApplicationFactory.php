@@ -8,6 +8,7 @@ use App\Enums\ApplicationStatus;
 use App\Enums\UserType;
 use App\Models\Application;
 use App\Models\CollabOpportunity;
+use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -87,6 +88,17 @@ class ApplicationFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'collab_opportunity_id' => $opportunity->id,
+        ]);
+    }
+
+    /**
+     * Set the canonical Kolab for this application.
+     */
+    public function forKolab(Kolab $kolab): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'collab_opportunity_id' => null,
+            'kolab_id' => $kolab->id,
         ]);
     }
 

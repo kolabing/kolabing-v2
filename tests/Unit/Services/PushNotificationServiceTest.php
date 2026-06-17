@@ -42,7 +42,7 @@ class PushNotificationServiceTest extends TestCase
 
         Http::assertSent(function (Request $request): bool {
             return $request['data']['type'] === NotificationType::NewMessage->value
-                && $request['subtitle'] === 'Messages'
+                && $request['subtitle'] === ['en' => 'Messages']
                 && $request['ios_category'] === 'kolabing_messages'
                 && $request['ios_interruption_level'] === 'active'
                 && $request['ios_badgeType'] === 'SetTo'
@@ -80,7 +80,7 @@ class PushNotificationServiceTest extends TestCase
 
         Http::assertSent(function (Request $request): bool {
             return $request['data']['type'] === NotificationType::ApplicationReceived->value
-                && $request['subtitle'] === 'New application'
+                && $request['subtitle'] === ['en' => 'New application']
                 && $request['ios_category'] === 'kolabing_applications'
                 && $request['ios_interruption_level'] === 'active'
                 && $request['data']['deeplink'] === '/application/application-456'

@@ -8,6 +8,7 @@ use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
 use App\Models\CommunityProfile;
 use App\Models\Kolab;
+use App\Models\PointLedger;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -37,6 +38,28 @@ class KolabPublishCloseTest extends TestCase
 
         $kolab->refresh();
         $this->assertNotNull($kolab->published_at);
+    }
+
+    public function test_publish_awards_kolab_published_xp_once(): void
+    {
+        $community = Profile::factory()->community()->create();
+        $kolab = Kolab::factory()->forCreator($community)->create();
+
+        $this->actingAs($community)
+            ->postJson("/api/v1/kolabs/{$kolab->id}/publish")
+            ->assertOk();
+
+        $this->assertDatabaseHas('point_ledger', [
+            'profile_id' => $community->id,
+            'event_type' => 'kolab_published',
+            'reference_id' => $kolab->id,
+        ]);
+
+        $this->assertSame(1, PointLedger::query()
+            ->where('profile_id', $community->id)
+            ->where('event_type', 'kolab_published')
+            ->where('reference_id', $kolab->id)
+            ->count());
     }
 
     public function test_first_venue_promotion_is_free_without_subscription(): void

@@ -48,7 +48,7 @@ class OpportunityCompatibilityTest extends TestCase
         ]);
     }
 
-    public function test_apply_endpoint_accepts_published_kolab_id_and_creates_compatibility_opportunity(): void
+    public function test_apply_endpoint_accepts_published_kolab_id_without_creating_compatibility_opportunity(): void
     {
         $creator = Profile::factory()->business()->create();
         BusinessProfile::factory()->create([
@@ -80,21 +80,46 @@ class OpportunityCompatibilityTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.collab_opportunity_id', $kolab->id)
-            ->assertJsonPath('data.collab_opportunity.id', $kolab->id)
-            ->assertJsonPath('data.collab_opportunity.title', 'Sunset rooftop collab');
+            ->assertJsonPath('data.kolab_id', $kolab->id)
+            ->assertJsonPath('data.kolab.id', $kolab->id)
+            ->assertJsonPath('data.kolab.title', 'Sunset rooftop collab');
 
-        $this->assertDatabaseHas('collab_opportunities', [
+        $this->assertDatabaseMissing('collab_opportunities', [
             'id' => $kolab->id,
-            'title' => 'Sunset rooftop collab',
-            'creator_profile_id' => $creator->id,
-            'status' => 'published',
         ]);
 
         $this->assertDatabaseHas('applications', [
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'applicant_profile_id' => $applicant->id,
             'message' => 'sounds cool',
         ]);
+    }
+
+    public function test_opportunity_index_returns_published_kolabs(): void
+    {
+        $viewer = Profile::factory()->community()->create();
+        $creator = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $creator->id,
+            'name' => 'Casa Sol',
+        ]);
+
+        $kolab = Kolab::factory()
+            ->published()
+            ->venuePromotion()
+            ->forCreator($creator)
+            ->create([
+                'title' => 'Sunset rooftop collab',
+                'description' => 'Host your creator event on our rooftop',
+            ]);
+
+        $response = $this->actingAs($viewer)
+            ->getJson('/api/v1/opportunities');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.data.0.id', $kolab->id)
+            ->assertJsonPath('data.data.0.title', 'Sunset rooftop collab');
     }
 }

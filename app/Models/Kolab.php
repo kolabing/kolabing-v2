@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property string $id
@@ -52,6 +53,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Profile $creatorProfile
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Application> $applications
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Collaboration> $collaborations
  */
 class Kolab extends Model
 {
@@ -152,6 +155,26 @@ class Kolab extends Model
     public function recipientCommunity(): BelongsTo
     {
         return $this->belongsTo(Profile::class, 'recipient_community_id');
+    }
+
+    /**
+     * Get all applications for this Kolab.
+     *
+     * @return HasMany<Application, $this>
+     */
+    public function applications(): HasMany
+    {
+        return $this->hasMany(Application::class, 'kolab_id');
+    }
+
+    /**
+     * Get all collaborations for this Kolab.
+     *
+     * @return HasMany<Collaboration, $this>
+     */
+    public function collaborations(): HasMany
+    {
+        return $this->hasMany(Collaboration::class, 'kolab_id');
     }
 
     /**

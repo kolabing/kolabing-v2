@@ -6,6 +6,7 @@ namespace App\Policies;
 
 use App\Models\Application;
 use App\Models\CollabOpportunity;
+use App\Models\Kolab;
 use App\Models\Profile;
 
 class ApplicationPolicy
@@ -33,7 +34,7 @@ class ApplicationPolicy
      * Determine whether the user can create an application for the opportunity.
      * Cannot apply to own opportunity; opportunity must be published.
      */
-    public function create(Profile $user, CollabOpportunity $opportunity): bool
+    public function create(Profile $user, CollabOpportunity|Kolab $opportunity): bool
     {
         // Cannot apply to own opportunity
         if ($user->id === $opportunity->creator_profile_id) {
@@ -41,12 +42,21 @@ class ApplicationPolicy
         }
 
         if (is_string($opportunity->recipient_community_id) && $opportunity->recipient_community_id !== '') {
-            return $user->id === $opportunity->recipient_community_id
-                && $opportunity->isOpenForApplications();
+            if ($user->id !== $opportunity->recipient_community_id) {
+                return false;
+            }
+
+            return $opportunity instanceof Kolab
+                ? $opportunity->isPublished()
+                : $opportunity->isOpenForApplications();
         }
 
         // Opportunity must be open for applications (published)
-        if (! $opportunity->isOpenForApplications()) {
+        if ($opportunity instanceof Kolab && ! $opportunity->isPublished()) {
+            return false;
+        }
+
+        if ($opportunity instanceof CollabOpportunity && ! $opportunity->isOpenForApplications()) {
             return false;
         }
 
@@ -118,6 +128,8 @@ class ApplicationPolicy
      */
     private function isOpportunityCreator(Profile $user, Application $application): bool
     {
-        return $user->id === $application->collabOpportunity->creator_profile_id;
+        $opportunity = $application->kolab ?? $application->collabOpportunity;
+
+        return $opportunity !== null && $user->id === $opportunity->creator_profile_id;
     }
 }

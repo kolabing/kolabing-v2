@@ -77,7 +77,12 @@ class CommunityMemberService
     public function roster(Community $community, int $perPage = 25): LengthAwarePaginator
     {
         return $community->members()
-            ->with(['tier', 'profile'])
+            ->with([
+                'tier',
+                'profile.attendeeProfile',
+                'profile.businessProfile',
+                'profile.communityProfile',
+            ])
             ->orderBy('created_at')
             ->paginate($perPage);
     }

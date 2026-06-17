@@ -201,7 +201,10 @@ class KolabResource extends JsonResource
         }
 
         return Application::query()
-            ->where('collab_opportunity_id', $this->id)
+            ->where(function ($query): void {
+                $query->where('kolab_id', $this->id)
+                    ->orWhere('collab_opportunity_id', $this->id);
+            })
             ->where('applicant_profile_id', $viewer->id)
             ->exists();
     }

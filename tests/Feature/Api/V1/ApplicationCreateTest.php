@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Api\V1;
 
 use App\Models\BusinessProfile;
-use App\Models\CollabOpportunity;
 use App\Models\CommunityProfile;
+use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -29,7 +29,7 @@ class ApplicationCreateTest extends TestCase
             ->assertJsonPath('success', true);
 
         $this->assertDatabaseHas('applications', [
-            'collab_opportunity_id' => $opportunity->id,
+            'kolab_id' => $opportunity->id,
             'applicant_profile_id' => $applicant->id,
             'message' => 'sounds cool',
         ]);
@@ -65,7 +65,7 @@ class ApplicationCreateTest extends TestCase
     }
 
     /**
-     * @return array{0: Profile, 1: CollabOpportunity}
+     * @return array{0: Profile, 1: Kolab}
      */
     private function seedApplyContext(): array
     {
@@ -78,8 +78,9 @@ class ApplicationCreateTest extends TestCase
             'instagram' => 'testuser',
         ]);
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
+            ->venuePromotion()
             ->forCreator($businessCreator)
             ->create();
 

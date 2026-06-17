@@ -9,10 +9,14 @@ use App\Exceptions\SubscriptionRequiredException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\CreateOpportunityRequest;
 use App\Http\Requests\Api\V1\UpdateOpportunityRequest;
+use App\Http\Resources\Api\V1\KolabCollection;
+use App\Http\Resources\Api\V1\KolabResource;
 use App\Http\Resources\Api\V1\OpportunityCollection;
 use App\Http\Resources\Api\V1\OpportunityResource;
 use App\Models\CollabOpportunity;
+use App\Models\Kolab;
 use App\Models\Profile;
+use App\Services\KolabService;
 use App\Services\LegacyOpportunityBridgeService;
 use App\Services\OpportunityService;
 use Illuminate\Http\JsonResponse;
@@ -23,6 +27,7 @@ class OpportunityController extends Controller
 {
     public function __construct(
         private readonly OpportunityService $opportunityService,
+        private readonly KolabService $kolabService,
         private readonly LegacyOpportunityBridgeService $legacyOpportunityBridgeService,
     ) {}
 
@@ -37,6 +42,13 @@ class OpportunityController extends Controller
         $profile = $request->user();
 
         $filters = [
+            'intent_type' => $request->query('intent_type'),
+            'city' => $request->query('city'),
+            'venue_type' => $request->query('venue_type'),
+            'product_type' => $request->query('product_type'),
+            'search' => $request->query('search'),
+        ];
+        $legacyFilters = [
             'creator_type' => $request->query('creator_type'),
             'categories' => $request->query('categories'),
             'city' => $request->query('city'),
@@ -50,16 +62,31 @@ class OpportunityController extends Controller
         $perPage = (int) $request->query('per_page', 20);
         $perPage = min(max($perPage, 1), 100);
 
-        $opportunities = $this->opportunityService->browse($profile, $filters, $perPage);
+        $kolabs = $this->kolabService->browse($profile, $filters, $perPage);
+
+        if ($kolabs->total() === 0) {
+            $opportunities = $this->opportunityService->browse($profile, $legacyFilters, $perPage);
+
+            return response()->json([
+                'success' => true,
+                'data' => new OpportunityCollection($opportunities),
+                'meta' => [
+                    'current_page' => $opportunities->currentPage(),
+                    'last_page' => $opportunities->lastPage(),
+                    'per_page' => $opportunities->perPage(),
+                    'total' => $opportunities->total(),
+                ],
+            ]);
+        }
 
         return response()->json([
             'success' => true,
-            'data' => new OpportunityCollection($opportunities),
+            'data' => new KolabCollection($kolabs),
             'meta' => [
-                'current_page' => $opportunities->currentPage(),
-                'last_page' => $opportunities->lastPage(),
-                'per_page' => $opportunities->perPage(),
-                'total' => $opportunities->total(),
+                'current_page' => $kolabs->currentPage(),
+                'last_page' => $kolabs->lastPage(),
+                'per_page' => $kolabs->perPage(),
+                'total' => $kolabs->total(),
             ],
         ]);
     }
@@ -81,16 +108,31 @@ class OpportunityController extends Controller
         $perPage = (int) $request->query('per_page', 20);
         $perPage = min(max($perPage, 1), 100);
 
-        $opportunities = $this->opportunityService->getMyOpportunities($profile, $filters, $perPage);
+        $kolabs = $this->kolabService->getMyKolabs($profile, $filters, $perPage);
+
+        if ($kolabs->total() === 0) {
+            $opportunities = $this->opportunityService->getMyOpportunities($profile, $filters, $perPage);
+
+            return response()->json([
+                'success' => true,
+                'data' => new OpportunityCollection($opportunities),
+                'meta' => [
+                    'current_page' => $opportunities->currentPage(),
+                    'last_page' => $opportunities->lastPage(),
+                    'per_page' => $opportunities->perPage(),
+                    'total' => $opportunities->total(),
+                ],
+            ]);
+        }
 
         return response()->json([
             'success' => true,
-            'data' => new OpportunityCollection($opportunities),
+            'data' => new KolabCollection($kolabs),
             'meta' => [
-                'current_page' => $opportunities->currentPage(),
-                'last_page' => $opportunities->lastPage(),
-                'per_page' => $opportunities->perPage(),
-                'total' => $opportunities->total(),
+                'current_page' => $kolabs->currentPage(),
+                'last_page' => $kolabs->lastPage(),
+                'per_page' => $kolabs->perPage(),
+                'total' => $kolabs->total(),
             ],
         ]);
     }
@@ -104,16 +146,49 @@ class OpportunityController extends Controller
     {
         /** @var Profile $profile */
         $profile = $request->user();
-        $opportunity = $this->legacyOpportunityBridgeService->resolveOrFail($opportunity);
+        $kolab = Kolab::query()->find($opportunity);
 
-        if ($profile->cannot('view', $opportunity)) {
+        if ($kolab === null) {
+            $legacyOpportunity = CollabOpportunity::query()->findOrFail($opportunity);
+
+            if ($profile->cannot('view', $legacyOpportunity)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => __('You are not authorized to view this opportunity.'),
+                ], 403);
+            }
+
+            $legacyOpportunity->load([
+                'creatorProfile' => function ($query) {
+                    $query->with([
+                        'events' => function ($q) {
+                            $q->orderByDesc('event_date')->limit(5);
+                        },
+                        'events.photos' => function ($q) {
+                            $q->orderBy('sort_order')->limit(10);
+                        },
+                        'galleryPhotos' => function ($q) {
+                            $q->orderBy('sort_order')->limit(10);
+                        },
+                    ]);
+                },
+                'applications',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => new OpportunityResource($legacyOpportunity),
+            ]);
+        }
+
+        if ($profile->cannot('view', $kolab)) {
             return response()->json([
                 'success' => false,
                 'message' => __('You are not authorized to view this opportunity.'),
             ], 403);
         }
 
-        $opportunity->load([
+        $kolab->load([
             'creatorProfile' => function ($query) {
                 $query->with([
                     'events' => function ($q) {
@@ -132,7 +207,7 @@ class OpportunityController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => new OpportunityResource($opportunity),
+            'data' => new KolabResource($kolab),
         ]);
     }
 

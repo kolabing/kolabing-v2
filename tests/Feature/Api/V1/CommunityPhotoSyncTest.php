@@ -26,8 +26,9 @@ class CommunityPhotoSyncTest extends TestCase
         $leader = Profile::factory()->community()->create();
         CommunityProfile::factory()->create(['profile_id' => $leader->id]);
         $community = app(CommunityService::class)->create($leader, [
-            'name' => 'Run Club', 'type' => 'greek',
+            'name' => 'Run Club', 'type' => 'greek', 'avatar_url' => null,
         ]);
+        $community->update(['avatar_url' => null]);
 
         return [$leader, $community];
     }

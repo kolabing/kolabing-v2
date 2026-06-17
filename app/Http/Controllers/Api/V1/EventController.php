@@ -13,6 +13,7 @@ use App\Models\Event;
 use App\Models\Profile;
 use App\Services\EventSeriesService;
 use App\Services\EventService;
+use App\Services\EventSignupService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -21,6 +22,7 @@ class EventController extends Controller
     public function __construct(
         private readonly EventService $eventService,
         private readonly EventSeriesService $eventSeriesService,
+        private readonly EventSignupService $eventSignupService,
     ) {}
 
     /**
@@ -56,6 +58,7 @@ class EventController extends Controller
         }
 
         $paginator = $this->eventService->list($filters, $perPage);
+        $this->eventSignupService->hydrateSummaries($paginator->items(), $authProfile);
 
         return response()->json([
             'success' => true,

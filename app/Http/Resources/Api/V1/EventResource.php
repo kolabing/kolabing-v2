@@ -57,19 +57,32 @@ class EventResource extends JsonResource
 
         // Per-viewer sign-up state + counts (drives the "I'm going" button).
         $signups = app(EventSignupService::class);
-        $data['going_count'] = $signups->goingCount($this->resource);
-        $data['waitlist_count'] = $signups->waitlistCount($this->resource);
+        $data['going_count'] = $this->preloadedAttribute('going_count')
+            ?? $signups->goingCount($this->resource);
+        $data['waitlist_count'] = $this->preloadedAttribute('waitlist_count')
+            ?? $signups->waitlistCount($this->resource);
 
         $viewer = $request->user();
-        $mine = $viewer !== null ? $signups->signupFor($this->resource, $viewer) : null;
-        $data['my_signup'] = $mine === null ? null : [
-            'status' => $mine->status->value,
-            'waitlist_position' => $mine->waitlist_position,
-        ];
+        if ($this->hasPreloadedAttribute('viewer_signup_status')) {
+            $preloadedSignupStatus = $this->preloadedAttribute('viewer_signup_status');
+            $data['my_signup'] = $preloadedSignupStatus === null
+                ? null
+                : [
+                    'status' => $preloadedSignupStatus,
+                    'waitlist_position' => $this->preloadedAttribute('viewer_signup_waitlist_position'),
+                ];
+        } else {
+            $mine = $viewer !== null ? $signups->signupFor($this->resource, $viewer) : null;
+            $data['my_signup'] = $mine === null ? null : [
+                'status' => $mine->status->value,
+                'waitlist_position' => $mine->waitlist_position,
+            ];
+        }
 
         // Viewer-scoped gate: false when this member's tier is not permitted, so
         // the app can lock the event (no open into details). Owners always pass.
-        $data['can_access'] = $signups->canAccess($this->resource, $viewer);
+        $data['can_access'] = $this->preloadedAttribute('viewer_can_access')
+            ?? $signups->canAccess($this->resource, $viewer);
 
         if (isset($this->resource->distance_km)) {
             $data['distance_km'] = round((float) $this->resource->distance_km, 2);
@@ -103,5 +116,17 @@ class EventResource extends JsonResource
         }
 
         return null;
+    }
+
+    private function preloadedAttribute(string $key): mixed
+    {
+        return array_key_exists($key, $this->resource->getAttributes())
+            ? $this->resource->getAttribute($key)
+            : null;
+    }
+
+    private function hasPreloadedAttribute(string $key): bool
+    {
+        return array_key_exists($key, $this->resource->getAttributes());
     }
 }

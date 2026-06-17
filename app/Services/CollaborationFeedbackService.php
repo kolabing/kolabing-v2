@@ -166,10 +166,12 @@ class CollaborationFeedbackService
             $collaboration->applicantProfile?->user_type?->value,
         ])->filter()->unique()->values()->all();
 
-        $submittedTypes = CollaborationFeedback::query()
-            ->where('collaboration_id', $collaboration->id)
-            ->pluck('reviewer_type')
-            ->all();
+        $submittedTypes = $collaboration->relationLoaded('feedbacks')
+            ? $collaboration->feedbacks->pluck('reviewer_type')->all()
+            : CollaborationFeedback::query()
+                ->where('collaboration_id', $collaboration->id)
+                ->pluck('reviewer_type')
+                ->all();
 
         return array_values(array_diff($participantTypes, $submittedTypes));
     }

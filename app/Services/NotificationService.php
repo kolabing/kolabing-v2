@@ -161,20 +161,26 @@ class NotificationService
     public function notifyNewMessage(ChatMessage $message, Application $application): void
     {
         $application->loadMissing([
+            'kolab.creatorProfile',
             'collabOpportunity.creatorProfile',
             'applicantProfile',
         ]);
+
+        $opportunity = $this->applicationOpportunity($application);
+        if ($opportunity === null) {
+            return;
+        }
 
         $senderProfileId = $message->sender_profile_id;
 
         // Determine recipient: if sender is applicant, notify creator; otherwise notify applicant
         $recipient = $senderProfileId === $application->applicant_profile_id
-            ? $application->collabOpportunity->creatorProfile
+            ? $opportunity->creatorProfile
             : $application->applicantProfile;
 
         $senderProfile = $senderProfileId === $application->applicant_profile_id
             ? $application->applicantProfile
-            : $application->collabOpportunity->creatorProfile;
+            : $opportunity->creatorProfile;
 
         // Respect the recipient's message-notification preference (default ON).
         if ($this->recipientsAllowingMessages([$recipient->id]) === []) {
@@ -201,15 +207,21 @@ class NotificationService
     public function notifyApplicationReceived(Application $application): void
     {
         $application->loadMissing([
+            'kolab.creatorProfile',
             'collabOpportunity.creatorProfile',
             'applicantProfile.businessProfile',
             'applicantProfile.communityProfile',
         ]);
 
-        $recipient = $application->collabOpportunity->creatorProfile;
+        $opportunity = $this->applicationOpportunity($application);
+        if ($opportunity === null) {
+            return;
+        }
+
+        $recipient = $opportunity->creatorProfile;
         $actor = $application->applicantProfile;
         $actorName = $actor->getExtendedProfile()?->name ?? 'Someone';
-        $opportunityTitle = $application->collabOpportunity->title;
+        $opportunityTitle = $opportunity->title;
 
         $body = "{$actorName} applied to your \"{$opportunityTitle}\" opportunity.";
 
@@ -231,13 +243,19 @@ class NotificationService
     public function notifyApplicationAccepted(Application $application): void
     {
         $application->loadMissing([
+            'kolab.creatorProfile',
             'collabOpportunity.creatorProfile',
             'applicantProfile',
         ]);
 
+        $opportunity = $this->applicationOpportunity($application);
+        if ($opportunity === null) {
+            return;
+        }
+
         $recipient = $application->applicantProfile;
-        $actor = $application->collabOpportunity->creatorProfile;
-        $opportunityTitle = $application->collabOpportunity->title;
+        $actor = $opportunity->creatorProfile;
+        $opportunityTitle = $opportunity->title;
 
         $body = "Your application for \"{$opportunityTitle}\" has been accepted!";
 
@@ -259,13 +277,19 @@ class NotificationService
     public function notifyApplicationDeclined(Application $application): void
     {
         $application->loadMissing([
+            'kolab.creatorProfile',
             'collabOpportunity.creatorProfile',
             'applicantProfile',
         ]);
 
+        $opportunity = $this->applicationOpportunity($application);
+        if ($opportunity === null) {
+            return;
+        }
+
         $recipient = $application->applicantProfile;
-        $actor = $application->collabOpportunity->creatorProfile;
-        $opportunityTitle = $application->collabOpportunity->title;
+        $actor = $opportunity->creatorProfile;
+        $opportunityTitle = $opportunity->title;
 
         $body = "Your application for \"{$opportunityTitle}\" was declined.";
 
@@ -305,7 +329,7 @@ class NotificationService
      */
     public function notifyCollabDayReminder(Collaboration $collaboration): void
     {
-        $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'collabOpportunity']);
+        $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'kolab', 'collabOpportunity']);
 
         $title = "Today's your Kolab! 🎉";
         $body = 'Your collaboration is happening today. Have a great Kolab!';
@@ -362,6 +386,14 @@ class NotificationService
             ->where('type', $type)
             ->where('target_id', $targetId)
             ->exists();
+    }
+
+    /**
+     * Return the canonical Kolab for new applications, with a legacy fallback.
+     */
+    private function applicationOpportunity(Application $application): mixed
+    {
+        return $application->kolab ?? $application->collabOpportunity;
     }
 
     /**

@@ -65,10 +65,12 @@ class CollaborationResource extends JsonResource
                     return (new ApplicationResource($this->application))->withoutOpportunity();
                 })
             ),
-            'collab_opportunity' => $this->when(
+            'collab_opportunity' => $this->when($this->includeOpportunity, fn () => $this->opportunityResource()),
+            'kolab_id' => $this->kolab_id,
+            'kolab' => $this->when(
                 $this->includeOpportunity,
-                fn () => $this->whenLoaded('collabOpportunity', function () {
-                    return new OpportunitySummaryResource($this->collabOpportunity);
+                fn () => $this->whenLoaded('kolab', function () {
+                    return new KolabResource($this->kolab);
                 })
             ),
             'creator_profile' => $this->whenLoaded('creatorProfile', function () {
@@ -178,6 +180,19 @@ class CollaborationResource extends JsonResource
             || $this->status === CollaborationStatus::Active;
     }
 
+    private function opportunityResource(): mixed
+    {
+        if ($this->resource->relationLoaded('kolab') && $this->kolab !== null) {
+            return new KolabResource($this->kolab);
+        }
+
+        if ($this->resource->relationLoaded('collabOpportunity') && $this->collabOpportunity !== null) {
+            return new OpportunitySummaryResource($this->collabOpportunity);
+        }
+
+        return null;
+    }
+
     /**
      * Determine the current user's role in this collaboration.
      *
@@ -207,6 +222,10 @@ class CollaborationResource extends JsonResource
      */
     private function feedbackRows(): \Illuminate\Support\Collection
     {
+        if ($this->resource->relationLoaded('feedbacks')) {
+            return $this->resource->feedbacks;
+        }
+
         /** @var \Illuminate\Support\Collection<int, CollaborationFeedback>|null $cached */
         static $cache = [];
 

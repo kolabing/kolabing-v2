@@ -10,6 +10,7 @@ use App\Exceptions\SubscriptionRequiredException;
 use App\Models\Application;
 use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
+use App\Models\Kolab;
 use App\Models\Profile;
 use App\Services\PostHog\PostHogService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -29,18 +30,19 @@ class ApplicationService
      * Apply to an opportunity.
      *
      * @param  Profile  $applicant  The profile applying to the opportunity
-     * @param  CollabOpportunity  $opportunity  The opportunity to apply to
+     * @param  Kolab|CollabOpportunity  $opportunity  The Kolab/opportunity to apply to
      * @param  array{message?: string|null, availability?: string|null}  $data  Application data
      *
      * @throws InvalidArgumentException When validation fails
      * @throws RuntimeException When subscription requirements are not met
      */
-    public function apply(Profile $applicant, CollabOpportunity $opportunity, array $data): Application
+    public function apply(Profile $applicant, Kolab|CollabOpportunity $opportunity, array $data): Application
     {
         $this->validateCanApply($applicant, $opportunity);
 
         $application = Application::create([
-            'collab_opportunity_id' => $opportunity->id,
+            'kolab_id' => $opportunity instanceof Kolab ? $opportunity->id : null,
+            'collab_opportunity_id' => $opportunity instanceof CollabOpportunity ? $opportunity->id : null,
             'applicant_profile_id' => $applicant->id,
             'applicant_profile_type' => $applicant->user_type,
             'message' => $data['message'] ?? null,
@@ -49,7 +51,7 @@ class ApplicationService
         ]);
 
         $this->notificationService->notifyApplicationReceived($application);
-        $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['collabOpportunity']));
+        $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['kolab', 'collabOpportunity']));
 
         return $application;
     }
@@ -68,6 +70,7 @@ class ApplicationService
     {
         $application->loadMissing([
             'collaboration',
+            'kolab.creatorProfile',
             'collabOpportunity.creatorProfile',
             'applicantProfile.businessProfile',
             'applicantProfile.communityProfile',
@@ -79,6 +82,7 @@ class ApplicationService
                     'collaboration',
                     'applicantProfile.businessProfile',
                     'applicantProfile.communityProfile',
+                    'kolab.creatorProfile',
                     'collabOpportunity.creatorProfile',
                 ]),
                 'collaboration' => $application->collaboration->fresh(),
@@ -92,7 +96,7 @@ class ApplicationService
                 'status' => ApplicationStatus::Accepted,
                 'accepted_at' => now(),
             ]);
-            $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['collabOpportunity']));
+            $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['kolab']));
 
             $collaboration = $this->createCollaboration($application, $data);
 
@@ -104,12 +108,17 @@ class ApplicationService
             ];
         });
 
-        $acceptedApplication = $result['application']->loadMissing('collabOpportunity.creatorProfile');
+        $acceptedApplication = $result['application']->loadMissing(['kolab.creatorProfile', 'collabOpportunity.creatorProfile']);
         $collaboration = $result['collaboration'];
+        $opportunity = $acceptedApplication->kolab ?? $acceptedApplication->collabOpportunity;
 
-        $this->postHog->capture($acceptedApplication->collabOpportunity->creatorProfile, 'application_accepted_server_side', [
+        if ($opportunity === null) {
+            return $result;
+        }
+
+        $this->postHog->capture($opportunity->creatorProfile, 'application_accepted_server_side', [
             'application_id' => $acceptedApplication->id,
-            'kolab_id' => $acceptedApplication->collab_opportunity_id,
+            'kolab_id' => $acceptedApplication->kolab_id ?? $acceptedApplication->collab_opportunity_id,
             'collaboration_id' => $collaboration->id,
             'applicant_profile_type' => $acceptedApplication->applicant_profile_type->value,
         ]);
@@ -137,7 +146,7 @@ class ApplicationService
             'status' => ApplicationStatus::Declined,
             'declined_at' => now(),
         ]);
-        $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['collabOpportunity']));
+        $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['kolab']));
 
         $this->notificationService->notifyApplicationDeclined($application);
 
@@ -163,7 +172,7 @@ class ApplicationService
             'status' => ApplicationStatus::Withdrawn,
             'withdrawn_at' => now(),
         ]);
-        $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['collabOpportunity']));
+        $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['kolab']));
 
         return $application->fresh();
     }
@@ -171,18 +180,18 @@ class ApplicationService
     /**
      * Get applications for a specific opportunity.
      *
-     * @param  CollabOpportunity  $opportunity  The opportunity to get applications for
+     * @param  Kolab|CollabOpportunity  $opportunity  The Kolab/opportunity to get applications for
      * @param  array{status?: string|null}  $filters  Filter options
      * @param  int  $perPage  Number of results per page
      * @return LengthAwarePaginator<Application>
      */
     public function getForOpportunity(
-        CollabOpportunity $opportunity,
+        Kolab|CollabOpportunity $opportunity,
         array $filters = [],
         int $perPage = 20
     ): LengthAwarePaginator {
         $query = Application::query()
-            ->where('collab_opportunity_id', $opportunity->id)
+            ->where($opportunity instanceof Kolab ? 'kolab_id' : 'collab_opportunity_id', $opportunity->id)
             ->with(['applicantProfile.businessProfile', 'applicantProfile.communityProfile'])
             ->orderBy('created_at', 'desc');
 
@@ -208,7 +217,7 @@ class ApplicationService
     ): LengthAwarePaginator {
         $query = Application::query()
             ->where('applicant_profile_id', $profile->id)
-            ->with(['collabOpportunity.creatorProfile'])
+            ->with(['kolab.creatorProfile', 'collabOpportunity.creatorProfile'])
             ->orderBy('created_at', 'desc');
 
         if (! empty($filters['status'])) {
@@ -232,13 +241,13 @@ class ApplicationService
         int $perPage = 20
     ): LengthAwarePaginator {
         $query = Application::query()
-            ->whereHas('collabOpportunity', function ($q) use ($profile): void {
+            ->whereHas('kolab', function ($q) use ($profile): void {
                 $q->where('creator_profile_id', $profile->id);
             })
             ->with([
                 'applicantProfile.businessProfile',
                 'applicantProfile.communityProfile',
-                'collabOpportunity',
+                'kolab',
             ])
             ->orderBy('created_at', 'desc');
 
@@ -247,7 +256,7 @@ class ApplicationService
         }
 
         if (! empty($filters['opportunity_id'])) {
-            $query->where('collab_opportunity_id', $filters['opportunity_id']);
+            $query->where('kolab_id', $filters['opportunity_id']);
         }
 
         return $query->paginate($perPage);
@@ -264,6 +273,7 @@ class ApplicationService
             ->with([
                 'applicantProfile.businessProfile',
                 'applicantProfile.communityProfile',
+                'kolab.creatorProfile',
                 'collabOpportunity.creatorProfile',
                 'collaboration',
             ])
@@ -276,7 +286,7 @@ class ApplicationService
      * @throws InvalidArgumentException When validation fails
      * @throws SubscriptionRequiredException When a business applicant lacks an active subscription
      */
-    private function validateCanApply(Profile $applicant, CollabOpportunity $opportunity): void
+    private function validateCanApply(Profile $applicant, Kolab|CollabOpportunity $opportunity): void
     {
         // Cannot apply to own opportunity
         if ($opportunity->creator_profile_id === $applicant->id) {
@@ -300,7 +310,7 @@ class ApplicationService
 
         // Check for existing application (unique constraint will also catch this)
         $existingApplication = Application::query()
-            ->where('collab_opportunity_id', $opportunity->id)
+            ->where($opportunity instanceof Kolab ? 'kolab_id' : 'collab_opportunity_id', $opportunity->id)
             ->where('applicant_profile_id', $applicant->id)
             ->exists();
 
@@ -334,7 +344,7 @@ class ApplicationService
         }
 
         // Load the opportunity creator if not already loaded
-        $opportunity = $application->collabOpportunity;
+        $opportunity = $application->kolab ?? $application->collabOpportunity;
         $opportunity->loadMissing('creatorProfile');
 
         // Business users must have active subscription to accept applications
@@ -354,7 +364,7 @@ class ApplicationService
      */
     private function createCollaboration(Application $application, array $data): Collaboration
     {
-        $opportunity = $application->collabOpportunity;
+        $opportunity = $application->kolab ?? $application->collabOpportunity;
         $creator = $opportunity->creatorProfile;
         $applicant = $application->applicantProfile;
 
@@ -369,7 +379,8 @@ class ApplicationService
 
         return Collaboration::create([
             'application_id' => $application->id,
-            'collab_opportunity_id' => $opportunity->id,
+            'collab_opportunity_id' => $application->collab_opportunity_id,
+            'kolab_id' => $application->kolab_id,
             'creator_profile_id' => $creator->id,
             'applicant_profile_id' => $applicant->id,
             'business_profile_id' => $businessProfileId,

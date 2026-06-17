@@ -18,11 +18,12 @@ class XpEarnRuleSeeder extends Seeder
     {
         $defs = [
             PointEventType::CollaborationComplete->value => ['label' => 'Complete a Kolab', 'position' => 10],
-            PointEventType::FirstKolabBonus->value => ['label' => 'First Kolab bonus', 'position' => 20],
-            PointEventType::ReviewPosted->value => ['label' => 'Post a review', 'position' => 30],
-            PointEventType::UgcPosted->value => ['label' => 'Share content (UGC)', 'position' => 40],
-            PointEventType::ReferralConversion->value => ['label' => 'Refer a partner', 'position' => 50],
-            PointEventType::Withdrawal->value => ['label' => 'Withdrawal (deduction)', 'position' => 60],
+            PointEventType::KolabPublished->value => ['label' => 'Publish a Kolab', 'position' => 20],
+            PointEventType::FirstKolabBonus->value => ['label' => 'First Kolab bonus', 'position' => 30],
+            PointEventType::ReviewPosted->value => ['label' => 'Post a review', 'position' => 40],
+            PointEventType::UgcPosted->value => ['label' => 'Share content (UGC)', 'position' => 50],
+            PointEventType::ReferralConversion->value => ['label' => 'Refer a partner', 'position' => 60],
+            PointEventType::Withdrawal->value => ['label' => 'Withdrawal (deduction)', 'position' => 70],
         ];
 
         foreach ($defs as $eventType => $meta) {

@@ -32,14 +32,16 @@ class DashboardController extends Controller
 
         // Transform upcoming collaborations for the response
         $upcomingCollaborations = $data['upcoming_collaborations']->map(function ($collaboration) use ($profile) {
+            $opportunity = $collaboration->kolab ?? $collaboration->collabOpportunity;
+
             return [
                 'id' => $collaboration->id,
                 'status' => $collaboration->status->value,
                 'scheduled_date' => $collaboration->scheduled_date?->toDateString(),
                 'opportunity' => [
-                    'id' => $collaboration->collabOpportunity->id,
-                    'title' => $collaboration->collabOpportunity->title,
-                    'categories' => $collaboration->collabOpportunity->categories,
+                    'id' => $opportunity?->id,
+                    'title' => $opportunity?->title,
+                    'categories' => $opportunity?->categories ?? $opportunity?->community_types,
                 ],
                 'partner' => $this->getPartnerInfo($collaboration, $profile),
             ];
