@@ -11,9 +11,12 @@ use Illuminate\Validation\Rule;
  * Shared validation rules + extraction for community verification proof channels.
  *
  * SHARED CONTRACT with the mobile app:
- *   verification_channels: array of { "type": "<slug>", "url": "<string>" }
- *   allowed types: instagram, strava, whatsapp, telegram, flaire, skool,
- *                  tiktok, website. Min 1 item when present.
+ *   verification_channels: array of
+ *     { "type": "<slug>", "url": "<string>", "is_public": <bool> }
+ *   allowed types: email, phone, instagram, strava, whatsapp, telegram, flaire,
+ *                  skool, tiktok, website. For email/phone the `url` holds the
+ *                  email/phone value. `is_public` defaults to false when absent.
+ *                  Min 1 item when present.
  */
 trait ValidatesVerificationChannels
 {
@@ -29,6 +32,7 @@ trait ValidatesVerificationChannels
             'verification_channels.*' => ['array'],
             'verification_channels.*.type' => ['required', 'string', Rule::in(VerificationChannelType::values())],
             'verification_channels.*.url' => ['required', 'string', 'max:2048'],
+            'verification_channels.*.is_public' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -53,7 +57,7 @@ trait ValidatesVerificationChannels
      * key was not present in the request (so callers can distinguish "no change"
      * from "submitted").
      *
-     * @return array<int, array{type: string, url: string}>|null
+     * @return array<int, array{type: string, url: string, is_public: bool}>|null
      */
     public function verificationChannels(): ?array
     {
@@ -77,6 +81,10 @@ trait ValidatesVerificationChannels
             $normalised[] = [
                 'type' => (string) $channel['type'],
                 'url' => (string) $channel['url'],
+                'is_public' => filter_var(
+                    $channel['is_public'] ?? false,
+                    FILTER_VALIDATE_BOOLEAN
+                ),
             ];
         }
 

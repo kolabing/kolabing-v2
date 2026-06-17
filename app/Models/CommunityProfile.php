@@ -24,7 +24,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $website
  * @property string|null $profile_photo
  * @property bool $is_featured
- * @property array<int, array{type: string, url: string}>|null $verification_channels
+ * @property array<int, array{type: string, url: string, is_public: bool}>|null $verification_channels
  * @property string $verification_status
  * @property \Illuminate\Support\Carbon|null $verified_at
  * @property string|null $verified_by
@@ -90,6 +90,37 @@ class CommunityProfile extends Model
     }
 
     /**
+     * The subset of verification channels the community marked public, shaped for
+     * non-owner viewers (businesses): each as { type, url } with NO is_public and
+     * NO private items. Default visibility is private (is_public absent => false).
+     *
+     * @return array<int, array{type: string, url: string}>
+     */
+    public function publicChannels(): array
+    {
+        $channels = $this->verification_channels ?? [];
+
+        $public = [];
+
+        foreach ($channels as $channel) {
+            if (! is_array($channel) || ! isset($channel['type'], $channel['url'])) {
+                continue;
+            }
+
+            if (filter_var($channel['is_public'] ?? false, FILTER_VALIDATE_BOOLEAN) !== true) {
+                continue;
+            }
+
+            $public[] = [
+                'type' => (string) $channel['type'],
+                'url' => (string) $channel['url'],
+            ];
+        }
+
+        return $public;
+    }
+
+    /**
      * Apply the shared verification transition when a community submits or edits
      * its proof channels. Mutates (but does NOT persist) the model:
      *
@@ -98,7 +129,7 @@ class CommunityProfile extends Model
      *     admin is flagged the channels changed (edit-after-verified rule).
      *   - pending → stays pending (channels just updated).
      *
-     * @param  array<int, array{type: string, url: string}>  $channels
+     * @param  array<int, array{type: string, url: string, is_public: bool}>  $channels
      */
     public function applyVerificationChannelSubmission(array $channels): void
     {
