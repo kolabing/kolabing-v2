@@ -48,6 +48,12 @@ repo's GitHub Project board before/while it is built, and its PR links back to t
 item. The board is the live view of what is in flight; `BACKLOG.md` remains the
 narrative source of truth and must stay in sync with it.
 
+**Every ticket uses the same structure.** Open work items with the standard issue
+template ([`.github/ISSUE_TEMPLATE/ticket.yml`](.github/ISSUE_TEMPLATE/ticket.yml)) —
+blank issues are disabled. Fill in Summary, Context, Acceptance criteria, Work Type,
+Priority, Area, **Mobile impact**, and Definition of done; then add the issue to the
+**Kolabing Engineering** board and mirror those values into the board fields.
+
 ---
 
 ## MUST READ — Backlog (every session, before anything else)

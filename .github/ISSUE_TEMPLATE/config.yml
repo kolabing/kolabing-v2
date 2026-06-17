@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Kolabing Engineering board
+    url: https://github.com/orgs/kolabing/projects/3
+    about: All work is tracked here. Open a Ticket, then add it to the board.
