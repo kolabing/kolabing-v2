@@ -42,6 +42,7 @@ class KolabService
     {
         $query = Kolab::query()
             ->where('status', KolabStatus::Published)
+            ->withCount('applications')
             ->with([
                 'creatorProfile' => function ($query) {
                     $query->with([
@@ -86,6 +87,7 @@ class KolabService
     {
         $query = Kolab::query()
             ->where('creator_profile_id', $profile->id)
+            ->withCount('applications')
             ->with('creatorProfile');
 
         if (isset($filters['status']) && $filters['status'] !== '') {

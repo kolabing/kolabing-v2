@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Api\V1;
 
 use App\Models\BusinessProfile;
-use App\Models\CollabOpportunity;
 use App\Models\CommunityProfile;
+use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -26,12 +26,12 @@ class OpportunitySearchTest extends TestCase
         $viewer = Profile::factory()->business()->create();
         $communityCreator = Profile::factory()->community()->create();
 
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->published()
             ->forCreator($communityCreator)
             ->create(['title' => 'Yoga Workshop Partnership']);
 
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->published()
             ->forCreator($communityCreator)
             ->create(['title' => 'Coffee Tasting Event']);
@@ -50,7 +50,7 @@ class OpportunitySearchTest extends TestCase
         $viewer = Profile::factory()->business()->create();
         $communityCreator = Profile::factory()->community()->create();
 
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->published()
             ->forCreator($communityCreator)
             ->create(['title' => 'YOGA Workshop']);
@@ -73,7 +73,7 @@ class OpportunitySearchTest extends TestCase
         $viewer = Profile::factory()->business()->create();
         $communityCreator = Profile::factory()->community()->create();
 
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->published()
             ->forCreator($communityCreator)
             ->create([
@@ -81,7 +81,7 @@ class OpportunitySearchTest extends TestCase
                 'description' => 'Join us for an amazing meditation session',
             ]);
 
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->published()
             ->forCreator($communityCreator)
             ->create([
@@ -118,12 +118,12 @@ class OpportunitySearchTest extends TestCase
             'name' => 'Madrid Yoga Studio',
         ]);
 
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->published()
             ->forCreator($communityCreator)
             ->create(['title' => 'Morning Run Event']);
 
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->published()
             ->forCreator($anotherCommunityCreator)
             ->create(['title' => 'Yoga Class']);
@@ -146,7 +146,7 @@ class OpportunitySearchTest extends TestCase
             'name' => 'Barcelona Running Community',
         ]);
 
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->published()
             ->forCreator($communityCreator)
             ->create(['title' => 'Weekly Run']);
@@ -180,12 +180,12 @@ class OpportunitySearchTest extends TestCase
             'name' => 'Tech Startup Hub',
         ]);
 
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create(['title' => 'Coffee Tasting Partnership']);
 
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->published()
             ->forCreator($anotherBusinessCreator)
             ->create(['title' => 'Tech Workshop']);
@@ -212,7 +212,7 @@ class OpportunitySearchTest extends TestCase
         // Opportunity with matching title
         $creator1 = Profile::factory()->community()->create();
         CommunityProfile::factory()->for($creator1, 'profile')->create(['name' => 'Group A']);
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->published()
             ->forCreator($creator1)
             ->create(['title' => 'Fitness Workshop', 'description' => 'Generic description']);
@@ -220,7 +220,7 @@ class OpportunitySearchTest extends TestCase
         // Opportunity with matching description
         $creator2 = Profile::factory()->community()->create();
         CommunityProfile::factory()->for($creator2, 'profile')->create(['name' => 'Group B']);
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->published()
             ->forCreator($creator2)
             ->create(['title' => 'Generic Event', 'description' => 'A fitness related activity']);
@@ -228,7 +228,7 @@ class OpportunitySearchTest extends TestCase
         // Opportunity with matching creator name
         $creator3 = Profile::factory()->community()->create();
         CommunityProfile::factory()->for($creator3, 'profile')->create(['name' => 'Fitness Club BCN']);
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->published()
             ->forCreator($creator3)
             ->create(['title' => 'Morning Run', 'description' => 'Join our run']);
@@ -236,7 +236,7 @@ class OpportunitySearchTest extends TestCase
         // Opportunity with no match
         $creator4 = Profile::factory()->community()->create();
         CommunityProfile::factory()->for($creator4, 'profile')->create(['name' => 'Art Gallery']);
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->published()
             ->forCreator($creator4)
             ->create(['title' => 'Art Exhibition', 'description' => 'Modern art show']);
@@ -254,7 +254,7 @@ class OpportunitySearchTest extends TestCase
         $viewer = Profile::factory()->business()->create();
         $communityCreator = Profile::factory()->community()->create();
 
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->published()
             ->forCreator($communityCreator)
             ->create(['title' => 'Yoga Workshop']);
@@ -276,7 +276,7 @@ class OpportunitySearchTest extends TestCase
         $creator2 = Profile::factory()->community()->create();
         CommunityProfile::factory()->for($creator2, 'profile')->create(['name' => 'Yoga Beginners']);
 
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->published()
             ->forCreator($creator1)
             ->create([
@@ -284,7 +284,7 @@ class OpportunitySearchTest extends TestCase
                 'preferred_city' => 'Barcelona',
             ]);
 
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->published()
             ->forCreator($creator2)
             ->create([
@@ -306,7 +306,7 @@ class OpportunitySearchTest extends TestCase
         $viewer = Profile::factory()->business()->create();
         $communityCreator = Profile::factory()->community()->create();
 
-        CollabOpportunity::factory()->count(3)
+        Kolab::factory()->count(3)
             ->published()
             ->forCreator($communityCreator)
             ->create();

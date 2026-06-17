@@ -60,17 +60,17 @@ class StatsDashboardTest extends TestCase
         ]);
 
         Application::factory()->accepted()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'applicant_profile_id' => Profile::factory()->community(),
             'applicant_profile_type' => UserType::Community,
         ]);
         Application::factory()->accepted()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'applicant_profile_id' => Profile::factory()->community(),
             'applicant_profile_type' => UserType::Community,
         ]);
         Application::factory()->declined()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'applicant_profile_id' => Profile::factory()->business(),
             'applicant_profile_type' => UserType::Business,
         ]);
@@ -97,17 +97,17 @@ class StatsDashboardTest extends TestCase
 
         $communities = Profile::factory()->community()->count(3)->create();
         $acceptedApp = Application::factory()->accepted()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'applicant_profile_id' => $communities->get(0)->id,
             'applicant_profile_type' => UserType::Community,
         ]);
         Application::factory()->pending()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'applicant_profile_id' => $communities->get(1)->id,
             'applicant_profile_type' => UserType::Community,
         ]);
         Collaboration::factory()->completed()->create([
-            'collab_opportunity_id' => $kolab->id,
+            'kolab_id' => $kolab->id,
             'application_id' => $acceptedApp->id,
             'creator_profile_id' => $publishing->id,
             'applicant_profile_id' => $communities->get(0)->id,

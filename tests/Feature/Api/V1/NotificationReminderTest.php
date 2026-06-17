@@ -9,8 +9,8 @@ use App\Enums\NotificationType;
 use App\Jobs\SendPushNotification;
 use App\Models\Application;
 use App\Models\BusinessProfile;
-use App\Models\CollabOpportunity;
 use App\Models\CommunityProfile;
+use App\Models\Kolab;
 use App\Models\Notification;
 use App\Models\Profile;
 use App\Services\ApplicationService;
@@ -95,7 +95,7 @@ class NotificationReminderTest extends TestCase
         $applicant = Profile::factory()->community()->create();
         CommunityProfile::factory()->create(['profile_id' => $applicant->id]);
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($creator)
             ->create();
@@ -210,13 +210,13 @@ class NotificationReminderTest extends TestCase
         $applicant = Profile::factory()->community()->create();
         CommunityProfile::factory()->create(['profile_id' => $applicant->id]);
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($creator)
             ->create();
 
         $application = Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($applicant)
             ->create();
 

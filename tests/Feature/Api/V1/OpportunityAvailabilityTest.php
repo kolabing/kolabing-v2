@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
-use App\Models\CollabOpportunity;
+use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -289,11 +289,16 @@ class OpportunityAvailabilityTest extends TestCase
 
     public function test_show_returns_new_availability_fields(): void
     {
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->forCreator($this->business)
-            ->recurring()
             ->published()
-            ->create();
+            ->create([
+                'availability_mode' => 'recurring',
+                'availability_start' => null,
+                'availability_end' => null,
+                'selected_time' => '20:00',
+                'recurring_days' => [4, 6],
+            ]);
 
         $community = Profile::factory()->community()->create();
 
@@ -311,11 +316,16 @@ class OpportunityAvailabilityTest extends TestCase
 
     public function test_index_returns_new_availability_fields(): void
     {
-        CollabOpportunity::factory()
+        Kolab::factory()
             ->forCreator($this->business)
-            ->oneTime()
             ->published()
-            ->create();
+            ->create([
+                'availability_mode' => 'one_time',
+                'availability_start' => now()->addWeek(),
+                'availability_end' => now()->addMonth(),
+                'selected_time' => '10:00',
+                'recurring_days' => null,
+            ]);
 
         $community = Profile::factory()->community()->create();
 

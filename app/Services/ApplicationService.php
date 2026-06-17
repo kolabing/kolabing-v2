@@ -8,6 +8,7 @@ use App\Enums\ApplicationStatus;
 use App\Enums\CollaborationStatus;
 use App\Exceptions\SubscriptionRequiredException;
 use App\Models\Application;
+use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
 use App\Models\Kolab;
 use App\Models\Profile;
@@ -41,7 +42,7 @@ class ApplicationService
 
         $application = Application::create([
             'kolab_id' => $opportunity->id,
-            'collab_opportunity_id' => null,
+            'collab_opportunity_id' => $this->resolveCollabOpportunityId($opportunity->id),
             'applicant_profile_id' => $applicant->id,
             'applicant_profile_type' => $applicant->user_type,
             'message' => $data['message'] ?? null,
@@ -381,7 +382,7 @@ class ApplicationService
 
         return Collaboration::create([
             'application_id' => $application->id,
-            'collab_opportunity_id' => null,
+            'collab_opportunity_id' => $this->resolveCollabOpportunityId($application->kolab_id),
             'kolab_id' => $application->kolab_id,
             'creator_profile_id' => $creator->id,
             'applicant_profile_id' => $applicant->id,
@@ -391,5 +392,21 @@ class ApplicationService
             'scheduled_date' => $data['scheduled_date'] ?? null,
             'contact_methods' => ! empty($data['contact_methods']) ? $data['contact_methods'] : null,
         ]);
+    }
+
+    /**
+     * Dual-write the legacy FK only when a backing compatibility opportunity
+     * exists (legacy-originated kolabs share the same id). App-created kolabs
+     * have no compatibility row, so the FK stays null to satisfy the constraint.
+     */
+    private function resolveCollabOpportunityId(?string $kolabId): ?string
+    {
+        if ($kolabId === null) {
+            return null;
+        }
+
+        return CollabOpportunity::query()->whereKey($kolabId)->exists()
+            ? $kolabId
+            : null;
     }
 }

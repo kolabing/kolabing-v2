@@ -8,8 +8,8 @@ use App\Enums\NotificationType;
 use App\Models\Application;
 use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
-use App\Models\CollabOpportunity;
 use App\Models\CommunityProfile;
+use App\Models\Kolab;
 use App\Models\Notification;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -377,13 +377,13 @@ class NotificationTest extends TestCase
         $businessCreator = Profile::factory()->business()->create();
         $communityApplicant = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create();
 
         $application = Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($communityApplicant)
             ->create();
 
@@ -414,7 +414,7 @@ class NotificationTest extends TestCase
             'instagram' => 'testuser',
         ]);
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create();
@@ -444,13 +444,13 @@ class NotificationTest extends TestCase
         $communityApplicant = Profile::factory()->community()->create();
         CommunityProfile::factory()->create(['profile_id' => $communityApplicant->id]);
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create();
 
         $application = Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($communityApplicant)
             ->pending()
             ->create();
@@ -491,13 +491,13 @@ class NotificationTest extends TestCase
         $communityApplicant = Profile::factory()->community()->create();
         CommunityProfile::factory()->create(['profile_id' => $communityApplicant->id]);
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create();
 
         $application = Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($communityApplicant)
             ->pending()
             ->create();

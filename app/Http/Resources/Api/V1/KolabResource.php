@@ -76,6 +76,8 @@ class KolabResource extends JsonResource
             'creator_profile' => $this->whenLoaded('creatorProfile', function () {
                 return new ProfileSummaryResource($this->creatorProfile);
             }),
+            'is_own' => $request->user()?->id === $this->creator_profile_id,
+            'applications_count' => $this->applications_count ?? 0,
         ];
     }
 
