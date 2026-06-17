@@ -41,9 +41,22 @@ php artisan config:cache && php artisan route:cache && php artisan view:cache
 ## 3. Phase 4 — HELD (separate deploy, after prod soak)
 Only after the above is verified healthy in prod: drop the legacy layer — remove dual-write, make `kolab_id` NOT NULL, drop `collab_opportunity_id` + the `collab_opportunities` table, retire both bridge services, re-point/remove `/opportunities*` browse, migrate `create_opportunity_screen` (app) to the kolab model, update BACKEND-SCHEMA.md. See the interim audit's Phase-4 checklist. Run the final "zero collab_opportunities references" audit.
 
+## Post-merge actions (master → prod)
+Run in this order once PR is merged to `master`:
+1. **Set prod env FIRST** (before the deploy build): `GOOGLE_PLACES_API_KEY`, Sentry DSN, Apple IAP, OneSignal, Firebase, R2 — and **Stripe live keys** (`STRIPE_*`) if the paywall/subscription must work (they were commented in the dev env).
+2. **Deploy backend** (Laravel Cloud auto-builds on master push). Confirm the deploy command runs: `composer install --no-dev --optimize-autoloader` → `php artisan migrate --force` → `php artisan storage:link` → `config/route/view cache`. The auto-seed migration provisions taxonomies/icons.
+3. **Verify migration output:** `[kolab-sot-phase2]` line must end `… NULL kolab_id 20 -> 0` (applications) and `… 9 -> 0` (collaborations) on the real Postgres data.
+4. **Smoke test** (see Post-deploy smoke below), watch Sentry.
+5. **Deploy the mobile app AFTER** the backend is verified.
+6. Sync any other open branches/PRs onto the new `master`.
+
 ## Rollback
-- Backend: migrations are additive through Phase 2 (no drops) — rollback = `migrate:rollback` the new batches; the inverse-bridge-created kolabs are harmless if left. App degrades to fallbacks if backend reverts.
-- App: revert to prior build (no data migration in the app).
+Migrations are **additive** (no drops through Phase 2), so the schema is forward-compatible — old code runs fine against the new schema. Prefer a **code-level rollback**, not a DB rollback.
+
+- **Code rollback (preferred, fast):** redeploy the previous Laravel Cloud build (or `git revert` the merge commit + push). Leave the DB as-is.
+- **Do NOT run `migrate:rollback`:** the `add_kolab_links` migration's `down()` restores `collab_opportunity_id` to `NOT NULL`, which **fails** once any app-native row has a null `collab_opportunity_id`. The added columns/tables are harmless left in place.
+- **⚠️ Data visibility gap:** content created during the new-code window lives in `kolabs`; pre-SoT code reads `collab_opportunities`. After a code rollback, kolab-native rows created in the window become invisible (orphaned, not corrupted). Conditional dual-write keeps legacy-backed rows readable, but brand-new kolabs won't be. → Keep the rollback decision window short; once real user data accumulates, **fix-forward** (migrations are idempotent) instead of rolling back.
+- **App:** revert to the prior build (no data migration in the app; it degrades to bundled fallbacks if the backend reverts).
 
 ## Post-deploy smoke
 Register a business (product + venue) and a community → auto-offer + auto-community; create/list/edit a kolab; apply → accept → collaboration → dashboard; rewards tab; admin assigns a personalised icon → shows in app.
