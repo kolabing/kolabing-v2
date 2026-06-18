@@ -10,7 +10,6 @@ use App\Enums\UserType;
 use App\Jobs\SendPostHogEvent;
 use App\Models\Application;
 use App\Models\BusinessSubscription;
-use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
 use App\Models\Kolab;
 use App\Models\Profile;
@@ -165,10 +164,6 @@ class LifecycleTimestampsTest extends TestCase
     private function kolab(): Kolab
     {
         $kolab = Kolab::factory()->published()->create();
-        CollabOpportunity::factory()->create([
-            'id' => $kolab->id,
-            'creator_profile_id' => $kolab->creator_profile_id,
-        ]);
 
         // The creator must have an active subscription to accept applications.
         BusinessSubscription::query()->updateOrCreate(

@@ -73,9 +73,7 @@ class KolabSourceOfTruthPhase2Test extends TestCase
             'title' => 'Fresh Kolab Offer',
         ]);
 
-        $this->assertSame(0, CollabOpportunity::query()->count());
-
-        $response = $this->actingAs($business)->getJson('/api/v1/me/opportunities');
+        $response = $this->actingAs($business)->getJson('/api/v1/kolabs/me');
 
         $response->assertOk()
             ->assertJsonPath('success', true)
@@ -104,7 +102,7 @@ class KolabSourceOfTruthPhase2Test extends TestCase
             'status' => KolabStatus::Draft,
         ]);
 
-        $response = $this->actingAs($business)->getJson('/api/v1/me/opportunities?status=published');
+        $response = $this->actingAs($business)->getJson('/api/v1/kolabs/me?status=published');
 
         $response->assertOk()->assertJsonPath('meta.total', 1);
         $this->assertSame(
@@ -144,20 +142,10 @@ class KolabSourceOfTruthPhase2Test extends TestCase
             'published_at' => now(),
         ]);
 
-        // The collab_opportunity_id FK is non-nullable until Phase 4, so a
-        // compatibility row (id = kolab.id) must exist — this mirrors production,
-        // where the bridge persists it on apply. The point of the test is that the
-        // dashboard COUNTS via kolab_id (received-application scope), not via the
-        // legacy collabOpportunity whereHas.
-        CollabOpportunity::factory()->published()->forCreator($business)->create([
-            'id' => $kolab->id,
-            'creator_profile_type' => UserType::Business,
-        ]);
-
+        // The dashboard COUNTS received applications via kolab_id.
         foreach ([$communityA, $communityB] as $applicant) {
             Application::factory()->create([
                 'kolab_id' => $kolab->id,
-                'collab_opportunity_id' => $kolab->id,
                 'applicant_profile_id' => $applicant->id,
                 'applicant_profile_type' => UserType::Community,
                 'status' => ApplicationStatus::Pending,
@@ -173,9 +161,7 @@ class KolabSourceOfTruthPhase2Test extends TestCase
 
     public function test_dashboard_upcoming_collaboration_opportunity_sourced_from_kolab(): void
     {
-        // The collab_opportunity_id FK is non-nullable until Phase 4, so the compat
-        // row exists — but we give it a STALE title to prove the dashboard sources
-        // the embedded opportunity from the KOLAB (Phase 2), not the legacy row.
+        // The dashboard sources the embedded opportunity from the KOLAB.
         // Also exercises the controller null-safety: categories is always an array.
         $business = $this->businessWithSubscription();
         $community = $this->community();
@@ -187,15 +173,8 @@ class KolabSourceOfTruthPhase2Test extends TestCase
             'title' => 'Kolab Title (source of truth)',
         ]);
 
-        CollabOpportunity::factory()->published()->forCreator($business)->create([
-            'id' => $kolab->id,
-            'creator_profile_type' => UserType::Business,
-            'title' => 'Stale Legacy Title',
-        ]);
-
         $application = Application::factory()->create([
             'kolab_id' => $kolab->id,
-            'collab_opportunity_id' => $kolab->id,
             'applicant_profile_id' => $community->id,
             'applicant_profile_type' => UserType::Community,
             'status' => ApplicationStatus::Accepted,
@@ -204,7 +183,6 @@ class KolabSourceOfTruthPhase2Test extends TestCase
         Collaboration::factory()->create([
             'application_id' => $application->id,
             'kolab_id' => $kolab->id,
-            'collab_opportunity_id' => $kolab->id,
             'creator_profile_id' => $business->id,
             'applicant_profile_id' => $community->id,
             'status' => CollaborationStatus::Scheduled,

@@ -8,7 +8,6 @@ use App\Enums\KolabStatus;
 use App\Enums\UserType;
 use App\Models\Application;
 use App\Models\BusinessSubscription;
-use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
 use App\Models\Kolab;
 use App\Models\Profile;
@@ -54,10 +53,6 @@ class StatsDashboardTest extends TestCase
     public function test_applications_split_by_applicant_type_and_acceptance_rate(): void
     {
         $kolab = Kolab::factory()->published()->create();
-        CollabOpportunity::factory()->create([
-            'id' => $kolab->id,
-            'creator_profile_id' => $kolab->creator_profile_id,
-        ]);
 
         Application::factory()->accepted()->create([
             'kolab_id' => $kolab->id,
@@ -90,10 +85,6 @@ class StatsDashboardTest extends TestCase
         $businesses = Profile::factory()->business()->count(4)->create();
         $publishing = $businesses->first();
         $kolab = Kolab::factory()->published()->create(['creator_profile_id' => $publishing->id]);
-        CollabOpportunity::factory()->create([
-            'id' => $kolab->id,
-            'creator_profile_id' => $publishing->id,
-        ]);
 
         $communities = Profile::factory()->community()->count(3)->create();
         $acceptedApp = Application::factory()->accepted()->create([

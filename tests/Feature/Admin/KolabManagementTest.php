@@ -7,7 +7,6 @@ namespace Tests\Feature\Admin;
 use App\Enums\CollaborationStatus;
 use App\Enums\KolabStatus;
 use App\Models\Application;
-use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
 use App\Models\Kolab;
 use App\Models\Profile;
@@ -25,19 +24,12 @@ class KolabManagementTest extends TestCase
     }
 
     /**
-     * Build a Kolab + its paired CollabOpportunity (shared id) so applications
-     * and collaborations can reference the same UUID without FK violations.
+     * Build a published Kolab that applications and collaborations can
+     * reference via kolab_id.
      */
     private function kolabWithOpportunity(array $kolabOverrides = []): Kolab
     {
-        $kolab = Kolab::factory()->published()->create($kolabOverrides);
-
-        CollabOpportunity::factory()->create([
-            'id' => $kolab->id,
-            'creator_profile_id' => $kolab->creator_profile_id,
-        ]);
-
-        return $kolab;
+        return Kolab::factory()->published()->create($kolabOverrides);
     }
 
     public function test_maintainer_sees_kolab_list(): void

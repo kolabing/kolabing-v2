@@ -11,9 +11,9 @@ use App\Enums\SubscriptionStatus;
 use App\Enums\UserType;
 use App\Models\Application;
 use App\Models\BusinessSubscription;
-use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
 use App\Models\CollaborationFeedback;
+use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -26,7 +26,7 @@ class CollaborationFeedbackTest extends TestCase
      * Build a business creator + community applicant + ACTIVE collaboration
      * with both participant slots populated, returning all four key actors.
      *
-     * @return array{collab: Collaboration, business: Profile, community: Profile, opportunity: CollabOpportunity}
+     * @return array{collab: Collaboration, business: Profile, community: Profile, opportunity: Kolab}
      */
     private function makeActiveCollab(): array
     {
@@ -38,20 +38,19 @@ class CollaborationFeedbackTest extends TestCase
 
         $community = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->create([
+        $opportunity = Kolab::factory()->published()->create([
             'creator_profile_id' => $business->id,
-            'creator_profile_type' => UserType::Business,
         ]);
 
         $application = Application::factory()->create([
-            'collab_opportunity_id' => $opportunity->id,
+            'kolab_id' => $opportunity->id,
             'applicant_profile_id' => $community->id,
             'applicant_profile_type' => UserType::Community,
             'status' => ApplicationStatus::Accepted,
         ]);
 
         $collab = Collaboration::factory()->active()->create([
-            'collab_opportunity_id' => $opportunity->id,
+            'kolab_id' => $opportunity->id,
             'application_id' => $application->id,
             'creator_profile_id' => $business->id,
             'applicant_profile_id' => $community->id,

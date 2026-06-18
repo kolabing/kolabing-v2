@@ -8,9 +8,9 @@ use App\Enums\ChatThreadType;
 use App\Models\Application;
 use App\Models\ChatMessage;
 use App\Models\ChatThread;
-use App\Models\CollabOpportunity;
 use App\Models\Community;
 use App\Models\CommunityMember;
+use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -28,13 +28,13 @@ class ChatActiveListTest extends TestCase
         $businessCreator = Profile::factory()->business()->create();
         $communityApplicant = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create();
 
         $application = Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($communityApplicant)
             ->create();
 

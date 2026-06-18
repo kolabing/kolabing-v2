@@ -20,7 +20,7 @@ class ApplicationCreateTest extends TestCase
         [$applicant, $opportunity] = $this->seedApplyContext();
 
         $response = $this->actingAs($applicant)
-            ->postJson("/api/v1/opportunities/{$opportunity->id}/applications", [
+            ->postJson("/api/v1/kolabs/{$opportunity->id}/applications", [
                 'message' => 'sounds cool', // 11 chars — would have failed the old min:20 rule
                 'availability' => 'Available on weekends and evenings throughout the month.',
             ]);
@@ -40,7 +40,7 @@ class ApplicationCreateTest extends TestCase
         [$applicant, $opportunity] = $this->seedApplyContext();
 
         $response = $this->actingAs($applicant)
-            ->postJson("/api/v1/opportunities/{$opportunity->id}/applications", [
+            ->postJson("/api/v1/kolabs/{$opportunity->id}/applications", [
                 'message' => '',
                 'availability' => 'Available on weekends and evenings throughout the month.',
             ]);
@@ -55,7 +55,7 @@ class ApplicationCreateTest extends TestCase
         [$applicant, $opportunity] = $this->seedApplyContext();
 
         $response = $this->actingAs($applicant)
-            ->postJson("/api/v1/opportunities/{$opportunity->id}/applications", [
+            ->postJson("/api/v1/kolabs/{$opportunity->id}/applications", [
                 'message' => str_repeat('a', 2001),
                 'availability' => 'Available on weekends and evenings throughout the month.',
             ]);

@@ -37,7 +37,7 @@ class OpportunitySearchTest extends TestCase
             ->create(['title' => 'Coffee Tasting Event']);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/opportunities?search=yoga');
+            ->getJson('/api/v1/kolabs?search=yoga');
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
@@ -56,7 +56,7 @@ class OpportunitySearchTest extends TestCase
             ->create(['title' => 'YOGA Workshop']);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/opportunities?search=yoga');
+            ->getJson('/api/v1/kolabs?search=yoga');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 1);
@@ -90,7 +90,7 @@ class OpportunitySearchTest extends TestCase
             ]);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/opportunities?search=meditation');
+            ->getJson('/api/v1/kolabs?search=meditation');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 1);
@@ -130,7 +130,7 @@ class OpportunitySearchTest extends TestCase
 
         // Search by community name
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/opportunities?search=Barcelona');
+            ->getJson('/api/v1/kolabs?search=Barcelona');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 1)
@@ -152,7 +152,7 @@ class OpportunitySearchTest extends TestCase
             ->create(['title' => 'Weekly Run']);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/opportunities?search=running');
+            ->getJson('/api/v1/kolabs?search=running');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 1);
@@ -192,7 +192,7 @@ class OpportunitySearchTest extends TestCase
 
         // Search by business name
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/opportunities?search=Organic');
+            ->getJson('/api/v1/kolabs?search=Organic');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 1)
@@ -243,7 +243,7 @@ class OpportunitySearchTest extends TestCase
 
         // Search for "fitness" should find 3 opportunities
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/opportunities?search=fitness');
+            ->getJson('/api/v1/kolabs?search=fitness');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 3);
@@ -260,7 +260,7 @@ class OpportunitySearchTest extends TestCase
             ->create(['title' => 'Yoga Workshop']);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/opportunities?search=nonexistentterm');
+            ->getJson('/api/v1/kolabs?search=nonexistentterm');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 0);
@@ -294,7 +294,7 @@ class OpportunitySearchTest extends TestCase
 
         // Search for "yoga" in Barcelona only
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/opportunities?search=yoga&city=Barcelona');
+            ->getJson('/api/v1/kolabs?search=yoga&city=Barcelona');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 1)
@@ -312,7 +312,7 @@ class OpportunitySearchTest extends TestCase
             ->create();
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/opportunities?search=');
+            ->getJson('/api/v1/kolabs?search=');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 3);

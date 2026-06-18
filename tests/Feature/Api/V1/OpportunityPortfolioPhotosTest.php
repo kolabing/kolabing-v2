@@ -31,7 +31,7 @@ class OpportunityPortfolioPhotosTest extends TestCase
         $community = Profile::factory()->community()->create();
 
         $response = $this->actingAs($community)
-            ->getJson('/api/v1/opportunities');
+            ->getJson('/api/v1/kolabs');
 
         $response->assertStatus(200);
 
@@ -55,7 +55,7 @@ class OpportunityPortfolioPhotosTest extends TestCase
         $community = Profile::factory()->community()->create();
 
         $response = $this->actingAs($community)
-            ->getJson('/api/v1/opportunities');
+            ->getJson('/api/v1/kolabs');
 
         $response->assertStatus(200);
 
@@ -80,7 +80,7 @@ class OpportunityPortfolioPhotosTest extends TestCase
         $community = Profile::factory()->community()->create();
 
         $response = $this->actingAs($community)
-            ->getJson('/api/v1/opportunities');
+            ->getJson('/api/v1/kolabs');
 
         $response->assertStatus(200);
 
@@ -100,7 +100,7 @@ class OpportunityPortfolioPhotosTest extends TestCase
         $community = Profile::factory()->community()->create();
 
         $response = $this->actingAs($community)
-            ->getJson('/api/v1/opportunities');
+            ->getJson('/api/v1/kolabs');
 
         $response->assertStatus(200);
 
@@ -123,6 +123,10 @@ class OpportunityPortfolioPhotosTest extends TestCase
 
         $community = Profile::factory()->community()->create();
 
+        // FLAGGED (source parity): GET /api/v1/kolabs/{id} (show) does not yet
+        // populate creator_profile.portfolio_photos the way the listing does, so
+        // this asserts against the legacy /opportunities/{id} show endpoint until
+        // KolabController::show gains portfolio parity.
         $response = $this->actingAs($community)
             ->getJson("/api/v1/opportunities/{$opportunity->id}");
 

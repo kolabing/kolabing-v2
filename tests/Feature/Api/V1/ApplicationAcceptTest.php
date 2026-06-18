@@ -7,9 +7,9 @@ namespace Tests\Feature\Api\V1;
 use App\Models\Application;
 use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
-use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
 use App\Models\CommunityProfile;
+use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -36,14 +36,14 @@ class ApplicationAcceptTest extends TestCase
             'name' => 'Community Applicant',
         ]);
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($business)
             ->create();
 
         $application = Application::factory()
             ->pending()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($community)
             ->create();
 
@@ -109,14 +109,14 @@ class ApplicationAcceptTest extends TestCase
             'name' => 'Community Applicant',
         ]);
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($business)
             ->create();
 
         $application = Application::factory()
             ->pending()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($community)
             ->create();
 
@@ -159,7 +159,7 @@ class ApplicationAcceptTest extends TestCase
         $start = now()->addDays(7)->toDateString();
         $end = now()->addDays(10)->toDateString();
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($business)
             ->create([
@@ -170,7 +170,7 @@ class ApplicationAcceptTest extends TestCase
 
         $application = Application::factory()
             ->pending()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($community)
             ->create();
 
@@ -201,17 +201,17 @@ class ApplicationAcceptTest extends TestCase
             'name' => 'Community Applicant',
         ]);
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
-            ->recurring()
             ->forCreator($business)
             ->create([
+                'availability_mode' => 'recurring',
                 'recurring_days' => [1, 3],
             ]);
 
         $application = Application::factory()
             ->pending()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($community)
             ->create();
 

@@ -6,7 +6,7 @@ namespace Tests\Feature\Api\V1;
 
 use App\Models\Application;
 use App\Models\BusinessSubscription;
-use App\Models\CollabOpportunity;
+use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -28,8 +28,8 @@ class ApplicationDeclineWithdrawTest extends TestCase
 
         $community = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        $application = Application::factory()->pending()->forOpportunity($opportunity)->forApplicant($community)->create();
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create();
+        $application = Application::factory()->pending()->forKolab($opportunity)->forApplicant($community)->create();
 
         $this->actingAs($business)
             ->postJson("/api/v1/applications/{$application->id}/decline")
@@ -45,8 +45,8 @@ class ApplicationDeclineWithdrawTest extends TestCase
         $business = Profile::factory()->business()->create();
         $community = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        $application = Application::factory()->pending()->forOpportunity($opportunity)->forApplicant($community)->create();
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create();
+        $application = Application::factory()->pending()->forKolab($opportunity)->forApplicant($community)->create();
 
         $this->actingAs($community)
             ->postJson("/api/v1/applications/{$application->id}/decline")
@@ -61,8 +61,8 @@ class ApplicationDeclineWithdrawTest extends TestCase
         $community = Profile::factory()->community()->create();
         $outsider = Profile::factory()->business()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        $application = Application::factory()->pending()->forOpportunity($opportunity)->forApplicant($community)->create();
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create();
+        $application = Application::factory()->pending()->forKolab($opportunity)->forApplicant($community)->create();
 
         $this->actingAs($outsider)
             ->postJson("/api/v1/applications/{$application->id}/decline")
@@ -76,8 +76,8 @@ class ApplicationDeclineWithdrawTest extends TestCase
 
         $community = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        $application = Application::factory()->accepted()->forOpportunity($opportunity)->forApplicant($community)->create();
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create();
+        $application = Application::factory()->accepted()->forKolab($opportunity)->forApplicant($community)->create();
 
         $this->actingAs($business)
             ->postJson("/api/v1/applications/{$application->id}/decline")
@@ -95,8 +95,8 @@ class ApplicationDeclineWithdrawTest extends TestCase
         $business = Profile::factory()->business()->create();
         $community = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        $application = Application::factory()->pending()->forOpportunity($opportunity)->forApplicant($community)->create();
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create();
+        $application = Application::factory()->pending()->forKolab($opportunity)->forApplicant($community)->create();
 
         $this->actingAs($community)
             ->postJson("/api/v1/applications/{$application->id}/withdraw")
@@ -114,8 +114,8 @@ class ApplicationDeclineWithdrawTest extends TestCase
 
         $community = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        $application = Application::factory()->pending()->forOpportunity($opportunity)->forApplicant($community)->create();
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create();
+        $application = Application::factory()->pending()->forKolab($opportunity)->forApplicant($community)->create();
 
         $this->actingAs($business)
             ->postJson("/api/v1/applications/{$application->id}/withdraw")
@@ -127,8 +127,8 @@ class ApplicationDeclineWithdrawTest extends TestCase
         $business = Profile::factory()->business()->create();
         $community = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        $application = Application::factory()->declined()->forOpportunity($opportunity)->forApplicant($community)->create();
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create();
+        $application = Application::factory()->declined()->forKolab($opportunity)->forApplicant($community)->create();
 
         $this->actingAs($community)
             ->postJson("/api/v1/applications/{$application->id}/withdraw")
@@ -146,8 +146,8 @@ class ApplicationDeclineWithdrawTest extends TestCase
         $business = Profile::factory()->business()->create();
         $community = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        $application = Application::factory()->declined()->forOpportunity($opportunity)->forApplicant($community)->create();
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create();
+        $application = Application::factory()->declined()->forKolab($opportunity)->forApplicant($community)->create();
 
         $this->actingAs($community)
             ->postJson("/api/v1/applications/{$application->id}/messages", [
@@ -161,8 +161,8 @@ class ApplicationDeclineWithdrawTest extends TestCase
         $business = Profile::factory()->business()->create();
         $community = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        $application = Application::factory()->withdrawn()->forOpportunity($opportunity)->forApplicant($community)->create();
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create();
+        $application = Application::factory()->withdrawn()->forKolab($opportunity)->forApplicant($community)->create();
 
         $this->actingAs($business)
             ->postJson("/api/v1/applications/{$application->id}/messages", [
