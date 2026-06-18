@@ -113,7 +113,6 @@ class SeedTestCollaboration extends Command
 
             // 2) The BUSINESS applies and is accepted (the "applicant").
             $application = Application::create([
-                'collab_opportunity_id' => null,
                 'kolab_id' => $kolab->id,
                 'applicant_profile_id' => $business->id,
                 'applicant_profile_type' => UserType::Business,
@@ -125,7 +124,6 @@ class SeedTestCollaboration extends Command
             //    creator = community (created the opportunity), applicant = business.
             return Collaboration::create([
                 'application_id' => $application->id,
-                'collab_opportunity_id' => null,
                 'kolab_id' => $kolab->id,
                 'creator_profile_id' => $community->id,
                 'applicant_profile_id' => $business->id,

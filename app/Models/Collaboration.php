@@ -15,7 +15,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * @property string $id
  * @property string $application_id
- * @property string|null $collab_opportunity_id
  * @property string|null $kolab_id
  * @property string $creator_profile_id
  * @property string $applicant_profile_id
@@ -51,7 +50,6 @@ class Collaboration extends Model
      */
     protected $fillable = [
         'application_id',
-        'collab_opportunity_id',
         'kolab_id',
         'creator_profile_id',
         'applicant_profile_id',
