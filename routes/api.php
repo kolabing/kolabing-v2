@@ -708,6 +708,14 @@ Route::prefix('v1')->group(function (): void {
         Route::post('kolabs/{kolab}/close', [KolabController::class, 'close'])
             ->name('api.v1.kolabs.close');
 
+        // List applications for a kolab (creator only)
+        Route::get('kolabs/{kolab}/applications', [ApplicationController::class, 'forOpportunity'])
+            ->name('api.v1.kolabs.applications.index');
+
+        // Apply to a kolab
+        Route::post('kolabs/{kolab}/applications', [ApplicationController::class, 'store'])
+            ->name('api.v1.kolabs.applications.store');
+
         /*
         |--------------------------------------------------------------------------
         | Applications
