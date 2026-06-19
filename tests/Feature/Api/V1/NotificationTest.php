@@ -420,7 +420,7 @@ class NotificationTest extends TestCase
             ->create();
 
         $response = $this->actingAs($communityApplicant)
-            ->postJson("/api/v1/opportunities/{$opportunity->id}/applications", [
+            ->postJson("/api/v1/kolabs/{$opportunity->id}/applications", [
                 'message' => 'I would love to collaborate with your business!',
                 'availability' => 'Available on weekends and evenings throughout the month.',
             ]);

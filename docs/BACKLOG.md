@@ -1,6 +1,6 @@
 # Kolabing — Pre-launch Backlog
 
-**Last updated:** 2026-06-01
+**Last updated:** 2026-06-19
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical.
 
 A consolidated punch list of everything we've identified but haven't shipped. Items are tagged by **owner** (`backend` = kolabing-v2, `app` = kolabing-app, `cross` = both, `infra` = hosting) and **priority** (`P0` = blocker for launch, `P1` = needed soon after, `P2` = nice-to-have).
@@ -202,6 +202,18 @@ From [docs/ROLES-BACKEND-DB-MAP.md](ROLES-BACKEND-DB-MAP.md) §8 — still-open 
 - [ ] **Implement the Explore blur** for free businesses (golden rules 4 + 5). Server should emit an `identity_locked` flag; client renders an actual blur, not a hard block. Owner: **cross**.
 - [ ] **Add `coliving` to `BusinessOnboardingRequest::BUSINESS_TYPES`** — it's in the spec but rejected at validation today. Owner: **backend**.
 - [ ] **Attendee role scope decision** — code is shipped (gamification, wallet, badges, checkin) but `ROLES-AND-PERMISSIONS.md §7` still marks it as `[VERIFY]`. Decide: in or out of launch; pricing; whether the attendee wallet redeems to cash. Owner: **product (Daniel)**, then **backend** / **app**.
+
+---
+
+## 9. Legacy `collab_opportunities` removal (canonical `/kolabs`)
+
+**Status:** Table-level code archived (#30, in flight). Table drop + shim removal deferred to #31.
+
+**Incomplete (in flight):**
+- [ ] **Remove legacy `collab_opportunities` table-level code (archive table)** — `kolabing-v2` #30 (this PR). Deletes `CollabOpportunity`, the bridge services, migrate command, factory, seeder, dead resources, and the `collab_opportunity_id` dual-write; adds `GET`/`POST /api/v1/kolabs/{kolab}/applications`. The `collab_opportunities` table + `collab_opportunity_id` columns stay physically (archived). The `/opportunities` API shim is intentionally retained. Owner: **backend**.
+
+**Follow-up (new):**
+- [ ] **Remove `/opportunities` API shim + port freemium limit & portfolio photos to `/kolabs` + drop `collab_opportunities` table** — #31 (gated on mobile `kolabing-app` #20). The freemium collab limit + portfolio-photo handling currently live only on the legacy `OpportunityService` path; port them onto `/kolabs` create, then retire `OpportunityController`/`OpportunityService` and drop the archived table + `collab_opportunity_id` columns. Owner: **backend** (after mobile migrates off `/opportunities`).
 
 ---
 

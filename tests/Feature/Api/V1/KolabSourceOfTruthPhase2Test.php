@@ -12,12 +12,10 @@ use App\Enums\UserType;
 use App\Models\Application;
 use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
-use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
 use App\Models\CommunityProfile;
 use App\Models\Kolab;
 use App\Models\Profile;
-use App\Services\InverseLegacyOpportunityBridgeService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
@@ -73,9 +71,7 @@ class KolabSourceOfTruthPhase2Test extends TestCase
             'title' => 'Fresh Kolab Offer',
         ]);
 
-        $this->assertSame(0, CollabOpportunity::query()->count());
-
-        $response = $this->actingAs($business)->getJson('/api/v1/me/opportunities');
+        $response = $this->actingAs($business)->getJson('/api/v1/kolabs/me');
 
         $response->assertOk()
             ->assertJsonPath('success', true)
@@ -104,7 +100,7 @@ class KolabSourceOfTruthPhase2Test extends TestCase
             'status' => KolabStatus::Draft,
         ]);
 
-        $response = $this->actingAs($business)->getJson('/api/v1/me/opportunities?status=published');
+        $response = $this->actingAs($business)->getJson('/api/v1/kolabs/me?status=published');
 
         $response->assertOk()->assertJsonPath('meta.total', 1);
         $this->assertSame(
@@ -144,20 +140,10 @@ class KolabSourceOfTruthPhase2Test extends TestCase
             'published_at' => now(),
         ]);
 
-        // The collab_opportunity_id FK is non-nullable until Phase 4, so a
-        // compatibility row (id = kolab.id) must exist — this mirrors production,
-        // where the bridge persists it on apply. The point of the test is that the
-        // dashboard COUNTS via kolab_id (received-application scope), not via the
-        // legacy collabOpportunity whereHas.
-        CollabOpportunity::factory()->published()->forCreator($business)->create([
-            'id' => $kolab->id,
-            'creator_profile_type' => UserType::Business,
-        ]);
-
+        // The dashboard COUNTS received applications via kolab_id.
         foreach ([$communityA, $communityB] as $applicant) {
             Application::factory()->create([
                 'kolab_id' => $kolab->id,
-                'collab_opportunity_id' => $kolab->id,
                 'applicant_profile_id' => $applicant->id,
                 'applicant_profile_type' => UserType::Community,
                 'status' => ApplicationStatus::Pending,
@@ -173,9 +159,7 @@ class KolabSourceOfTruthPhase2Test extends TestCase
 
     public function test_dashboard_upcoming_collaboration_opportunity_sourced_from_kolab(): void
     {
-        // The collab_opportunity_id FK is non-nullable until Phase 4, so the compat
-        // row exists — but we give it a STALE title to prove the dashboard sources
-        // the embedded opportunity from the KOLAB (Phase 2), not the legacy row.
+        // The dashboard sources the embedded opportunity from the KOLAB.
         // Also exercises the controller null-safety: categories is always an array.
         $business = $this->businessWithSubscription();
         $community = $this->community();
@@ -187,15 +171,8 @@ class KolabSourceOfTruthPhase2Test extends TestCase
             'title' => 'Kolab Title (source of truth)',
         ]);
 
-        CollabOpportunity::factory()->published()->forCreator($business)->create([
-            'id' => $kolab->id,
-            'creator_profile_type' => UserType::Business,
-            'title' => 'Stale Legacy Title',
-        ]);
-
         $application = Application::factory()->create([
             'kolab_id' => $kolab->id,
-            'collab_opportunity_id' => $kolab->id,
             'applicant_profile_id' => $community->id,
             'applicant_profile_type' => UserType::Community,
             'status' => ApplicationStatus::Accepted,
@@ -204,7 +181,6 @@ class KolabSourceOfTruthPhase2Test extends TestCase
         Collaboration::factory()->create([
             'application_id' => $application->id,
             'kolab_id' => $kolab->id,
-            'collab_opportunity_id' => $kolab->id,
             'creator_profile_id' => $business->id,
             'applicant_profile_id' => $community->id,
             'status' => CollaborationStatus::Scheduled,
@@ -221,111 +197,5 @@ class KolabSourceOfTruthPhase2Test extends TestCase
         // Categories key is always present and an array (never null), so the app
         // parser never hits a missing/typed-wrong field.
         $this->assertIsArray($response->json('data.upcoming_collaborations.0.opportunity.categories'));
-    }
-
-    public function test_inverse_bridge_backfill_leaves_zero_null_kolab_id(): void
-    {
-        $business = $this->businessWithSubscription();
-        $community = $this->community();
-
-        // A TRUE-LEGACY opportunity: a collab_opportunity with NO backing kolab.
-        $legacyOpportunity = CollabOpportunity::factory()
-            ->published()
-            ->forCreator($business)
-            ->create([
-                'creator_profile_type' => UserType::Business,
-                'title' => 'Legacy Pre-Bridge Offer',
-            ]);
-
-        $this->assertNull(Kolab::query()->find($legacyOpportunity->id));
-
-        // Legacy application + collaboration keyed only on collab_opportunity_id,
-        // with kolab_id NULL (the Phase 1 "true legacy" state).
-        $application = Application::factory()->create([
-            'collab_opportunity_id' => $legacyOpportunity->id,
-            'kolab_id' => null,
-            'applicant_profile_id' => $community->id,
-            'applicant_profile_type' => UserType::Community,
-            'status' => ApplicationStatus::Accepted,
-        ]);
-
-        Collaboration::factory()->create([
-            'application_id' => $application->id,
-            'collab_opportunity_id' => $legacyOpportunity->id,
-            'kolab_id' => null,
-            'creator_profile_id' => $business->id,
-            'applicant_profile_id' => $community->id,
-            'status' => CollaborationStatus::Scheduled,
-            'scheduled_date' => now()->addDays(5)->toDateString(),
-        ]);
-
-        $this->assertSame(1, Application::query()->whereNull('kolab_id')->count());
-        $this->assertSame(1, Collaboration::query()->whereNull('kolab_id')->count());
-
-        $counts = app(InverseLegacyOpportunityBridgeService::class)->backfillAll();
-
-        // A kolab now exists for the legacy opportunity, reusing the SAME id.
-        $kolab = Kolab::query()->find($legacyOpportunity->id);
-        $this->assertNotNull($kolab);
-        $this->assertSame($legacyOpportunity->id, $kolab->id);
-        $this->assertSame($legacyOpportunity->title, $kolab->title);
-
-        // ZERO rows left with NULL kolab_id.
-        $this->assertSame(0, Application::query()->whereNull('kolab_id')->count());
-        $this->assertSame(0, Collaboration::query()->whereNull('kolab_id')->count());
-        $this->assertSame($legacyOpportunity->id, Application::query()->firstOrFail()->kolab_id);
-        $this->assertSame($legacyOpportunity->id, Collaboration::query()->firstOrFail()->kolab_id);
-
-        // Reported counts.
-        $this->assertSame(1, $counts['opportunities_without_kolab_before']);
-        $this->assertSame(1, $counts['kolabs_created']);
-        $this->assertSame(0, $counts['opportunities_without_kolab_after']);
-        $this->assertSame(0, $counts['applications_null_kolab_after']);
-        $this->assertSame(0, $counts['collaborations_null_kolab_after']);
-    }
-
-    public function test_inverse_bridge_is_idempotent(): void
-    {
-        $business = $this->businessWithSubscription();
-
-        $opportunity = CollabOpportunity::factory()
-            ->published()
-            ->forCreator($business)
-            ->create(['creator_profile_type' => UserType::Business]);
-
-        $service = app(InverseLegacyOpportunityBridgeService::class);
-
-        $first = $service->ensureKolabForOpportunity($opportunity);
-        $second = $service->ensureKolabForOpportunity($opportunity->fresh());
-
-        $this->assertSame($first->id, $second->id);
-        $this->assertSame(1, Kolab::query()->where('id', $opportunity->id)->count());
-    }
-
-    public function test_inverse_bridge_maps_community_creator_offers(): void
-    {
-        $community = $this->community();
-
-        // Community-created opportunity: business_offer -> needs, deliverables ->
-        // offers_in_return, intent_type -> community_seeking.
-        $opportunity = CollabOpportunity::factory()
-            ->forCreator($community)
-            ->create([
-                'creator_profile_type' => UserType::Community,
-                'business_offer' => ['venue' => true],
-                'community_deliverables' => ['social_media_content' => true],
-                'venue_mode' => 'community_venue',
-                'categories' => ['fitness', 'wellness'],
-            ]);
-
-        $kolab = app(InverseLegacyOpportunityBridgeService::class)
-            ->ensureKolabForOpportunity($opportunity);
-
-        $this->assertSame('community_seeking', $kolab->intent_type->value);
-        $this->assertSame(['venue' => true], $kolab->needs);
-        $this->assertSame(['social_media_content' => true], $kolab->offers_in_return);
-        $this->assertNull($kolab->offering);
-        $this->assertSame(['fitness', 'wellness'], $kolab->community_types);
-        $this->assertSame('community_provides', $kolab->venue_preference);
     }
 }

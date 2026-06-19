@@ -1,6 +1,6 @@
 # Kolabing — Roles → Backend → Database Map (Ground-Truth)
 
-**Last updated:** 2026-06-03 (NF-6 community members + customisable tiers, Phase 1)
+**Last updated:** 2026-06-19 (legacy `collab_opportunities` table-level code archived — model/bridge/command/factory/seeder deleted, dual-write removed; new `/kolabs/{kolab}/applications` apply routes; `/opportunities` shim retained pending mobile migration — #30)
 **Status:** Authoritative companion to [`ROLES-AND-PERMISSIONS.md`](./ROLES-AND-PERMISSIONS.md). Read that first (the *what*), then this (the *where*).
 **Sync note:** Duplicated in both repos (`kolabing-app`, `kolabing-v2`). Keep identical, and **bump the Last updated date in both** when role behaviour or backend wiring changes.
 
@@ -12,7 +12,7 @@
 
 > Fixed-since-last-update marked ✅; still-open marked ⚠️.
 
-1. ⚠️ **Two parallel post systems exist** (`collab_opportunities` *and* `kolabs`). They share a `id` UUID via `LegacyOpportunityBridgeService` so applications and collaborations (which FK to `collab_opportunities.id`) still resolve when a `kolab` is the actual post. The duplication is still the single biggest source of role bugs. See §2.
+1. ⚠️ **`kolabs` is now the sole source of truth for the opportunity/kolab lifecycle (as of 2026-06-19, #30).** The legacy `collab_opportunities` **table-level code is archived** — `CollabOpportunity` model, `LegacyOpportunityBridgeService` / `InverseLegacyOpportunityBridgeService`, the migrate command, factory, seeder, and the application dual-write are all deleted. `kolab_id` is the canonical FK on `applications`/`collaborations`. The `collab_opportunities` table and the `collab_opportunity_id` columns **remain physically but are no longer read or written by app code**; they are scheduled for drop in #31. See §2 and §7.
 2. ✅ **`KolabService::publish` now has the `isBusiness()` guard** — `app/Services/KolabService.php:190`. A community publishing a non-`CommunitySeeking` kolab no longer hits the freemium gate.
 3. ⚠️ **The blur still does not exist.** `app/Http/Resources/Api/V1/DiscoveryOpportunityResource.php` returns full `creator_profile.display_name` + `avatar_url` to every viewer; no `identity_locked` / `hide_creator_identity` flag is emitted. Violates golden rules 4 & 5. See §4.
 4. ✅ **Account deletion now frees the email, closes posts on both systems, cancels active collaborations, and revokes tokens.** `ProfileService::deleteProfile()` (`app/Services/ProfileService.php:111`) renames the soft-deleted profile's email to `deleted+{id}@kolabing.invalid` so the unique index releases the original address. See §6.
@@ -45,15 +45,15 @@ There are **two** "post" tables plus the accepted-match table. Per `ROLES-AND-PE
 
 | System | Table | Model | Created via (backend) | Created via (client) | Gating |
 |---|---|---|---|---|---|
-| **A. Opportunities** | `collab_opportunities` | `CollabOpportunity` | `OpportunityController` → `OpportunityService` | **Legacy** screens (`create_opportunity_screen` community, `create_collab_request_screen` business) via `opportunityFormProvider` | `isBusiness()`-guarded ✅ |
-| **B. Kolabs** | `kolabs` | `Kolab` | `KolabController` → `KolabService` | **New** `/kolab/flow` via `kolab_form_provider` | intent-type only — **no `isBusiness()` guard** ⚠️ |
+| **A. Opportunities (shim, archived table)** | `collab_opportunities` (ARCHIVED) | ~~`CollabOpportunity`~~ (deleted) | `OpportunityController` → `KolabService` (request-contract shim; `OpportunityService` still owns the freemium limit) | **Legacy** screens (`create_opportunity_screen` community, `create_collab_request_screen` business) via `opportunityFormProvider` | `isBusiness()`-guarded freemium limit ✅ |
+| **B. Kolabs (canonical)** | `kolabs` | `Kolab` | `KolabController` → `KolabService` (+ new `/kolabs/{kolab}/applications` apply via `ApplicationController@store`/`@forOpportunity`) | **New** `/kolab/flow` via `kolab_form_provider` | intent-type only — **no `isBusiness()` freemium-limit guard yet** ⚠️ (#31) |
 | **C. Collaborations** | `collaborations` | `Collaboration` | created when an application is accepted | — | none (lifecycle only) |
 | Applications | `applications` | `Application` | `ApplicationController` | apply modal | — |
 
 - `collab_opportunities.creator_profile_type` (enum Business|Community) encodes authorship in System A.
 - `kolabs.intent_type` (CommunitySeeking | VenuePromotion | ProductPromotion) encodes authorship in System B: **CommunitySeeking = community-authored; Venue/ProductPromotion = business-authored.**
-- **The bridge — partially resolved.** `App\Services\LegacyOpportunityBridgeService::resolveOrFail($id, $persistFromKolab)` mints a compatibility `collab_opportunities` row **with the same UUID as the kolab** when an application is filed against a kolab id. This is why `applications.collab_opportunity_id == kolab.id` works downstream. So both systems coexist at runtime; **the canonical authoring source is `kolabs`**, and System A is now effectively a denormalized projection used for the apply / collaboration FK chain.
-- **Practical implication:** when in doubt about "which model is the post?" → it's the **Kolab**. When you need to query applications/collaborations, you can do so by `kolab.id` directly because the bridge ensures the row exists. Eliminating System A entirely is the long-running cleanup; until then, do not change the bridge invariant (kolab.id == collab_opportunity.id).
+- **The bridge — removed (2026-06-19, #30).** `LegacyOpportunityBridgeService` / `InverseLegacyOpportunityBridgeService` and the `collab_opportunities` dual-write in `ApplicationService` have been **deleted**. Applications/collaborations now reference the canonical `kolab_id` directly; the `collab_opportunity_id` columns are no longer populated by app code. `CollabOpportunity` model, factory, seeder, the migrate command, and the dead `OpportunityResource`/`OpportunityCollection` are all gone. The `collab_opportunities` table + `collab_opportunity_id` columns are **archived** (physically present, no longer read/written) and scheduled for drop in #31.
+- **Practical implication:** "which model is the post?" → always the **Kolab**. Query applications/collaborations by `kolab_id` (canonical FK). The `/api/v1/opportunities/*` routes survive only as a request-contract shim over `KolabService` (mobile compat, removal gated on `kolabing-app` #20). Do **not** reintroduce reads/writes against `collab_opportunities`.
 
 ---
 
@@ -63,7 +63,7 @@ Spec: paywall is **Business-only**, on **exactly two actions** (create a collabo
 
 | Action | Code | Gates whom | Verdict |
 |---|---|---|---|
-| Create opportunity (System A) | `OpportunityService::hasReachedFreemiumCollabLimit()`; early-out `if (!$creator->isBusiness()) return false;` | Business w/o sub, >1 collab | ✅ correct |
+| Create opportunity (legacy shim path) | `OpportunityService::hasReachedFreemiumCollabLimit()`; early-out `if (!$creator->isBusiness()) return false;` | Business w/o sub, >1 collab | ✅ correct — but lives **only** on the legacy `/opportunities` create path today; NOT yet enforced on `/kolabs` create (port + portfolio-photo parity tracked in #31) |
 | Publish opportunity (System A) | `OpportunityService::publish()` `if ($creator->isBusiness() && !$creator->hasActiveSubscription())` | Business only | ✅ correct |
 | Create kolab (System B) | `KolabService::create()` — no sub check | nobody | ✅ correct |
 | Publish kolab (System B) | `KolabService::publish()` `:190` — `$creator->isBusiness() && intent_type !== CommunitySeeking && !hasActiveSubscription() && hasUsedFreeKolab()` | Business only | ✅ correct (fixed since 2026-05-22) |
@@ -138,16 +138,18 @@ profiles (id uuid PK, email UNIQUE, user_type[business|community|attendee], avat
  │                              apple_original_transaction_id, apple_transaction_id, apple_product_id)
  ├─1:N─ collab_opportunities   (creator_profile_id FK, creator_profile_type[business|community],
  │                              status[draft|published|closed|completed], business_offer json,
- │                              community_deliverables json, venue_mode, preferred_city)         ← System A
+ │                              community_deliverables json, venue_mode, preferred_city)         ← System A (ARCHIVED #30 → drop #31)
  ├─1:N─ kolabs                 (creator_profile_id FK, intent_type[community_seeking|venue_promotion|
  │                              product_promotion], status[draft|published|closed], media json,
  │                              needs json, community_types json, venue_preference, offering json,
  │                              published_at)                                                    ← System B (canonical)
  ├─1:N─ events                 (profile_id FK, partner_id FK, event_date, attendee_count)        ← past events
  └─1:N─ applications           (applicant_profile_id FK, applicant_profile_type[business|community],
-                                collab_opportunity_id FK, status[pending|accepted|declined|withdrawn],
+                                kolab_id FK ← canonical, collab_opportunity_id FK ARCHIVED (no longer written, drop #31),
+                                status[pending|accepted|declined|withdrawn],
                                 accepted_at?, declined_at?, withdrawn_at?)                       ← (§10)
-            └─1:1─ collaborations (application_id FK UNIQUE, collab_opportunity_id FK,
+            └─1:1─ collaborations (application_id FK UNIQUE, kolab_id FK ← canonical,
+                                   collab_opportunity_id FK ARCHIVED (no longer written, drop #31),
                                    creator_profile_id, applicant_profile_id,
                                    business_profile_id nullOnDelete, community_profile_id nullOnDelete,
                                    status[scheduled|active|completed|cancelled],
@@ -172,6 +174,8 @@ Lookups / admin:
 
 **Role lives in `profiles.user_type`. Subscription lives in `business_subscriptions.status` (with `source` as audit trail).** Everything else branches off those two.
 
+> **ARCHIVED (2026-06-19, #30):** `collab_opportunities` and the `collab_opportunity_id` columns on `applications`/`collaborations` are no longer read or written by application code. They are retained physically and scheduled for drop in #31. `kolabs` is the sole source of truth for the opportunity/kolab lifecycle; `kolab_id` is the canonical FK on applications/collaborations.
+
 ---
 
 ## 8. Mistakes-to-fix checklist (role-handling)
@@ -191,7 +195,8 @@ Still open:
 - [ ] Past events linked to collaborations and `completed_at` populated.
 - [ ] "View profile" deep-link confirmed to pass a `profiles.id` (not a `business_profile.id` or `collaboration.id`).
 - [ ] Type tags formatted on exactly one side (discovery formats server-side; profiles format client-side — pick one).
-- [ ] **Reconcile the two post systems** — bridge is in place via `LegacyOpportunityBridgeService`, but the long-running cleanup is to delete System A entirely. (§2)
+- [x] **Archive the legacy `collab_opportunities` table-level code** (2026-06-19, #30) — deleted `CollabOpportunity`, both bridge services, the migrate command, factory, seeder, dead resources; removed the `collab_opportunity_id` dual-write; `kolab_id` is now canonical. The `/opportunities` API shim over `KolabService` is intentionally retained pending mobile migration (`kolabing-app` #20). (§2)
+- [ ] **Finish System A removal (#31):** port the freemium collab limit + portfolio-photo parity into `/kolabs`, then remove the `/opportunities` shim + `OpportunityService`/`OpportunityController`, and drop the archived `collab_opportunities` table + `collab_opportunity_id` columns. Gated on mobile `kolabing-app` #20. (§2, §3, §7)
 - [ ] **Add `coliving` to `BusinessOnboardingRequest::BUSINESS_TYPES`** so the spec list in `ROLES-AND-PERMISSIONS.md` §2.1 actually validates. (Hot spot #7)
 - [ ] **`Admin\ManagedUserController::destroy()` should run the full `ProfileService::deleteProfile()` cleanup**, not a bare soft-delete (§6).
 - [ ] **Document the attendee role in `ROLES-AND-PERMISSIONS.md`** — track is shipped (§11) but the canonical doc still says "deferred / out of scope". A first-pass §7 has been added; confirm scope, pricing (free?), and gating with Daniel.

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Api\V1;
 
 use App\Models\Application;
-use App\Models\CollabOpportunity;
 use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -85,12 +84,8 @@ class KolabCrudTest extends TestCase
             ],
         ]);
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($creator)->create([
-            'id' => $kolab->id,
-        ]);
-
         Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($kolab)
             ->forApplicant($viewer)
             ->create();
 

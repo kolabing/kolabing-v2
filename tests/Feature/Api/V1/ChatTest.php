@@ -6,7 +6,7 @@ namespace Tests\Feature\Api\V1;
 
 use App\Models\Application;
 use App\Models\ChatMessage;
-use App\Models\CollabOpportunity;
+use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -35,13 +35,13 @@ class ChatTest extends TestCase
         $businessCreator = Profile::factory()->business()->create();
         $communityApplicant = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create();
 
         $application = Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($communityApplicant)
             ->create();
 
@@ -64,13 +64,13 @@ class ChatTest extends TestCase
         $businessCreator = Profile::factory()->business()->create();
         $communityApplicant = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create();
 
         $application = Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($communityApplicant)
             ->create();
 
@@ -94,13 +94,13 @@ class ChatTest extends TestCase
         $communityApplicant = Profile::factory()->community()->create();
         $otherUser = Profile::factory()->business()->create();
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create();
 
         $application = Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($communityApplicant)
             ->create();
 
@@ -132,13 +132,13 @@ class ChatTest extends TestCase
         $businessCreator = Profile::factory()->business()->create();
         $communityApplicant = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create();
 
         $application = Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($communityApplicant)
             ->create();
 
@@ -163,13 +163,13 @@ class ChatTest extends TestCase
         $businessCreator = Profile::factory()->business()->create();
         $communityApplicant = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create();
 
         $application = Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($communityApplicant)
             ->create();
 
@@ -193,13 +193,13 @@ class ChatTest extends TestCase
         $communityApplicant = Profile::factory()->community()->create();
         $otherUser = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create();
 
         $application = Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($communityApplicant)
             ->create();
 
@@ -216,13 +216,13 @@ class ChatTest extends TestCase
         $businessCreator = Profile::factory()->business()->create();
         $communityApplicant = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create();
 
         $application = Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($communityApplicant)
             ->create();
 
@@ -247,13 +247,13 @@ class ChatTest extends TestCase
         $businessCreator = Profile::factory()->business()->create();
         $communityApplicant = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create();
 
         $application = Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($communityApplicant)
             ->create();
 
@@ -283,13 +283,13 @@ class ChatTest extends TestCase
         $businessCreator = Profile::factory()->business()->create();
         $communityApplicant = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create();
 
         $application = Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($communityApplicant)
             ->create();
 
@@ -325,13 +325,13 @@ class ChatTest extends TestCase
         $businessCreator = Profile::factory()->business()->create();
         $communityApplicant = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create();
 
         $application = Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($communityApplicant)
             ->create();
 
@@ -355,13 +355,13 @@ class ChatTest extends TestCase
         $businessCreator = Profile::factory()->business()->create();
         $communityApplicant = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create();
 
         $application = Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($communityApplicant)
             ->create();
 
@@ -397,13 +397,13 @@ class ChatTest extends TestCase
         $businessCreator = Profile::factory()->business()->create();
         $communityApplicant = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()
+        $opportunity = Kolab::factory()
             ->published()
             ->forCreator($businessCreator)
             ->create();
 
         $application = Application::factory()
-            ->forOpportunity($opportunity)
+            ->forKolab($opportunity)
             ->forApplicant($communityApplicant)
             ->create();
 

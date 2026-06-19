@@ -11,10 +11,10 @@ use App\Models\BusinessProfile;
 use App\Models\BusinessType;
 use App\Models\Challenge;
 use App\Models\ChallengeDefault;
-use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
 use App\Models\CommunityProfile;
 use App\Models\CommunityType;
+use App\Models\Kolab;
 use App\Models\Profile;
 use App\Models\User;
 use App\Services\Admin\ChallengeDefaultsService;
@@ -174,12 +174,12 @@ class ChallengesAdminTest extends TestCase
             'position' => 0,
         ]);
 
-        $opportunity = CollabOpportunity::factory()->published()->create([
+        $opportunity = Kolab::factory()->published()->create([
             'creator_profile_id' => $business->id,
         ]);
 
         $collab = Collaboration::factory()->scheduled()->create([
-            'collab_opportunity_id' => $opportunity->id,
+            'kolab_id' => $opportunity->id,
             'creator_profile_id' => $business->id,
             'applicant_profile_id' => $community->id,
             'business_profile_id' => $businessProfile->id,
@@ -205,11 +205,11 @@ class ChallengesAdminTest extends TestCase
             'position' => 0,
         ]);
 
-        $opportunity = CollabOpportunity::factory()->published()->create([
+        $opportunity = Kolab::factory()->published()->create([
             'creator_profile_id' => $business->id,
         ]);
         $collab = Collaboration::factory()->scheduled()->create([
-            'collab_opportunity_id' => $opportunity->id,
+            'kolab_id' => $opportunity->id,
             'creator_profile_id' => $business->id,
             'applicant_profile_id' => $community->id,
             'business_profile_id' => $businessProfile->id,

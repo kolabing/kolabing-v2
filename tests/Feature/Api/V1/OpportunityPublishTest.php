@@ -19,7 +19,7 @@ class OpportunityPublishTest extends TestCase
         $opportunity = Kolab::factory()->forCreator($community)->create(); // draft
 
         $response = $this->actingAs($community)
-            ->postJson("/api/v1/opportunities/{$opportunity->id}/publish");
+            ->postJson("/api/v1/kolabs/{$opportunity->id}/publish");
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
@@ -29,10 +29,14 @@ class OpportunityPublishTest extends TestCase
     public function test_business_user_without_subscription_cannot_publish(): void
     {
         $business = Profile::factory()->business()->create();
-        $opportunity = Kolab::factory()->forCreator($business)->create();
+
+        // The first business-intent kolab is free; once that free quota is used,
+        // publishing another paid-tier kolab requires an active subscription.
+        Kolab::factory()->venuePromotion()->published()->forCreator($business)->create();
+        $opportunity = Kolab::factory()->venuePromotion()->forCreator($business)->create();
 
         $response = $this->actingAs($business)
-            ->postJson("/api/v1/opportunities/{$opportunity->id}/publish");
+            ->postJson("/api/v1/kolabs/{$opportunity->id}/publish");
 
         $response->assertStatus(402)
             ->assertJsonPath('requires_subscription', true)
@@ -46,7 +50,7 @@ class OpportunityPublishTest extends TestCase
         $opportunity = Kolab::factory()->forCreator($creator)->create();
 
         $response = $this->actingAs($other)
-            ->postJson("/api/v1/opportunities/{$opportunity->id}/publish");
+            ->postJson("/api/v1/kolabs/{$opportunity->id}/publish");
 
         $response->assertStatus(403);
     }
@@ -57,7 +61,7 @@ class OpportunityPublishTest extends TestCase
         $opportunity = Kolab::factory()->published()->forCreator($community)->create();
 
         $response = $this->actingAs($community)
-            ->postJson("/api/v1/opportunities/{$opportunity->id}/publish");
+            ->postJson("/api/v1/kolabs/{$opportunity->id}/publish");
 
         $response->assertStatus(403);
     }

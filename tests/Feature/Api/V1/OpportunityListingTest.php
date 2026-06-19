@@ -17,13 +17,13 @@ class OpportunityListingTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
-    | My Opportunities (GET /api/v1/me/opportunities)
+    | My Opportunities (GET /api/v1/kolabs/me)
     |--------------------------------------------------------------------------
     */
 
     public function test_my_opportunities_requires_authentication(): void
     {
-        $response = $this->getJson('/api/v1/me/opportunities');
+        $response = $this->getJson('/api/v1/kolabs/me');
 
         $response->assertStatus(401);
     }
@@ -38,7 +38,7 @@ class OpportunityListingTest extends TestCase
         Kolab::factory()->count(2)->create(['creator_profile_id' => $other->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
 
         $response = $this->actingAs($owner)
-            ->getJson('/api/v1/me/opportunities');
+            ->getJson('/api/v1/kolabs/me');
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
@@ -54,7 +54,7 @@ class OpportunityListingTest extends TestCase
         Kolab::factory()->create(['creator_profile_id' => $owner->id, 'status' => KolabStatus::Closed]);
 
         $response = $this->actingAs($owner)
-            ->getJson('/api/v1/me/opportunities');
+            ->getJson('/api/v1/kolabs/me');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 3);
@@ -68,7 +68,7 @@ class OpportunityListingTest extends TestCase
         Kolab::factory()->count(2)->create(['creator_profile_id' => $owner->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
 
         $response = $this->actingAs($owner)
-            ->getJson('/api/v1/me/opportunities?status=published');
+            ->getJson('/api/v1/kolabs/me?status=published');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 2);
@@ -80,7 +80,7 @@ class OpportunityListingTest extends TestCase
         Kolab::factory()->create(['creator_profile_id' => $owner->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
 
         $response = $this->actingAs($owner)
-            ->getJson('/api/v1/me/opportunities');
+            ->getJson('/api/v1/kolabs/me');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -117,7 +117,7 @@ class OpportunityListingTest extends TestCase
         $owner = Profile::factory()->business()->create();
 
         $response = $this->actingAs($owner)
-            ->getJson('/api/v1/me/opportunities');
+            ->getJson('/api/v1/kolabs/me');
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
@@ -126,13 +126,13 @@ class OpportunityListingTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
-    | Browse Published Opportunities (GET /api/v1/opportunities)
+    | Browse Published Opportunities (GET /api/v1/kolabs)
     |--------------------------------------------------------------------------
     */
 
     public function test_browse_opportunities_requires_authentication(): void
     {
-        $response = $this->getJson('/api/v1/opportunities');
+        $response = $this->getJson('/api/v1/kolabs');
 
         $response->assertStatus(401);
     }
@@ -147,7 +147,7 @@ class OpportunityListingTest extends TestCase
         Kolab::factory()->create(['creator_profile_id' => $communityCreator->id, 'status' => KolabStatus::Closed]);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/opportunities');
+            ->getJson('/api/v1/kolabs');
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
@@ -165,13 +165,13 @@ class OpportunityListingTest extends TestCase
         Kolab::factory()->count(3)->create(['creator_profile_id' => $communityCreator->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
 
         $response = $this->actingAs($businessViewer)
-            ->getJson('/api/v1/opportunities');
+            ->getJson('/api/v1/kolabs');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 5);
 
         $response = $this->actingAs($communityViewer)
-            ->getJson('/api/v1/opportunities');
+            ->getJson('/api/v1/kolabs');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 5);
@@ -185,7 +185,7 @@ class OpportunityListingTest extends TestCase
         Kolab::factory()->count(2)->create(['creator_profile_id' => $businessCreator->id, 'status' => KolabStatus::Published, 'published_at' => now()]);
 
         $response = $this->actingAs($businessViewer)
-            ->getJson('/api/v1/opportunities?creator_type=business');
+            ->getJson('/api/v1/kolabs?creator_type=business');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 2);
@@ -210,7 +210,7 @@ class OpportunityListingTest extends TestCase
         Application::factory()->forKolab($opportunity2)->forApplicant($businessViewer)->declined()->create();
 
         $response = $this->actingAs($businessViewer)
-            ->getJson('/api/v1/opportunities');
+            ->getJson('/api/v1/kolabs');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 1);
@@ -227,7 +227,7 @@ class OpportunityListingTest extends TestCase
         Application::factory()->forKolab($opportunity)->forApplicant($businessViewer)->withdrawn()->create();
 
         $response = $this->actingAs($businessViewer)
-            ->getJson('/api/v1/opportunities');
+            ->getJson('/api/v1/kolabs');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 1);
@@ -244,7 +244,7 @@ class OpportunityListingTest extends TestCase
         Application::factory()->forKolab($opportunity)->forApplicant($businessViewer)->accepted()->create();
 
         $response = $this->actingAs($businessViewer)
-            ->getJson('/api/v1/opportunities');
+            ->getJson('/api/v1/kolabs');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 2);
@@ -261,7 +261,7 @@ class OpportunityListingTest extends TestCase
         Application::factory()->forKolab($opportunity)->forApplicant($otherBusiness)->pending()->create();
 
         $response = $this->actingAs($businessViewer)
-            ->getJson('/api/v1/opportunities');
+            ->getJson('/api/v1/kolabs');
 
         $response->assertStatus(200)
             ->assertJsonPath('meta.total', 1);

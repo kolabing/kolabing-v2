@@ -6,7 +6,7 @@ namespace Tests\Feature\Api\V1;
 
 use App\Models\Application;
 use App\Models\BusinessSubscription;
-use App\Models\CollabOpportunity;
+use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -17,7 +17,7 @@ class ApplicationListsTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
-    | GET /api/v1/opportunities/{opp}/applications — creator-only
+    | GET /api/v1/kolabs/{opp}/applications — creator-only
     |--------------------------------------------------------------------------
     */
 
@@ -29,12 +29,12 @@ class ApplicationListsTest extends TestCase
         $community1 = Profile::factory()->community()->create();
         $community2 = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        Application::factory()->pending()->forOpportunity($opportunity)->forApplicant($community1)->create();
-        Application::factory()->pending()->forOpportunity($opportunity)->forApplicant($community2)->create();
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create();
+        Application::factory()->pending()->forKolab($opportunity)->forApplicant($community1)->create();
+        Application::factory()->pending()->forKolab($opportunity)->forApplicant($community2)->create();
 
         $this->actingAs($business)
-            ->getJson("/api/v1/opportunities/{$opportunity->id}/applications")
+            ->getJson("/api/v1/kolabs/{$opportunity->id}/applications")
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('meta.total', 2);
@@ -46,11 +46,11 @@ class ApplicationListsTest extends TestCase
         $community = Profile::factory()->community()->create();
         $outsider = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        Application::factory()->pending()->forOpportunity($opportunity)->forApplicant($community)->create();
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create();
+        Application::factory()->pending()->forKolab($opportunity)->forApplicant($community)->create();
 
         $this->actingAs($outsider)
-            ->getJson("/api/v1/opportunities/{$opportunity->id}/applications")
+            ->getJson("/api/v1/kolabs/{$opportunity->id}/applications")
             ->assertStatus(403);
     }
 
@@ -59,11 +59,11 @@ class ApplicationListsTest extends TestCase
         $business = Profile::factory()->business()->create();
         $community = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        Application::factory()->pending()->forOpportunity($opportunity)->forApplicant($community)->create();
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create();
+        Application::factory()->pending()->forKolab($opportunity)->forApplicant($community)->create();
 
         $this->actingAs($community)
-            ->getJson("/api/v1/opportunities/{$opportunity->id}/applications")
+            ->getJson("/api/v1/kolabs/{$opportunity->id}/applications")
             ->assertStatus(403);
     }
 
@@ -78,11 +78,11 @@ class ApplicationListsTest extends TestCase
         $business = Profile::factory()->business()->create();
         $community = Profile::factory()->community()->create();
 
-        $opportunity1 = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        $opportunity2 = CollabOpportunity::factory()->published()->forCreator($business)->create();
+        $opportunity1 = Kolab::factory()->published()->forCreator($business)->create();
+        $opportunity2 = Kolab::factory()->published()->forCreator($business)->create();
 
-        Application::factory()->pending()->forOpportunity($opportunity1)->forApplicant($community)->create();
-        Application::factory()->pending()->forOpportunity($opportunity2)->forApplicant($community)->create();
+        Application::factory()->pending()->forKolab($opportunity1)->forApplicant($community)->create();
+        Application::factory()->pending()->forKolab($opportunity2)->forApplicant($community)->create();
 
         $this->actingAs($community)
             ->getJson('/api/v1/me/applications')
@@ -97,9 +97,9 @@ class ApplicationListsTest extends TestCase
         $community1 = Profile::factory()->community()->create();
         $community2 = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        Application::factory()->pending()->forOpportunity($opportunity)->forApplicant($community1)->create();
-        Application::factory()->pending()->forOpportunity($opportunity)->forApplicant($community2)->create();
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create();
+        Application::factory()->pending()->forKolab($opportunity)->forApplicant($community1)->create();
+        Application::factory()->pending()->forKolab($opportunity)->forApplicant($community2)->create();
 
         $this->actingAs($community1)
             ->getJson('/api/v1/me/applications')
@@ -121,9 +121,9 @@ class ApplicationListsTest extends TestCase
         $community1 = Profile::factory()->community()->create();
         $community2 = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        Application::factory()->pending()->forOpportunity($opportunity)->forApplicant($community1)->create();
-        Application::factory()->pending()->forOpportunity($opportunity)->forApplicant($community2)->create();
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create();
+        Application::factory()->pending()->forKolab($opportunity)->forApplicant($community1)->create();
+        Application::factory()->pending()->forKolab($opportunity)->forApplicant($community2)->create();
 
         $this->actingAs($business)
             ->getJson('/api/v1/me/received-applications')
@@ -138,11 +138,11 @@ class ApplicationListsTest extends TestCase
         $business2 = Profile::factory()->business()->create();
         $community = Profile::factory()->community()->create();
 
-        $opportunity1 = CollabOpportunity::factory()->published()->forCreator($business1)->create();
-        $opportunity2 = CollabOpportunity::factory()->published()->forCreator($business2)->create();
+        $opportunity1 = Kolab::factory()->published()->forCreator($business1)->create();
+        $opportunity2 = Kolab::factory()->published()->forCreator($business2)->create();
 
-        Application::factory()->pending()->forOpportunity($opportunity1)->forApplicant($community)->create();
-        Application::factory()->pending()->forOpportunity($opportunity2)->forApplicant($community)->create();
+        Application::factory()->pending()->forKolab($opportunity1)->forApplicant($community)->create();
+        Application::factory()->pending()->forKolab($opportunity2)->forApplicant($community)->create();
 
         $this->actingAs($business1)
             ->getJson('/api/v1/me/received-applications')
@@ -161,8 +161,8 @@ class ApplicationListsTest extends TestCase
         $business = Profile::factory()->business()->create();
         $community = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        $application = Application::factory()->pending()->forOpportunity($opportunity)->forApplicant($community)->create();
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create();
+        $application = Application::factory()->pending()->forKolab($opportunity)->forApplicant($community)->create();
 
         $this->actingAs($community)
             ->getJson("/api/v1/applications/{$application->id}")
@@ -176,8 +176,8 @@ class ApplicationListsTest extends TestCase
         $business = Profile::factory()->business()->create();
         $community = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        $application = Application::factory()->pending()->forOpportunity($opportunity)->forApplicant($community)->create();
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create();
+        $application = Application::factory()->pending()->forKolab($opportunity)->forApplicant($community)->create();
 
         $this->actingAs($business)
             ->getJson("/api/v1/applications/{$application->id}")
@@ -191,8 +191,8 @@ class ApplicationListsTest extends TestCase
         $community = Profile::factory()->community()->create();
         $outsider = Profile::factory()->community()->create();
 
-        $opportunity = CollabOpportunity::factory()->published()->forCreator($business)->create();
-        $application = Application::factory()->pending()->forOpportunity($opportunity)->forApplicant($community)->create();
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create();
+        $application = Application::factory()->pending()->forKolab($opportunity)->forApplicant($community)->create();
 
         $this->actingAs($outsider)
             ->getJson("/api/v1/applications/{$application->id}")

@@ -15,7 +15,6 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * @property string $id
- * @property string|null $collab_opportunity_id
  * @property string|null $kolab_id
  * @property string $applicant_profile_id
  * @property UserType $applicant_profile_type
@@ -40,7 +39,6 @@ class Application extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'collab_opportunity_id',
         'kolab_id',
         'applicant_profile_id',
         'applicant_profile_type',

@@ -8,7 +8,6 @@ use App\Enums\ApplicationStatus;
 use App\Enums\CollaborationStatus;
 use App\Enums\UserType;
 use App\Models\Application;
-use App\Models\CollabOpportunity;
 use App\Models\Collaboration;
 use App\Models\CollaborationFeedback;
 use App\Models\Kolab;
@@ -33,10 +32,6 @@ class CollaborationCompletionTest extends TestCase
         $community = Profile::factory()->community()->create();
 
         $kolab = Kolab::factory()->published()->create(['creator_profile_id' => $business->id]);
-        $opportunity = CollabOpportunity::factory()->create([
-            'id' => $kolab->id,
-            'creator_profile_id' => $business->id,
-        ]);
 
         $application = Application::factory()->create([
             'kolab_id' => $kolab->id,

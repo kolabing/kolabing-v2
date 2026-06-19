@@ -325,7 +325,6 @@ class CollaborationService
         ): Collaboration {
             $collaboration = Collaboration::create([
                 'application_id' => $application->id,
-                'collab_opportunity_id' => null,
                 'kolab_id' => $application->kolab_id,
                 'creator_profile_id' => $creatorProfile->id,
                 'applicant_profile_id' => $applicantProfile->id,

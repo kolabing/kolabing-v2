@@ -1,6 +1,6 @@
 # Kolabing — Roles, Permissions & Features (Canonical Reference)
 
-**Last updated:** 2026-06-10 (business subscription pricing update: monthly + three-month plan)
+**Last updated:** 2026-06-19 (legacy `collab_opportunities` table-level code archived; canonical create/apply moved to `/kolabs/*` with new `/kolabs/{kolab}/applications` apply routes — #30)
 **Status:** Authoritative. This document overrides assumptions.
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical. When role behaviour changes, update both **and bump the Last updated date** in both.
 
@@ -166,6 +166,8 @@ Nothing. There is no paywall and no gated action on the community side. If code 
 
 ## 4. Shared features (both roles, around a match)
 
+> **Canonical create/apply API (as of 2026-06-19, #30).** The canonical create/apply surface is `/api/v1/kolabs/*`, including the new apply endpoints `GET` + `POST /api/v1/kolabs/{kolab}/applications`. The legacy `/api/v1/opportunities/*` routes remain as a **temporary compatibility shim** (a request-contract translation over `KolabService`) that the live mobile app still depends on; their removal is gated on the mobile migration (`kolabing-app` #20). **Caveat:** the freemium/paywall collaboration limit is currently enforced only on the legacy create path (`OpportunityService`), NOT on `/kolabs` create — do not assume `/kolabs` create enforces it yet. Porting it to `/kolabs` and retiring the shim is tracked in #31.
+
 - **Applications.** Either role applies to the other's post. The applying side picks dates only from the dates the posting side marked available.
 - **Chat.** Unlocked once an application is accepted. The other party's name is shown in chat.
 - **Collaboration.** Created when an application is accepted. Either side can edit the date or time. Either side can mark it finished; it also closes when the date passes. Both sides confirm.
@@ -209,6 +211,7 @@ These are specific errors that have happened in past fixes. Do not repeat them.
 - **Do not change what a free business sees in Explore beyond the blur.** They see all Kolab details; only the community identity is blurred.
 - **Do not paywall registration, onboarding, or browsing.** Only creating and applying are paywalled, and only for the Business role.
 - **When a fix touches Explore, profiles, the paywall, or onboarding, re-read sections 1, 2, and 3 of this document before writing code.**
+- [ ] Port the freemium collab limit + portfolio-photo parity to `/kolabs`, then remove the `/opportunities` shim (#31). The limit lives only on the legacy `/opportunities` create path today; `/kolabs` create does not enforce it yet.
 
 ---
 

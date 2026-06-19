@@ -50,7 +50,7 @@ class ApplicationDetailTest extends TestCase
             ]);
 
         $applicationResponse = $this->actingAs($applicant)
-            ->postJson("/api/v1/opportunities/{$kolab->id}/applications", [
+            ->postJson("/api/v1/kolabs/{$kolab->id}/applications", [
                 'message' => 'sounds cool',
                 'availability' => 'Weekends work best for us.',
             ]);
