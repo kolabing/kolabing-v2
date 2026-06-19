@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Enums\SubscriptionSource;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserType;
+use App\Enums\VerificationStatus;
 use App\Models\AttendeeProfile;
 use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
@@ -527,6 +528,11 @@ class AuthService
                 'tiktok' => $communityProfileData['tiktok'],
                 'website' => $communityProfileData['website'],
                 'profile_photo' => $communityProfileData['profile_photo'],
+                // Verification: present only when proof channels were submitted at
+                // registration (status pre-resolved to pending by the request).
+                'verification_channels' => $communityProfileData['verification_channels'] ?? null,
+                'verification_status' => $communityProfileData['verification_status']
+                    ?? VerificationStatus::Unverified->value,
             ]);
 
             // The app registers communities in one shot via this path (it never

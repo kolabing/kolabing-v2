@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Http\Requests\Concerns\ValidatesVerificationChannels;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
 class CommunityOnboardingRequest extends FormRequest
 {
+    use ValidatesVerificationChannels;
+
     /**
      * Valid community types.
      *
@@ -62,6 +65,7 @@ class CommunityOnboardingRequest extends FormRequest
             'tiktok' => ['nullable', 'string', 'max:255', 'regex:/^@?[a-zA-Z0-9._]+$/'],
             'website' => ['nullable', 'url', 'max:255'],
             'profile_photo' => ['nullable', 'string'],
+            ...$this->verificationChannelRules(),
         ];
     }
 
@@ -73,6 +77,7 @@ class CommunityOnboardingRequest extends FormRequest
     public function messages(): array
     {
         return [
+            ...$this->verificationChannelMessages(),
             'name.required' => __('The name field is required'),
             'name.max' => __('The name must not exceed 255 characters'),
             'about.max' => __('The about description must not exceed 1000 characters'),

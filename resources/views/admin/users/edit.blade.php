@@ -61,6 +61,10 @@
         </div>
     @endif
 
+    @if ($profile->user_type->value === 'community')
+        @include('admin.users._verification', ['profile' => $profile])
+    @endif
+
     <div class="card card-primary card-outline">
         <form method="post" action="{{ route('admin.users.update', $profile) }}">
             @csrf

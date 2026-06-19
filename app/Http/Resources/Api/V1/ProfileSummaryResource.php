@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Http\Resources\Api\V1\Concerns\EmitsVerificationFields;
 use App\Models\Profile;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -15,6 +16,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class ProfileSummaryResource extends JsonResource
 {
+    use EmitsVerificationFields;
+
     /**
      * Transform the resource into an array.
      *
@@ -34,6 +37,11 @@ class ProfileSummaryResource extends JsonResource
             'business_type' => $this->when($this->isBusiness(), fn () => $this->businessProfile?->primaryCategory()),
             'categories' => $this->when($this->isBusiness(), fn () => $this->businessProfile?->normalizedCategories() ?? []),
             'community_type' => $this->when($this->isCommunity(), fn () => $this->communityProfile?->community_type),
+            // Verified tick when this summary represents a community (so a business
+            // viewing an application sees the community's verification state).
+            ...($this->isCommunity()
+                ? $this->verificationFields($this->communityProfile, $request, $this->id)
+                : []),
             'portfolio_photos' => $this->getPortfolioPhotos(),
         ];
     }

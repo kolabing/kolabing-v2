@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Http\Resources\Api\V1\Concerns\EmitsVerificationFields;
 use App\Models\CommunityProfile;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -14,6 +15,8 @@ use Illuminate\Support\Str;
  */
 class CommunityProfileResource extends JsonResource
 {
+    use EmitsVerificationFields;
+
     /**
      * Transform the resource into an array.
      *
@@ -40,6 +43,7 @@ class CommunityProfileResource extends JsonResource
             'profile_photo' => $logo,
             'logo_url' => $logo,
             'is_featured' => $this->is_featured,
+            ...$this->verificationFields($this->resource, $request, $this->profile_id),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

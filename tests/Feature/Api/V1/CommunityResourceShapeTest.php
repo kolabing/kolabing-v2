@@ -28,7 +28,8 @@ class CommunityResourceShapeTest extends TestCase
         $this->assertSame([
             'id', 'owner_profile_id', 'community_profile_id', 'name', 'slug', 'type',
             'description', 'avatar_url', 'is_primary', 'join_policy', 'invite_url', 'member_count',
-            'is_member', 'my_join_request_status', 'my_points', 'my_tier', 'created_at', 'updated_at',
+            'is_member', 'my_join_request_status', 'my_points', 'my_tier',
+            'is_verified', 'verification_status', 'public_channels', 'created_at', 'updated_at',
         ], array_keys($array));
         $this->assertSame('greek', $array['type']);
         $this->assertSame('open', $array['join_policy']);

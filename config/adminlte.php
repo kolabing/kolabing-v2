@@ -319,6 +319,12 @@ return [
             'icon' => 'fas fa-fw fa-user-plus',
             'active' => ['admin/users/create'],
         ],
+        [
+            'text' => 'Verifications',
+            'route' => 'admin.community-verification.index',
+            'icon' => 'fas fa-fw fa-shield-alt',
+            'active' => ['admin/community-verification', 'admin/community-verification/*'],
+        ],
         ['header' => 'CONTENT'],
         [
             'text' => 'Kolabs',

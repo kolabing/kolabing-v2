@@ -6,6 +6,7 @@ namespace App\Http\Resources\Api\V1;
 
 use App\Enums\CommunityMemberStatus;
 use App\Enums\JoinRequestStatus;
+use App\Http\Resources\Api\V1\Concerns\EmitsVerificationFields;
 use App\Models\Community;
 use App\Models\Profile;
 use Illuminate\Http\Request;
@@ -16,6 +17,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class CommunityResource extends JsonResource
 {
+    use EmitsVerificationFields;
+
     /**
      * @return array<string, mixed>
      */
@@ -50,6 +53,8 @@ class CommunityResource extends JsonResource
             // Viewer's per-community POINTS balance + tier (null when not a member).
             'my_points' => $viewer !== null ? $this->viewerPoints($viewer) : 0,
             'my_tier' => $viewer !== null ? $this->viewerTier($viewer) : null,
+            // Verification tick (sourced from the owner's community_profile).
+            ...$this->verificationFields($this->communityProfile, $request, $this->owner_profile_id),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
