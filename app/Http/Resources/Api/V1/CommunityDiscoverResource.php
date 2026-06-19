@@ -25,6 +25,8 @@ class CommunityDiscoverResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $verificationStatus = $this->resolveVerificationStatus();
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -37,8 +39,8 @@ class CommunityDiscoverResource extends JsonResource
             'leader_name' => $this->resolveLeaderName(),
             // Verified tick for the discover card. Private channels are never
             // exposed here; only the community's public channels { type, url }.
-            'verification_status' => $this->resolveVerificationStatus(),
-            'is_verified' => $this->resolveVerificationStatus() === VerificationStatus::Verified->value,
+            'verification_status' => $verificationStatus,
+            'is_verified' => $verificationStatus === VerificationStatus::Verified->value,
             'public_channels' => $this->communityProfile?->publicChannels() ?? [],
         ];
     }
