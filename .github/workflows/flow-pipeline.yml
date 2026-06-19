@@ -1,0 +1,68 @@
+name: Flow Pipeline
+
+# Dedicated, fast smoke pipeline that runs ONLY the real-user end-to-end flow
+# test (tests/Feature/Flow). Separate from the full CI suite so the core
+# register → create kolab → apply → accept → chat journey is verified in
+# isolation and is easy to spot, re-run, or trigger by hand.
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flow-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flow:
+    name: real-user-flow
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, fileinfo, bcmath, intl, gd, curl, zip, pdo, pdo_sqlite, sqlite3
+          coverage: none
+          tools: composer:v2
+
+      - name: Prepare .env
+        env:
+          ENV_TESTING: ${{ secrets.ENV_TESTING }}
+        run: |
+          if [ -n "$ENV_TESTING" ]; then
+            printf '%s' "$ENV_TESTING" > .env
+          else
+            echo "::warning::secret ENV_TESTING not set — falling back to .env.example"
+            cp .env.example .env
+          fi
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ runner.os }}-php8.4-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-php8.4-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Ensure application key
+        run: |
+          if ! grep -q '^APP_KEY=.\+' .env; then
+            php artisan key:generate --force
+          fi
+
+      - name: Run real-user flow test
+        run: php artisan test --compact tests/Feature/Flow
