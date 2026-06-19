@@ -115,6 +115,61 @@ class KolabCreationTypesTest extends TestCase
             ->assertJsonPath('data.status', 'draft');
     }
 
+    public function test_registered_community_cannot_create_venue_promotion(): void
+    {
+        $token = $this->registerCommunity();
+
+        $this->withToken($token)->postJson('/api/v1/kolabs', [
+            'intent_type' => 'venue_promotion',
+            'title' => 'Community trying to promote a venue',
+            'description' => 'This must be rejected: communities can only create community-seeking kolabs.',
+            'offering' => [OfferOptionValues::for(OfferOption::KIND_OFFERING)[0]],
+            'media' => [['url' => 'https://example.com/x.jpg', 'type' => 'image']],
+            'availability_mode' => 'one_time',
+            'availability_start' => now()->addWeek()->toDateString(),
+        ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonStructure(['errors' => ['intent_type']]);
+    }
+
+    public function test_registered_community_cannot_create_product_promotion(): void
+    {
+        $token = $this->registerCommunity();
+        $city = City::query()->firstOrFail();
+
+        $this->withToken($token)->postJson('/api/v1/kolabs', [
+            'intent_type' => 'product_promotion',
+            'title' => 'Community trying to promote a product',
+            'description' => 'This must be rejected: communities can only create community-seeking kolabs.',
+            'preferred_city' => $city->name,
+            'offering' => [OfferOptionValues::for(OfferOption::KIND_OFFERING)[0]],
+            'product_name' => 'Some product',
+            'product_type' => ProductType::values()[0],
+        ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonStructure(['errors' => ['intent_type']]);
+    }
+
+    public function test_registered_business_without_venue_cannot_create_venue_promotion(): void
+    {
+        $token = $this->registerBusinessProductOnly();
+
+        $this->withToken($token)->postJson('/api/v1/kolabs', [
+            'intent_type' => 'venue_promotion',
+            'title' => 'Product business trying a venue promotion',
+            'description' => 'This must be rejected: the business has no saved primary venue profile.',
+            'offering' => [OfferOptionValues::for(OfferOption::KIND_OFFERING)[0]],
+            'media' => [['url' => 'https://example.com/x.jpg', 'type' => 'image']],
+            'availability_mode' => 'one_time',
+            'availability_start' => now()->addWeek()->toDateString(),
+        ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonStructure(['errors' => ['primary_venue']]);
+    }
+
     private function registerCommunity(): string
     {
         $response = $this->postJson('/api/v1/auth/register/community', [
