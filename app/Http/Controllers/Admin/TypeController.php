@@ -51,14 +51,40 @@ class TypeController extends Controller
             : Community::query()->where('type', $slug)->count();
     }
 
+    /**
+     * In-use counts for every type slug of a kind, in ONE grouped query (the
+     * per-row inUseCount() call inside index()'s loop was an N+1 — see
+     * PHP-LARAVEL-5). Slugs with no referencing rows are simply absent.
+     *
+     * @return array<string, int> slug => count
+     */
+    private function inUseCounts(string $kind): array
+    {
+        $column = $kind === 'business' ? 'business_type' : 'type';
+
+        $query = $kind === 'business'
+            ? BusinessProfile::query()
+            : Community::query();
+
+        return $query
+            ->select($column)
+            ->selectRaw('count(*) as aggregate')
+            ->groupBy($column)
+            ->pluck('aggregate', $column)
+            ->map(static fn ($count): int => (int) $count)
+            ->all();
+    }
+
     public function index(Request $request): View
     {
         $kind = $this->resolveKind($request->query('kind'));
         $model = $this->kindConfig($kind)['model'];
 
+        $inUse = $this->inUseCounts($kind);
+
         $types = $model::query()->orderBy('sort_order')->orderBy('name')->get()
-            ->map(function ($t) use ($kind) {
-                $t->in_use = $this->inUseCount($kind, $t->slug);
+            ->map(function ($t) use ($inUse) {
+                $t->in_use = $inUse[$t->slug] ?? 0;
 
                 return $t;
             });
