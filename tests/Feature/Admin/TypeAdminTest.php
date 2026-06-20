@@ -6,10 +6,12 @@ namespace Tests\Feature\Admin;
 
 use App\Models\BusinessProfile;
 use App\Models\BusinessType;
+use App\Models\Community;
 use App\Models\CommunityType;
 use App\Models\Icon;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class TypeAdminTest extends TestCase
@@ -212,5 +214,37 @@ class TypeAdminTest extends TestCase
             ->post(route('admin.types.reorder', ['kind' => 'community']), ['order' => [$b->id, $a->id]])->assertRedirect();
         $this->assertSame(1, $b->fresh()->sort_order);
         $this->assertSame(2, $a->fresh()->sort_order);
+    }
+
+    /**
+     * Regression for PHP-LARAVEL-5: the index page must compute in-use counts in
+     * ONE grouped query, not one COUNT per type row (the previous N+1).
+     */
+    public function test_index_in_use_counts_use_one_query_and_are_correct(): void
+    {
+        $admin = $this->maintainer();
+
+        foreach (['type_a', 'type_b', 'type_c'] as $i => $slug) {
+            CommunityType::query()->create([
+                'slug' => $slug, 'name' => strtoupper($slug), 'sort_order' => $i, 'is_active' => true,
+            ]);
+        }
+        Community::factory()->count(2)->create(['type' => 'type_a']);
+        Community::factory()->create(['type' => 'type_b']);
+
+        $communityCountQueries = 0;
+        DB::listen(function ($query) use (&$communityCountQueries): void {
+            if (str_contains($query->sql, 'from "communities"') && str_contains($query->sql, 'count(')) {
+                $communityCountQueries++;
+            }
+        });
+
+        $this->actingAs($admin, 'admin')
+            ->get(route('admin.types.index', ['kind' => 'community']))
+            ->assertOk()
+            ->assertSee('TYPE_A', false);
+
+        // Exactly one aggregate query against communities, regardless of type count.
+        $this->assertSame(1, $communityCountQueries);
     }
 }

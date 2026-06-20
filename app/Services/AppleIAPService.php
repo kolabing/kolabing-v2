@@ -213,7 +213,27 @@ class AppleIAPService
 
         $decoded = JWT::decode($jws, new Key($publicKeyResource, 'ES256'));
 
-        return (array) $decoded;
+        // JWT::decode() returns nested stdClass objects. A shallow `(array)` cast
+        // only converts the top level, leaving nested claims (e.g. `data`) as
+        // stdClass — which then crashes array access such as
+        // $notification['data']['signedTransactionInfo'] with "Cannot use object
+        // of type stdClass as array". Deep-convert so every claim is array-safe.
+        // (Fixes PHP-LARAVEL-6.)
+        return self::claimsToArray($decoded);
+    }
+
+    /**
+     * Recursively convert a decoded JWT payload (nested stdClass) into a fully
+     * associative array so deep array access on nested claims is always safe.
+     *
+     * @return array<string, mixed>
+     */
+    private static function claimsToArray(object $claims): array
+    {
+        /** @var array<string, mixed> $decoded */
+        $decoded = json_decode((string) json_encode($claims), true) ?? [];
+
+        return $decoded;
     }
 
     /**
