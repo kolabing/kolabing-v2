@@ -57,7 +57,6 @@ class AppleIAPController extends Controller
             $transactionData = $this->appleIAPService->verifyTransaction($transactionId);
             $this->appleIAPService->assertTransactionMatchesRequest(
                 $transactionData,
-                $originalTransactionId,
                 $productId,
             );
         } catch (\RuntimeException $e) {
@@ -138,7 +137,6 @@ class AppleIAPController extends Controller
                 $transactionData = $this->appleIAPService->verifyTransaction($transaction['transaction_id']);
                 $this->appleIAPService->assertTransactionMatchesRequest(
                     $transactionData,
-                    $transaction['original_transaction_id'],
                     $transaction['product_id'],
                 );
 

@@ -120,13 +120,8 @@ class AppleIAPService
      */
     public function assertTransactionMatchesRequest(
         array $transactionData,
-        string $expectedOriginalTransactionId,
         string $expectedProductId,
     ): void {
-        if (($transactionData['originalTransactionId'] ?? null) !== $expectedOriginalTransactionId) {
-            throw new \RuntimeException('Apple original transaction ID mismatch');
-        }
-
         if (($transactionData['productId'] ?? null) !== $expectedProductId) {
             throw new \RuntimeException('Apple product ID mismatch');
         }

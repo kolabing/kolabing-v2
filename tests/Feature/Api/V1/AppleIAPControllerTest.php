@@ -318,7 +318,7 @@ class AppleIAPControllerTest extends TestCase
 
         $mock = $this->partialAppleIAPService();
         $mock->shouldReceive('verifyTransaction')->once()->andReturn($this->fakeTransactionData([
-            'originalTransactionId' => '2000000000009999',
+            'productId' => 'com.kolabing.kolabingApp.subscription.three_months',
         ]));
 
         $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', [
@@ -330,6 +330,38 @@ class AppleIAPControllerTest extends TestCase
         $response->assertStatus(400)
             ->assertJsonPath('success', false)
             ->assertJsonPath('error', 'apple_verification_failed');
+    }
+
+    /**
+     * Regression: in StoreKit2 every renewal has a new transactionId but the SAME
+     * originalTransactionId. In sandbox a monthly sub renews in minutes, so the
+     * client may send a stale/wrong original_transaction_id. Apple's verified
+     * response is authoritative — verification must succeed and the subscription
+     * must be stored under Apple's originalTransactionId so webhooks match.
+     */
+    public function test_verify_succeeds_when_client_original_transaction_id_differs_from_apple_renewal_chain(): void
+    {
+        $profile = $this->createBusinessProfile();
+
+        $mock = $this->partialAppleIAPService();
+        $mock->shouldReceive('verifyTransaction')->once()->andReturn($this->fakeTransactionData([
+            'transactionId' => '2000001191883535',
+            'originalTransactionId' => '2000001189129494',
+        ]));
+
+        $response = $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', [
+            'transaction_id' => '2000001191883535',
+            'original_transaction_id' => '2000001191883535',
+            'product_id' => $this->monthlyAppleProductId(),
+        ]);
+
+        $response->assertOk()->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('business_subscriptions', [
+            'profile_id' => $profile->id,
+            'apple_original_transaction_id' => '2000001189129494',
+            'apple_transaction_id' => '2000001191883535',
+        ]);
     }
 
     public function test_restore_returns_subscription_when_found(): void

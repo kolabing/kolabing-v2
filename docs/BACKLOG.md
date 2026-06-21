@@ -81,6 +81,7 @@ Each item lists what exists now, what's missing, and any open decisions. See ref
 - Status transitions for `SUBSCRIBED`, `DID_RENEW`, `DID_FAIL_TO_RENEW`, `EXPIRED`, `REVOKE` correctly mapped.
 
 **Fixes:**
+- ~~"Invalid transaction / Could not verify with Apple" on real sandbox purchases — `assertTransactionMatchesRequest` rejected when the client's `original_transaction_id` differed from Apple's verified value. In StoreKit2 every renewal keeps the same `originalTransactionId` (sandbox renews monthly subs in minutes), so the client's value is unreliable. Now only the `productId` is asserted; Apple's authoritative `originalTransactionId` is stored, which also fixes the `DID_CHANGE_RENEWAL_STATUS` "subscription not found" webhook warning. (2026-06-21, tested)~~
 - ~~Sentry `file_get_contents(.../storage/app/apple/AuthKey.p8): Failed to open stream` — `AppleIAPService` read the `.p8` key with a raw `file_get_contents`, emitting a PHP warning when the on-disk key was absent on the container. Now resolves the key inline via `APPLE_PRIVATE_KEY` (preferred) with a guarded file fallback; no warning leaks to Sentry. (2026-06-21, tested)~~
 
 **P2 follow-ups:**
