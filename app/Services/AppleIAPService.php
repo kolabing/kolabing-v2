@@ -281,12 +281,7 @@ class AppleIAPService
 
     private function generateApiToken(): string
     {
-        $privateKeyPath = config('services.apple.private_key_path');
-        $privateKey = file_get_contents($privateKeyPath);
-
-        if ($privateKey === false) {
-            throw new \RuntimeException("Apple private key not found at: {$privateKeyPath}");
-        }
+        $privateKey = $this->resolvePrivateKey();
 
         $payload = [
             'iss' => config('services.apple.issuer_id'),
@@ -297,6 +292,40 @@ class AppleIAPService
         ];
 
         return JWT::encode($payload, $privateKey, 'ES256', config('services.apple.key_id'));
+    }
+
+    /**
+     * Resolve the Apple App Store private key (.p8) contents.
+     *
+     * Prefers the inline APPLE_PRIVATE_KEY value so containerised deploys do not
+     * depend on a file that may be absent after a rebuild. Falls back to the
+     * configured file path, guarding the read so a missing file raises a clear
+     * exception instead of a raw file_get_contents() PHP warning.
+     */
+    private function resolvePrivateKey(): string
+    {
+        $inlineKey = config('services.apple.private_key');
+
+        if (is_string($inlineKey) && trim($inlineKey) !== '') {
+            return $inlineKey;
+        }
+
+        $privateKeyPath = config('services.apple.private_key_path');
+
+        if (! is_string($privateKeyPath) || ! is_readable($privateKeyPath)) {
+            throw new \RuntimeException(
+                'Apple private key not configured: set APPLE_PRIVATE_KEY or provide a readable '
+                ."file at APPLE_PRIVATE_KEY_PATH (resolved: {$privateKeyPath})."
+            );
+        }
+
+        $privateKey = file_get_contents($privateKeyPath);
+
+        if ($privateKey === false) {
+            throw new \RuntimeException("Apple private key could not be read at: {$privateKeyPath}");
+        }
+
+        return $privateKey;
     }
 
     /**
