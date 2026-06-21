@@ -1,6 +1,6 @@
 # Kolabing — Pre-launch Backlog
 
-**Last updated:** 2026-06-19
+**Last updated:** 2026-06-21
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical.
 
 A consolidated punch list of everything we've identified but haven't shipped. Items are tagged by **owner** (`backend` = kolabing-v2, `app` = kolabing-app, `cross` = both, `infra` = hosting) and **priority** (`P0` = blocker for launch, `P1` = needed soon after, `P2` = nice-to-have).
@@ -79,6 +79,9 @@ Each item lists what exists now, what's missing, and any open decisions. See ref
 - `app/Http/Controllers/Api/V1/AppleIAPController.php` — `POST /me/subscription/apple-verify` + `apple-restore`.
 - `app/Http/Controllers/Api/V1/AppleWebhookController.php` — `POST /webhooks/apple`.
 - Status transitions for `SUBSCRIBED`, `DID_RENEW`, `DID_FAIL_TO_RENEW`, `EXPIRED`, `REVOKE` correctly mapped.
+
+**Fixes:**
+- ~~Sentry `file_get_contents(.../storage/app/apple/AuthKey.p8): Failed to open stream` — `AppleIAPService` read the `.p8` key with a raw `file_get_contents`, emitting a PHP warning when the on-disk key was absent on the container. Now resolves the key inline via `APPLE_PRIVATE_KEY` (preferred) with a guarded file fallback; no warning leaks to Sentry. (2026-06-21, tested)~~
 
 **P2 follow-ups:**
 - [ ] Fire push + email on subscription state changes (renewal, failure, refund) from `AppleIAPService::handleNotification()`. Owner: **backend**.
