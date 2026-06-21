@@ -32,20 +32,56 @@ class AppleIAPService
     public function verifyTransaction(string $transactionId): array
     {
         $baseUrl = $this->getApiBaseUrl();
-        $token = $this->generateApiToken();
+        $environment = config('services.apple.iap_environment');
+
+        try {
+            $token = $this->generateApiToken();
+        } catch (\RuntimeException $e) {
+            Log::error('Apple IAP: could not generate App Store Server API token', [
+                'error' => $e->getMessage(),
+                'environment' => $environment,
+                'has_private_key' => filled(config('services.apple.private_key')),
+                'private_key_path' => config('services.apple.private_key_path'),
+                'has_issuer_id' => filled(config('services.apple.issuer_id')),
+                'has_key_id' => filled(config('services.apple.key_id')),
+                'bundle_id' => config('services.apple.bundle_id'),
+            ]);
+
+            throw $e;
+        }
+
+        Log::info('Apple IAP: verifying transaction', [
+            'transaction_id' => $transactionId,
+            'environment' => $environment,
+            'base_url' => $baseUrl,
+        ]);
 
         $response = Http::withToken($token)
             ->get("{$baseUrl}/inApps/v1/transactions/{$transactionId}");
 
         if ($response->status() === 404) {
+            Log::warning('Apple IAP: transaction not found at this environment', [
+                'transaction_id' => $transactionId,
+                'environment' => $environment,
+                'base_url' => $baseUrl,
+                'status' => 404,
+                'body' => $response->body(),
+                'hint' => 'A sandbox/TestFlight purchase is 404 on production API and vice versa. Check APPLE_IAP_ENVIRONMENT.',
+            ]);
+
             throw new \RuntimeException('Transaction not found');
         }
 
         if (! $response->successful()) {
             Log::warning('Apple transaction verification failed', [
                 'transaction_id' => $transactionId,
+                'environment' => $environment,
+                'base_url' => $baseUrl,
                 'status' => $response->status(),
                 'body' => $response->body(),
+                'hint' => $response->status() === 401
+                    ? 'HTTP 401 means Apple rejected the JWT: check APPLE_ISSUER_ID, APPLE_KEY_ID and the private key.'
+                    : null,
             ]);
 
             throw new \RuntimeException('Apple transaction verification failed');
@@ -54,6 +90,12 @@ class AppleIAPService
         $signedTransactionInfo = $response->json('signedTransactionInfo');
 
         if (! $signedTransactionInfo) {
+            Log::warning('Apple IAP: no signedTransactionInfo in successful response', [
+                'transaction_id' => $transactionId,
+                'environment' => $environment,
+                'body' => $response->body(),
+            ]);
+
             throw new \RuntimeException('No signedTransactionInfo in Apple response');
         }
 
