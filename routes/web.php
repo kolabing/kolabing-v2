@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\TaskController as AdminTaskController;
 use App\Http\Controllers\Admin\TypeController as AdminTypeController;
 use App\Http\Controllers\Admin\XpEarnRuleController as AdminXpEarnRuleController;
 use App\Http\Controllers\Admin\XpLevelController as AdminXpLevelController;
+use App\Http\Controllers\PasswordResetPageController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -147,6 +148,9 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
         Route::put('/economics', [AdminRewardEconomicsController::class, 'update'])->name('economics.update');
     });
 });
+
+Route::get('/reset-password', [PasswordResetPageController::class, 'show'])->name('password.reset');
+Route::post('/reset-password', [PasswordResetPageController::class, 'update'])->name('password.reset.update');
 
 Route::view('/for-businesses', 'pages.for-businesses')->name('for-businesses');
 Route::view('/for-communities', 'pages.for-communities')->name('for-communities');

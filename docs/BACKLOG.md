@@ -120,10 +120,13 @@ Builds on §3.2. Add a public-facing flow:
 **Status:** Polished MVP design quality. Critical conversion infrastructure missing.
 
 **What exists:**
-- `routes/web.php`: `/`, `/for-businesses`, `/for-communities`, `/support`, `/careers`, `/privacy`, `/terms`, plus the `/sitemap.xml` + `/llms.txt` + `/.well-known/security.txt` helpers.
+- `routes/web.php`: `/`, `/for-businesses`, `/for-communities`, `/support`, `/careers`, `/privacy`, `/terms`, `/reset-password` (password reset form + handler), plus the `/sitemap.xml` + `/llms.txt` + `/.well-known/security.txt` helpers.
 - `welcome.blade.php` — 1582-line custom-CSS hero (separate from the Tailwind-CDN layout used by other pages). 7 sections: hero, manifesto, reveal, how-it-works, examples, FAQ, final CTA, footer. Real case-study imagery. Mobile responsive at 900 / 540 breakpoints.
 - `for-businesses` / `for-communities` use the Tailwind-CDN `marketing-page` layout.
 - Legal pages exist with proper copy.
+
+**Fixes:**
+- ~~`/reset-password` 404'd — the password-reset email links to `{APP_URL}/reset-password?token=&email=` (`AppServiceProvider`) but no web route/page existed. Added GET form + POST handler (`PasswordResetPageController`) on the marketing layout, posting through `AuthService::resetPassword`. (2026-06-21, tested)~~
 
 **P0 — landing-page must-fixes before any traffic push:**
 - [ ] **All primary CTAs are broken** (`href="#"`):
