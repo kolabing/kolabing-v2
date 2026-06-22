@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\MissionTrigger;
 use App\Enums\PointEventType;
 use App\Exceptions\CollaborationException;
 use App\Http\Controllers\Controller;
@@ -20,8 +21,10 @@ use App\Models\Profile;
 use App\Services\CollaborationFeedbackService;
 use App\Services\CollaborationService;
 use App\Services\GamificationWalletService;
+use App\Services\MissionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class CollaborationController extends Controller
 {
@@ -29,6 +32,7 @@ class CollaborationController extends Controller
         private readonly CollaborationService $collaborationService,
         private readonly GamificationWalletService $gamificationService,
         private readonly CollaborationFeedbackService $feedbackService,
+        private readonly MissionService $missionService,
     ) {}
 
     /**
@@ -345,6 +349,44 @@ class CollaborationController extends Controller
             $collaboration->id,
             'Left a review for a completed Kolab',
         );
+
+        // Mission progress: the reviewer's review_posted missions and the
+        // reviewed party's review_received missions. Audience-scoped inside
+        // record(), so each only matches missions for that profile's role.
+        // Guarded so a mission failure never blocks the review.
+        try {
+            $this->missionService->record(
+                $reviewer,
+                MissionTrigger::ReviewPosted,
+                1,
+                ['reference_id' => $collaboration->id],
+            );
+
+            $reviewedProfile = Profile::find($reviewedProfileId);
+            if ($reviewedProfile !== null) {
+                $this->missionService->record(
+                    $reviewedProfile,
+                    MissionTrigger::ReviewReceived,
+                    1,
+                    ['reference_id' => $collaboration->id],
+                );
+                if ($reviewedProfile->isCommunity()) {
+                    $this->missionService->record(
+                        $reviewedProfile,
+                        MissionTrigger::BusinessReviewReceived,
+                        1,
+                        ['reference_id' => $collaboration->id],
+                    );
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Mission record failed (review_posted/received)', [
+                'reviewer_profile_id' => $reviewer->id,
+                'reviewed_profile_id' => $reviewedProfileId,
+                'collaboration_id' => $collaboration->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         // Mirror the review into a stub /feedback row so legacy clients still
         // satisfy the new /complete gate. No-op if a real /feedback row already

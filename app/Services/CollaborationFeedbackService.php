@@ -4,17 +4,20 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\MissionTrigger;
 use App\Enums\PointEventType;
 use App\Exceptions\CollaborationException;
 use App\Models\Collaboration;
 use App\Models\CollaborationFeedback;
 use App\Models\Profile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CollaborationFeedbackService
 {
     public function __construct(
         private readonly GamificationWalletService $walletService,
+        private readonly MissionService $missionService,
     ) {}
 
     /**
@@ -66,6 +69,25 @@ class CollaborationFeedbackService
                 $collaboration->id,
                 'Submitted collaboration feedback',
             );
+
+            // Mission progress for the reviewer's own completion. Each
+            // participant submits their own feedback row, so each side's
+            // collaboration_complete missions progress independently. Guarded:
+            // a mission failure must never break feedback submission.
+            try {
+                $this->missionService->record(
+                    $reviewer,
+                    MissionTrigger::CollaborationComplete,
+                    1,
+                    ['reference_id' => $collaboration->id],
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Mission record failed (collaboration_complete)', [
+                    'profile_id' => $reviewer->id,
+                    'collaboration_id' => $collaboration->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
 
             return $feedback;
         });
