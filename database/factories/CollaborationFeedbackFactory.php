@@ -40,6 +40,7 @@ class CollaborationFeedbackFactory extends Factory
             'posts_reels' => fake()->numberBetween(0, 20),
             'expectation_match' => fake()->boolean(),
             'would_recommend' => fake()->boolean(),
+            'would_collaborate_again' => fake()->boolean(),
             'stories_posted' => fake()->numberBetween(0, 20),
             'revenue' => fake()->randomFloat(2, 0, 5000),
             'benefits' => null,
