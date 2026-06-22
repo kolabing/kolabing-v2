@@ -281,6 +281,7 @@ class CollaborationResource extends JsonResource
             'rating' => $row->rating,
             'expectation_match' => $row->expectation_match,
             'would_recommend' => $row->would_recommend,
+            'would_collaborate_again' => $row->would_collaborate_again,
             'posts_reels' => $row->posts_reels,
             'stories_posted' => $row->stories_posted,
             'revenue' => $row->revenue,
