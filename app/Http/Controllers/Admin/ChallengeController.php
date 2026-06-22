@@ -7,6 +7,8 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\ChallengeAudience;
 use App\Enums\ChallengeCategory;
 use App\Enums\ChallengeDifficulty;
+use App\Enums\MissionRepeat;
+use App\Enums\MissionTrigger;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreChallengeRequest;
 use App\Http\Requests\Admin\UpdateChallengeRequest;
@@ -101,6 +103,8 @@ class ChallengeController extends Controller
             'categories' => ChallengeCategory::cases(),
             'difficulties' => ChallengeDifficulty::cases(),
             'audiences' => ChallengeAudience::cases(),
+            'triggers' => MissionTrigger::cases(),
+            'repeats' => MissionRepeat::cases(),
         ];
     }
 }

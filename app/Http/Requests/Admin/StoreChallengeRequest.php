@@ -7,6 +7,8 @@ namespace App\Http\Requests\Admin;
 use App\Enums\ChallengeAudience;
 use App\Enums\ChallengeCategory;
 use App\Enums\ChallengeDifficulty;
+use App\Enums\MissionRepeat;
+use App\Enums\MissionTrigger;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,6 +17,13 @@ class StoreChallengeRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->input('target_value') === null || $this->input('target_value') === '') {
+            $this->merge(['target_value' => 1]);
+        }
     }
 
     /**
@@ -29,6 +38,11 @@ class StoreChallengeRequest extends FormRequest
             'points' => ['required', 'integer', 'between:0,10000'],
             'category' => ['nullable', Rule::in(ChallengeCategory::values())],
             'audience' => ['required', Rule::in(ChallengeAudience::values())],
+            'trigger_action' => ['nullable', Rule::in(MissionTrigger::values())],
+            'target_value' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'repeat_interval' => ['nullable', Rule::in(MissionRepeat::values())],
+            'starts_at' => ['nullable', 'date'],
+            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
         ];
     }
 }

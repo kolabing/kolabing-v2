@@ -7,6 +7,8 @@ namespace Tests\Feature\Admin;
 use App\Enums\ChallengeAudience;
 use App\Enums\ChallengeCategory;
 use App\Enums\ChallengeDifficulty;
+use App\Enums\MissionRepeat;
+use App\Enums\MissionTrigger;
 use App\Models\BusinessProfile;
 use App\Models\BusinessType;
 use App\Models\Challenge;
@@ -112,6 +114,84 @@ class ChallengesAdminTest extends TestCase
             ->assertRedirect(route('admin.gamification.challenges.index'));
 
         $this->assertSame('business', $challenge->fresh()->audience->value);
+    }
+
+    public function test_index_filters_by_attendee_audience(): void
+    {
+        Challenge::factory()->mission(audience: ChallengeAudience::Attendee)->create([
+            'name' => 'Attendee only mission',
+        ]);
+        Challenge::factory()->create([
+            'name' => 'Business only challenge',
+            'audience' => ChallengeAudience::Business,
+            'is_system' => true,
+            'event_id' => null,
+        ]);
+
+        $response = $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.gamification.challenges.index', ['audience' => 'attendee']));
+
+        $response->assertSee('Attendee only mission');
+        $response->assertDontSee('Business only challenge');
+    }
+
+    public function test_create_persists_a_mission_with_trigger_target_and_repeat(): void
+    {
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.gamification.challenges.store'), [
+                'name' => 'Attend 5 Kolabs',
+                'description' => 'Check in to 5 Kolabs.',
+                'difficulty' => ChallengeDifficulty::Medium->value,
+                'points' => 30,
+                'category' => ChallengeCategory::Attendance->value,
+                'audience' => ChallengeAudience::Attendee->value,
+                'trigger_action' => MissionTrigger::EventCheckin->value,
+                'target_value' => 5,
+                'repeat_interval' => MissionRepeat::Monthly->value,
+            ])
+            ->assertRedirect(route('admin.gamification.challenges.index'));
+
+        $this->assertDatabaseHas('challenges', [
+            'name' => 'Attend 5 Kolabs',
+            'audience' => 'attendee',
+            'trigger_action' => 'event_checkin',
+            'target_value' => 5,
+            'repeat_interval' => 'monthly',
+            'is_system' => true,
+        ]);
+    }
+
+    public function test_create_rejects_an_invalid_trigger(): void
+    {
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.gamification.challenges.store'), [
+                'name' => 'Bad mission',
+                'difficulty' => ChallengeDifficulty::Easy->value,
+                'points' => 10,
+                'audience' => ChallengeAudience::Attendee->value,
+                'trigger_action' => 'not_a_real_trigger',
+                'target_value' => 1,
+                'repeat_interval' => MissionRepeat::Once->value,
+            ])
+            ->assertSessionHasErrors('trigger_action');
+    }
+
+    public function test_create_without_trigger_defaults_target_value_to_one(): void
+    {
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.gamification.challenges.store'), [
+                'name' => 'Plain challenge',
+                'difficulty' => ChallengeDifficulty::Easy->value,
+                'points' => 10,
+                'audience' => ChallengeAudience::Both->value,
+            ])
+            ->assertRedirect(route('admin.gamification.challenges.index'));
+
+        $this->assertDatabaseHas('challenges', [
+            'name' => 'Plain challenge',
+            'target_value' => 1,
+            'trigger_action' => null,
+        ]);
     }
 
     public function test_defaults_matrix_renders(): void
