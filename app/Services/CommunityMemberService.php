@@ -6,14 +6,20 @@ namespace App\Services;
 
 use App\Enums\CommunityMemberStatus;
 use App\Enums\JoinPolicy;
+use App\Enums\MissionTrigger;
 use App\Models\Community;
 use App\Models\CommunityMember;
 use App\Models\Profile;
 use DomainException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Log;
 
 class CommunityMemberService
 {
+    public function __construct(
+        private readonly MissionService $missionService,
+    ) {}
+
     /**
      * A person self-joins an open community. Blocked for invite_only.
      * Idempotent on the (community, profile) unique constraint.
@@ -26,7 +32,29 @@ class CommunityMemberService
             throw new DomainException('invite_only');
         }
 
-        return $this->upsertMember($community, $profile->id);
+        $member = $this->upsertMember($community, $profile->id);
+
+        // Missions: the joiner progresses community_joined, but only on a fresh
+        // join (idempotent — re-joining an existing membership must not re-fire).
+        // Audience scoping limits this to the attendee's missions. Guarded.
+        if ($member->wasRecentlyCreated) {
+            try {
+                $this->missionService->record(
+                    $profile,
+                    MissionTrigger::CommunityJoined,
+                    1,
+                    ['reference_id' => $community->id],
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Mission record failed (community_joined)', [
+                    'profile_id' => $profile->id,
+                    'community_id' => $community->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $member;
     }
 
     /**
