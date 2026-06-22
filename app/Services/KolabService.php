@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\IntentType;
 use App\Enums\KolabStatus;
+use App\Enums\MissionTrigger;
 use App\Enums\PointEventType;
 use App\Exceptions\SubscriptionRequiredException;
 use App\Models\Kolab;
@@ -15,6 +16,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -23,6 +25,7 @@ class KolabService
     public function __construct(
         private readonly NotificationReminderService $notificationReminderService,
         private readonly GamificationWalletService $walletService,
+        private readonly MissionService $missionService,
     ) {}
 
     /**
@@ -247,8 +250,58 @@ class KolabService
         $kolab->refresh();
         $this->notificationReminderService->syncKolabDraftReminder($kolab);
         $this->awardPublishXpOnce($kolab);
+        $this->recordPublishMissions($kolab, $creator);
 
         return $kolab;
+    }
+
+    /**
+     * Fire mission progress when a kolab is published. Always fires
+     * kolab_published; additionally fires the by-type triggers we can map
+     * cleanly from the real schema:
+     *  - product_promotion intent  -> kolab_created_product
+     *  - recurring availability    -> recurring_kolab_created (business creator)
+     *                                 / recurring_kolab_hosted (community creator)
+     * Fully guarded so a mission failure never blocks publishing. The remaining
+     * by-type triggers (content/review/revenue, giveaway) have no stable source
+     * field in the schema and stay inert (Phase 3 report).
+     */
+    private function recordPublishMissions(Kolab $kolab, Profile $creator): void
+    {
+        $triggers = [MissionTrigger::KolabPublished];
+
+        if ($kolab->intent_type === IntentType::ProductPromotion) {
+            $triggers[] = MissionTrigger::KolabCreatedProduct;
+        }
+
+        if ($this->isRecurringKolab($kolab)) {
+            $triggers[] = $creator->isCommunity()
+                ? MissionTrigger::RecurringKolabHosted
+                : MissionTrigger::RecurringKolabCreated;
+        }
+
+        foreach ($triggers as $trigger) {
+            try {
+                $this->missionService->record($creator, $trigger, 1, ['reference_id' => $kolab->id]);
+            } catch (\Throwable $e) {
+                Log::warning('Mission record failed (kolab publish)', [
+                    'profile_id' => $creator->id,
+                    'kolab_id' => $kolab->id,
+                    'trigger' => $trigger->value,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * A kolab is recurring when its availability mode is "recurring" or it
+     * carries recurring_days. Both come straight from the create payload.
+     */
+    private function isRecurringKolab(Kolab $kolab): bool
+    {
+        return $kolab->availability_mode === 'recurring'
+            || (is_array($kolab->recurring_days) && $kolab->recurring_days !== []);
     }
 
     /**
