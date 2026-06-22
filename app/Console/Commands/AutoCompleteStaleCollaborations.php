@@ -15,29 +15,28 @@ class AutoCompleteStaleCollaborations extends Command
 {
     protected $signature = 'app:auto-complete-stale-collaborations {--dry-run : Report what would be completed without writing}';
 
-    protected $description = 'Auto-complete scheduled/active collaborations whose scheduled_date passed the configured threshold and have at least one feedback row.';
+    protected $description = 'Auto-complete scheduled/active collaborations where the first party confirmed (left feedback) more than the configured grace window ago, and the partner has not confirmed.';
 
     public function handle(CollaborationService $collaborations): int
     {
         $dryRun = (bool) $this->option('dry-run');
-        $thresholdDays = (int) config('collaborations.auto_complete_threshold_days', 7);
-        $requireFeedback = (bool) config('collaborations.auto_complete_requires_feedback_rows', true);
+        $graceDays = (int) config('collaborations.auto_complete_grace_days_after_first_feedback', 3);
 
-        $cutoff = Carbon::now()->subDays($thresholdDays)->toDateString();
+        // Mutual-confirm with a grace timer: the clock starts at the FIRST
+        // feedback row. "Any feedback older than the cutoff" == "the first
+        // feedback is older than the cutoff", so a single subquery selects every
+        // collab whose grace window has elapsed.
+        $cutoff = Carbon::now()->subDays($graceDays);
 
-        $query = Collaboration::query()
+        $candidates = Collaboration::query()
             ->whereIn('status', [
                 CollaborationStatus::Scheduled->value,
                 CollaborationStatus::Active->value,
             ])
-            ->whereNotNull('scheduled_date')
-            ->where('scheduled_date', '<=', $cutoff);
-
-        if ($requireFeedback) {
-            $query->whereIn('id', CollaborationFeedback::query()->select('collaboration_id'));
-        }
-
-        $candidates = $query->get();
+            ->whereIn('id', CollaborationFeedback::query()
+                ->where('created_at', '<=', $cutoff)
+                ->select('collaboration_id'))
+            ->get();
 
         if ($candidates->isEmpty()) {
             $this->info('No stale collaborations to auto-complete.');
