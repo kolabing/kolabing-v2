@@ -8,6 +8,7 @@ use App\Enums\CommunityType;
 use App\Enums\FileUploadType;
 use App\Enums\IntentType;
 use App\Enums\JoinPolicy;
+use App\Enums\MissionTrigger;
 use App\Models\Community;
 use App\Models\Kolab;
 use App\Models\Profile;
@@ -65,7 +66,27 @@ class OnboardingService
         private readonly CommunityMemberService $communityMemberService,
         private readonly CommunityService $communityService,
         private readonly KolabService $kolabService,
+        private readonly MissionService $missionService,
     ) {}
+
+    /**
+     * Fire a mission trigger for an earner, fully guarded: a mission failure
+     * must never break onboarding. Mirrors the communityPoints guarded pattern.
+     *
+     * @param  array<string, mixed>  $context
+     */
+    private function recordMission(Profile $earner, MissionTrigger $trigger, array $context = []): void
+    {
+        try {
+            $this->missionService->record($earner, $trigger, 1, $context);
+        } catch (\Throwable $e) {
+            Log::warning('Mission record failed (onboarding)', [
+                'profile_id' => $earner->id,
+                'trigger' => $trigger->value,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
 
     /**
      * Complete attendee onboarding (re-runnable). Persists identity (name,
@@ -93,7 +114,7 @@ class OnboardingService
             ]);
         }
 
-        return DB::transaction(function () use ($profile, $data, $handle): Profile {
+        $profile = DB::transaction(function () use ($profile, $data, $handle): Profile {
             $photoUrl = $this->handleProfilePhoto($data['photo'] ?? null, $profile->id);
 
             $profile->update([
@@ -111,6 +132,12 @@ class OnboardingService
 
             return $profile;
         });
+
+        // Missions: completing attendee onboarding is the discrete "profile
+        // completed" event for an attendee. Guarded, runs after commit.
+        $this->recordMission($profile, MissionTrigger::ProfileCompleted, ['reference_id' => $profile->id]);
+
+        return $profile;
     }
 
     /**
@@ -145,7 +172,9 @@ class OnboardingService
      */
     public function completeBusinessOnboarding(Profile $profile, array $data): Profile
     {
-        return DB::transaction(function () use ($profile, $data): Profile {
+        $photoUploaded = false;
+
+        $profile = DB::transaction(function () use ($profile, $data, &$photoUploaded): Profile {
             // Update phone number on main profile if provided
             if (isset($data['phone_number'])) {
                 $profile->update(['phone_number' => $data['phone_number']]);
@@ -156,6 +185,7 @@ class OnboardingService
                 $data['profile_photo'] ?? null,
                 $profile->id
             );
+            $photoUploaded = $profilePhotoUrl !== null;
             $businessProfile = $profile->businessProfile;
 
             $hasVenue = $data['has_venue'] ?? $businessProfile->has_venue ?? true;
@@ -216,6 +246,17 @@ class OnboardingService
 
             return $profile;
         });
+
+        // Missions: business onboarding-complete is the discrete "business
+        // profile completed" event; fire the photo mission only when a photo was
+        // actually resolved this run. Both guarded, after commit.
+        $this->recordMission($profile, MissionTrigger::BusinessProfileCompleted, ['reference_id' => $profile->id]);
+
+        if ($photoUploaded) {
+            $this->recordMission($profile, MissionTrigger::BusinessPhotoUploaded, ['reference_id' => $profile->id]);
+        }
+
+        return $profile;
     }
 
     /**
@@ -358,7 +399,9 @@ class OnboardingService
      */
     public function completeCommunityOnboarding(Profile $profile, array $data): Profile
     {
-        return DB::transaction(function () use ($profile, $data): Profile {
+        $photoUploaded = false;
+
+        $profile = DB::transaction(function () use ($profile, $data, &$photoUploaded): Profile {
             // Update phone number on main profile if provided
             if (isset($data['phone_number'])) {
                 $profile->update(['phone_number' => $data['phone_number']]);
@@ -369,6 +412,7 @@ class OnboardingService
                 $data['profile_photo'] ?? null,
                 $profile->id
             );
+            $photoUploaded = $profilePhotoUrl !== null;
 
             // Update community profile
             $communityProfile = $profile->communityProfile;
@@ -416,6 +460,17 @@ class OnboardingService
 
             return $profile;
         });
+
+        // Missions: community onboarding-complete is the discrete "community
+        // profile completed" event; fire the photo mission only when a photo was
+        // actually resolved this run. Both guarded, after commit.
+        $this->recordMission($profile, MissionTrigger::CommunityProfileCompleted, ['reference_id' => $profile->id]);
+
+        if ($photoUploaded) {
+            $this->recordMission($profile, MissionTrigger::CommunityPhotoUploaded, ['reference_id' => $profile->id]);
+        }
+
+        return $profile;
     }
 
     /**
