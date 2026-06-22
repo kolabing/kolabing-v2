@@ -14,6 +14,7 @@ enum ChallengeAudience: string
     case Community = 'community';
     case Business = 'business';
     case Both = 'both';
+    case Attendee = 'attendee';
 
     /**
      * @return array<string>
@@ -29,6 +30,7 @@ enum ChallengeAudience: string
             self::Community => 'Community',
             self::Business => 'Business',
             self::Both => 'Both',
+            self::Attendee => 'Attendee',
         };
     }
 }
