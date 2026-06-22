@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\ApplicationStatus;
 use App\Enums\CollaborationStatus;
+use App\Enums\MissionTrigger;
 use App\Exceptions\SubscriptionRequiredException;
 use App\Models\Application;
 use App\Models\Collaboration;
@@ -14,6 +15,7 @@ use App\Models\Profile;
 use App\Services\PostHog\PostHogService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -23,7 +25,28 @@ class ApplicationService
         private readonly NotificationService $notificationService,
         private readonly NotificationReminderService $notificationReminderService,
         private readonly PostHogService $postHog,
+        private readonly MissionService $missionService,
     ) {}
+
+    /**
+     * Fire a mission trigger for an earner, fully guarded so a mission failure
+     * never breaks the application flow. Audience scoping inside record() keeps
+     * each trigger to its own role's missions.
+     *
+     * @param  array<string, mixed>  $context
+     */
+    private function recordMission(Profile $earner, MissionTrigger $trigger, array $context = []): void
+    {
+        try {
+            $this->missionService->record($earner, $trigger, 1, $context);
+        } catch (\Throwable $e) {
+            Log::warning('Mission record failed (application)', [
+                'profile_id' => $earner->id,
+                'trigger' => $trigger->value,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
 
     /**
      * Apply to an opportunity.
@@ -50,6 +73,21 @@ class ApplicationService
 
         $this->notificationService->notifyApplicationReceived($application);
         $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['kolab']));
+
+        // Missions: the applicant progresses application_submitted; the kolab
+        // creator progresses application_received. Audience scoping keeps each to
+        // its own role's missions (a community applying to a business kolab,
+        // a business applying to a community-seeking kolab, etc.).
+        $this->recordMission($applicant, MissionTrigger::ApplicationSubmitted, ['reference_id' => $application->id]);
+
+        $opportunity->loadMissing('creatorProfile');
+        if ($opportunity->creatorProfile !== null) {
+            $this->recordMission(
+                $opportunity->creatorProfile,
+                MissionTrigger::ApplicationReceived,
+                ['reference_id' => $application->id],
+            );
+        }
 
         return $application;
     }
@@ -118,6 +156,25 @@ class ApplicationService
             'collaboration_id' => $collaboration->id,
             'applicant_profile_type' => $acceptedApplication->applicant_profile_type->value,
         ]);
+
+        // Missions: application_accepted fires for BOTH parties (business
+        // "accept your first application" + community "get accepted"). Audience
+        // scoping routes each to the matching role's missions.
+        $acceptedApplication->loadMissing('applicantProfile');
+        if ($opportunity->creatorProfile !== null) {
+            $this->recordMission(
+                $opportunity->creatorProfile,
+                MissionTrigger::ApplicationAccepted,
+                ['reference_id' => $acceptedApplication->id],
+            );
+        }
+        if ($acceptedApplication->applicantProfile !== null) {
+            $this->recordMission(
+                $acceptedApplication->applicantProfile,
+                MissionTrigger::ApplicationAccepted,
+                ['reference_id' => $acceptedApplication->id],
+            );
+        }
 
         return $result;
     }
