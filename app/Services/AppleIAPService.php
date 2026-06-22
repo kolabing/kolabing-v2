@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\MissionTrigger;
 use App\Enums\SubscriptionSource;
 use App\Enums\SubscriptionStatus;
 use App\Models\BusinessSubscription;
@@ -21,6 +22,10 @@ class AppleIAPService
     private const PRODUCTION_API = 'https://api.storekit.itunes.apple.com';
 
     private const SANDBOX_API = 'https://api.storekit-sandbox.itunes.apple.com';
+
+    public function __construct(
+        private readonly MissionService $missionService,
+    ) {}
 
     /**
      * Verify a transaction with Apple's App Store Server API.
@@ -314,6 +319,43 @@ class AppleIAPService
             'EXPIRED', 'GRACE_PERIOD_EXPIRED', 'REFUND', 'REVOKE' => $this->deactivateSubscription($subscription, $transactionData),
             default => Log::info('Unhandled Apple notification type', ['type' => $notificationType]),
         };
+
+        // Missions: only an actual auto-renewal (DID_RENEW) counts as a
+        // "subscription renewed" event — SUBSCRIBED is the initial purchase, not
+        // a renewal. plan_upgraded stays inert: there is no plan-tier model to
+        // detect an upgrade from. Guarded so a mission failure never breaks the
+        // webhook handler.
+        if ($notificationType === 'DID_RENEW') {
+            $this->recordRenewalMission($subscription);
+        }
+    }
+
+    /**
+     * Fire the subscription_renewed mission for the subscription's owning
+     * business profile. Guarded — a mission failure must never break the
+     * Apple webhook handler.
+     */
+    private function recordRenewalMission(BusinessSubscription $subscription): void
+    {
+        try {
+            $profile = $subscription->profile;
+
+            if ($profile === null) {
+                return;
+            }
+
+            $this->missionService->record(
+                $profile,
+                MissionTrigger::SubscriptionRenewed,
+                1,
+                ['reference_id' => $subscription->id],
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Mission record failed (subscription_renewed)', [
+                'subscription_id' => $subscription->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function generateApiToken(): string
