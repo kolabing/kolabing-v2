@@ -100,8 +100,11 @@ class MissionService
     /**
      * Resolve the repeat bucket key for a mission given its repeat interval.
      * `once` shares a single lifetime row; the others bucket by calendar period.
+     *
+     * Public + static so the read endpoint (`GET /me/missions`) resolves the
+     * current period's `period_key` identically to how `record()` writes it.
      */
-    private function periodKeyFor(?MissionRepeat $repeat, Carbon $now): string
+    public static function periodKeyFor(?MissionRepeat $repeat, Carbon $now): string
     {
         return match ($repeat ?? MissionRepeat::Once) {
             MissionRepeat::Once => 'once',
@@ -124,7 +127,7 @@ class MissionService
         Carbon $now,
         array $context,
     ): ChallengeProgress {
-        $periodKey = $this->periodKeyFor($mission->repeat_interval, $now);
+        $periodKey = self::periodKeyFor($mission->repeat_interval, $now);
 
         return DB::transaction(function () use ($earner, $mission, $increment, $now, $periodKey, $context): ChallengeProgress {
             $progress = ChallengeProgress::query()
