@@ -1,6 +1,6 @@
 # Kolabing — Roles → Backend → Database Map (Ground-Truth)
 
-**Last updated:** 2026-06-19 (legacy `collab_opportunities` table-level code archived — model/bridge/command/factory/seeder deleted, dual-write removed; new `/kolabs/{kolab}/applications` apply routes; `/opportunities` shim retained pending mobile migration — #30)
+**Last updated:** 2026-06-23 (event discover made viewer-aware — `EventDiscoveryService` now surfaces a viewer's active-membership community events alongside public ones; see §12.6)
 **Status:** Authoritative companion to [`ROLES-AND-PERMISSIONS.md`](./ROLES-AND-PERMISSIONS.md). Read that first (the *what*), then this (the *where*).
 **Sync note:** Duplicated in both repos (`kolabing-app`, `kolabing-v2`). Keep identical, and **bump the Last updated date in both** when role behaviour or backend wiring changes.
 
@@ -188,6 +188,7 @@ Fixed since the last revision:
 - [x] Collaboration cancellation now persists `cancellation_reason`, `cancelled_at`, and `cancelled_by_profile_id` (§10).
 - [x] **Feedback gate on `/complete` shipped** with admin force-complete, auto-timeout scheduler, and a `/review`→`/feedback` mirror for legacy clients (§3, §9, §10). XP moved from `/complete` to `/feedback` per Q7. PR #9, 2026-06-01.
 - [x] **NF-6 community members + tiers, Phase 1 shipped** (2026-06-03): `communities` / `community_tiers` / `community_members` tables, `events.community_id`, `CommunityPolicy`, the cap gate (NOT the paywall), the auto-assignment command + on-check-in hook, and the chapter-scoped leaderboard. See §12.
+- [x] **Members' joined-community events now surface in event discover** (2026-06-23): `EventDiscoveryService` is viewer-aware — public events for everyone PLUS the member/tier events of the viewer's active communities; non-members still see public only. Fixes attendees seeing "No events" despite having joined communities. See §12.6.
 
 Still open:
 
@@ -366,3 +367,28 @@ Resources (`app/Http/Resources/Api/V1`): `CommunityResource`, `CommunityTierReso
 - Never call `Profile::hasActiveSubscription()` or throw `SubscriptionRequiredException`. The cap is the only gate and it is config-driven.
 - Never add a `user_type` enum value for "community member" — the wire value stays `attendee` (D4).
 - Never couple `can_manage` to the top tier (D1).
+
+### 12.6 Viewer-aware event discover (2026-06-23)
+
+**Problem.** Community events are created `visibility = members` (`EventService::create()` / `buildUpcoming()`, `:119,:157`). `EventDiscoveryService::baseQuery()` hard-filtered `where('visibility', public)`, so a Community Member never saw their own communities' events in the city discover feed (`GET /api/v1/events/discover`). There was no membership-scoped event surface.
+
+**Fix.** `EventDiscoveryService` is now viewer-aware. `discover()` / `discoverNearby()` / both geo impls / `discoverFiltered()` thread an optional `?Profile $viewer` (passed from `EventDiscoveryController` as `$request->user()`) into `baseQuery()`. The visibility gate became:
+
+```php
+->where(function ($visible) use ($memberCommunityIds) {
+    $visible->where('visibility', EventVisibility::Public->value);
+    if ($memberCommunityIds !== []) {
+        $visible->orWhereIn('community_id', $memberCommunityIds);
+    }
+})
+```
+
+`memberCommunityIds()` = `CommunityMember::where('profile_id', viewer)->where('status', active)->pluck('community_id')`. So:
+
+| Caller | Sees |
+|---|---|
+| Anonymous / non-member | `visibility = public` only (the §8.6 invariant holds) |
+| Active member | public events **+** every event of communities they actively belong to (any visibility) |
+| Inactive / removed member | public only (status must be `active`) |
+
+The city / date / type / geo filters in `applyFilters()` / `applyDateFilter()` are unchanged and apply to public and member events alike — a joined community's event still surfaces only when it matches the selected city/date. Per-community listing (`GET /events?community_id=` → `EventService::list()`) was already unfiltered by visibility and is untouched. Viewing a single event is governed by `EventPolicy::view()` (returns `true` for any authenticated user). Tests: `tests/Feature/Api/V1/EventDiscoveryMembershipTest.php`.

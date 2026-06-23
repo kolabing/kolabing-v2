@@ -1,6 +1,6 @@
 # Kolabing — Roles, Permissions & Features (Canonical Reference)
 
-**Last updated:** 2026-06-19 (legacy `collab_opportunities` table-level code archived; canonical create/apply moved to `/kolabs/*` with new `/kolabs/{kolab}/applications` apply routes — #30)
+**Last updated:** 2026-06-23 (event discover is now viewer-aware: a Community Member also sees the member/tier events of communities they actively belong to — §7.1, §8.6 — non-members still see only public)
 **Status:** Authoritative. This document overrides assumptions.
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical. When role behaviour changes, update both **and bump the Last updated date** in both.
 
@@ -227,6 +227,7 @@ The attendee role's backend track has shipped and the canonical position that at
 - Earn points (`point_ledger` — append-only) and badges (`BadgeService` awards on milestones like `LoyalAttendee = total_events_attended >= N`).
 - See per-event and global leaderboards.
 - Hold a reward wallet and redeem rewards.
+- Discover events (`GET /api/v1/events/discover`). The surface is **viewer-aware**: public events for everyone, PLUS the member/tier events of the communities the attendee **actively belongs to** (`community_members.status = active`). The city / date / type filters still apply to all of them, so a joined community's event surfaces only when it matches the selected city/date. See §8.6 and the backend map's §12.6.
 
 ### 7.2 What an attendee CANNOT do (confirmed at the service layer)
 - Create or publish kolabs / opportunities — neither service path accepts an attendee creator.
@@ -270,6 +271,8 @@ Tiers can auto-assign by rule: `xp_threshold` (member XP from `point_ledger`), `
 
 ### 8.6 The community ↔ events linkage
 "This community's events" is defined by a new nullable `events.community_id` FK. The `events_attended` rule counts check-ins on events with that `community_id`. The chapter-scoped leaderboard (`GET /leaderboard/global?community_id=`) is scoped by **active membership** (the global leaderboard filtered to one community's members). Organiser's events are NOT silently assumed to be the community's events.
+
+**Member visibility on discover (2026-06-23).** Community events default to `visibility = members` (`EventService`), so they never appear on the public city discover surface. To let members find their own communities' events, `GET /api/v1/events/discover` is **viewer-aware**: it returns public events to everyone, and additionally the events whose `community_id` is one of the **active** memberships of the authenticated viewer (any visibility — a member is entitled to their community's events). This is NOT a leak: a non-member or anonymous caller still sees only `visibility = public`. The city / date / type / geo filters apply uniformly to public and member events alike. Per-community listing (`GET /events?community_id=`) is unchanged and already returns all of a community's events.
 
 Backend wiring (tables, endpoints, policy, command) is in `ROLES-BACKEND-DB-MAP.md §12`.
 

@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\CommunityMemberStatus;
 use App\Enums\EventVisibility;
+use App\Models\CommunityMember;
 use App\Models\Event;
+use App\Models\Profile;
 use App\Support\CommunityTypeVocabulary;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,6 +23,10 @@ class EventDiscoveryService
      * Geo filtering is applied only when both $lat and $lng are provided; a
      * city_id alone (no coordinates) drives a non-geo, city-scoped query.
      *
+     * The optional $viewer makes the surface viewer-aware: a member additionally
+     * sees the (members/tier) events of the communities they ACTIVELY belong to.
+     * Non-members (and anonymous callers) still see only public events.
+     *
      * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
      * @return LengthAwarePaginator<Event>
      */
@@ -28,15 +35,16 @@ class EventDiscoveryService
         ?float $lng,
         float $radiusKm = 50.0,
         int $perPage = 10,
-        array $filters = []
+        array $filters = [],
+        ?Profile $viewer = null
     ): LengthAwarePaginator {
         $hasGeo = $lat !== null && $lng !== null;
 
         if ($hasGeo) {
-            return $this->discoverNearby($lat, $lng, $radiusKm, $perPage, $filters);
+            return $this->discoverNearby($lat, $lng, $radiusKm, $perPage, $filters, $viewer);
         }
 
-        return $this->discoverFiltered($perPage, $filters);
+        return $this->discoverFiltered($perPage, $filters, $viewer);
     }
 
     /**
@@ -53,15 +61,16 @@ class EventDiscoveryService
         float $lng,
         float $radiusKm = 50.0,
         int $perPage = 10,
-        array $filters = []
+        array $filters = [],
+        ?Profile $viewer = null
     ): LengthAwarePaginator {
         $driver = DB::getDriverName();
 
         if ($driver === 'sqlite') {
-            return $this->discoverNearbySqlite($lat, $lng, $radiusKm, $perPage, $filters);
+            return $this->discoverNearbySqlite($lat, $lng, $radiusKm, $perPage, $filters, $viewer);
         }
 
-        return $this->discoverNearbyPostgres($lat, $lng, $radiusKm, $perPage, $filters);
+        return $this->discoverNearbyPostgres($lat, $lng, $radiusKm, $perPage, $filters, $viewer);
     }
 
     /**
@@ -70,9 +79,9 @@ class EventDiscoveryService
      * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
      * @return LengthAwarePaginator<Event>
      */
-    private function discoverFiltered(int $perPage, array $filters): LengthAwarePaginator
+    private function discoverFiltered(int $perPage, array $filters, ?Profile $viewer = null): LengthAwarePaginator
     {
-        $query = $this->baseQuery($filters);
+        $query = $this->baseQuery($filters, $viewer);
 
         return $query
             ->orderByRaw('COALESCE(starts_at, event_date) ASC')
@@ -92,20 +101,57 @@ class EventDiscoveryService
      * artefact of the old geo "active now" path; the public/city upcoming surface
      * is governed entirely by visibility + date, so dropping it here is safe.
      *
+     * Viewer-aware visibility (§8.6): the surface stays PUBLIC for non-members —
+     * members/tier events never leak to a non-member or anonymous caller. But the
+     * authenticated $viewer ALSO sees events of the communities they ACTIVELY
+     * belong to, regardless of those events' visibility (a member is entitled to
+     * their own community's events). The city / date / type filters still apply.
+     *
      * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
      * @return Builder<Event>
      */
-    private function baseQuery(array $filters): Builder
+    private function baseQuery(array $filters, ?Profile $viewer = null): Builder
     {
+        $memberCommunityIds = $this->memberCommunityIds($viewer);
+
         $query = Event::query()
-            // Discover is a PUBLIC surface: only events explicitly marked public are
-            // visible to non-members. members/tier events never leak here.
-            ->where('visibility', EventVisibility::Public->value)
+            ->where(function (Builder $visible) use ($memberCommunityIds): void {
+                // Public events are visible to everyone.
+                $visible->where('visibility', EventVisibility::Public->value);
+
+                // The viewer's joined communities also surface their member/tier
+                // events — to this viewer only.
+                if ($memberCommunityIds !== []) {
+                    $visible->orWhereIn('community_id', $memberCommunityIds);
+                }
+            })
             ->with(['photos', 'profile', 'city', 'community.communityProfile.city']);
 
         $this->applyFilters($query, $filters);
 
         return $query;
+    }
+
+    /**
+     * The community ids the $viewer is an ACTIVE member of (empty for anonymous
+     * callers). Drives the viewer-aware branch of the visibility gate.
+     *
+     * @return list<string>
+     */
+    private function memberCommunityIds(?Profile $viewer): array
+    {
+        if ($viewer === null) {
+            return [];
+        }
+
+        /** @var list<string> $ids */
+        $ids = CommunityMember::query()
+            ->where('profile_id', $viewer->id)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->pluck('community_id')
+            ->all();
+
+        return $ids;
     }
 
     /**
@@ -220,7 +266,8 @@ class EventDiscoveryService
         float $lng,
         float $radiusKm,
         int $perPage,
-        array $filters = []
+        array $filters = [],
+        ?Profile $viewer = null
     ): LengthAwarePaginator {
         $haversine = '(
             6371 * acos(
@@ -230,7 +277,7 @@ class EventDiscoveryService
             )
         )';
 
-        $query = $this->baseQuery($filters)
+        $query = $this->baseQuery($filters, $viewer)
             ->whereNotNull('location_lat')
             ->whereNotNull('location_lng')
             ->select('events.*')
@@ -255,7 +302,8 @@ class EventDiscoveryService
         float $lng,
         float $radiusKm,
         int $perPage,
-        array $filters = []
+        array $filters = [],
+        ?Profile $viewer = null
     ): LengthAwarePaginator {
         $latDelta = $radiusKm / 111.0;
         $lngDelta = $radiusKm / (111.0 * cos(deg2rad($lat)));
@@ -265,7 +313,7 @@ class EventDiscoveryService
         $minLng = $lng - $lngDelta;
         $maxLng = $lng + $lngDelta;
 
-        $paginator = $this->baseQuery($filters)
+        $paginator = $this->baseQuery($filters, $viewer)
             ->whereNotNull('location_lat')
             ->whereNotNull('location_lng')
             ->whereBetween('location_lat', [$minLat, $maxLat])

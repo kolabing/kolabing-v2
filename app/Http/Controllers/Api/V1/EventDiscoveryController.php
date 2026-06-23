@@ -34,7 +34,7 @@ class EventDiscoveryController extends Controller
             'type' => $request->validated('type'),
         ];
 
-        $paginator = $this->discoveryService->discover($lat, $lng, $radius, $perPage, $filters);
+        $paginator = $this->discoveryService->discover($lat, $lng, $radius, $perPage, $filters, $request->user());
         $this->eventSignupService->hydrateSummaries($paginator->items(), $request->user());
 
         return response()->json([
