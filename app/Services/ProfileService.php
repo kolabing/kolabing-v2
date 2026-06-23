@@ -178,11 +178,12 @@ class ProfileService
 
             $title = $collaboration->kolab?->title ?? 'a collaboration';
 
-            $this->notificationService->createNotification(
+            $this->notificationService->createLocalizedNotification(
                 recipient: $counterparty,
                 type: NotificationType::ApplicationDeclined,
-                title: 'Collaboration Cancelled',
-                body: "\"{$title}\" was cancelled because the other participant deleted their account.",
+                titleKey: 'notifications.account.collaboration_cancelled.title',
+                bodyKey: 'notifications.account.collaboration_cancelled.body',
+                replace: ['kolab' => $title],
                 targetId: $collaboration->id,
                 targetType: 'collaboration',
             );

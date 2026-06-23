@@ -10,6 +10,7 @@ enum NotificationType: string
     case ApplicationReceived = 'application_received';
     case ApplicationAccepted = 'application_accepted';
     case ApplicationDeclined = 'application_declined';
+    case ApplicationWithdrawn = 'application_withdrawn';
     case BadgeAwarded = 'badge_awarded';
     case ChallengeVerified = 'challenge_verified';
     case RewardWon = 'reward_won';

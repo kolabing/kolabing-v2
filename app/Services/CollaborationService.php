@@ -209,7 +209,7 @@ class CollaborationService
         ]);
 
         $this->dispatchNotification(
-            fn () => $this->notificationService->notifyCollaborationCompleted($fresh, $fresh->creatorProfile),
+            fn () => $this->notificationService->notifyCollaborationCompleted($fresh, null),
         );
 
         return $fresh;

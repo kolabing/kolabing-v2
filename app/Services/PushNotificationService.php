@@ -150,6 +150,7 @@ class PushNotificationService
             NotificationType::ApplicationReceived,
             NotificationType::ApplicationAccepted,
             NotificationType::ApplicationDeclined,
+            NotificationType::ApplicationWithdrawn,
             NotificationType::ApplicationPending => $targetId ? "/application/{$targetId}" : '/notifications',
             NotificationType::KolabCreateIncomplete => $targetId ? "/kolabs/{$targetId}/edit" : '/kolabs',
             NotificationType::BadgeAwarded,
@@ -172,6 +173,7 @@ class PushNotificationService
             NotificationType::CommunityJoinDeclined,
             NotificationType::CommunityVerified,
             NotificationType::CommunityVerificationRejected => '/notifications',
+            default => '/notifications',
         };
     }
 

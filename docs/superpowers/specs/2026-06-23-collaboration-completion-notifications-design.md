@@ -101,11 +101,46 @@ screen**.
 4. Tests: if the app has tests for `resolveNotificationRoute`, add cases for the
    5 new types → `/collaboration/:id`.
 
+## Localization (added 2026-06-23)
+
+Notifications are now resolved server-side per recipient, superseding the
+earlier "hardcoded EN" out-of-scope note below.
+
+- **Recipient locale:** `profiles.preferred_locale` (nullable `varchar(5)`,
+  values `en|es|ca`). The mobile app sends `locale` on
+  `POST /api/v1/device-token`; it is validated `nullable|string|in:en,es,ca`
+  and persisted only when present (token/platform behavior unchanged).
+- **Mechanism:** `NotificationService::createLocalizedNotification(recipient,
+  type, titleKey, bodyKey, replace, actor?, targetId?, targetType?,
+  pushOptions?)` resolves
+  `$locale = $recipient->preferred_locale ?? config('app.fallback_locale')`
+  and calls `__($key, $replace, $locale)` (the 4th `__()` arg) — **no
+  `app()->setLocale`**, so no global-state leak. It then delegates to the
+  existing `createNotification()`.
+- **Both-parties copy:** `notifyBothParties` now takes translation **keys** +
+  a `$replace` array and resolves title/body **inside the per-recipient loop**,
+  so each party gets their own locale and the correct actor-vs-counterpart copy.
+  The actor display name and dynamic values (kolab/event/community/badge/reward
+  names, points, reasons) are passed as `:placeholder` replacements, never
+  pre-interpolated.
+- **Strings:** `lang/{en,es,ca}/notifications.php`. The `en` values are
+  **byte-identical** to the previous hardcoded strings (existing
+  English-asserting tests pass unchanged via the `en` fallback).
+- **Coverage:** every `notify*` in `NotificationService` (incl. `NewMessage`
+  title — body stays the raw chat preview), plus `EventSignupService`,
+  `CommunityJoinRequestService`, `Admin\CommunityVerificationService`,
+  `GamificationWalletService`, `BadgeService`, and `ProfileService`
+  (account-deletion collaboration-cancelled).
+- **Admin force-complete fix:** `adminForceComplete` passes a `null` actor so
+  both parties get the actor-less "automatically marked complete" copy.
+- **Withdraw notification:** new `ApplicationWithdrawn = 'application_withdrawn'`
+  type, dispatched from `ApplicationService::withdraw()` (creator primary +
+  applicant confirmation), deeplink `/application/{id}`.
+
 ## Out of scope (YAGNI)
 
 - `NotificationPreference` filtering (BACKLOG §2 P1, separate).
 - Email channel (BACKLOG §1).
-- Localization of notification copy (existing convention is hardcoded EN).
 
 ## Mobile impact (kolabing-app)
 

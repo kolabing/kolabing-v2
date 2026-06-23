@@ -93,6 +93,43 @@ class NotificationService
     }
 
     /**
+     * Create a notification whose title/body are resolved in the recipient's
+     * preferred locale (falling back to the app fallback locale). Translation
+     * keys + replacements are resolved per-recipient via the 4th `__()` arg so
+     * no global locale state is mutated.
+     *
+     * @param  array<string, string|int>  $replace
+     * @param  array<string, mixed>  $pushOptions
+     */
+    public function createLocalizedNotification(
+        Profile $recipient,
+        NotificationType $type,
+        string $titleKey,
+        string $bodyKey,
+        array $replace = [],
+        ?Profile $actor = null,
+        ?string $targetId = null,
+        ?string $targetType = null,
+        array $pushOptions = [],
+    ): Notification {
+        $locale = $recipient->preferred_locale ?? config('app.fallback_locale');
+
+        $title = __($titleKey, $replace, $locale);
+        $body = __($bodyKey, $replace, $locale);
+
+        return $this->createNotification(
+            recipient: $recipient,
+            type: $type,
+            title: $title,
+            body: $body,
+            actor: $actor,
+            targetId: $targetId,
+            targetType: $targetType,
+            pushOptions: $pushOptions,
+        );
+    }
+
+    /**
      * Bulk-record a notification for many recipients in one (chunked) insert —
      * scale-friendly fan-out (the push is sent separately, in one multi-recipient
      * call by the caller). Does NOT dispatch per-recipient push jobs.
@@ -188,10 +225,12 @@ class NotificationService
 
         $body = Str::limit($message->content, 100, '...');
 
+        $locale = $recipient->preferred_locale ?? config('app.fallback_locale');
+
         $this->createNotification(
             recipient: $recipient,
             type: NotificationType::NewMessage,
-            title: 'New Message',
+            title: __('notifications.new_message.title', [], $locale),
             body: $body,
             actor: $senderProfile,
             targetId: $application->id,
@@ -221,13 +260,12 @@ class NotificationService
         $actorName = $actor->getExtendedProfile()?->name ?? 'Someone';
         $opportunityTitle = $opportunity->title;
 
-        $body = "{$actorName} applied to your \"{$opportunityTitle}\" opportunity.";
-
-        $this->createNotification(
+        $this->createLocalizedNotification(
             recipient: $recipient,
             type: NotificationType::ApplicationReceived,
-            title: 'New Application',
-            body: $body,
+            titleKey: 'notifications.application.received.title',
+            bodyKey: 'notifications.application.received.body',
+            replace: ['name' => $actorName, 'kolab' => $opportunityTitle],
             actor: $actor,
             targetId: $application->id,
             targetType: 'application',
@@ -254,13 +292,12 @@ class NotificationService
         $actor = $opportunity->creatorProfile;
         $opportunityTitle = $opportunity->title;
 
-        $body = "Your application for \"{$opportunityTitle}\" has been accepted!";
-
-        $this->createNotification(
+        $this->createLocalizedNotification(
             recipient: $recipient,
             type: NotificationType::ApplicationAccepted,
-            title: 'Application Accepted',
-            body: $body,
+            titleKey: 'notifications.application.accepted.title',
+            bodyKey: 'notifications.application.accepted.body',
+            replace: ['kolab' => $opportunityTitle],
             actor: $actor,
             targetId: $application->id,
             targetType: 'application',
@@ -287,17 +324,65 @@ class NotificationService
         $actor = $opportunity->creatorProfile;
         $opportunityTitle = $opportunity->title;
 
-        $body = "Your application for \"{$opportunityTitle}\" was declined.";
-
-        $this->createNotification(
+        $this->createLocalizedNotification(
             recipient: $recipient,
             type: NotificationType::ApplicationDeclined,
-            title: 'Application Declined',
-            body: $body,
+            titleKey: 'notifications.application.declined.title',
+            bodyKey: 'notifications.application.declined.body',
+            replace: ['kolab' => $opportunityTitle],
             actor: $actor,
             targetId: $application->id,
             targetType: 'application',
         );
+    }
+
+    /**
+     * Create a notification when an application is withdrawn by the applicant.
+     * Primary: notify the kolab creator/business that the applicant withdrew.
+     * Secondary: confirm to the withdrawing applicant.
+     */
+    public function notifyApplicationWithdrawn(Application $application): void
+    {
+        $application->loadMissing([
+            'kolab.creatorProfile',
+            'applicantProfile.businessProfile',
+            'applicantProfile.communityProfile',
+        ]);
+
+        $opportunity = $this->applicationOpportunity($application);
+        if ($opportunity === null) {
+            return;
+        }
+
+        $creator = $opportunity->creatorProfile;
+        $applicant = $application->applicantProfile;
+        $applicantName = $applicant?->getExtendedProfile()?->name ?? 'Someone';
+        $opportunityTitle = $opportunity->title;
+
+        if ($creator !== null) {
+            $this->createLocalizedNotification(
+                recipient: $creator,
+                type: NotificationType::ApplicationWithdrawn,
+                titleKey: 'notifications.application.withdrawn.creator.title',
+                bodyKey: 'notifications.application.withdrawn.creator.body',
+                replace: ['name' => $applicantName, 'kolab' => $opportunityTitle],
+                actor: $applicant,
+                targetId: $application->id,
+                targetType: 'application',
+            );
+        }
+
+        if ($applicant !== null) {
+            $this->createLocalizedNotification(
+                recipient: $applicant,
+                type: NotificationType::ApplicationWithdrawn,
+                titleKey: 'notifications.application.withdrawn.applicant.title',
+                bodyKey: 'notifications.application.withdrawn.applicant.body',
+                replace: ['kolab' => $opportunityTitle],
+                targetId: $application->id,
+                targetType: 'application',
+            );
+        }
     }
 
     /**
@@ -307,11 +392,15 @@ class NotificationService
     {
         $completion->loadMissing(['challenge', 'challenger', 'verifier']);
 
-        $this->createNotification(
+        $this->createLocalizedNotification(
             recipient: $completion->challenger,
             type: NotificationType::ChallengeVerified,
-            title: 'Challenge Verified!',
-            body: "Your \"{$completion->challenge->name}\" challenge was verified. You earned {$completion->points_earned} points!",
+            titleKey: 'notifications.challenge.verified.title',
+            bodyKey: 'notifications.challenge.verified.body',
+            replace: [
+                'challenge' => $completion->challenge->name,
+                'points' => $completion->points_earned,
+            ],
             actor: $completion->verifier,
             targetId: $completion->id,
             targetType: 'challenge_completion',
@@ -327,18 +416,15 @@ class NotificationService
     {
         $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'kolab']);
 
-        $title = "Today's your Kolab! 🎉";
-        $body = 'Your collaboration is happening today. Have a great Kolab!';
-
         foreach ([$collaboration->creatorProfile, $collaboration->applicantProfile] as $profile) {
             if ($this->reminderAlreadySent($profile->id, NotificationType::CollabDayReminder, $collaboration->id)) {
                 continue;
             }
-            $this->createNotification(
+            $this->createLocalizedNotification(
                 recipient: $profile,
                 type: NotificationType::CollabDayReminder,
-                title: $title,
-                body: $body,
+                titleKey: 'notifications.collab.day_reminder.title',
+                bodyKey: 'notifications.collab.day_reminder.body',
                 targetId: $collaboration->id,
                 targetType: 'collaboration',
             );
@@ -353,18 +439,15 @@ class NotificationService
     {
         $collaboration->loadMissing(['creatorProfile', 'applicantProfile']);
 
-        $title = 'Did your Kolab happen?';
-        $body = 'Mark it complete to earn your XP and keep your history up to date.';
-
         foreach ([$collaboration->creatorProfile, $collaboration->applicantProfile] as $profile) {
             if ($this->reminderAlreadySent($profile->id, NotificationType::CollabFollowUpReminder, $collaboration->id)) {
                 continue;
             }
-            $this->createNotification(
+            $this->createLocalizedNotification(
                 recipient: $profile,
                 type: NotificationType::CollabFollowUpReminder,
-                title: $title,
-                body: $body,
+                titleKey: 'notifications.collab.follow_up_reminder.title',
+                bodyKey: 'notifications.collab.follow_up_reminder.body',
                 targetId: $collaboration->id,
                 targetType: 'collaboration',
             );
@@ -384,8 +467,9 @@ class NotificationService
             collaboration: $collaboration,
             type: NotificationType::CollaborationCreated,
             actor: null,
-            title: 'Collaboration started',
-            sharedBody: "Your collaboration for \"{$kolab}\" is set up. Tap to view the details.",
+            replace: ['kolab' => $kolab],
+            titleKey: 'notifications.collaboration.created.title',
+            sharedBodyKey: 'notifications.collaboration.created.body',
         );
     }
 
@@ -403,9 +487,10 @@ class NotificationService
             collaboration: $collaboration,
             type: NotificationType::CollaborationActivated,
             actor: $actor,
-            title: 'Collaboration activated',
-            actorBody: "You marked the collaboration for \"{$kolab}\" as active.",
-            counterpartBody: "{$name} marked your collaboration for \"{$kolab}\" as active.",
+            replace: ['kolab' => $kolab, 'name' => $name],
+            titleKey: 'notifications.collaboration.activated.title',
+            actorBodyKey: 'notifications.collaboration.activated.actor_body',
+            counterpartBodyKey: 'notifications.collaboration.activated.counterpart_body',
         );
     }
 
@@ -423,10 +508,11 @@ class NotificationService
             collaboration: $collaboration,
             type: NotificationType::CollaborationFeedbackReceived,
             actor: $actor,
-            actorTitle: 'Feedback submitted',
-            actorBody: "Your feedback for \"{$kolab}\" has been recorded.",
-            counterpartTitle: 'New feedback',
-            counterpartBody: "{$name} left feedback for your collaboration \"{$kolab}\".",
+            replace: ['kolab' => $kolab, 'name' => $name],
+            actorTitleKey: 'notifications.collaboration.feedback_received.actor_title',
+            actorBodyKey: 'notifications.collaboration.feedback_received.actor_body',
+            counterpartTitleKey: 'notifications.collaboration.feedback_received.counterpart_title',
+            counterpartBodyKey: 'notifications.collaboration.feedback_received.counterpart_body',
         );
     }
 
@@ -445,8 +531,9 @@ class NotificationService
                 collaboration: $collaboration,
                 type: NotificationType::CollaborationCompleted,
                 actor: null,
-                title: 'Collaboration completed',
-                sharedBody: "Your collaboration for \"{$kolab}\" was automatically marked complete.",
+                replace: ['kolab' => $kolab],
+                titleKey: 'notifications.collaboration.completed.title',
+                sharedBodyKey: 'notifications.collaboration.completed.auto_body',
             );
 
             return;
@@ -458,9 +545,10 @@ class NotificationService
             collaboration: $collaboration,
             type: NotificationType::CollaborationCompleted,
             actor: $actor,
-            title: 'Collaboration completed',
-            actorBody: "You marked the collaboration for \"{$kolab}\" as complete.",
-            counterpartBody: "{$name} marked your collaboration for \"{$kolab}\" as complete.",
+            replace: ['kolab' => $kolab, 'name' => $name],
+            titleKey: 'notifications.collaboration.completed.title',
+            actorBodyKey: 'notifications.collaboration.completed.actor_body',
+            counterpartBodyKey: 'notifications.collaboration.completed.counterpart_body',
         );
     }
 
@@ -480,30 +568,35 @@ class NotificationService
             collaboration: $collaboration,
             type: NotificationType::CollaborationCancelled,
             actor: $actor,
-            title: 'Collaboration cancelled',
-            actorBody: "You cancelled the collaboration for \"{$kolab}\".",
-            counterpartBody: "{$name} cancelled your collaboration for \"{$kolab}\".",
+            replace: ['kolab' => $kolab, 'name' => $name],
+            titleKey: 'notifications.collaboration.cancelled.title',
+            actorBodyKey: 'notifications.collaboration.cancelled.actor_body',
+            counterpartBodyKey: 'notifications.collaboration.cancelled.counterpart_body',
         );
     }
 
     /**
-     * Notify both parties of a collaboration. The actor (if a participant)
-     * receives actor-aware copy; everyone else receives the counterpart copy.
-     * Pass either a single $sharedBody (system / no-actor events, optionally
-     * with a single $title) or distinct $actorBody / $counterpartBody (and
-     * optional per-side titles). Each side defaults to $title when a
-     * side-specific title is not given.
+     * Notify both parties of a collaboration, resolving copy per-recipient in
+     * each recipient's locale. The actor (if a participant) receives actor-aware
+     * copy; everyone else receives the counterpart copy. Pass either a single
+     * $sharedBodyKey (system / no-actor events, optionally with a single
+     * $titleKey) or distinct $actorBodyKey / $counterpartBodyKey (and optional
+     * per-side title keys). Each side defaults to $titleKey when a side-specific
+     * title key is not given.
+     *
+     * @param  array<string, string|int>  $replace
      */
     private function notifyBothParties(
         Collaboration $collaboration,
         NotificationType $type,
         ?Profile $actor,
-        ?string $title = null,
-        ?string $sharedBody = null,
-        ?string $actorTitle = null,
-        ?string $actorBody = null,
-        ?string $counterpartTitle = null,
-        ?string $counterpartBody = null,
+        array $replace = [],
+        ?string $titleKey = null,
+        ?string $sharedBodyKey = null,
+        ?string $actorTitleKey = null,
+        ?string $actorBodyKey = null,
+        ?string $counterpartTitleKey = null,
+        ?string $counterpartBodyKey = null,
     ): void {
         foreach ([$collaboration->creatorProfile, $collaboration->applicantProfile] as $profile) {
             if ($profile === null) {
@@ -512,20 +605,21 @@ class NotificationService
 
             $isActor = $actor !== null && $profile->id === $actor->id;
 
-            $resolvedTitle = $isActor
-                ? ($actorTitle ?? $title)
-                : ($counterpartTitle ?? $title);
+            $resolvedTitleKey = $isActor
+                ? ($actorTitleKey ?? $titleKey)
+                : ($counterpartTitleKey ?? $titleKey);
 
-            $resolvedBody = $sharedBody
-                ?? ($isActor ? $actorBody : $counterpartBody)
-                ?? $counterpartBody
-                ?? $actorBody;
+            $resolvedBodyKey = $sharedBodyKey
+                ?? ($isActor ? $actorBodyKey : $counterpartBodyKey)
+                ?? $counterpartBodyKey
+                ?? $actorBodyKey;
 
-            $this->createNotification(
+            $this->createLocalizedNotification(
                 recipient: $profile,
                 type: $type,
-                title: (string) $resolvedTitle,
-                body: (string) $resolvedBody,
+                titleKey: (string) $resolvedTitleKey,
+                bodyKey: (string) $resolvedBodyKey,
+                replace: $replace,
                 actor: $actor,
                 targetId: $collaboration->id,
                 targetType: 'collaboration',
@@ -575,11 +669,12 @@ class NotificationService
     {
         $claim->loadMissing(['eventReward', 'profile']);
 
-        $this->createNotification(
+        $this->createLocalizedNotification(
             recipient: $claim->profile,
             type: NotificationType::RewardWon,
-            title: 'You Won a Reward!',
-            body: "You won \"{$claim->eventReward->name}\" from spin-the-wheel!",
+            titleKey: 'notifications.reward.won.title',
+            bodyKey: 'notifications.reward.won.body',
+            replace: ['reward' => $claim->eventReward->name],
             targetId: $claim->id,
             targetType: 'reward_claim',
         );

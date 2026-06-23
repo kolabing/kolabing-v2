@@ -150,6 +150,42 @@ class CollaborationCompletionNotificationTest extends TestCase
         $this->row($community->id, NotificationType::CollaborationCompleted, $collab->id);
     }
 
+    public function test_admin_force_complete_uses_actor_less_automatic_copy(): void
+    {
+        ['collab' => $collab, 'business' => $business, 'community' => $community] = $this->makeCollab(CollaborationStatus::Active);
+
+        app(CollaborationService::class)->adminForceComplete($collab, 'Resolved manually');
+
+        $expected = 'Your collaboration for "Summer Pop-Up" was automatically marked complete.';
+
+        $this->assertSame($expected, $this->row($business->id, NotificationType::CollaborationCompleted, $collab->id)->body);
+        $this->assertSame($expected, $this->row($community->id, NotificationType::CollaborationCompleted, $collab->id)->body);
+    }
+
+    public function test_completion_notification_is_localized_per_recipient(): void
+    {
+        ['collab' => $collab, 'business' => $business, 'community' => $community] = $this->makeCollab(CollaborationStatus::Active);
+
+        $community->update(['preferred_locale' => 'es']);
+
+        app(CollaborationService::class)->autoComplete($collab);
+
+        $spanishRow = $this->row($community->id, NotificationType::CollaborationCompleted, $collab->id);
+        $this->assertSame(
+            'Tu colaboración para "Summer Pop-Up" se ha marcado automáticamente como completada.',
+            $spanishRow->body,
+        );
+        $this->assertSame('Colaboración completada', $spanishRow->title);
+
+        // The null-locale business recipient still gets the English fallback copy.
+        $englishRow = $this->row($business->id, NotificationType::CollaborationCompleted, $collab->id);
+        $this->assertSame(
+            'Your collaboration for "Summer Pop-Up" was automatically marked complete.',
+            $englishRow->body,
+        );
+        $this->assertSame('Collaboration completed', $englishRow->title);
+    }
+
     public function test_feedback_submission_notifies_both_parties_with_actor_aware_copy(): void
     {
         ['collab' => $collab, 'business' => $business, 'community' => $community] = $this->makeCollab(CollaborationStatus::Active);

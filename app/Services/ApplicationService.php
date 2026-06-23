@@ -178,6 +178,12 @@ class ApplicationService
         ]);
         $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['kolab']));
 
+        try {
+            $this->notificationService->notifyApplicationWithdrawn($application);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         return $application->fresh();
     }
 
