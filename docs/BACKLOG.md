@@ -1,6 +1,6 @@
 # Kolabing — Pre-launch Backlog
 
-**Last updated:** 2026-06-21
+**Last updated:** 2026-06-23
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical.
 
 A consolidated punch list of everything we've identified but haven't shipped. Items are tagged by **owner** (`backend` = kolabing-v2, `app` = kolabing-app, `cross` = both, `infra` = hosting) and **priority** (`P0` = blocker for launch, `P1` = needed soon after, `P2` = nice-to-have).
@@ -53,6 +53,8 @@ Each item lists what exists now, what's missing, and any open decisions. See ref
 
 **What exists** (`NotificationService` + `PushNotificationService` + `OneSignalService`):
 - `NewMessage`, `ApplicationReceived`, `ApplicationAccepted`, `ApplicationDeclined`, `ChallengeVerified`, `RewardWon`, `CollabDayReminder`, `CollabFollowUpReminder`, `KolabCreateIncomplete`, `ApplicationPending`, `UnreadMessage` — all dispatch correctly.
+- **Collaboration completion-flow notifications (shipped 2026-06-23):** five new dispatched types — `CollaborationCreated`, `CollaborationActivated`, `CollaborationFeedbackReceived`, `CollaborationCompleted`, `CollaborationCancelled`. Each notifies **both** parties (actor gets actor-aware copy, counterpart gets "{name}…" copy); `target_type='collaboration'`, `target_id=collaboration.id`. Wired from `CollaborationService` (createFromApplication/activate/complete/adminForceComplete/autoComplete/cancel — autoComplete uses the no-actor "automatically marked complete" copy), `ApplicationService::accept()` (Created), and `CollaborationFeedbackService::submit()` (FeedbackReceived). Each dispatch is wrapped in `try/catch + report($e)` so a push failure never breaks the state transition.
+- **Deeplink fix (2026-06-23):** the five new types **and** the existing `CollabDayReminder` / `CollabFollowUpReminder` now resolve to `/collaboration/{id}` in `PushNotificationService::resolveDeeplink()` (the two reminders previously fell through to `/notifications`). Mirrored byte-identical in `kolabing-app` (`feat/collaboration-completion-notifications`).
 - Reminders cadence: 2h, 24h, 72h via `NotificationReminder` model + `notifications:send-reminders` command.
 - `routes/console.php` schedules `app:send-collab-reminders` daily 08:00 and the new `app:auto-complete-stale-collaborations` daily 03:00.
 - iOS/Android deep linking, thread IDs, interruption levels, badge counts all configured.

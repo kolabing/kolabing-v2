@@ -372,6 +372,185 @@ class NotificationService
     }
 
     /**
+     * Notify when a collaboration is created from an accepted application.
+     * System event — no actor; both parties get the same copy.
+     */
+    public function notifyCollaborationCreated(Collaboration $collaboration): void
+    {
+        $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'kolab']);
+        $kolab = $this->collaborationKolabTitle($collaboration);
+
+        $this->notifyBothParties(
+            collaboration: $collaboration,
+            type: NotificationType::CollaborationCreated,
+            actor: null,
+            title: 'Collaboration started',
+            sharedBody: "Your collaboration for \"{$kolab}\" is set up. Tap to view the details.",
+        );
+    }
+
+    /**
+     * Notify when a collaboration is activated. The actor (who activated it)
+     * sees actor-aware copy; the counterpart sees "{name} marked…".
+     */
+    public function notifyCollaborationActivated(Collaboration $collaboration, Profile $actor): void
+    {
+        $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'kolab']);
+        $kolab = $this->collaborationKolabTitle($collaboration);
+        $name = $this->actorDisplayName($actor);
+
+        $this->notifyBothParties(
+            collaboration: $collaboration,
+            type: NotificationType::CollaborationActivated,
+            actor: $actor,
+            title: 'Collaboration activated',
+            actorBody: "You marked the collaboration for \"{$kolab}\" as active.",
+            counterpartBody: "{$name} marked your collaboration for \"{$kolab}\" as active.",
+        );
+    }
+
+    /**
+     * Notify when one party submits feedback. The reviewer (actor) sees
+     * "Feedback submitted"; the counterpart sees "New feedback".
+     */
+    public function notifyCollaborationFeedbackReceived(Collaboration $collaboration, Profile $actor): void
+    {
+        $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'kolab']);
+        $kolab = $this->collaborationKolabTitle($collaboration);
+        $name = $this->actorDisplayName($actor);
+
+        $this->notifyBothParties(
+            collaboration: $collaboration,
+            type: NotificationType::CollaborationFeedbackReceived,
+            actor: $actor,
+            actorTitle: 'Feedback submitted',
+            actorBody: "Your feedback for \"{$kolab}\" has been recorded.",
+            counterpartTitle: 'New feedback',
+            counterpartBody: "{$name} left feedback for your collaboration \"{$kolab}\".",
+        );
+    }
+
+    /**
+     * Notify when a collaboration is completed. With an actor (manual / admin
+     * force) both parties get "Collaboration completed" with actor-aware copy;
+     * with a null actor (auto-complete) both get the shared auto copy.
+     */
+    public function notifyCollaborationCompleted(Collaboration $collaboration, ?Profile $actor): void
+    {
+        $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'kolab']);
+        $kolab = $this->collaborationKolabTitle($collaboration);
+
+        if ($actor === null) {
+            $this->notifyBothParties(
+                collaboration: $collaboration,
+                type: NotificationType::CollaborationCompleted,
+                actor: null,
+                title: 'Collaboration completed',
+                sharedBody: "Your collaboration for \"{$kolab}\" was automatically marked complete.",
+            );
+
+            return;
+        }
+
+        $name = $this->actorDisplayName($actor);
+
+        $this->notifyBothParties(
+            collaboration: $collaboration,
+            type: NotificationType::CollaborationCompleted,
+            actor: $actor,
+            title: 'Collaboration completed',
+            actorBody: "You marked the collaboration for \"{$kolab}\" as complete.",
+            counterpartBody: "{$name} marked your collaboration for \"{$kolab}\" as complete.",
+        );
+    }
+
+    /**
+     * Notify when a collaboration is cancelled. The actor sees "You cancelled…";
+     * the counterpart sees "{name} cancelled…". When the actor is null (e.g. a
+     * maintainer cancel without a profile) both parties get the counterpart copy
+     * with a "Someone" fallback name.
+     */
+    public function notifyCollaborationCancelled(Collaboration $collaboration, ?Profile $actor): void
+    {
+        $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'kolab']);
+        $kolab = $this->collaborationKolabTitle($collaboration);
+        $name = $this->actorDisplayName($actor);
+
+        $this->notifyBothParties(
+            collaboration: $collaboration,
+            type: NotificationType::CollaborationCancelled,
+            actor: $actor,
+            title: 'Collaboration cancelled',
+            actorBody: "You cancelled the collaboration for \"{$kolab}\".",
+            counterpartBody: "{$name} cancelled your collaboration for \"{$kolab}\".",
+        );
+    }
+
+    /**
+     * Notify both parties of a collaboration. The actor (if a participant)
+     * receives actor-aware copy; everyone else receives the counterpart copy.
+     * Pass either a single $sharedBody (system / no-actor events, optionally
+     * with a single $title) or distinct $actorBody / $counterpartBody (and
+     * optional per-side titles). Each side defaults to $title when a
+     * side-specific title is not given.
+     */
+    private function notifyBothParties(
+        Collaboration $collaboration,
+        NotificationType $type,
+        ?Profile $actor,
+        ?string $title = null,
+        ?string $sharedBody = null,
+        ?string $actorTitle = null,
+        ?string $actorBody = null,
+        ?string $counterpartTitle = null,
+        ?string $counterpartBody = null,
+    ): void {
+        foreach ([$collaboration->creatorProfile, $collaboration->applicantProfile] as $profile) {
+            if ($profile === null) {
+                continue;
+            }
+
+            $isActor = $actor !== null && $profile->id === $actor->id;
+
+            $resolvedTitle = $isActor
+                ? ($actorTitle ?? $title)
+                : ($counterpartTitle ?? $title);
+
+            $resolvedBody = $sharedBody
+                ?? ($isActor ? $actorBody : $counterpartBody)
+                ?? $counterpartBody
+                ?? $actorBody;
+
+            $this->createNotification(
+                recipient: $profile,
+                type: $type,
+                title: (string) $resolvedTitle,
+                body: (string) $resolvedBody,
+                actor: $actor,
+                targetId: $collaboration->id,
+                targetType: 'collaboration',
+            );
+        }
+    }
+
+    /**
+     * The collaboration's kolab title, with a safe fallback.
+     */
+    private function collaborationKolabTitle(Collaboration $collaboration): string
+    {
+        return $collaboration->kolab?->title ?? 'your Kolab';
+    }
+
+    /**
+     * The actor's display name, mirroring the notifyApplicationReceived
+     * convention (extended-profile name, "Someone" fallback).
+     */
+    private function actorDisplayName(?Profile $actor): string
+    {
+        return $actor?->getExtendedProfile()?->name ?? 'Someone';
+    }
+
+    /**
      * Check whether a reminder of the given type has already been sent
      * to this profile for this collaboration.
      */

@@ -108,6 +108,14 @@ class ApplicationService
         $collaboration = $result['collaboration'];
         $opportunity = $acceptedApplication->kolab;
 
+        try {
+            $this->notificationService->notifyCollaborationCreated(
+                $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'kolab']),
+            );
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         if ($opportunity === null) {
             return $result;
         }

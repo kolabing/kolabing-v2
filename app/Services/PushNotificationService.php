@@ -158,6 +158,20 @@ class PushNotificationService
             NotificationType::RewardWon,
             NotificationType::PointsEarned,
             NotificationType::WithdrawalProcessed => '/me/rewards',
+            NotificationType::CollaborationCreated,
+            NotificationType::CollaborationActivated,
+            NotificationType::CollaborationFeedbackReceived,
+            NotificationType::CollaborationCompleted,
+            NotificationType::CollaborationCancelled,
+            NotificationType::CollabDayReminder,
+            NotificationType::CollabFollowUpReminder => $targetId ? "/collaboration/{$targetId}" : '/notifications',
+            NotificationType::WaitlistPromoted,
+            NotificationType::EventCancelled,
+            NotificationType::CommunityJoinRequested,
+            NotificationType::CommunityJoinApproved,
+            NotificationType::CommunityJoinDeclined,
+            NotificationType::CommunityVerified,
+            NotificationType::CommunityVerificationRejected => '/notifications',
         };
     }
 

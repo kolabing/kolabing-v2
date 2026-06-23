@@ -96,12 +96,15 @@ class CollaborationController extends Controller
      *
      * POST /api/v1/collaborations/{collaboration}/activate
      */
-    public function activate(Collaboration $collaboration): JsonResponse
+    public function activate(Request $request, Collaboration $collaboration): JsonResponse
     {
         $this->authorize('activate', $collaboration);
 
+        /** @var Profile $actor */
+        $actor = $request->user();
+
         try {
-            $collaboration = $this->collaborationService->activate($collaboration);
+            $collaboration = $this->collaborationService->activate($collaboration, $actor);
         } catch (CollaborationException $e) {
             return response()->json([
                 'success' => false,
@@ -236,10 +239,14 @@ class CollaborationController extends Controller
 
         $validated = $request->validated();
 
+        /** @var Profile $actor */
+        $actor = $request->user();
+
         try {
             $collaboration = $this->collaborationService->cancel(
                 $collaboration,
-                $validated['reason']
+                $validated['reason'],
+                $actor,
             );
         } catch (CollaborationException $e) {
             return response()->json([

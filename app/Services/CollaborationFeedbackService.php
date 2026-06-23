@@ -15,6 +15,7 @@ class CollaborationFeedbackService
 {
     public function __construct(
         private readonly GamificationWalletService $walletService,
+        private readonly NotificationService $notificationService,
     ) {}
 
     /**
@@ -40,7 +41,7 @@ class CollaborationFeedbackService
             throw CollaborationException::feedbackAlreadySubmitted();
         }
 
-        return DB::transaction(function () use ($collaboration, $reviewer, $payload, $role, $existing): CollaborationFeedback {
+        $feedback = DB::transaction(function () use ($collaboration, $reviewer, $payload, $role, $existing): CollaborationFeedback {
             $attributes = $this->attributesForRole($reviewer, $payload);
             $attributes['reviewer_role'] = $role;
             $attributes['reviewer_type'] = $reviewer->user_type->value;
@@ -69,6 +70,17 @@ class CollaborationFeedbackService
 
             return $feedback;
         });
+
+        try {
+            $this->notificationService->notifyCollaborationFeedbackReceived(
+                $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'kolab']),
+                $reviewer,
+            );
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $feedback;
     }
 
     /**
