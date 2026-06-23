@@ -424,4 +424,46 @@ class MissionTriggerWiringTest extends TestCase
 
         $this->assertCompletedOnce($mission, $owner, 20);
     }
+
+    // --- Peer challenge verification → challenge_completed (attendee) ---
+
+    public function test_verifying_peer_challenge_progresses_challenge_completed_mission_for_challenger(): void
+    {
+        $mission = $this->mission(MissionTrigger::ChallengeCompleted, ChallengeAudience::Attendee, 1, 20);
+
+        $owner = Profile::factory()->business()->create();
+        $event = Event::factory()->forProfile($owner)->create([
+            'is_active' => true,
+            'max_challenges_per_attendee' => 5,
+        ]);
+
+        $challenger = Profile::factory()->attendee()->create();
+        \App\Models\AttendeeProfile::factory()->create(['profile_id' => $challenger->id]);
+        $verifier = Profile::factory()->attendee()->create();
+        \App\Models\AttendeeProfile::factory()->create(['profile_id' => $verifier->id]);
+
+        \App\Models\EventCheckin::factory()->forEvent($event)->forProfile($challenger)->create();
+        \App\Models\EventCheckin::factory()->forEvent($event)->forProfile($verifier)->create();
+
+        // A peer-verified event challenge (NOT a mission itself).
+        $peerChallenge = Challenge::factory()->system()->easy()->create();
+
+        $service = app(\App\Services\ChallengeCompletionService::class);
+        $completion = $service->initiate($challenger, [
+            'challenge_id' => $peerChallenge->id,
+            'event_id' => $event->id,
+            'verifier_profile_id' => $verifier->id,
+        ]);
+
+        $service->verify($verifier, $completion);
+
+        // The challenger (earner) progresses the challenge_completed mission.
+        $this->assertCompletedOnce($mission, $challenger, 20);
+
+        // The verifier does not earn the challenger's mission.
+        $this->assertDatabaseMissing('challenge_progress', [
+            'challenge_id' => $mission->id,
+            'profile_id' => $verifier->id,
+        ]);
+    }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\ChallengeCompletionStatus;
+use App\Enums\MissionTrigger;
 use App\Models\Challenge;
 use App\Models\ChallengeCompletion;
 use App\Models\Event;
@@ -20,6 +21,7 @@ class ChallengeCompletionService
         private readonly BadgeService $badgeService,
         private readonly NotificationService $notificationService,
         private readonly CommunityPointsService $communityPointsService,
+        private readonly MissionService $missionService,
     ) {}
 
     /**
@@ -163,6 +165,18 @@ class ChallengeCompletionService
             $this->communityPointsService->awardChallengeVerified($result);
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Community points award on challenge verify failed', [
+                'completion_id' => $result->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Progress the attendee challenge missions (e.g. "complete N event
+        // challenges"). The challenger is the earner; verification is the
+        // source action for the `challenge_completed` mission trigger.
+        try {
+            $this->missionService->record($result->challenger, MissionTrigger::ChallengeCompleted);
+        } catch (\Throwable $e) {
+            Log::warning('Mission record on challenge verify failed', [
                 'completion_id' => $result->id,
                 'error' => $e->getMessage(),
             ]);
