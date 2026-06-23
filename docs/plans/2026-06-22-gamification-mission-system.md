@@ -150,3 +150,29 @@ Idempotent + safe to call from anywhere a trigger fires.
 - Converting legacy custom **event** challenges to missions (they stay peer-verified).
 - Reward_type/value/badge_slug columns (points + existing bonus/badge systems cover it).
 - XP↔money changes (separate Economics concern).
+
+---
+
+## ADDENDUM (Daniel, 2026-06-23): EVENT missions vs GENERAL missions — TWO kinds, coexist
+
+There are **two distinct kinds of mission** and both stay in the architecture:
+
+- **Event missions** — in-event, peer-style tasks done AT a kolab event, e.g.
+  *"Take a story with a friend in the cafe"*, *"Get a coffee"*, *"Take a selfie together"*.
+  Peer-verified; power the kolab **"GAMIFICATION SETUP"** attendee picker. **Architecture
+  stays.** The ones currently SEEDED (the old icebreakers) were **DEMO data — remove them**;
+  real event missions get added later (curated and/or business-authored per event).
+- **General missions** — auto-tracked onboarding/growth goals (the 49 seeded here), e.g.
+  *"Complete your profile"*, *"Attend 5 Kolabs"*, *"Refer a business"*. Shown on the app
+  Missions screen; fired by `MissionService` triggers.
+
+**So:** wiping the demo event challenges was fine. The missing piece is **separating the
+two so each surface shows the right kind:**
+1. Distinguish by `trigger_action`: **event mission = no `trigger_action`** (peer-verified),
+   **general mission = `trigger_action` set** (auto-tracked).
+2. The kolab attendee-challenge picker (`ChallengeController` / challenge defaults) must
+   filter to **event** missions (`trigger_action` null) — NOT show the general missions.
+   (Today it'd show the 49 general missions — that's the bug Daniel saw in a seeded kolab.)
+3. `GET /me/missions` already filters to **general** (live `trigger_action`), so it
+   correctly excludes event missions. No change there.
+4. Don't re-seed demo event missions; the picker is simply empty until real ones exist.
