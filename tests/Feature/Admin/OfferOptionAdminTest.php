@@ -127,6 +127,25 @@ class OfferOptionAdminTest extends TestCase
         $this->assertDatabaseMissing('offer_options', ['id' => $unused->id]);
     }
 
+    public function test_destroy_hard_deletes_empty_column_kind_even_when_kolabs_exist(): void
+    {
+        $admin = $this->maintainer();
+
+        // venue_fit (and product_interaction) have no dedicated `kolabs` column, so
+        // in-use detection is impossible for them — inUseCount() must always return 0,
+        // regardless of how many (unrelated) kolab rows exist in the table.
+        $option = OfferOption::query()->create([
+            'kind' => OfferOption::KIND_VENUE_FIT, 'slug' => 'venue_fit_opt', 'name' => 'Venue Fit', 'is_active' => true,
+        ]);
+        Kolab::factory()->create();
+
+        $this->actingAs($admin, 'admin')
+            ->delete(route('admin.offer-options.destroy', ['kind' => OfferOption::KIND_VENUE_FIT, 'id' => $option->id]))
+            ->assertRedirect();
+
+        $this->assertDatabaseMissing('offer_options', ['id' => $option->id]);
+    }
+
     public function test_toggle_and_reorder(): void
     {
         $admin = $this->maintainer();

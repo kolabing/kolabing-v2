@@ -65,6 +65,10 @@ class OfferOptionController extends Controller
             default => [],
         };
 
+        if ($columns === []) {
+            return 0;
+        }
+
         $isScalar = in_array($kind, self::SCALAR_KINDS, true);
 
         $query = Kolab::query();
