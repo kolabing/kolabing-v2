@@ -22,6 +22,10 @@ class OfferOptionLookupTest extends TestCase
             'needs' => ['api.v1.lookup.needs', OfferOption::KIND_NEED],
             'product-types' => ['api.v1.lookup.product-types', OfferOption::KIND_PRODUCT_TYPE],
             'venue-types' => ['api.v1.lookup.venue-types', OfferOption::KIND_VENUE_TYPE],
+            'goals' => ['api.v1.lookup.goals', OfferOption::KIND_GOAL],
+            'product-interactions' => ['api.v1.lookup.product-interactions', OfferOption::KIND_PRODUCT_INTERACTION],
+            'venue-fits' => ['api.v1.lookup.venue-fits', OfferOption::KIND_VENUE_FIT],
+            'kolab-highlights' => ['api.v1.lookup.kolab-highlights', OfferOption::KIND_KOLAB_HIGHLIGHT],
         ];
     }
 
@@ -65,5 +69,9 @@ class OfferOptionLookupTest extends TestCase
         $this->getJson(route('api.v1.lookup.needs'))->assertOk();
         $this->getJson(route('api.v1.lookup.product-types'))->assertOk();
         $this->getJson(route('api.v1.lookup.venue-types'))->assertOk();
+        $this->getJson(route('api.v1.lookup.goals'))->assertOk();
+        $this->getJson(route('api.v1.lookup.product-interactions'))->assertOk();
+        $this->getJson(route('api.v1.lookup.venue-fits'))->assertOk();
+        $this->getJson(route('api.v1.lookup.kolab-highlights'))->assertOk();
     }
 }

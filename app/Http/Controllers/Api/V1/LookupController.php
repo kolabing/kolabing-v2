@@ -385,6 +385,47 @@ class LookupController extends Controller
     }
 
     /**
+     * Get the list of goal options for a business Kolab.
+     *
+     * GET /api/v1/lookup/goals
+     */
+    public function goals(): JsonResponse
+    {
+        return $this->offerOptionResponse(\App\Models\OfferOption::KIND_GOAL);
+    }
+
+    /**
+     * Get the list of product-interaction options (how communities can engage
+     * with a product promotion).
+     *
+     * GET /api/v1/lookup/product-interactions
+     */
+    public function productInteractions(): JsonResponse
+    {
+        return $this->offerOptionResponse(\App\Models\OfferOption::KIND_PRODUCT_INTERACTION);
+    }
+
+    /**
+     * Get the list of venue-fit options ("Best for:" chips on a venue promotion).
+     *
+     * GET /api/v1/lookup/venue-fits
+     */
+    public function venueFits(): JsonResponse
+    {
+        return $this->offerOptionResponse(\App\Models\OfferOption::KIND_VENUE_FIT);
+    }
+
+    /**
+     * Get the list of kolab-highlight options ("Why communities will like this").
+     *
+     * GET /api/v1/lookup/kolab-highlights
+     */
+    public function kolabHighlights(): JsonResponse
+    {
+        return $this->offerOptionResponse(\App\Models\OfferOption::KIND_KOLAB_HIGHLIGHT);
+    }
+
+    /**
      * Map an active, sorted offer_options kind to the lookup response. Emits the
      * shared shape { value, label, icon, icon_url, is_active, sort_order } so every
      * offer / product / venue taxonomy is consumed by one app model. `icon_url` is the
