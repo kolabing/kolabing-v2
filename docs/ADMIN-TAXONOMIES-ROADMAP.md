@@ -26,6 +26,8 @@
 - **gamification** (badges/challenges/xp levels/earn rules/economics/partner rewards) — full admin CRUD on master ✅ (the pattern to copy).
 - ⚠️ The checked-out branch `feat/onboarding-backend-local` LookupController still hardcodes the type lists — it is behind master; **merge master forward** so business/community types serve DB rows.
 
+- **goal**, **product_interaction**, **venue_fit**, **kolab_highlight** (2026-06-24, business Kolab flow redesign) — added as new `offer_options` kinds following the exact `offering`/`deliverable`/`need` pattern: admin CRUD via the existing `OfferOptionController` (`/admin/offer-options?kind=goal` etc.), seeded initial defaults, `/lookup/goals`, `/lookup/product-interactions`, `/lookup/venue-fits`, `/lookup/kolab-highlights` ✅. `goal` is also persisted on `kolabs.goal` (new nullable column); `kolab_highlight` selections persist on `kolabs.highlights` (new nullable json column). `product_interaction`/`venue_fit` are informational-only chip labels composed into the kolab's free-text `description` client-side — no dedicated `kolabs` column. `deliverable` kind extended additively from 5 to 16 seeded options (original 5 untouched).
+
 ## C. Leave code-fixed (NOT admin-editable — contracts/state machines)
 `intent_type`, `venue_preference`, `availability_mode`, `media.type`, `ApplicationStatus`, `CollaborationStatus`, `KolabStatus`, `UserType`, `OfferStatus`, `RewardClaimStatus`, `SubscriptionStatus`, `WithdrawalStatus`, `NotificationType`, `EventSignupStatus`, `CommunityMemberStatus`. These are lifecycle/role/branching enums, not pickable catalogs.
 
