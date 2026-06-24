@@ -96,8 +96,26 @@ class CreateKolabRequest extends FormRequest
             'media.*.type' => ['required_with:media', 'string', 'in:image,video'],
             'media.*.thumbnail_url' => ['nullable', 'string', 'url'],
             'media.*.sort_order' => ['nullable', 'integer', 'min:0'],
-            'availability_mode' => ['required_if:intent_type,venue_promotion', 'nullable', 'string', 'in:one_time,recurring,flexible,specific_dates'],
-            'availability_start' => ['required_if:intent_type,venue_promotion', 'nullable', 'date', 'after:today'],
+            'availability_mode' => ['required_if:intent_type,venue_promotion', 'nullable', 'string', 'in:one_time,recurring,flexible,specific_dates,immediate'],
+            'availability_start' => [
+                'required_if:intent_type,venue_promotion',
+                'nullable',
+                'date',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if ($value === null) {
+                        return;
+                    }
+
+                    $isImmediate = $this->input('availability_mode') === 'immediate';
+                    $minDate = $isImmediate ? today() : today()->addDay();
+
+                    if (\Illuminate\Support\Carbon::parse($value)->lt($minDate)) {
+                        $fail($isImmediate
+                            ? __('The availability start date cannot be in the past.')
+                            : __('validation.after', ['attribute' => 'availability start', 'date' => 'today']));
+                    }
+                },
+            ],
             'availability_end' => ['nullable', 'date', 'after:availability_start'],
             'selected_time' => ['sometimes', 'nullable', 'date_format:H:i'],
             'recurring_days' => ['sometimes', 'nullable', 'array'],

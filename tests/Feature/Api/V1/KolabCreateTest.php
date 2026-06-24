@@ -428,6 +428,89 @@ class KolabCreateTest extends TestCase
             ->assertJsonValidationErrors(['venue_type']);
     }
 
+    public function test_immediate_availability_accepts_today(): void
+    {
+        $business = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $business->id,
+            'primary_venue' => [
+                'name' => 'Sky Lounge Malaga',
+                'venue_type' => 'bar_lounge',
+                'capacity' => 150,
+                'place_id' => 'sky-lounge-place-id',
+                'formatted_address' => 'Calle Larios 12, Malaga',
+                'city' => 'Malaga',
+                'country' => 'Spain',
+                'latitude' => 36.7213,
+                'longitude' => -4.4214,
+                'photos' => ['https://example.com/sky-lounge.jpg'],
+            ],
+        ]);
+
+        $payload = [
+            'intent_type' => 'venue_promotion',
+            'title' => 'Rooftop bar available for community events',
+            'description' => 'Beautiful rooftop bar in the heart of Malaga available for community events.',
+            'preferred_city' => 'Malaga',
+            'media' => [
+                [
+                    'url' => 'https://example.com/promo-photo.jpg',
+                    'type' => 'image',
+                    'sort_order' => 0,
+                ],
+            ],
+            'availability_mode' => 'immediate',
+            'availability_start' => now()->toDateString(),
+            'offering' => ['venue'],
+        ];
+
+        $this->actingAs($business)
+            ->postJson(route('api.v1.kolabs.store'), $payload)
+            ->assertCreated();
+    }
+
+    public function test_non_immediate_availability_rejects_today(): void
+    {
+        $business = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $business->id,
+            'primary_venue' => [
+                'name' => 'Sky Lounge Malaga',
+                'venue_type' => 'bar_lounge',
+                'capacity' => 150,
+                'place_id' => 'sky-lounge-place-id',
+                'formatted_address' => 'Calle Larios 12, Malaga',
+                'city' => 'Malaga',
+                'country' => 'Spain',
+                'latitude' => 36.7213,
+                'longitude' => -4.4214,
+                'photos' => ['https://example.com/sky-lounge.jpg'],
+            ],
+        ]);
+
+        $payload = [
+            'intent_type' => 'venue_promotion',
+            'title' => 'Rooftop bar available for community events',
+            'description' => 'Beautiful rooftop bar in the heart of Malaga available for community events.',
+            'preferred_city' => 'Malaga',
+            'media' => [
+                [
+                    'url' => 'https://example.com/promo-photo.jpg',
+                    'type' => 'image',
+                    'sort_order' => 0,
+                ],
+            ],
+            'availability_mode' => 'flexible',
+            'availability_start' => now()->toDateString(),
+            'offering' => ['venue'],
+        ];
+
+        $this->actingAs($business)
+            ->postJson(route('api.v1.kolabs.store'), $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('availability_start');
+    }
+
     public function test_community_user_cannot_create_business_only_kolab_intent(): void
     {
         $community = Profile::factory()->community()->create();
