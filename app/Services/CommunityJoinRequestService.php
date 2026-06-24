@@ -99,8 +99,9 @@ class CommunityJoinRequestService
             $this->notifyRequester(
                 $joinRequest,
                 NotificationType::CommunityJoinApproved,
-                __('Request approved'),
-                __('You are now a member of :community.', ['community' => $community->name]),
+                'notifications.community.join_approved.title',
+                'notifications.community.join_approved.body',
+                ['community' => $community->name],
             );
 
             return $joinRequest->refresh();
@@ -129,8 +130,9 @@ class CommunityJoinRequestService
         $this->notifyRequester(
             $joinRequest,
             NotificationType::CommunityJoinDeclined,
-            __('Request declined'),
-            __('Your request to join :community was declined.', ['community' => $community->name]),
+            'notifications.community.join_declined.title',
+            'notifications.community.join_declined.body',
+            ['community' => $community->name],
         );
 
         return $joinRequest->refresh();
@@ -164,18 +166,14 @@ class CommunityJoinRequestService
         $managerIds = array_values(array_unique(array_filter($managerIds)));
 
         $requesterName = $requester->getExtendedProfile()?->name ?? $requester->name ?? __('Someone');
-        $title = __('New join request');
-        $body = __(':name asked to join :community.', [
-            'name' => $requesterName,
-            'community' => $community->name,
-        ]);
 
         foreach (Profile::query()->whereIn('id', $managerIds)->get() as $manager) {
-            $this->notifications->createNotification(
+            $this->notifications->createLocalizedNotification(
                 recipient: $manager,
                 type: NotificationType::CommunityJoinRequested,
-                title: $title,
-                body: $body,
+                titleKey: 'notifications.community.join_requested.title',
+                bodyKey: 'notifications.community.join_requested.body',
+                replace: ['name' => $requesterName, 'community' => $community->name],
                 actor: $requester,
                 targetId: $community->id,
                 targetType: 'community',
@@ -183,11 +181,15 @@ class CommunityJoinRequestService
         }
     }
 
+    /**
+     * @param  array<string, string|int>  $replace
+     */
     private function notifyRequester(
         CommunityJoinRequest $joinRequest,
         NotificationType $type,
-        string $title,
-        string $body,
+        string $titleKey,
+        string $bodyKey,
+        array $replace = [],
     ): void {
         $requester = $joinRequest->profile;
 
@@ -195,11 +197,12 @@ class CommunityJoinRequestService
             return;
         }
 
-        $this->notifications->createNotification(
+        $this->notifications->createLocalizedNotification(
             recipient: $requester,
             type: $type,
-            title: $title,
-            body: $body,
+            titleKey: $titleKey,
+            bodyKey: $bodyKey,
+            replace: $replace,
             targetId: $joinRequest->community_id,
             targetType: 'community',
         );
