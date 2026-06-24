@@ -129,6 +129,8 @@ class KolabService
             'description' => $data['description'],
             'offer_headline' => $data['offer_headline'] ?? null,
             'base_offer' => $data['base_offer'] ?? null,
+            'goal' => $data['goal'] ?? null,
+            'highlights' => $data['highlights'] ?? null,
             'negotiation_triggers' => $data['negotiation_triggers'] ?? [],
             'preferred_city' => $data['preferred_city'],
             'area' => $data['area'] ?? null,

@@ -161,6 +161,103 @@ class KolabCreateTest extends TestCase
         ]);
     }
 
+    public function test_business_user_can_create_kolab_with_goal_and_highlights(): void
+    {
+        $business = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $business->id,
+            'primary_venue' => [
+                'name' => 'Sky Lounge Malaga',
+                'venue_type' => 'bar_lounge',
+                'capacity' => 150,
+                'place_id' => 'sky-lounge-place-id',
+                'formatted_address' => 'Calle Larios 12, Malaga',
+                'city' => 'Malaga',
+                'country' => 'Spain',
+                'latitude' => 36.7213,
+                'longitude' => -4.4214,
+                'photos' => ['https://example.com/sky-lounge.jpg'],
+            ],
+        ]);
+
+        $payload = [
+            'intent_type' => 'venue_promotion',
+            'title' => 'Rooftop bar available for community events',
+            'description' => 'Beautiful rooftop bar in the heart of Malaga available for community events.',
+            'preferred_city' => 'Malaga',
+            'media' => [
+                [
+                    'url' => 'https://example.com/promo-photo.jpg',
+                    'type' => 'image',
+                    'sort_order' => 0,
+                ],
+            ],
+            'availability_mode' => 'one_time',
+            'availability_start' => now()->addWeek()->format('Y-m-d'),
+            'offering' => ['venue', 'food_drink', 'discount'],
+            'goal' => 'more_visits',
+            'highlights' => ['good_location', 'free_samples'],
+        ];
+
+        $response = $this->actingAs($business)
+            ->postJson('/api/v1/kolabs', $payload);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.goal', 'more_visits')
+            ->assertJsonPath('data.highlights', ['good_location', 'free_samples']);
+
+        $this->assertDatabaseHas('kolabs', [
+            'creator_profile_id' => $business->id,
+            'intent_type' => 'venue_promotion',
+            'goal' => 'more_visits',
+        ]);
+    }
+
+    public function test_business_user_cannot_create_kolab_with_invalid_goal(): void
+    {
+        $business = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $business->id,
+            'primary_venue' => [
+                'name' => 'Sky Lounge Malaga',
+                'venue_type' => 'bar_lounge',
+                'capacity' => 150,
+                'place_id' => 'sky-lounge-place-id',
+                'formatted_address' => 'Calle Larios 12, Malaga',
+                'city' => 'Malaga',
+                'country' => 'Spain',
+                'latitude' => 36.7213,
+                'longitude' => -4.4214,
+                'photos' => ['https://example.com/sky-lounge.jpg'],
+            ],
+        ]);
+
+        $payload = [
+            'intent_type' => 'venue_promotion',
+            'title' => 'Rooftop bar available for community events',
+            'description' => 'Beautiful rooftop bar in the heart of Malaga available for community events.',
+            'preferred_city' => 'Malaga',
+            'media' => [
+                [
+                    'url' => 'https://example.com/promo-photo.jpg',
+                    'type' => 'image',
+                    'sort_order' => 0,
+                ],
+            ],
+            'availability_mode' => 'one_time',
+            'availability_start' => now()->addWeek()->format('Y-m-d'),
+            'offering' => ['venue', 'food_drink', 'discount'],
+            'goal' => 'not_a_real_goal',
+        ];
+
+        $response = $this->actingAs($business)
+            ->postJson('/api/v1/kolabs', $payload);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors('goal');
+    }
+
     public function test_business_user_cannot_create_kolab_with_legacy_photo_media_type(): void
     {
         $business = Profile::factory()->business()->create();
