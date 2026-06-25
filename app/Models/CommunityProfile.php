@@ -82,6 +82,24 @@ class CommunityProfile extends Model
     }
 
     /**
+     * Mirror profile_photo onto the base profile's avatar_url whenever it
+     * changes, regardless of which call site wrote it. The discovery feed
+     * and other surfaces fall back to Profile::avatar_url when a kolab has no
+     * media of its own, so that fallback must always reflect the user's
+     * current photo (it used to only sync to the separate `communities`
+     * table, leaving Profile::avatar_url stale or null).
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (self $communityProfile): void {
+            if ($communityProfile->wasChanged('profile_photo')) {
+                Profile::whereKey($communityProfile->profile_id)
+                    ->update(['avatar_url' => $communityProfile->profile_photo]);
+            }
+        });
+    }
+
+    /**
      * Whether this community is verified (status == verified).
      */
     public function isVerified(): bool
