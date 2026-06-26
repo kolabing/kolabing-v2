@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Enums\NotificationType;
 use App\Models\Application;
 use App\Models\BusinessSubscription;
 use App\Models\Kolab;
+use App\Models\Notification;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -105,6 +107,36 @@ class ApplicationDeclineWithdrawTest extends TestCase
             ->assertJsonPath('data.status', 'withdrawn');
 
         $this->assertTrue($application->fresh()->isWithdrawn());
+    }
+
+    public function test_withdraw_notifies_the_business_creator(): void
+    {
+        $business = Profile::factory()->business()->create();
+        $community = Profile::factory()->community()->create();
+
+        $opportunity = Kolab::factory()->published()->forCreator($business)->create(['title' => 'Summer Pop-Up']);
+        $application = Application::factory()->pending()->forKolab($opportunity)->forApplicant($community)->create();
+
+        $this->actingAs($community)
+            ->postJson("/api/v1/applications/{$application->id}/withdraw")
+            ->assertOk();
+
+        $creatorNotification = Notification::query()
+            ->where('profile_id', $business->id)
+            ->where('type', NotificationType::ApplicationWithdrawn)
+            ->where('target_type', 'application')
+            ->where('target_id', $application->id)
+            ->first();
+
+        $this->assertNotNull($creatorNotification, 'Expected the creator to receive an application_withdrawn notification.');
+        $this->assertSame('Application Withdrawn', $creatorNotification->title);
+        $this->assertStringContainsString('withdrew their application for "Summer Pop-Up".', $creatorNotification->body);
+
+        $this->assertDatabaseHas('notifications', [
+            'profile_id' => $community->id,
+            'type' => NotificationType::ApplicationWithdrawn->value,
+            'target_id' => $application->id,
+        ]);
     }
 
     public function test_creator_cannot_withdraw_application(): void

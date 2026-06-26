@@ -23,6 +23,7 @@ class CollaborationService
         private readonly GamificationWalletService $walletService,
         private readonly CollaborationFeedbackService $feedbackService,
         private readonly PostHogService $postHog,
+        private readonly NotificationService $notificationService,
     ) {}
 
     /**
@@ -104,7 +105,7 @@ class CollaborationService
      *
      * @throws CollaborationException
      */
-    public function activate(Collaboration $collaboration): Collaboration
+    public function activate(Collaboration $collaboration, ?Profile $actor = null): Collaboration
     {
         if ($collaboration->isInTerminalState()) {
             throw CollaborationException::alreadyInTerminalState($collaboration->status->value);
@@ -119,13 +120,20 @@ class CollaborationService
             'activated_at' => Carbon::now(),
         ]);
 
-        return $collaboration->fresh([
+        $fresh = $collaboration->fresh([
             'kolab',
             'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
             'application',
         ]);
+
+        $this->dispatchNotification(fn () => $this->notificationService->notifyCollaborationActivated(
+            $fresh,
+            $actor ?? $fresh->creatorProfile,
+        ));
+
+        return $fresh;
     }
 
     /**
@@ -163,13 +171,20 @@ class CollaborationService
             'completed_by_profile_id' => $caller?->id,
         ]);
 
-        return $collaboration->fresh([
+        $fresh = $collaboration->fresh([
             'kolab',
             'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
             'application',
         ]);
+
+        $this->dispatchNotification(fn () => $this->notificationService->notifyCollaborationCompleted(
+            $fresh,
+            $caller ?? $fresh->creatorProfile,
+        ));
+
+        return $fresh;
     }
 
     /**
@@ -191,13 +206,19 @@ class CollaborationService
             'completed_by_profile_id' => null,
         ]);
 
-        return $collaboration->fresh([
+        $fresh = $collaboration->fresh([
             'kolab',
             'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
             'application',
         ]);
+
+        $this->dispatchNotification(
+            fn () => $this->notificationService->notifyCollaborationCompleted($fresh, null),
+        );
+
+        return $fresh;
     }
 
     /**
@@ -218,13 +239,19 @@ class CollaborationService
             'auto_completed_at' => $now,
         ]);
 
-        return $collaboration->fresh([
+        $fresh = $collaboration->fresh([
             'kolab',
             'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
             'application',
         ]);
+
+        $this->dispatchNotification(
+            fn () => $this->notificationService->notifyCollaborationCompleted($fresh, null),
+        );
+
+        return $fresh;
     }
 
     /**
@@ -294,6 +321,10 @@ class CollaborationService
             'cancelled_by_role' => $cancelledBy?->user_type->value ?? 'maintainer',
         ]);
 
+        $this->dispatchNotification(
+            fn () => $this->notificationService->notifyCollaborationCancelled($fresh, $cancelledBy),
+        );
+
         return $fresh;
     }
 
@@ -331,7 +362,7 @@ class CollaborationService
         $businessProfileId = $this->resolveBusinessProfileId($creatorProfile, $applicantProfile);
         $communityProfileId = $this->resolveCommunityProfileId($creatorProfile, $applicantProfile);
 
-        return DB::transaction(function () use (
+        $collaboration = DB::transaction(function () use (
             $application,
             $creatorProfile,
             $applicantProfile,
@@ -365,6 +396,25 @@ class CollaborationService
                 'challenges',
             ]);
         });
+
+        $this->dispatchNotification(
+            fn () => $this->notificationService->notifyCollaborationCreated($collaboration),
+        );
+
+        return $collaboration;
+    }
+
+    /**
+     * Dispatch a collaboration notification, swallowing and reporting any
+     * failure so a push/notification error never breaks the state transition.
+     */
+    private function dispatchNotification(callable $callback): void
+    {
+        try {
+            $callback();
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     /**

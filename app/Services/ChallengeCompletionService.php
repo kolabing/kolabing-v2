@@ -12,6 +12,7 @@ use App\Models\EventCheckin;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ChallengeCompletionService
 {
@@ -32,6 +33,16 @@ class ChallengeCompletionService
         $event = Event::query()->findOrFail($data['event_id']);
         $verifierProfileId = $data['verifier_profile_id'];
 
+        // Structured audit context for every guard below, so a failed completion
+        // attempt is diagnosable from the logs (which precondition blocked it).
+        $ctx = [
+            'challenger_profile_id' => $challenger->id,
+            'verifier_profile_id' => $verifierProfileId,
+            'event_id' => $event->id,
+            'challenge_id' => $challenge->id,
+            'event_is_active' => $event->is_active,
+        ];
+
         // Validate: challenger is checked in to the event
         $challengerCheckedIn = EventCheckin::query()
             ->where('event_id', $event->id)
@@ -39,6 +50,7 @@ class ChallengeCompletionService
             ->exists();
 
         if (! $challengerCheckedIn) {
+            Log::warning('Challenge initiate blocked: challenger not checked in', $ctx);
             throw new \InvalidArgumentException('You must be checked in to the event to initiate a challenge.');
         }
 
@@ -49,6 +61,7 @@ class ChallengeCompletionService
             ->exists();
 
         if (! $verifierCheckedIn) {
+            Log::warning('Challenge initiate blocked: verifier not checked in', $ctx);
             throw new \InvalidArgumentException('The verifier must be checked in to the event.');
         }
 
@@ -61,18 +74,28 @@ class ChallengeCompletionService
             ->exists();
 
         if ($existing) {
+            Log::warning('Challenge initiate blocked: duplicate pair', $ctx);
             throw new \LogicException('This challenge has already been initiated between these two attendees.');
         }
 
-        // Validate: challenger hasn't exceeded event's max_challenges_per_attendee
+        // Validate: challenger hasn't exceeded event's max_challenges_per_attendee.
+        // Guard the null case: a raw-created event with no value must not coerce
+        // `0 >= null` to true and block the very first challenge.
+        $maxPerAttendee = $event->max_challenges_per_attendee ?? 10;
         $completedCount = ChallengeCompletion::query()
             ->where('event_id', $event->id)
             ->where('challenger_profile_id', $challenger->id)
             ->count();
 
-        if ($completedCount >= $event->max_challenges_per_attendee) {
+        if ($completedCount >= $maxPerAttendee) {
+            Log::warning('Challenge initiate blocked: max challenges reached', $ctx + [
+                'completed_count' => $completedCount,
+                'max_per_attendee' => $maxPerAttendee,
+            ]);
             throw new \LogicException('You have reached the maximum number of challenges for this event.');
         }
+
+        Log::info('Challenge initiated', $ctx);
 
         $completion = ChallengeCompletion::query()->create([
             'challenge_id' => $challenge->id,
@@ -92,10 +115,19 @@ class ChallengeCompletionService
     public function verify(Profile $verifier, ChallengeCompletion $completion): ChallengeCompletion
     {
         if ($completion->verifier_profile_id !== $verifier->id) {
+            Log::warning('Challenge verify blocked: wrong verifier', [
+                'completion_id' => $completion->id,
+                'acting_profile_id' => $verifier->id,
+                'designated_verifier_id' => $completion->verifier_profile_id,
+            ]);
             throw new \InvalidArgumentException('You are not the designated verifier for this challenge.');
         }
 
         if (! $completion->isPending()) {
+            Log::warning('Challenge verify blocked: not pending', [
+                'completion_id' => $completion->id,
+                'status' => $completion->status->value ?? (string) $completion->status,
+            ]);
             throw new \LogicException('This challenge completion has already been processed.');
         }
 

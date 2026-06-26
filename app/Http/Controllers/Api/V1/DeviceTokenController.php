@@ -23,10 +23,16 @@ class DeviceTokenController extends Controller
 
         $validated = $request->validated();
 
-        $profile->update([
+        $attributes = [
             'device_token' => $validated['token'],
             'device_platform' => $validated['platform'],
-        ]);
+        ];
+
+        if (! empty($validated['locale'])) {
+            $attributes['preferred_locale'] = $validated['locale'];
+        }
+
+        $profile->update($attributes);
 
         return response()->json([
             'success' => true,

@@ -52,11 +52,12 @@ class BadgeService
                 ]);
                 $awarded[] = $badge;
 
-                $this->notificationService->createNotification(
+                $this->notificationService->createLocalizedNotification(
                     recipient: $profile,
                     type: NotificationType::BadgeAwarded,
-                    title: 'Badge Earned!',
-                    body: "You earned the \"{$badge->name}\" badge!",
+                    titleKey: 'notifications.badge.awarded.title',
+                    bodyKey: 'notifications.badge.awarded.body',
+                    replace: ['badge' => $badge->name],
                     targetId: $badge->id,
                     targetType: 'badge',
                 );

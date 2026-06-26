@@ -35,11 +35,11 @@ class CommunityVerificationService
 
         $owner = $communityProfile->loadMissing('profile')->profile;
         if ($owner !== null) {
-            $this->notifications->createNotification(
+            $this->notifications->createLocalizedNotification(
                 recipient: $owner,
                 type: NotificationType::CommunityVerified,
-                title: __('You got verified ✅'),
-                body: __('Your community is now verified. Businesses will see your verified badge.'),
+                titleKey: 'notifications.community.verified.title',
+                bodyKey: 'notifications.community.verified.body',
                 targetId: $communityProfile->id,
                 targetType: 'community_profile',
             );
@@ -63,11 +63,12 @@ class CommunityVerificationService
 
         $owner = $communityProfile->loadMissing('profile')->profile;
         if ($owner !== null) {
-            $this->notifications->createNotification(
+            $this->notifications->createLocalizedNotification(
                 recipient: $owner,
                 type: NotificationType::CommunityVerificationRejected,
-                title: __('Verification needs changes'),
-                body: __('Your community verification was not approved: :reason', ['reason' => $reason]),
+                titleKey: 'notifications.community.verification_rejected.title',
+                bodyKey: 'notifications.community.verification_rejected.body',
+                replace: ['reason' => $reason],
                 targetId: $communityProfile->id,
                 targetType: 'community_profile',
             );
