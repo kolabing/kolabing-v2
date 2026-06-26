@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CollaborationService
 {
@@ -165,6 +166,11 @@ class CollaborationService
             'completed_at' => Carbon::now(),
         ]);
 
+        Log::info('Collaboration completed', [
+            'collaboration_id' => $collaboration->id,
+            'completed_by_profile_id' => $caller?->id,
+        ]);
+
         $fresh = $collaboration->fresh([
             'kolab',
             'kolab.creatorProfile',
@@ -258,6 +264,16 @@ class CollaborationService
         if ($pending === []) {
             return;
         }
+
+        // Audit: a completion blocked by the feedback gate is the most common
+        // "complete doesn't work" report — log who is still owed so it's
+        // diagnosable from prod logs.
+        Log::warning('Collaboration complete blocked by feedback gate', [
+            'collaboration_id' => $collaboration->id,
+            'caller_profile_id' => $caller?->id,
+            'caller_user_type' => $caller?->user_type?->value,
+            'pending_feedback_from' => $pending,
+        ]);
 
         if ($caller !== null && in_array($caller->user_type->value, $pending, true)) {
             throw CollaborationException::awaitingOwnFeedback();

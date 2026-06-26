@@ -19,15 +19,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Auto-completion window
+    | Auto-completion grace timer (mutual-confirm)
     |--------------------------------------------------------------------------
     |
-    | The scheduled command app:auto-complete-stale-collaborations completes
-    | collabs where scheduled_date + days threshold has passed AND at least one
-    | feedback row exists. Per Q9 in the 2026-06-01 feedback-gate plan.
+    | Completion stays MUTUAL: a kolab marks completed once BOTH parties submit
+    | feedback. But the clock starts when the FIRST party confirms — the other
+    | then has this many days to confirm, after which
+    | app:auto-complete-stale-collaborations auto-completes it. So the grace
+    | window is measured from the earliest collaboration_feedback row, NOT from
+    | scheduled_date. Default 3 days (Daniel, 2026-06-22).
     |
     */
-    'auto_complete_threshold_days' => env('COLLABORATIONS_AUTO_COMPLETE_DAYS', 7),
-
-    'auto_complete_requires_feedback_rows' => env('COLLABORATIONS_AUTO_COMPLETE_REQUIRES_FEEDBACK', true),
+    'auto_complete_grace_days_after_first_feedback' => (int) env('COLLABORATIONS_AUTO_COMPLETE_GRACE_DAYS', 3),
 ];

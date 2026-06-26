@@ -88,10 +88,12 @@ class CollaborationCompletionTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_auto_complete_command_promotes_stale_collab_with_feedback(): void
+    public function test_auto_complete_command_promotes_collab_when_first_feedback_past_grace(): void
     {
         ['collab' => $collab, 'business' => $business] = $this->kolabWithActiveCollaboration();
 
+        // First party confirmed more than the grace window (3 days) ago and the
+        // partner never confirmed -> the grace timer has elapsed.
         CollaborationFeedback::factory()->create([
             'collaboration_id' => $collab->id,
             'reviewer_profile_id' => $business->id,
@@ -99,6 +101,7 @@ class CollaborationCompletionTest extends TestCase
             'reviewer_role' => 'creator',
             'rating' => 5,
             'mirrored_from_review' => false,
+            'created_at' => now()->subDays(4),
         ]);
 
         Artisan::call('app:auto-complete-stale-collaborations');
@@ -106,6 +109,26 @@ class CollaborationCompletionTest extends TestCase
         $fresh = $collab->fresh();
         $this->assertSame(CollaborationStatus::Completed, $fresh->status);
         $this->assertNotNull($fresh->auto_completed_at);
+    }
+
+    public function test_auto_complete_command_skips_when_first_feedback_within_grace(): void
+    {
+        ['collab' => $collab, 'business' => $business] = $this->kolabWithActiveCollaboration();
+
+        // First party just confirmed -> partner still inside the grace window.
+        CollaborationFeedback::factory()->create([
+            'collaboration_id' => $collab->id,
+            'reviewer_profile_id' => $business->id,
+            'reviewer_type' => 'business',
+            'reviewer_role' => 'creator',
+            'rating' => 5,
+            'mirrored_from_review' => false,
+            'created_at' => now()->subDay(),
+        ]);
+
+        Artisan::call('app:auto-complete-stale-collaborations');
+
+        $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
     }
 
     public function test_auto_complete_command_skips_when_no_feedback_rows(): void
@@ -128,6 +151,7 @@ class CollaborationCompletionTest extends TestCase
             'reviewer_role' => 'creator',
             'rating' => 5,
             'mirrored_from_review' => false,
+            'created_at' => now()->subDays(4),
         ]);
 
         Artisan::call('app:auto-complete-stale-collaborations', ['--dry-run' => true]);

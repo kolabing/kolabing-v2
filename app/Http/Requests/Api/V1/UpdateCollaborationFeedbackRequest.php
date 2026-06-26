@@ -33,6 +33,7 @@ class UpdateCollaborationFeedbackRequest extends FormRequest
             'rating' => ['sometimes', 'integer', 'between:1,5'],
             'expectation_match' => ['sometimes', 'boolean'],
             'would_recommend' => ['sometimes', 'boolean'],
+            'would_collaborate_again' => ['sometimes', 'boolean'],
             'posts_reels' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:10000'],
 
             'stories_posted' => [$isBusiness ? 'sometimes' : 'prohibited', 'nullable', 'integer', 'min:0', 'max:10000'],

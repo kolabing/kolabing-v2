@@ -46,12 +46,12 @@ class GamificationCollaborationIntegrationTest extends TestCase
 
         $this->actingAs($creator)
             ->postJson("/api/v1/collaborations/{$collaboration->id}/feedback", [
-                'rating' => 5, 'expectation_match' => true, 'would_recommend' => true,
+                'rating' => 5, 'expectation_match' => true, 'would_recommend' => true, 'would_collaborate_again' => true,
             ])->assertCreated();
 
         $this->actingAs($applicant)
             ->postJson("/api/v1/collaborations/{$collaboration->id}/feedback", [
-                'rating' => 5, 'expectation_match' => true, 'would_recommend' => true,
+                'rating' => 5, 'expectation_match' => true, 'would_recommend' => true, 'would_collaborate_again' => true,
             ])->assertCreated();
 
         // Both parties earn 10 XP for participation + 50 XP first-kolab bonus.
@@ -95,7 +95,7 @@ class GamificationCollaborationIntegrationTest extends TestCase
         foreach ([$creator, $applicant] as $actor) {
             $this->actingAs($actor)
                 ->postJson("/api/v1/collaborations/{$collaboration->id}/feedback", [
-                    'rating' => 4, 'expectation_match' => true, 'would_recommend' => true,
+                    'rating' => 4, 'expectation_match' => true, 'would_recommend' => true, 'would_collaborate_again' => true,
                 ])->assertCreated();
         }
 
@@ -131,7 +131,7 @@ class GamificationCollaborationIntegrationTest extends TestCase
         foreach ([$creator, $applicant] as $actor) {
             $this->actingAs($actor)
                 ->postJson("/api/v1/collaborations/{$collaboration->id}/feedback", [
-                    'rating' => 5, 'expectation_match' => true, 'would_recommend' => true,
+                    'rating' => 5, 'expectation_match' => true, 'would_recommend' => true, 'would_collaborate_again' => true,
                 ])->assertCreated();
         }
 
