@@ -227,6 +227,13 @@ From [docs/ROLES-BACKEND-DB-MAP.md](ROLES-BACKEND-DB-MAP.md) §8 — still-open 
 **Follow-up (new):**
 - [ ] **Remove `/opportunities` API shim + port freemium limit & portfolio photos to `/kolabs` + drop `collab_opportunities` table** — #31 (gated on mobile `kolabing-app` #20). The freemium collab limit + portfolio-photo handling currently live only on the legacy `OpportunityService` path; port them onto `/kolabs` create, then retire `OpportunityController`/`OpportunityService` and drop the archived table + `collab_opportunity_id` columns. Owner: **backend** (after mobile migrates off `/opportunities`).
 
+## 10. Business Kolab creation flow redesign
+
+**Status:** Backend half done (this PR, `feat/business-kolab-flow-backend`): `goal`/`highlights` columns on `kolabs`, 4 new admin-managed `OfferOption` taxonomy kinds (goal/product_interaction/venue_fit/kolab_highlight) + lookup endpoints, expanded `deliverable` options, immediate-availability validation fix. Frontend half (8 screen reworks in `kolabing-app`) not started yet — plan at `docs/superpowers/plans/2026-06-24-business-kolab-flow-frontend.md` in `kolabing-app`. Design spec: `docs/superpowers/specs/2026-06-24-business-kolab-creation-flow-redesign.md`.
+
+**Incomplete (in flight):**
+- [ ] `kolabing-app`: implement the 8 frontend tasks (Goal step, offer-first Offering reorder, dynamic best-fit-community/venue-fit/product-interaction chips, Past Events relabel + highlights, immediate availability mode, media defaulting, review restyle). Owner: **app**.
+
 ---
 
 ## How to use this file

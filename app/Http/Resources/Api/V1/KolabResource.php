@@ -36,6 +36,8 @@ class KolabResource extends JsonResource
             ),
             'offer_headline' => $this->resolveOfferHeadline(),
             'base_offer' => $this->resolveBaseOffer(),
+            'goal' => $this->goal,
+            'highlights' => $this->highlights ?? [],
             'negotiation_triggers' => $this->when(
                 $this->shouldExposeNegotiationTriggers($request),
                 fn () => $this->negotiation_triggers ?? []

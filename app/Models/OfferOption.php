@@ -12,9 +12,12 @@ use Illuminate\Database\Eloquent\Model;
  * An admin-managed option in one of the kolab offer taxonomies, keyed by `kind`:
  * 'offering' (what a business offers), 'deliverable' (what's offered in return —
  * community offers_in_return / business expects), 'need' (community asks),
- * 'product_type' (product-promotion picker + product onboarding), or 'venue_type'
- * (venue onboarding + venue-promotion). Source of truth the app reads via
- * /lookup/{offerings,deliverables,needs,product-types,venue-types}.
+ * 'product_type' (product-promotion picker + product onboarding), 'venue_type'
+ * (venue onboarding + venue-promotion), 'goal' (kolab business goal),
+ * 'product_interaction' (how business interacts with product),
+ * 'venue_fit' (how venue fits business needs), or 'kolab_highlight'
+ * (what's highlighted about the kolab). Source of truth the app reads via
+ * /lookup/{offerings,deliverables,needs,product-types,venue-types,goals,product-interactions,venue-fits,kolab-highlights}.
  *
  * @property string $id
  * @property string $kind
@@ -42,6 +45,14 @@ class OfferOption extends Model
 
     public const KIND_VENUE_TYPE = 'venue_type';
 
+    public const KIND_GOAL = 'goal';
+
+    public const KIND_PRODUCT_INTERACTION = 'product_interaction';
+
+    public const KIND_VENUE_FIT = 'venue_fit';
+
+    public const KIND_KOLAB_HIGHLIGHT = 'kolab_highlight';
+
     /** @var list<string> */
     public const KINDS = [
         self::KIND_OFFERING,
@@ -49,6 +60,10 @@ class OfferOption extends Model
         self::KIND_NEED,
         self::KIND_PRODUCT_TYPE,
         self::KIND_VENUE_TYPE,
+        self::KIND_GOAL,
+        self::KIND_PRODUCT_INTERACTION,
+        self::KIND_VENUE_FIT,
+        self::KIND_KOLAB_HIGHLIGHT,
     ];
 
     /**

@@ -138,6 +138,18 @@ Route::prefix('v1')->group(function (): void {
     Route::get('lookup/venue-types', [LookupController::class, 'venueTypes'])
         ->name('api.v1.lookup.venue-types');
 
+    Route::get('lookup/goals', [LookupController::class, 'goals'])
+        ->name('api.v1.lookup.goals');
+
+    Route::get('lookup/product-interactions', [LookupController::class, 'productInteractions'])
+        ->name('api.v1.lookup.product-interactions');
+
+    Route::get('lookup/venue-fits', [LookupController::class, 'venueFits'])
+        ->name('api.v1.lookup.venue-fits');
+
+    Route::get('lookup/kolab-highlights', [LookupController::class, 'kolabHighlights'])
+        ->name('api.v1.lookup.kolab-highlights');
+
     // Universal @handle availability check (leaks no PII; usable pre-auth too).
     Route::get('handle/available', [LookupController::class, 'handleAvailable'])
         ->name('api.v1.handle.available');

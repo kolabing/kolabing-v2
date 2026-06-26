@@ -31,10 +31,18 @@ class OfferOptionController extends Controller
         OfferOption::KIND_NEED => 'Needs',
         OfferOption::KIND_PRODUCT_TYPE => 'Product types',
         OfferOption::KIND_VENUE_TYPE => 'Venue types',
+        OfferOption::KIND_GOAL => 'Goals',
+        OfferOption::KIND_PRODUCT_INTERACTION => 'Product interactions',
+        OfferOption::KIND_VENUE_FIT => 'Venue fits',
+        OfferOption::KIND_KOLAB_HIGHLIGHT => 'Kolab highlights',
     ];
 
     /** Kinds stored as a scalar string column on kolabs (not a JSON array). */
-    private const SCALAR_KINDS = [OfferOption::KIND_PRODUCT_TYPE, OfferOption::KIND_VENUE_TYPE];
+    private const SCALAR_KINDS = [
+        OfferOption::KIND_PRODUCT_TYPE,
+        OfferOption::KIND_VENUE_TYPE,
+        OfferOption::KIND_GOAL,
+    ];
 
     private function resolveKind(?string $kind): string
     {
@@ -50,8 +58,16 @@ class OfferOptionController extends Controller
             OfferOption::KIND_NEED => ['needs'],
             OfferOption::KIND_PRODUCT_TYPE => ['product_type'],
             OfferOption::KIND_VENUE_TYPE => ['venue_type'],
+            OfferOption::KIND_GOAL => ['goal'],
+            OfferOption::KIND_PRODUCT_INTERACTION => [],
+            OfferOption::KIND_VENUE_FIT => [],
+            OfferOption::KIND_KOLAB_HIGHLIGHT => ['highlights'],
             default => [],
         };
+
+        if ($columns === []) {
+            return 0;
+        }
 
         $isScalar = in_array($kind, self::SCALAR_KINDS, true);
 
