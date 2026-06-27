@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Artisan;
  * Idempotent: the seeder is keyed on `slug`, so re-running only upserts.
  *
  * The seeder also sets `app_visible` per mission (Maria's curated v1 app set,
- * kolabing-v2#49) — only ~17 of the ~49 seeded missions are visible in the app;
+ * kolabing-v2#49) — only 18 of the ~49 seeded missions are visible in the app;
  * the rest stay seeded for admin visibility/future activation.
  */
 return new class extends Migration
