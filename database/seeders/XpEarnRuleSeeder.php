@@ -18,6 +18,7 @@ class XpEarnRuleSeeder extends Seeder
     {
         $defs = [
             PointEventType::CollaborationComplete->value => ['label' => 'Complete a Kolab', 'position' => 10],
+            PointEventType::CollaborationCompletionConfirmed->value => ['label' => 'Confirm Kolab completion', 'position' => 5],
             PointEventType::KolabPublished->value => ['label' => 'Publish a Kolab', 'position' => 20],
             PointEventType::FirstKolabBonus->value => ['label' => 'First Kolab bonus', 'position' => 30],
             PointEventType::ReviewPosted->value => ['label' => 'Post a review', 'position' => 40],

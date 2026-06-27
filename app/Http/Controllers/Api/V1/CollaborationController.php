@@ -9,6 +9,7 @@ use App\Exceptions\CollaborationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\CancelCollaborationRequest;
 use App\Http\Requests\Api\V1\CompleteCollaborationRequest;
+use App\Http\Requests\Api\V1\StoreCollaborationCompletionRequest;
 use App\Http\Requests\Api\V1\StoreCollaborationFeedbackRequest;
 use App\Http\Requests\Api\V1\StoreCollaborationReviewRequest;
 use App\Http\Requests\Api\V1\UpdateCollaborationFeedbackRequest;
@@ -17,6 +18,7 @@ use App\Http\Resources\Api\V1\CollaborationResource;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
 use App\Models\Profile;
+use App\Services\CollaborationCompletionService;
 use App\Services\CollaborationFeedbackService;
 use App\Services\CollaborationService;
 use App\Services\GamificationWalletService;
@@ -29,6 +31,7 @@ class CollaborationController extends Controller
         private readonly CollaborationService $collaborationService,
         private readonly GamificationWalletService $gamificationService,
         private readonly CollaborationFeedbackService $feedbackService,
+        private readonly CollaborationCompletionService $completionService,
     ) {}
 
     /**
@@ -157,8 +160,53 @@ class CollaborationController extends Controller
     }
 
     /**
-     * Submit the caller's rich completion feedback. Per the 2026-06-01 feedback
-     * gate plan (§Q7): XP fires per party here, not on /complete.
+     * Submit (or update) the caller's lightweight completion confirmation
+     * (yes/no/not_yet). This — not rich feedback — gates /complete as of the
+     * 2026-06-26 completion-flow simplification (PR 1). XP fires once, on
+     * first submission.
+     *
+     * POST /api/v1/collaborations/{collaboration}/completion
+     */
+    public function submitCompletion(
+        StoreCollaborationCompletionRequest $request,
+        Collaboration $collaboration,
+    ): JsonResponse {
+        /** @var Profile $confirmer */
+        $confirmer = $request->user();
+
+        $this->authorize('view', $collaboration);
+
+        $validated = $request->validated();
+
+        try {
+            $completion = $this->completionService->submit(
+                $collaboration,
+                $confirmer,
+                $validated['status'],
+                $validated['note'] ?? null,
+            );
+        } catch (CollaborationException $e) {
+            $context = $e->getContext();
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error_code' => $context['error_code'] ?? 'completion_confirmation_error',
+                'errors' => $context,
+            ], $e->getStatusCode());
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Completion confirmation submitted.'),
+            'data' => $completion,
+        ], 201);
+    }
+
+    /**
+     * Submit the caller's rich completion feedback. Optional impact data —
+     * no longer gates /complete (see submitCompletion above). Per the
+     * 2026-06-01 feedback gate plan (§Q7): XP fires per party here.
      *
      * POST /api/v1/collaborations/{collaboration}/feedback
      */

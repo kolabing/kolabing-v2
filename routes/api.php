@@ -868,7 +868,13 @@ Route::prefix('v1')->group(function (): void {
         Route::post('collaborations/{collaboration}/review', [CollaborationController::class, 'review'])
             ->name('api.v1.collaborations.review');
 
-        // Rich, role-specific completion feedback (gates the /complete endpoint).
+        // Lightweight, required completion confirmation (yes/no/not_yet).
+        // Gates the /complete endpoint as of the 2026-06-26 simplification.
+        Route::post('collaborations/{collaboration}/completion', [CollaborationController::class, 'submitCompletion'])
+            ->name('api.v1.collaborations.completion.store');
+
+        // Rich, role-specific completion feedback. Optional impact data —
+        // no longer gates /complete.
         Route::post('collaborations/{collaboration}/feedback', [CollaborationController::class, 'feedback'])
             ->name('api.v1.collaborations.feedback.store');
         Route::put('collaborations/{collaboration}/feedback', [CollaborationController::class, 'updateFeedback'])

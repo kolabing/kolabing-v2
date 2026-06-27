@@ -129,6 +129,18 @@ class Collaboration extends Model
     }
 
     /**
+     * Lightweight completion confirmations (yes/no/not_yet), one per
+     * participant. Gates /complete (PR 1, 2026-06-26) — distinct from the
+     * rich, optional `feedbacks()` relation.
+     *
+     * @return HasMany<CollaborationCompletion, $this>
+     */
+    public function completions(): HasMany
+    {
+        return $this->hasMany(CollaborationCompletion::class);
+    }
+
+    /**
      * Get the business profile involved in this collaboration.
      *
      * @return BelongsTo<BusinessProfile, $this>

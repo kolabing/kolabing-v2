@@ -71,13 +71,23 @@ class GamificationCollaborationIntegrationTest extends TestCase
             'reference_id' => $collaboration->id,
         ]);
 
-        // /complete itself awards no XP — pure metadata flip.
+        // /complete now gates on completion confirmations, not feedback (PR 1).
+        foreach ([$creator, $applicant] as $actor) {
+            $this->actingAs($actor)
+                ->postJson("/api/v1/collaborations/{$collaboration->id}/completion", ['status' => 'yes'])
+                ->assertCreated();
+        }
+
+        // Each confirmation awards 10 more XP; /complete itself still awards none.
+        $this->assertDatabaseHas('wallets', ['profile_id' => $creator->id, 'points' => 70]);
+        $this->assertDatabaseHas('wallets', ['profile_id' => $applicant->id, 'points' => 70]);
+
         $this->actingAs($creator)
             ->postJson("/api/v1/collaborations/{$collaboration->id}/complete")
             ->assertOk();
 
-        $this->assertDatabaseHas('wallets', ['profile_id' => $creator->id, 'points' => 60]);
-        $this->assertDatabaseHas('wallets', ['profile_id' => $applicant->id, 'points' => 60]);
+        $this->assertDatabaseHas('wallets', ['profile_id' => $creator->id, 'points' => 70]);
+        $this->assertDatabaseHas('wallets', ['profile_id' => $applicant->id, 'points' => 70]);
     }
 
     public function test_completing_twice_returns_422_terminal_state(): void
@@ -91,11 +101,11 @@ class GamificationCollaborationIntegrationTest extends TestCase
             ->scheduled()
             ->create();
 
-        // Submit feedback from both sides so the gate is satisfied.
+        // Submit completion confirmations from both sides so the gate is satisfied.
         foreach ([$creator, $applicant] as $actor) {
             $this->actingAs($actor)
-                ->postJson("/api/v1/collaborations/{$collaboration->id}/feedback", [
-                    'rating' => 4, 'expectation_match' => true, 'would_recommend' => true, 'would_collaborate_again' => true,
+                ->postJson("/api/v1/collaborations/{$collaboration->id}/completion", [
+                    'status' => 'yes',
                 ])->assertCreated();
         }
 

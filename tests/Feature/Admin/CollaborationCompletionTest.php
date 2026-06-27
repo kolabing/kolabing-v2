@@ -9,7 +9,7 @@ use App\Enums\CollaborationStatus;
 use App\Enums\UserType;
 use App\Models\Application;
 use App\Models\Collaboration;
-use App\Models\CollaborationFeedback;
+use App\Models\CollaborationCompletion;
 use App\Models\Kolab;
 use App\Models\Profile;
 use App\Models\User;
@@ -88,19 +88,18 @@ class CollaborationCompletionTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_auto_complete_command_promotes_collab_when_first_feedback_past_grace(): void
+    public function test_auto_complete_command_completes_when_one_yes_and_partner_never_answered(): void
     {
+        // Safest-MVP decision (2026-06-27): one 'yes' older than the grace
+        // window + total partner silence IS auto-completed. This is the one
+        // case the feature is designed for.
         ['collab' => $collab, 'business' => $business] = $this->kolabWithActiveCollaboration();
 
-        // First party confirmed more than the grace window (3 days) ago and the
-        // partner never confirmed -> the grace timer has elapsed.
-        CollaborationFeedback::factory()->create([
+        CollaborationCompletion::factory()->create([
             'collaboration_id' => $collab->id,
-            'reviewer_profile_id' => $business->id,
-            'reviewer_type' => 'business',
-            'reviewer_role' => 'creator',
-            'rating' => 5,
-            'mirrored_from_review' => false,
+            'profile_id' => $business->id,
+            'role' => 'creator',
+            'status' => 'yes',
             'created_at' => now()->subDays(4),
         ]);
 
@@ -111,18 +110,16 @@ class CollaborationCompletionTest extends TestCase
         $this->assertNotNull($fresh->auto_completed_at);
     }
 
-    public function test_auto_complete_command_skips_when_first_feedback_within_grace(): void
+    public function test_auto_complete_command_skips_when_first_completion_confirmation_within_grace(): void
     {
         ['collab' => $collab, 'business' => $business] = $this->kolabWithActiveCollaboration();
 
         // First party just confirmed -> partner still inside the grace window.
-        CollaborationFeedback::factory()->create([
+        CollaborationCompletion::factory()->create([
             'collaboration_id' => $collab->id,
-            'reviewer_profile_id' => $business->id,
-            'reviewer_type' => 'business',
-            'reviewer_role' => 'creator',
-            'rating' => 5,
-            'mirrored_from_review' => false,
+            'profile_id' => $business->id,
+            'role' => 'creator',
+            'status' => 'yes',
             'created_at' => now()->subDay(),
         ]);
 
@@ -131,9 +128,73 @@ class CollaborationCompletionTest extends TestCase
         $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
     }
 
-    public function test_auto_complete_command_skips_when_no_feedback_rows(): void
+    public function test_auto_complete_command_skips_when_no_completion_confirmation_rows(): void
     {
         ['collab' => $collab] = $this->kolabWithActiveCollaboration();
+
+        Artisan::call('app:auto-complete-stale-collaborations');
+
+        $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
+    }
+
+    public function test_auto_complete_command_skips_when_someone_said_no(): void
+    {
+        ['collab' => $collab, 'business' => $business] = $this->kolabWithActiveCollaboration();
+
+        // Old enough to clear the grace window, but it's an explicit 'no' —
+        // auto-complete must never paper over that signal.
+        CollaborationCompletion::factory()->no()->create([
+            'collaboration_id' => $collab->id,
+            'profile_id' => $business->id,
+            'role' => 'creator',
+            'created_at' => now()->subDays(4),
+        ]);
+
+        Artisan::call('app:auto-complete-stale-collaborations');
+
+        $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
+    }
+
+    public function test_auto_complete_command_skips_when_one_yes_and_partner_said_not_yet(): void
+    {
+        ['collab' => $collab, 'business' => $business, 'community' => $community] = $this->kolabWithActiveCollaboration();
+
+        CollaborationCompletion::factory()->create([
+            'collaboration_id' => $collab->id,
+            'profile_id' => $business->id,
+            'role' => 'creator',
+            'status' => 'yes',
+            'created_at' => now()->subDays(4),
+        ]);
+        // Partner explicitly asked to wait — a real signal, not silence.
+        CollaborationCompletion::factory()->notYet()->create([
+            'collaboration_id' => $collab->id,
+            'profile_id' => $community->id,
+            'role' => 'applicant',
+            'created_at' => now()->subDay(),
+        ]);
+
+        Artisan::call('app:auto-complete-stale-collaborations');
+
+        $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
+    }
+
+    public function test_auto_complete_command_skips_when_both_said_not_yet(): void
+    {
+        ['collab' => $collab, 'business' => $business, 'community' => $community] = $this->kolabWithActiveCollaboration();
+
+        CollaborationCompletion::factory()->notYet()->create([
+            'collaboration_id' => $collab->id,
+            'profile_id' => $business->id,
+            'role' => 'creator',
+            'created_at' => now()->subDays(4),
+        ]);
+        CollaborationCompletion::factory()->notYet()->create([
+            'collaboration_id' => $collab->id,
+            'profile_id' => $community->id,
+            'role' => 'applicant',
+            'created_at' => now()->subDays(4),
+        ]);
 
         Artisan::call('app:auto-complete-stale-collaborations');
 
@@ -144,13 +205,11 @@ class CollaborationCompletionTest extends TestCase
     {
         ['collab' => $collab, 'business' => $business] = $this->kolabWithActiveCollaboration();
 
-        CollaborationFeedback::factory()->create([
+        CollaborationCompletion::factory()->create([
             'collaboration_id' => $collab->id,
-            'reviewer_profile_id' => $business->id,
-            'reviewer_type' => 'business',
-            'reviewer_role' => 'creator',
-            'rating' => 5,
-            'mirrored_from_review' => false,
+            'profile_id' => $business->id,
+            'role' => 'creator',
+            'status' => 'yes',
             'created_at' => now()->subDays(4),
         ]);
 

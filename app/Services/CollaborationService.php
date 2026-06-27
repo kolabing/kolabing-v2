@@ -22,6 +22,7 @@ class CollaborationService
     public function __construct(
         private readonly GamificationWalletService $walletService,
         private readonly CollaborationFeedbackService $feedbackService,
+        private readonly CollaborationCompletionService $completionService,
         private readonly PostHogService $postHog,
         private readonly NotificationService $notificationService,
     ) {}
@@ -60,6 +61,7 @@ class CollaborationService
                 'challenges',
                 'challengeBonuses',
                 'feedbacks',
+                'completions',
                 'reviews',
             ])
             ->orderByDesc('created_at')
@@ -93,6 +95,7 @@ class CollaborationService
                 'challenges',
                 'challengeBonuses',
                 'feedbacks',
+                'completions',
                 'reviews',
             ])
             ->findOrFail($id);
@@ -138,12 +141,15 @@ class CollaborationService
 
     /**
      * Complete an active collaboration. The caller must have submitted their
-     * own feedback row and the partner must have too. XP is NOT awarded here
-     * — each party's CollaborationComplete XP fires when they POST /feedback.
+     * own completion confirmation (yes/no/not_yet) and the partner must have
+     * too, both answering 'yes'. XP for confirming fires per party on
+     * /completion-confirmation, not here. Rich /feedback stays optional and
+     * is no longer part of this gate (PR 1, 2026-06-26).
      *
-     * Gating can be disabled via the `collaborations.complete_requires_feedback`
-     * config (true by default) — provides a soft-rollout knob if a mobile
-     * cutover regresses.
+     * Gating can be disabled via the
+     * `collaborations.complete_requires_completion_confirmation` config
+     * (true by default) — provides a soft-rollout knob if a mobile cutover
+     * regresses.
      *
      * @throws CollaborationException
      */
@@ -157,8 +163,8 @@ class CollaborationService
             throw CollaborationException::cannotComplete($collaboration->status->value);
         }
 
-        if (config('collaborations.complete_requires_feedback', true) === true) {
-            $this->enforceFeedbackGate($collaboration, $caller);
+        if (config('collaborations.complete_requires_completion_confirmation', true) === true) {
+            $this->completionService->enforceGate($collaboration, $caller);
         }
 
         $collaboration->update([
@@ -252,34 +258,6 @@ class CollaborationService
         );
 
         return $fresh;
-    }
-
-    /**
-     * @throws CollaborationException
-     */
-    private function enforceFeedbackGate(Collaboration $collaboration, ?Profile $caller): void
-    {
-        $pending = $this->feedbackService->pendingFeedbackFrom($collaboration);
-
-        if ($pending === []) {
-            return;
-        }
-
-        // Audit: a completion blocked by the feedback gate is the most common
-        // "complete doesn't work" report — log who is still owed so it's
-        // diagnosable from prod logs.
-        Log::warning('Collaboration complete blocked by feedback gate', [
-            'collaboration_id' => $collaboration->id,
-            'caller_profile_id' => $caller?->id,
-            'caller_user_type' => $caller?->user_type?->value,
-            'pending_feedback_from' => $pending,
-        ]);
-
-        if ($caller !== null && in_array($caller->user_type->value, $pending, true)) {
-            throw CollaborationException::awaitingOwnFeedback();
-        }
-
-        throw CollaborationException::awaitingPartnerFeedback($pending);
     }
 
     /**
