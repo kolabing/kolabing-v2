@@ -36,8 +36,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read Event|null $event
  * @property-read \Illuminate\Database\Eloquent\Collection<int, ChallengeCompletion> $completions
  * @property-read \Illuminate\Database\Eloquent\Collection<int, ChallengeProgress> $progress
- * @property ChallengeProgress|null $current_progress Viewer's current-period progress, set transiently by MissionController
- * @property string|null $current_period_key Viewer's current-period key, set transiently by MissionController
  */
 class Challenge extends Model
 {

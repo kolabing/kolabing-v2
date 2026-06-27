@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\DTOs\MissionWithProgress;
 use App\Enums\ChallengeAudience;
 use App\Enums\MissionTrigger;
 use App\Http\Controllers\Controller;
@@ -50,16 +51,20 @@ class MissionController extends Controller
 
         $progressByChallenge = $this->currentProgressFor($viewer, $missions, $now);
 
-        foreach ($missions as $mission) {
+        $dtos = $missions->map(function (Challenge $mission) use ($progressByChallenge, $now): MissionWithProgress {
             $periodKey = MissionService::periodKeyFor($mission->repeat_interval, $now);
-            $mission->current_period_key = $periodKey;
-            $mission->current_progress = $progressByChallenge[$mission->id] ?? null;
-        }
+
+            return new MissionWithProgress(
+                mission: $mission,
+                progress: $progressByChallenge[$mission->id] ?? null,
+                periodKey: $periodKey,
+            );
+        })->all();
 
         return response()->json([
             'success' => true,
             'data' => [
-                'missions' => MissionResource::collection($missions),
+                'missions' => MissionResource::collection($dtos),
             ],
         ]);
     }
@@ -95,8 +100,9 @@ class MissionController extends Controller
 
     /**
      * The viewer's current-period progress rows, keyed by challenge id. Each
-     * mission's period_key is resolved with the same helper `record()` uses, so
-     * a repeatable mission shows the active window's progress.
+     * mission's period_key is resolved with the same helper `record()` uses,
+     * and rows are fetched with one query per distinct period key (almost
+     * always 1-2 distinct values) instead of loading every historical row.
      *
      * @param  \Illuminate\Support\Collection<int, Challenge>  $missions
      * @return array<string, ChallengeProgress>
@@ -107,19 +113,21 @@ class MissionController extends Controller
             return [];
         }
 
-        $wanted = $missions->mapWithKeys(fn (Challenge $mission): array => [
-            $mission->id => MissionService::periodKeyFor($mission->repeat_interval, $now),
-        ]);
-
-        $rows = ChallengeProgress::query()
-            ->where('profile_id', $viewer->id)
-            ->whereIn('challenge_id', $wanted->keys())
-            ->get();
+        $idsByPeriodKey = $missions
+            ->mapToGroups(fn (Challenge $mission): array => [
+                MissionService::periodKeyFor($mission->repeat_interval, $now) => $mission->id,
+            ]);
 
         $byChallenge = [];
 
-        foreach ($rows as $row) {
-            if (($wanted[$row->challenge_id] ?? null) === $row->period_key) {
+        foreach ($idsByPeriodKey as $periodKey => $challengeIds) {
+            $rows = ChallengeProgress::query()
+                ->where('profile_id', $viewer->id)
+                ->where('period_key', $periodKey)
+                ->whereIn('challenge_id', $challengeIds)
+                ->get();
+
+            foreach ($rows as $row) {
                 $byChallenge[$row->challenge_id] = $row;
             }
         }

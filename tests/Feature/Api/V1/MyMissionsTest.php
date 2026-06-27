@@ -214,4 +214,25 @@ class MyMissionsTest extends TestCase
 
         return $row;
     }
+
+    public function test_me_missions_response_shape_unchanged_after_dto_refactor(): void
+    {
+        $profile = Profile::factory()->business()->create();
+
+        Challenge::factory()->create([
+            'is_system' => true,
+            'event_id' => null,
+            'audience' => ChallengeAudience::Business,
+            'trigger_action' => MissionTrigger::KolabPublished,
+            'target_value' => 1,
+            'points' => 20,
+        ]);
+
+        $this->actingAs($profile)
+            ->getJson('/api/v1/me/missions')
+            ->assertOk()
+            ->assertJsonStructure([
+                'data' => ['missions' => [['id', 'slug', 'name', 'category', 'points', 'target_value', 'progress_count', 'completed', 'period_key']]],
+            ]);
+    }
 }
