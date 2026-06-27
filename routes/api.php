@@ -47,6 +47,7 @@ use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\ReferralController;
 use App\Http\Controllers\Api\V1\RewardWalletController;
+use App\Http\Controllers\Api\V1\SavedKolabController;
 use App\Http\Controllers\Api\V1\SpinWheelController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\SystemChallengeController;
@@ -719,6 +720,12 @@ Route::prefix('v1')->group(function (): void {
         // Close kolab
         Route::post('kolabs/{kolab}/close', [KolabController::class, 'close'])
             ->name('api.v1.kolabs.close');
+
+        // Save / unsave a kolab (viewer-scoped bookmark). List via GET kolabs?saved=1
+        Route::post('kolabs/{kolab}/save', [SavedKolabController::class, 'store'])
+            ->name('api.v1.kolabs.save');
+        Route::delete('kolabs/{kolab}/save', [SavedKolabController::class, 'destroy'])
+            ->name('api.v1.kolabs.unsave');
 
         // List applications for a kolab (creator only)
         Route::get('kolabs/{kolab}/applications', [ApplicationController::class, 'forOpportunity'])

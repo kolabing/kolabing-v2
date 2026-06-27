@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Http\Resources\Api\V1\Concerns\ResolvesSavedFlag;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -13,6 +14,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class OpportunitySummaryResource extends JsonResource
 {
+    use ResolvesSavedFlag;
+
     /**
      * Transform the resource into an array.
      *
@@ -42,6 +45,7 @@ class OpportunitySummaryResource extends JsonResource
             'creator_profile' => $this->whenLoaded('creatorProfile', function () {
                 return new ProfileSummaryResource($this->creatorProfile);
             }),
+            'is_saved' => $this->resolveIsSaved($request),
         ];
     }
 

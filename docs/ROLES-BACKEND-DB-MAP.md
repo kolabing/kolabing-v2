@@ -1,6 +1,6 @@
 # Kolabing — Roles → Backend → Database Map (Ground-Truth)
 
-**Last updated:** 2026-06-27 (PR #59 review fixes: completion-confirmation gate hardening — terminal-state guard, `pending = not-yes` resource/gate alignment, auto-complete grace anchored on `updated_at`, `Collaboration::roleFor()`, **legacy feedback fallback + backfill removed (`/complete` now gates purely on real completion confirmations)**, dead-code removal — §0 item 10, §3, §8, §10. Prior: 2026-06-26 PR 1 moved the `/complete` gate to `collaboration_completions`)
+**Last updated:** 2026-06-27 (#61 Saved Kolabs: new `saved_kolabs` pivot + save/unsave endpoints + `?saved=1` list + viewer-scoped `is_saved` flag — §7, §7.1. Earlier same day — PR #59 review fixes: completion-confirmation gate hardening — terminal-state guard, `pending = not-yes` resource/gate alignment, auto-complete grace anchored on `updated_at`, `Collaboration::roleFor()`, **legacy feedback fallback + backfill removed (`/complete` now gates purely on real completion confirmations)**, dead-code removal — §0 item 10, §3, §8, §10. Prior: 2026-06-26 PR 1 moved the `/complete` gate to `collaboration_completions`)
 **Status:** Authoritative companion to [`ROLES-AND-PERMISSIONS.md`](./ROLES-AND-PERMISSIONS.md). Read that first (the *what*), then this (the *where*).
 **Sync note:** Duplicated in both repos (`kolabing-app`, `kolabing-v2`). Keep identical, and **bump the Last updated date in both** when role behaviour or backend wiring changes.
 
@@ -143,6 +143,7 @@ profiles (id uuid PK, email UNIQUE, user_type[business|community|attendee], avat
  │                              product_promotion], status[draft|published|closed], media json,
  │                              needs json, community_types json, venue_preference, offering json,
  │                              published_at)                                                    ← System B (canonical)
+ │        └─N:M─ saved_kolabs   (profile_id FK, kolab_id FK, timestamps; PK(profile_id,kolab_id)) ← Saved/bookmarked kolabs (§7.1)
  ├─1:N─ events                 (profile_id FK, partner_id FK, event_date, attendee_count)        ← past events
  └─1:N─ applications           (applicant_profile_id FK, applicant_profile_type[business|community],
                                 kolab_id FK ← canonical, collab_opportunity_id FK ARCHIVED (no longer written, drop #31),
@@ -173,6 +174,15 @@ Lookups / admin:
 ```
 
 **Role lives in `profiles.user_type`. Subscription lives in `business_subscriptions.status` (with `source` as audit trail).** Everything else branches off those two.
+
+### 7.1 Saved Kolabs (bookmarks) — added 2026-06-27 (#61)
+
+Viewer-scoped bookmarks of published kolabs. Pivot `saved_kolabs` (`profile_id` FK→profiles cascade, `kolab_id` FK→kolabs cascade, timestamps, composite PK — no UUID surrogate, so `belongsToMany` attach/sync is safe). Relations: `Profile::savedKolabs()` / `Kolab::savedByProfiles()`; service `KolabService::save()/unsave()` (idempotent via `syncWithoutDetaching`/`detach`).
+
+- `POST /api/v1/kolabs/{kolab}/save` → 200 (idempotent); requires `can('view', $kolab)` so visibility/paywall rules are respected (you can only save what you can see).
+- `DELETE /api/v1/kolabs/{kolab}/save` → 204 (idempotent).
+- **List:** `GET /api/v1/kolabs?saved=1` reuses `KolabService::browse()` (identical resource shape + paging). The saved list keeps the published + recipient-visibility scope but, unlike the normal feed, does **not** hide kolabs the viewer already applied to.
+- **Flag:** `is_saved` (bool, viewer-scoped) on `KolabResource` and `OpportunitySummaryResource`. N+1-free in list/detail via `withExists`/`loadExists` annotation (`ResolvesSavedFlag` trait), with a single-existence-query fallback for nested resources. Not role-discriminatory — any authenticated profile may save any visible kolab.
 
 > **ARCHIVED (2026-06-19, #30):** `collab_opportunities` and the `collab_opportunity_id` columns on `applications`/`collaborations` are no longer read or written by application code. They are retained physically and scheduled for drop in #31. `kolabs` is the sole source of truth for the opportunity/kolab lifecycle; `kolab_id` is the canonical FK on applications/collaborations.
 
