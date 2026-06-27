@@ -107,4 +107,19 @@ enum MissionTrigger: string
             default => false,
         };
     }
+
+    /**
+     * The wire values of every LIVE mission trigger (the ones that fire today).
+     * Single source of truth consumed by `/me/missions` and any future
+     * admin "live/inert" badge.
+     *
+     * @return list<string>
+     */
+    public static function liveValues(): array
+    {
+        return array_values(array_map(
+            static fn (self $trigger): string => $trigger->value,
+            array_filter(self::cases(), static fn (self $trigger): bool => $trigger->isLive()),
+        ));
+    }
 }

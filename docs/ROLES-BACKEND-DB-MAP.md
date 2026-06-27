@@ -321,7 +321,7 @@ exclusion is enforced independently in **three** places (all filter
 | Admin defaults matrix | `Admin\ChallengeDefaultsController` (`app/Http/Controllers/Admin/ChallengeDefaultsController.php:33`) |
 | `GET /api/v1/events/{event}/challenges` | `ChallengeService::listForEvent()` (`app/Services/ChallengeService.php:23`) |
 
-`challenges.app_visible` (migration `2026_06_27_100000_add_app_visible_to_challenges_table.php`,
+`challenges.app_visible` (migration `2026_06_22_100150_add_app_visible_to_challenges_table.php`,
 boolean default `false`) is the v1-launch curation gate layered on top of the
 trigger-null/not-null split — it does not affect event-challenge visibility at all,
 only which *general* missions the app surfaces today.

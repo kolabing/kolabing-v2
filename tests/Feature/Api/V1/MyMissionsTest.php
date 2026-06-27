@@ -255,4 +255,25 @@ class MyMissionsTest extends TestCase
             ->assertOk()
             ->assertJsonCount(0, 'data.missions');
     }
+
+    /**
+     * Real seed-to-endpoint integration test: seeds the actual production
+     * SystemChallengeSeeder (not synthetic factory missions) and verifies a
+     * business viewer sees exactly the curated app_visible=true business
+     * missions (no "both"-audience missions exist in the v1 seed set), and
+     * that a known seeded-but-not-app_visible business slug is excluded.
+     */
+    public function test_business_viewer_sees_exact_seeded_app_visible_missions(): void
+    {
+        $this->seed(\Database\Seeders\SystemChallengeSeeder::class);
+
+        $business = Profile::factory()->business()->create();
+
+        $response = $this->actingAs($business)->getJson('/api/v1/me/missions')->assertOk();
+
+        $slugs = collect($response->json('data.missions'))->pluck('slug')->all();
+
+        $this->assertCount(7, $slugs);
+        $this->assertNotContains('business-launch-giveaway-kolab', $slugs);
+    }
 }

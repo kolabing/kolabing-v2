@@ -39,7 +39,7 @@ class MissionController extends Controller
             ->where('app_visible', true)
             ->whereNotNull('trigger_action')
             ->whereIn('audience', $this->missionService->audiencesFor($viewer))
-            ->whereIn('trigger_action', $this->liveTriggerValues())
+            ->whereIn('trigger_action', MissionTrigger::liveValues())
             ->where(function ($query) use ($now): void {
                 $query->whereNull('starts_at')->orWhere('starts_at', '<=', $now);
             })
@@ -69,19 +69,6 @@ class MissionController extends Controller
                 'missions' => MissionResource::collection($dtos),
             ],
         ]);
-    }
-
-    /**
-     * The wire values of every LIVE mission trigger (the ones that fire today).
-     *
-     * @return list<string>
-     */
-    private function liveTriggerValues(): array
-    {
-        return array_values(array_map(
-            static fn (MissionTrigger $trigger): string => $trigger->value,
-            array_filter(MissionTrigger::cases(), static fn (MissionTrigger $trigger): bool => $trigger->isLive()),
-        ));
     }
 
     /**
