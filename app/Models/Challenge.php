@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property ChallengeDifficulty $difficulty
  * @property int $points
  * @property bool $is_system
+ * @property bool $app_visible
  * @property ChallengeCategory|null $category
  * @property string|null $event_id
  * @property ChallengeAudience|null $audience
@@ -69,6 +70,7 @@ class Challenge extends Model
             'difficulty' => ChallengeDifficulty::class,
             'points' => 'integer',
             'is_system' => 'boolean',
+            'app_visible' => 'boolean',
             'category' => ChallengeCategory::class,
             'audience' => ChallengeAudience::class,
             'trigger_action' => MissionTrigger::class,

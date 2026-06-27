@@ -79,4 +79,62 @@ class MissionSeederTest extends TestCase
         $this->seed(SystemChallengeSeeder::class);
         $this->assertSame(49, Challenge::query()->where('is_system', true)->count());
     }
+
+    public function test_only_curated_v1_missions_are_app_visible(): void
+    {
+        $this->seed(\Database\Seeders\SystemChallengeSeeder::class);
+
+        $visibleSlugs = \App\Models\Challenge::query()
+            ->where('is_system', true)
+            ->where('app_visible', true)
+            ->pluck('slug')
+            ->sort()
+            ->values()
+            ->all();
+
+        $expected = [
+            'attendee-attend-3-events-monthly',
+            'attendee-complete-profile',
+            'attendee-first-checkin',
+            'attendee-first-review',
+            'attendee-join-2-communities',
+            'business-complete-profile',
+            'business-first-application-accepted',
+            'business-first-application-received',
+            'business-first-kolab-completed',
+            'business-publish-first-kolab',
+            'business-receive-5-reviews',
+            'business-upload-profile-photo',
+            'community-apply-first-kolab',
+            'community-complete-profile',
+            'community-first-kolab-completed',
+            'community-get-accepted-first-kolab',
+            'community-refer-first-business',
+            'community-upload-profile-photo',
+        ];
+        sort($expected);
+
+        $this->assertSame($expected, $visibleSlugs);
+    }
+
+    /**
+     * Hard product invariant (explicit user instruction): a mission must never
+     * be app_visible unless its trigger is actually wired/live. An app_visible
+     * mission with an inert trigger can never progress, which is exactly what
+     * users must never see.
+     */
+    public function test_every_app_visible_mission_has_a_live_trigger(): void
+    {
+        $this->seed(\Database\Seeders\SystemChallengeSeeder::class);
+
+        $nonLiveVisible = \App\Models\Challenge::query()
+            ->where('is_system', true)
+            ->where('app_visible', true)
+            ->get()
+            ->reject(fn (\App\Models\Challenge $challenge): bool => $challenge->trigger_action?->isLive() === true)
+            ->pluck('slug')
+            ->all();
+
+        $this->assertSame([], $nonLiveVisible, 'app_visible missions with a non-live trigger: '.implode(', ', $nonLiveVisible));
+    }
 }
