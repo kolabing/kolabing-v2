@@ -36,13 +36,19 @@ class KolabService
      *     needs?: array<string>,
      *     community_types?: array<string>,
      *     search?: string,
+     *     saved?: string|bool,
      * }  $filters
      */
     public function browse(Profile $viewer, array $filters, int $perPage = 15): LengthAwarePaginator
     {
+        $savedOnly = filter_var($filters['saved'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
         $query = Kolab::query()
             ->where('status', KolabStatus::Published)
             ->withCount('applications')
+            ->withExists(['savedByProfiles as is_saved' => function (Builder $q) use ($viewer): void {
+                $q->whereKey($viewer->id);
+            }])
             ->with([
                 'creatorProfile' => function ($query) {
                     $query->with([
@@ -60,12 +66,40 @@ class KolabService
             ]);
 
         $this->applyRecipientVisibilityScope($query, $viewer);
-        $this->excludeAlreadyAppliedKolabs($query, $viewer);
+
+        if ($savedOnly) {
+            // The saved list returns exactly the viewer's saved kolabs — it does
+            // NOT hide ones they've already applied to (they explicitly saved them).
+            $query->whereHas('savedByProfiles', function (Builder $q) use ($viewer): void {
+                $q->whereKey($viewer->id);
+            });
+        } else {
+            $this->excludeAlreadyAppliedKolabs($query, $viewer);
+        }
+
         $this->applyFilters($query, $filters);
 
         return $query
             ->orderByDesc('published_at')
             ->paginate($perPage);
+    }
+
+    /**
+     * Save (bookmark) a kolab for a profile. Idempotent — saving an
+     * already-saved kolab is a no-op.
+     */
+    public function save(Profile $profile, Kolab $kolab): void
+    {
+        $profile->savedKolabs()->syncWithoutDetaching([$kolab->id]);
+    }
+
+    /**
+     * Remove a kolab from a profile's saved list. Idempotent — unsaving a
+     * kolab that was not saved is a no-op.
+     */
+    public function unsave(Profile $profile, Kolab $kolab): void
+    {
+        $profile->savedKolabs()->detach($kolab->id);
     }
 
     private function excludeAlreadyAppliedKolabs(Builder $query, Profile $viewer): void

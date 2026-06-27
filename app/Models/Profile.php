@@ -328,6 +328,17 @@ class Profile extends Authenticatable
     }
 
     /**
+     * Kolabs this profile has saved/bookmarked.
+     *
+     * @return BelongsToMany<Kolab, $this>
+     */
+    public function savedKolabs(): BelongsToMany
+    {
+        return $this->belongsToMany(Kolab::class, 'saved_kolabs', 'profile_id', 'kolab_id')
+            ->withTimestamps();
+    }
+
+    /**
      * Get the gamification wallet for this profile.
      *
      * @return HasOne<Wallet, $this>

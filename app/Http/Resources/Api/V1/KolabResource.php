@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources\Api\V1;
 
 use App\Enums\IntentType;
+use App\Http\Resources\Api\V1\Concerns\ResolvesSavedFlag;
 use App\Models\Application;
 use App\Models\Kolab;
 use Illuminate\Http\Request;
@@ -17,6 +18,8 @@ use Illuminate\Support\Str;
  */
 class KolabResource extends JsonResource
 {
+    use ResolvesSavedFlag;
+
     /**
      * Transform the resource into an array.
      *
@@ -79,6 +82,7 @@ class KolabResource extends JsonResource
                 return new ProfileSummaryResource($this->creatorProfile);
             }),
             'is_own' => $request->user()?->id === $this->creator_profile_id,
+            'is_saved' => $this->resolveIsSaved($request),
             'applications_count' => $this->applications_count ?? 0,
         ];
     }
