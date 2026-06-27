@@ -197,6 +197,19 @@ class MissionServiceTest extends TestCase
         $this->assertSame(1, ChallengeProgress::query()->where('profile_id', $business->id)->count());
     }
 
+    public function test_non_live_trigger_never_progresses_a_mission(): void
+    {
+        $business = Profile::factory()->business()->create();
+        $mission = $this->mission(MissionTrigger::SocialShare, ChallengeAudience::Business, 1, MissionRepeat::Once, 50);
+
+        $this->assertFalse(MissionTrigger::SocialShare->isLive());
+
+        $touched = $this->service->record($business, MissionTrigger::SocialShare);
+
+        $this->assertCount(0, $touched);
+        $this->assertDatabaseMissing('challenge_progress', ['challenge_id' => $mission->id]);
+    }
+
     public function test_mission_outside_campaign_window_is_not_progressed(): void
     {
         $business = Profile::factory()->business()->create();

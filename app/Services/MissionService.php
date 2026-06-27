@@ -10,9 +10,7 @@ use App\Enums\MissionTrigger;
 use App\Enums\PointEventType;
 use App\Models\Challenge;
 use App\Models\ChallengeProgress;
-use App\Models\PointLedger;
 use App\Models\Profile;
-use App\Models\Wallet;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -45,6 +43,10 @@ class MissionService
     public function record(Profile $earner, MissionTrigger $trigger, int $increment = 1, array $context = []): array
     {
         if ($increment < 1) {
+            return [];
+        }
+
+        if (! $trigger->isLive()) {
             return [];
         }
 
@@ -185,22 +187,16 @@ class MissionService
      */
     private function awardMission(Profile $earner, Challenge $mission, array $context): void
     {
-        $points = $mission->points;
-
-        if ($points > 0) {
-            PointLedger::query()->create([
-                'profile_id' => $earner->id,
-                'points' => $points,
-                'event_type' => PointEventType::MissionCompleted,
-                'reference_id' => $context['reference_id'] ?? $mission->id,
-                'description' => 'Mission completed: '.$mission->name,
-            ]);
-
-            $wallet = Wallet::query()->firstOrCreate(
-                ['profile_id' => $earner->id],
-                ['points' => 0, 'redeemed_points' => 0, 'pending_withdrawal' => false],
+        if ($mission->points > 0) {
+            $this->walletService->creditPoints(
+                $earner->id,
+                PointEventType::MissionCompleted,
+                $mission->points,
+                $context['reference_id'] ?? $mission->id,
+                'Mission completed: '.$mission->name,
             );
-            $wallet->increment('points', $points);
+
+            return;
         }
 
         $this->walletService->evaluateBadges($earner->id);

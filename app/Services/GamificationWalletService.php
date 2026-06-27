@@ -79,6 +79,41 @@ class GamificationWalletService
     }
 
     /**
+     * Credit an EXPLICIT point amount (bypassing the xp_earn_rules lookup) via
+     * the same ledger + wallet + badge-evaluation path as awardPoints(). For
+     * callers that already know the correct point value per-event (e.g.
+     * MissionService, which stores `points` directly on the mission row).
+     */
+    public function creditPoints(
+        string $profileId,
+        PointEventType $eventType,
+        int $points,
+        ?string $referenceId = null,
+        ?string $description = null,
+    ): PointLedger {
+        return DB::transaction(function () use ($profileId, $points, $eventType, $referenceId, $description): PointLedger {
+            $ledgerEntry = PointLedger::create([
+                'profile_id' => $profileId,
+                'points' => $points,
+                'event_type' => $eventType,
+                'reference_id' => $referenceId,
+                'description' => $description,
+            ]);
+
+            $wallet = Wallet::query()->firstOrCreate(
+                ['profile_id' => $profileId],
+                ['points' => 0, 'redeemed_points' => 0, 'pending_withdrawal' => false]
+            );
+
+            $wallet->increment('points', $points);
+
+            $this->evaluateBadges($profileId);
+
+            return $ledgerEntry;
+        });
+    }
+
+    /**
      * Get or create a wallet for the given profile.
      */
     public function getOrCreateWallet(string $profileId): Wallet
