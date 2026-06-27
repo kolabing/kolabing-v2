@@ -241,14 +241,10 @@ class CollaborationFeedbackTest extends TestCase
             ->assertJsonPath('errors.pending_completion_from', ['community']);
     }
 
-    public function test_submitting_feedback_alone_satisfies_complete_via_compatibility_fallback(): void
+    public function test_submitting_feedback_alone_does_not_satisfy_complete(): void
     {
-        // 2026-06-27 QA fix: old app builds call /feedback then /complete with
-        // no knowledge of the new /completion endpoint. The gate now falls
-        // back to treating an existing feedback row as an implicit 'yes' so
-        // those clients are never stranded. New CollaborationCompletionConfirmed
-        // XP must NOT be awarded for fallback-created rows — feedback already
-        // paid CollaborationComplete XP for the same submission.
+        // Completion gates purely on real completion confirmations — there is
+        // no feedback-based fallback. Feedback alone must NOT complete the Kolab.
         ['collab' => $collab, 'business' => $business, 'community' => $community] = $this->makeActiveCollab();
 
         foreach ([$business, $community] as $actor) {
@@ -260,32 +256,19 @@ class CollaborationFeedbackTest extends TestCase
 
         $this->actingAs($business)
             ->postJson(route('api.v1.collaborations.complete', $collab))
-            ->assertOk();
+            ->assertStatus(422)
+            ->assertJsonPath('error_code', 'awaiting_own_completion_confirmation');
 
-        $fresh = $collab->fresh();
-        $this->assertSame(CollaborationStatus::Completed, $fresh->status);
-        $this->assertNotNull($fresh->completed_at);
-
-        foreach ([$business, $community] as $actor) {
-            $this->assertDatabaseHas('collaboration_completions', [
-                'collaboration_id' => $collab->id,
-                'profile_id' => $actor->id,
-                'status' => 'yes',
-            ]);
-        }
-
-        $this->assertDatabaseMissing('point_ledger', [
-            'event_type' => 'collaboration_completion_confirmed',
-            'reference_id' => $collab->id,
+        $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
+        $this->assertDatabaseMissing('collaboration_completions', [
+            'collaboration_id' => $collab->id,
         ]);
     }
 
-    public function test_review_mirrors_to_feedback_and_satisfies_complete_via_fallback(): void
+    public function test_review_alone_does_not_satisfy_complete(): void
     {
         ['collab' => $collab, 'business' => $business, 'community' => $community] = $this->makeActiveCollab();
 
-        // Compatibility: legacy app path (post /review only) still mirrors a
-        // stub feedback row for each party.
         foreach ([$business, $community] as $actor) {
             $this->actingAs($actor)
                 ->postJson(route('api.v1.collaborations.review', $collab), [
@@ -293,24 +276,20 @@ class CollaborationFeedbackTest extends TestCase
                 ])->assertCreated();
         }
 
-        $this->assertSame(2, CollaborationFeedback::query()
-            ->where('collaboration_id', $collab->id)
-            ->where('mirrored_from_review', true)
-            ->count());
-
-        // 2026-06-27 QA fix: the fallback reads ANY feedback row, including
-        // mirrored stubs — so the legacy /review-only path completes too.
+        // The /review mirror still writes feedback stubs (impact data), but
+        // those no longer satisfy the completion gate.
         $this->actingAs($business)
             ->postJson(route('api.v1.collaborations.complete', $collab))
-            ->assertOk();
+            ->assertStatus(422)
+            ->assertJsonPath('error_code', 'awaiting_own_completion_confirmation');
 
-        $this->assertSame(CollaborationStatus::Completed, $collab->fresh()->status);
+        $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
     }
 
-    public function test_mixed_old_feedback_client_and_new_completion_client_can_still_complete(): void
+    public function test_complete_requires_partner_completion_even_when_partner_left_feedback(): void
     {
-        // One side already migrated to the new /completion endpoint; the
-        // other is still on an old build calling only /feedback.
+        // The caller confirmed via /completion; the partner only left feedback.
+        // Feedback is not a confirmation, so /complete must wait on the partner.
         ['collab' => $collab, 'business' => $business, 'community' => $community] = $this->makeActiveCollab();
 
         $this->actingAs($business)
@@ -324,9 +303,11 @@ class CollaborationFeedbackTest extends TestCase
 
         $this->actingAs($business)
             ->postJson(route('api.v1.collaborations.complete', $collab))
-            ->assertOk();
+            ->assertStatus(422)
+            ->assertJsonPath('error_code', 'awaiting_partner_completion_confirmation')
+            ->assertJsonPath('errors.pending_completion_from', ['community']);
 
-        $this->assertSame(CollaborationStatus::Completed, $collab->fresh()->status);
+        $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
     }
 
     public function test_feedback_submit_upgrades_existing_mirrored_stub(): void

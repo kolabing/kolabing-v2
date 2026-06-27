@@ -8,10 +8,8 @@ use App\Enums\CollaborationCompletionStatus;
 use App\Enums\CollaborationStatus;
 use App\Models\Collaboration;
 use App\Models\CollaborationCompletion;
-use App\Models\CollaborationFeedback;
 use App\Services\CollaborationService;
 use Illuminate\Console\Command;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 
 class AutoCompleteStaleCollaborations extends Command
@@ -30,11 +28,6 @@ class AutoCompleteStaleCollaborations extends Command
      * "ask me later" is a real signal, same as 'no') — those are left for
      * the participants or an admin to resolve manually.
      *
-     * A pre-PR-1 feedback row also counts as an implicit 'yes' (same rule the
-     * old scheduler used), so legacy /feedback-only collaborations whose
-     * clients never call the /completion endpoint are still auto-completed
-     * once the grace window elapses.
-     *
      * The grace window is measured from when the confirmation was last set
      * (updated_at), not from the row's original creation, so a 'not_yet' that
      * is later changed to 'yes' still gets a full grace window from the 'yes'.
@@ -51,18 +44,11 @@ class AutoCompleteStaleCollaborations extends Command
                 CollaborationStatus::Scheduled->value,
                 CollaborationStatus::Active->value,
             ])
-            ->where(function (Builder $query) use ($cutoff): void {
-                // A 'yes' confirmation set more than the grace window ago...
-                $query->whereIn('id', CollaborationCompletion::query()
-                    ->where('status', CollaborationCompletionStatus::Yes->value)
-                    ->where('updated_at', '<=', $cutoff)
-                    ->select('collaboration_id'))
-                    // ...or a legacy feedback row older than the grace window
-                    // (treated as an implicit 'yes' for /feedback-only clients).
-                    ->orWhereIn('id', CollaborationFeedback::query()
-                        ->where('created_at', '<=', $cutoff)
-                        ->select('collaboration_id'));
-            })
+            // A 'yes' confirmation set more than the grace window ago.
+            ->whereIn('id', CollaborationCompletion::query()
+                ->where('status', CollaborationCompletionStatus::Yes->value)
+                ->where('updated_at', '<=', $cutoff)
+                ->select('collaboration_id'))
             // Never auto-complete if anyone answered 'no' OR 'not_yet' — both
             // are real signals (the Kolab didn't happen / hasn't happened
             // yet), not silence, and must be resolved manually/by admin

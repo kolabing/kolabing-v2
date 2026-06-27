@@ -12,7 +12,6 @@ use App\Enums\UserType;
 use App\Models\Application;
 use App\Models\BusinessSubscription;
 use App\Models\Collaboration;
-use App\Models\CollaborationFeedback;
 use App\Models\Kolab;
 use App\Models\Profile;
 use App\Models\User;
@@ -279,59 +278,6 @@ class CollaborationCompletionConfirmationTest extends TestCase
             ->postJson(route('api.v1.collaborations.completion.store', $collab), ['status' => 'maybe'])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['status']);
-    }
-
-    public function test_backfill_migration_creates_implicit_yes_rows_without_awarding_xp(): void
-    {
-        ['collab' => $collab, 'business' => $business] = $this->makeActiveCollab();
-
-        CollaborationFeedback::factory()->create([
-            'collaboration_id' => $collab->id,
-            'reviewer_profile_id' => $business->id,
-            'reviewer_type' => 'business',
-            'reviewer_role' => 'creator',
-            'mirrored_from_review' => false,
-        ]);
-
-        $this->assertDatabaseMissing('collaboration_completions', [
-            'collaboration_id' => $collab->id,
-            'profile_id' => $business->id,
-        ]);
-
-        (require database_path('migrations/2026_06_27_000001_backfill_collaboration_completions_from_feedback.php'))->up();
-
-        $this->assertDatabaseHas('collaboration_completions', [
-            'collaboration_id' => $collab->id,
-            'profile_id' => $business->id,
-            'role' => 'creator',
-            'status' => 'yes',
-        ]);
-
-        $this->assertDatabaseMissing('point_ledger', [
-            'event_type' => 'collaboration_completion_confirmed',
-        ]);
-    }
-
-    public function test_backfill_migration_is_idempotent(): void
-    {
-        ['collab' => $collab, 'business' => $business] = $this->makeActiveCollab();
-
-        CollaborationFeedback::factory()->create([
-            'collaboration_id' => $collab->id,
-            'reviewer_profile_id' => $business->id,
-            'reviewer_type' => 'business',
-            'reviewer_role' => 'creator',
-            'mirrored_from_review' => false,
-        ]);
-
-        $migration = require database_path('migrations/2026_06_27_000001_backfill_collaboration_completions_from_feedback.php');
-        $migration->up();
-        $migration->up();
-
-        $this->assertSame(1, \App\Models\CollaborationCompletion::query()
-            ->where('collaboration_id', $collab->id)
-            ->where('profile_id', $business->id)
-            ->count());
     }
 
     public function test_resource_exposes_completion_state(): void

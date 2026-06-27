@@ -229,28 +229,6 @@ class CollaborationCompletionTest extends TestCase
         $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
     }
 
-    public function test_auto_complete_command_completes_legacy_feedback_only_collaboration(): void
-    {
-        // Regression: a legacy /feedback-only collaboration (no completion row)
-        // whose feedback predates the grace window must still auto-complete,
-        // matching the old feedback-based scheduler.
-        ['collab' => $collab, 'business' => $business] = $this->kolabWithActiveCollaboration();
-
-        \App\Models\CollaborationFeedback::factory()->create([
-            'collaboration_id' => $collab->id,
-            'reviewer_profile_id' => $business->id,
-            'reviewer_role' => 'creator',
-            'created_at' => now()->subDays(4),
-            'updated_at' => now()->subDays(4),
-        ]);
-
-        Artisan::call('app:auto-complete-stale-collaborations');
-
-        $fresh = $collab->fresh();
-        $this->assertSame(CollaborationStatus::Completed, $fresh->status);
-        $this->assertNotNull($fresh->auto_completed_at);
-    }
-
     public function test_auto_complete_command_dry_run_does_not_write(): void
     {
         ['collab' => $collab, 'business' => $business] = $this->kolabWithActiveCollaboration();

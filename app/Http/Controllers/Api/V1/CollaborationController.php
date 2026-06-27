@@ -341,11 +341,9 @@ class CollaborationController extends Controller
 
         $this->authorize('view', $collaboration);
 
-        // Reviews used to require completed status. Relaxed to active|completed
-        // so a legacy client (which calls /review before /complete) can write a
-        // review that the mirror promotes into a stub /feedback row — letting
-        // the new gate succeed. Scheduled and cancelled collabs remain out of
-        // scope.
+        // Reviews are allowed on active|completed collaborations (a legacy
+        // client may call /review before /complete). Scheduled and cancelled
+        // collabs remain out of scope.
         if (! ($collaboration->isCompleted() || $collaboration->isActive())) {
             return response()->json([
                 'success' => false,
@@ -408,9 +406,10 @@ class CollaborationController extends Controller
             'Left a review for a completed Kolab',
         );
 
-        // Mirror the review into a stub /feedback row so legacy clients still
-        // satisfy the new /complete gate. No-op if a real /feedback row already
-        // exists (post-mirror, post-new-app user).
+        // Mirror the review into a stub /feedback row so feedback-dependent
+        // aggregates stay consistent for legacy /review-only clients. This does
+        // NOT affect /complete (the gate reads completion confirmations only).
+        // No-op if a real /feedback row already exists.
         $this->feedbackService->mirrorFromReview($collaboration, $reviewer, [
             'rating' => $validated['rating'],
             'body' => $validated['body'] ?? null,

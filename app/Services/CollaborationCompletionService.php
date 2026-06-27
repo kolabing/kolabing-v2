@@ -9,7 +9,6 @@ use App\Enums\PointEventType;
 use App\Exceptions\CollaborationException;
 use App\Models\Collaboration;
 use App\Models\CollaborationCompletion;
-use App\Models\CollaborationFeedback;
 use App\Models\Profile;
 use Illuminate\Support\Facades\DB;
 
@@ -165,22 +164,16 @@ class CollaborationCompletionService
             return;
         }
 
-        $collaboration->loadMissing(['creatorProfile', 'applicantProfile']);
         $callerRole = $collaboration->roleFor($caller);
 
         if ($callerRole === null) {
             throw CollaborationException::notAParticipant();
         }
 
-        // Own answer is checked first (error precedence). The feedback fallback
-        // (own and partner) keeps legacy /feedback-only and /review-only clients
-        // un-stranded by treating an existing feedback row as an implicit 'yes'.
-        // It is safe against the new flow: a client that has touched the
-        // /completion endpoint always has a real row, so partnerRow() returns it
-        // and the fallback never overrides an explicit no/not_yet — the fallback
-        // only ever applies to genuine pre-PR-1 clients with no completion row.
-        $own = $this->ownRow($collaboration, $caller)
-            ?? $this->fallbackFromFeedback($collaboration, $caller, $callerRole);
+        // Completion gates purely on real completion confirmations — there is
+        // no feedback-based fallback. Each party must answer 'yes' via
+        // POST /completion; rich /feedback is optional impact data only.
+        $own = $this->ownRow($collaboration, $caller);
 
         if ($own === null) {
             throw CollaborationException::awaitingOwnCompletionConfirmation();
@@ -191,13 +184,7 @@ class CollaborationCompletionService
             throw CollaborationException::completionNotConfirmed($own->status->value, $partner?->status->value);
         }
 
-        $partnerProfile = $callerRole === 'creator'
-            ? $collaboration->applicantProfile
-            : $collaboration->creatorProfile;
-        $partnerRole = $callerRole === 'creator' ? 'applicant' : 'creator';
-
-        $partner = $this->partnerRow($collaboration, $caller)
-            ?? ($partnerProfile !== null ? $this->fallbackFromFeedback($collaboration, $partnerProfile, $partnerRole) : null);
+        $partner = $this->partnerRow($collaboration, $caller);
 
         if ($partner === null) {
             throw CollaborationException::awaitingPartnerCompletionConfirmation(
@@ -208,50 +195,5 @@ class CollaborationCompletionService
         if ($partner->status !== CollaborationCompletionStatus::Yes) {
             throw CollaborationException::completionNotConfirmed($own->status->value, $partner->status->value);
         }
-    }
-
-    /**
-     * Backward-compatibility fallback (PR 1 follow-up, 2026-06-27).
-     *
-     * Old app builds POST `/feedback` then `/complete`, expecting feedback
-     * alone to satisfy completion — there is no client code path to call the
-     * new `/completion` endpoint. If a participant has no completion row but
-     * already has a `collaboration_feedback` row, treat that submission as
-     * an implicit 'yes' confirmation so those clients are never stranded.
-     * The row is persisted (not just computed) so subsequent calls — and the
-     * API resource — see a real, stable confirmation.
-     *
-     * No XP is awarded here: the old `/feedback` flow already paid
-     * `CollaborationComplete` XP for this submission, and awarding
-     * `CollaborationCompletionConfirmed` on top would double-pay.
-     *
-     * TODO: remove once old (pre-PR-1) app builds are no longer supported —
-     * at that point every client will call `/completion` directly and this
-     * fallback becomes dead code. See also the one-time backfill migration
-     * `2026_06_27_*_backfill_collaboration_completions_from_feedback.php`,
-     * which covers existing rows so this runtime path is only a safety net.
-     */
-    private function fallbackFromFeedback(Collaboration $collaboration, Profile $participant, string $role): ?CollaborationCompletion
-    {
-        $hasFeedback = CollaborationFeedback::query()
-            ->where('collaboration_id', $collaboration->id)
-            ->where('reviewer_profile_id', $participant->id)
-            ->exists();
-
-        if (! $hasFeedback) {
-            return null;
-        }
-
-        return CollaborationCompletion::query()->firstOrCreate(
-            [
-                'collaboration_id' => $collaboration->id,
-                'profile_id' => $participant->id,
-            ],
-            [
-                'role' => $role,
-                'status' => CollaborationCompletionStatus::Yes->value,
-                'note' => null,
-            ],
-        );
     }
 }
