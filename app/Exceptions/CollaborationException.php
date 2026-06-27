@@ -130,24 +130,47 @@ class CollaborationException extends Exception
         );
     }
 
-    public static function awaitingOwnFeedback(): self
+    public static function awaitingOwnCompletionConfirmation(): self
     {
         return new self(
-            __('Submit your feedback before completing the collaboration.'),
+            __('Confirm whether the Kolab happened before completing it.'),
             Response::HTTP_UNPROCESSABLE_ENTITY,
-            ['error_code' => 'awaiting_own_feedback'],
+            ['error_code' => 'awaiting_own_completion_confirmation'],
         );
     }
 
     /**
      * @param  array<int, string>  $pendingRoles
      */
-    public static function awaitingPartnerFeedback(array $pendingRoles): self
+    public static function awaitingPartnerCompletionConfirmation(array $pendingRoles): self
     {
         return new self(
-            __('Waiting on the other party to submit their feedback.'),
+            __('Waiting on the other party to confirm completion.'),
             Response::HTTP_UNPROCESSABLE_ENTITY,
-            ['error_code' => 'awaiting_partner_feedback', 'pending_feedback_from' => $pendingRoles],
+            ['error_code' => 'awaiting_partner_completion_confirmation', 'pending_completion_from' => $pendingRoles],
+        );
+    }
+
+    /**
+     * The caller's own answer is 'no'/'not_yet' (regardless of the
+     * partner's), OR both answered but at least one said 'no'/'not_yet'.
+     * Distinct from the "hasn't responded at all" cases above — this is
+     * checked FIRST against the caller's own status (2026-06-27 QA fix), so
+     * a caller who hasn't confirmed 'yes' themselves never sees
+     * `awaiting_partner_completion_confirmation`. `partner_status` is null
+     * when the partner hasn't answered at all yet (own answer alone is
+     * already blocking).
+     */
+    public static function completionNotConfirmed(string $ownStatus, ?string $partnerStatus): self
+    {
+        return new self(
+            __('Both parties must confirm the Kolab happened before it can be marked complete.'),
+            Response::HTTP_UNPROCESSABLE_ENTITY,
+            [
+                'error_code' => 'completion_not_confirmed',
+                'own_status' => $ownStatus,
+                'partner_status' => $partnerStatus,
+            ],
         );
     }
 }

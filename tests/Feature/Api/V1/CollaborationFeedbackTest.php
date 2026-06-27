@@ -212,36 +212,39 @@ class CollaborationFeedbackTest extends TestCase
             ->assertJsonPath('error_code', 'feedback_locked');
     }
 
-    public function test_complete_returns_422_awaiting_own_feedback_when_caller_has_not_submitted(): void
+    public function test_complete_returns_422_awaiting_own_completion_confirmation_when_caller_has_not_confirmed(): void
     {
+        // PR 1 (2026-06-26): /complete no longer cares about feedback at all —
+        // it gates on the lightweight completion-confirmation table.
         ['collab' => $collab, 'business' => $business] = $this->makeActiveCollab();
 
         $this->actingAs($business)
             ->postJson(route('api.v1.collaborations.complete', $collab))
             ->assertStatus(422)
-            ->assertJsonPath('error_code', 'awaiting_own_feedback');
+            ->assertJsonPath('error_code', 'awaiting_own_completion_confirmation');
 
         $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
     }
 
-    public function test_complete_returns_422_awaiting_partner_feedback(): void
+    public function test_complete_returns_422_awaiting_partner_completion_confirmation(): void
     {
         ['collab' => $collab, 'business' => $business] = $this->makeActiveCollab();
 
         $this->actingAs($business)
-            ->postJson(route('api.v1.collaborations.feedback.store', $collab), [
-                'rating' => 5, 'expectation_match' => true, 'would_recommend' => true, 'would_collaborate_again' => true,
-            ])->assertCreated();
+            ->postJson(route('api.v1.collaborations.completion.store', $collab), ['status' => 'yes'])
+            ->assertCreated();
 
         $this->actingAs($business)
             ->postJson(route('api.v1.collaborations.complete', $collab))
             ->assertStatus(422)
-            ->assertJsonPath('error_code', 'awaiting_partner_feedback')
-            ->assertJsonPath('errors.pending_feedback_from', ['community']);
+            ->assertJsonPath('error_code', 'awaiting_partner_completion_confirmation')
+            ->assertJsonPath('errors.pending_completion_from', ['community']);
     }
 
-    public function test_complete_succeeds_when_both_feedbacks_exist(): void
+    public function test_submitting_feedback_alone_does_not_satisfy_complete(): void
     {
+        // Completion gates purely on real completion confirmations — there is
+        // no feedback-based fallback. Feedback alone must NOT complete the Kolab.
         ['collab' => $collab, 'business' => $business, 'community' => $community] = $this->makeActiveCollab();
 
         foreach ([$business, $community] as $actor) {
@@ -253,18 +256,19 @@ class CollaborationFeedbackTest extends TestCase
 
         $this->actingAs($business)
             ->postJson(route('api.v1.collaborations.complete', $collab))
-            ->assertOk();
+            ->assertStatus(422)
+            ->assertJsonPath('error_code', 'awaiting_own_completion_confirmation');
 
-        $fresh = $collab->fresh();
-        $this->assertSame(CollaborationStatus::Completed, $fresh->status);
-        $this->assertNotNull($fresh->completed_at);
+        $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
+        $this->assertDatabaseMissing('collaboration_completions', [
+            'collaboration_id' => $collab->id,
+        ]);
     }
 
-    public function test_review_mirrors_to_feedback_so_complete_succeeds(): void
+    public function test_review_alone_does_not_satisfy_complete(): void
     {
         ['collab' => $collab, 'business' => $business, 'community' => $community] = $this->makeActiveCollab();
 
-        // Both parties on the legacy app path: post /review only.
         foreach ([$business, $community] as $actor) {
             $this->actingAs($actor)
                 ->postJson(route('api.v1.collaborations.review', $collab), [
@@ -272,15 +276,38 @@ class CollaborationFeedbackTest extends TestCase
                 ])->assertCreated();
         }
 
-        $this->assertSame(2, CollaborationFeedback::query()
-            ->where('collaboration_id', $collab->id)
-            ->where('mirrored_from_review', true)
-            ->count());
-
-        // /complete now succeeds because both stub feedback rows exist.
+        // The /review mirror still writes feedback stubs (impact data), but
+        // those no longer satisfy the completion gate.
         $this->actingAs($business)
             ->postJson(route('api.v1.collaborations.complete', $collab))
-            ->assertOk();
+            ->assertStatus(422)
+            ->assertJsonPath('error_code', 'awaiting_own_completion_confirmation');
+
+        $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
+    }
+
+    public function test_complete_requires_partner_completion_even_when_partner_left_feedback(): void
+    {
+        // The caller confirmed via /completion; the partner only left feedback.
+        // Feedback is not a confirmation, so /complete must wait on the partner.
+        ['collab' => $collab, 'business' => $business, 'community' => $community] = $this->makeActiveCollab();
+
+        $this->actingAs($business)
+            ->postJson(route('api.v1.collaborations.completion.store', $collab), ['status' => 'yes'])
+            ->assertCreated();
+
+        $this->actingAs($community)
+            ->postJson(route('api.v1.collaborations.feedback.store', $collab), [
+                'rating' => 5, 'expectation_match' => true, 'would_recommend' => true, 'would_collaborate_again' => true,
+            ])->assertCreated();
+
+        $this->actingAs($business)
+            ->postJson(route('api.v1.collaborations.complete', $collab))
+            ->assertStatus(422)
+            ->assertJsonPath('error_code', 'awaiting_partner_completion_confirmation')
+            ->assertJsonPath('errors.pending_completion_from', ['community']);
+
+        $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
     }
 
     public function test_feedback_submit_upgrades_existing_mirrored_stub(): void

@@ -129,6 +129,34 @@ class Collaboration extends Model
     }
 
     /**
+     * Lightweight completion confirmations (yes/no/not_yet), one per
+     * participant. Gates /complete (PR 1, 2026-06-26) — distinct from the
+     * rich, optional `feedbacks()` relation.
+     *
+     * @return HasMany<CollaborationCompletion, $this>
+     */
+    public function completions(): HasMany
+    {
+        return $this->hasMany(CollaborationCompletion::class);
+    }
+
+    /**
+     * Resolve which participant slot a profile occupies in this collaboration.
+     * Single source of truth for creator/applicant role resolution, reused by
+     * the completion and feedback services.
+     *
+     * @return 'creator'|'applicant'|null
+     */
+    public function roleFor(Profile $profile): ?string
+    {
+        return match (true) {
+            $profile->id === $this->creator_profile_id => 'creator',
+            $profile->id === $this->applicant_profile_id => 'applicant',
+            default => null,
+        };
+    }
+
+    /**
      * Get the business profile involved in this collaboration.
      *
      * @return BelongsTo<BusinessProfile, $this>

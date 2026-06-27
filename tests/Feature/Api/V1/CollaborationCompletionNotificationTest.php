@@ -104,7 +104,7 @@ class CollaborationCompletionNotificationTest extends TestCase
     {
         ['collab' => $collab, 'business' => $business, 'community' => $community] = $this->makeCollab(CollaborationStatus::Active);
 
-        config()->set('collaborations.complete_requires_feedback', false);
+        config()->set('collaborations.complete_requires_completion_confirmation', false);
 
         app(CollaborationService::class)->complete($collab, $community);
 
