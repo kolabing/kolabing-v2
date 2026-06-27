@@ -249,7 +249,7 @@ There are two distinct kinds of `challenges` row, distinguished by `trigger_acti
 the mission's `audience` matches the viewer's profile type AND the current time falls
 within `[starts_at, ends_at]` (nulls treated as open-ended).
 
-`app_visible` is a separate v1-launch curation flag on top of that: of the ~45 missions
+`app_visible` is a separate v1-launch curation flag on top of that: of the 49 missions
 seeded by `SystemChallengeSeeder`, exactly **18 are `app_visible = true`** today — 5
 attendee, 7 business, 6 community — each independently verified to use a live trigger.
 The remaining seeded missions exist in the database (manageable from admin, visible in
