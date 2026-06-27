@@ -140,6 +140,22 @@ class MissionServiceTest extends TestCase
         $this->assertSame(50, Wallet::query()->where('profile_id', $business->id)->value('points'));
     }
 
+    public function test_concurrent_progress_creation_does_not_throw(): void
+    {
+        $earner = Profile::factory()->business()->create();
+        $mission = $this->mission(MissionTrigger::KolabPublished, ChallengeAudience::Business, 5, MissionRepeat::Once, 20);
+
+        // Simulate two concurrent requests progressing the same brand-new mission
+        // by calling record() twice back-to-back before either "wins" the row.
+        $first = $this->service->record($earner, MissionTrigger::KolabPublished);
+        $second = $this->service->record($earner, MissionTrigger::KolabPublished);
+
+        $this->assertCount(1, $first);
+        $this->assertCount(1, $second);
+        $this->assertSame(2, $first[0]->fresh()->progress_count);
+        $this->assertSame($mission->id, $first[0]->challenge_id);
+    }
+
     public function test_monthly_repeat_missions_bucket_by_period_key(): void
     {
         $community = Profile::factory()->community()->create();

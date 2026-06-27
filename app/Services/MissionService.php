@@ -15,6 +15,7 @@ use App\Models\Profile;
 use App\Models\Wallet;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Auto-award engine for self-tracked missions (Phase 2).
@@ -116,9 +117,10 @@ class MissionService
     }
 
     /**
-     * Find-or-create the period progress row, increment it, and complete +
-     * award if the target is reached. Wrapped in a transaction so the
-     * completion flag, the ledger credit and the wallet bump move together.
+     * Atomically find-or-create the period progress row, increment it, and
+     * complete + award if the target is reached. Wrapped in a transaction so
+     * the completion flag, the ledger credit and the wallet bump move
+     * together.
      */
     private function progressMission(
         Profile $earner,
@@ -130,22 +132,31 @@ class MissionService
         $periodKey = self::periodKeyFor($mission->repeat_interval, $now);
 
         return DB::transaction(function () use ($earner, $mission, $increment, $now, $periodKey, $context): ChallengeProgress {
+            // Atomic find-or-create: ON CONFLICT DO UPDATE means two concurrent
+            // requests for a brand-new (challenge, profile, period) row never race
+            // on the unique index — the loser's upsert becomes a no-op update
+            // instead of a duplicate-key exception.
+            ChallengeProgress::query()->upsert(
+                [[
+                    'id' => (string) Str::uuid(),
+                    'challenge_id' => $mission->id,
+                    'profile_id' => $earner->id,
+                    'period_key' => $periodKey,
+                    'progress_count' => 0,
+                    'target_value' => $mission->target_value,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]],
+                ['challenge_id', 'profile_id', 'period_key'],
+                ['target_value'],
+            );
+
             $progress = ChallengeProgress::query()
                 ->where('challenge_id', $mission->id)
                 ->where('profile_id', $earner->id)
                 ->where('period_key', $periodKey)
                 ->lockForUpdate()
                 ->first();
-
-            if ($progress === null) {
-                $progress = ChallengeProgress::query()->create([
-                    'challenge_id' => $mission->id,
-                    'profile_id' => $earner->id,
-                    'period_key' => $periodKey,
-                    'progress_count' => 0,
-                    'target_value' => $mission->target_value,
-                ]);
-            }
 
             if ($progress->completed_at !== null) {
                 return $progress;
