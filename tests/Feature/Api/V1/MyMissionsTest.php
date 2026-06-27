@@ -45,6 +45,7 @@ class MyMissionsTest extends TestCase
             ->create([
                 'points' => $points,
                 'category' => $category ?? ChallengeCategory::Growth,
+                'app_visible' => true,
             ]);
     }
 
@@ -226,6 +227,7 @@ class MyMissionsTest extends TestCase
             'trigger_action' => MissionTrigger::KolabPublished,
             'target_value' => 1,
             'points' => 20,
+            'app_visible' => true,
         ]);
 
         $this->actingAs($profile)
@@ -234,5 +236,23 @@ class MyMissionsTest extends TestCase
             ->assertJsonStructure([
                 'data' => ['missions' => [['id', 'slug', 'name', 'category', 'points', 'target_value', 'progress_count', 'completed', 'period_key']]],
             ]);
+    }
+
+    public function test_me_missions_excludes_non_v1_visible_missions(): void
+    {
+        $profile = \App\Models\Profile::factory()->business()->create();
+
+        \App\Models\Challenge::factory()->create([
+            'is_system' => true,
+            'event_id' => null,
+            'audience' => \App\Enums\ChallengeAudience::Business,
+            'trigger_action' => \App\Enums\MissionTrigger::PlanUpgraded,
+            'app_visible' => false,
+        ]);
+
+        $this->actingAs($profile)
+            ->getJson('/api/v1/me/missions')
+            ->assertOk()
+            ->assertJsonCount(0, 'data.missions');
     }
 }

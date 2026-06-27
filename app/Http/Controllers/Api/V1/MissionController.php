@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\DTOs\MissionWithProgress;
-use App\Enums\ChallengeAudience;
 use App\Enums\MissionTrigger;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\MissionResource;
@@ -19,6 +18,8 @@ use Illuminate\Support\Carbon;
 
 class MissionController extends Controller
 {
+    public function __construct(private readonly MissionService $missionService) {}
+
     /**
      * List the authenticated viewer's role-relevant LIVE missions with the
      * viewer's progress for the current period.
@@ -35,8 +36,9 @@ class MissionController extends Controller
         $missions = Challenge::query()
             ->where('is_system', true)
             ->whereNull('event_id')
+            ->where('app_visible', true)
             ->whereNotNull('trigger_action')
-            ->whereIn('audience', $this->audiencesFor($viewer))
+            ->whereIn('audience', $this->missionService->audiencesFor($viewer))
             ->whereIn('trigger_action', $this->liveTriggerValues())
             ->where(function ($query) use ($now): void {
                 $query->whereNull('starts_at')->orWhere('starts_at', '<=', $now);
@@ -67,22 +69,6 @@ class MissionController extends Controller
                 'missions' => MissionResource::collection($dtos),
             ],
         ]);
-    }
-
-    /**
-     * The audience values a mission may carry to be visible to this viewer.
-     * `both` means business + community (never attendee).
-     *
-     * @return list<string>
-     */
-    private function audiencesFor(Profile $viewer): array
-    {
-        return match (true) {
-            $viewer->isBusiness() => [ChallengeAudience::Business->value, ChallengeAudience::Both->value],
-            $viewer->isCommunity() => [ChallengeAudience::Community->value, ChallengeAudience::Both->value],
-            $viewer->isAttendee() => [ChallengeAudience::Attendee->value],
-            default => [],
-        };
     }
 
     /**

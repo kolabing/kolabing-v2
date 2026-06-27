@@ -90,7 +90,7 @@ class MissionService
      *
      * @return list<string>
      */
-    private function audiencesFor(Profile $earner): array
+    public function audiencesFor(Profile $earner): array
     {
         return match (true) {
             $earner->isBusiness() => [ChallengeAudience::Business->value, ChallengeAudience::Both->value],
