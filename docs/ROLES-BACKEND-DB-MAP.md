@@ -1,6 +1,6 @@
 # Kolabing — Roles → Backend → Database Map (Ground-Truth)
 
-**Last updated:** 2026-06-19 (legacy `collab_opportunities` table-level code archived — model/bridge/command/factory/seeder deleted, dual-write removed; new `/kolabs/{kolab}/applications` apply routes; `/opportunities` shim retained pending mobile migration — #30)
+**Last updated:** 2026-06-27 (gamification mission system v1 curation: `challenges.app_visible` column + the three event/general mission filter sites — #49)
 **Status:** Authoritative companion to [`ROLES-AND-PERMISSIONS.md`](./ROLES-AND-PERMISSIONS.md). Read that first (the *what*), then this (the *where*).
 **Sync note:** Duplicated in both repos (`kolabing-app`, `kolabing-v2`). Keep identical, and **bump the Last updated date in both** when role behaviour or backend wiring changes.
 
@@ -22,6 +22,7 @@
 8. ⚠️ **NEW — admin operator surfaces.** Maintainers can grant a 12-month subscription with `source = maintainer`, force-cancel collaborations, and (since 2026-06-01) **force-complete** collaborations from `/admin/*`. Make sure new gate code accounts for `source = maintainer` (still an `active` row; behaves identically to a Stripe-paid sub). See §9.
 9. ⚠️ **NEW — community members + tiers surface (NF-6).** Three new tables (`communities`, `community_tiers`, `community_members`) + a nullable `events.community_id`. The "one free community" cap is a **NEW config-driven gate** (`config('communities.max_free_communities')` → `CommunityLimitReachedException` → 422 `community_limit_reached`). It is NOT the business paywall — do NOT add `hasActiveSubscription()` anywhere on this surface. See §12.
 10. ✅ **Feedback gate on `/complete` is live** (2026-06-01). `CollaborationService::complete()` refuses until both participants have a `collaboration_feedback` row; per-party CollaborationComplete XP fires on `/feedback` not `/complete`; legacy `/review` calls auto-mirror a stub feedback row so the gate succeeds during mobile rollout. Soft-rollout knob: `config('collaborations.complete_requires_feedback')`. See §3 and §10.
+11. ✅ **NEW — gamification mission system v1 shipped (2026-06-27, #49).** `challenges` now has `trigger_action`/`target_value`/`repeat_interval`/`starts_at`/`ends_at`/`slug`/`app_visible`; a new `challenge_progress` table backs self-tracked mission progress; `MissionService` does atomic upsert + award. `GET /me/missions` filters to `is_system=true AND event_id IS NULL AND app_visible=true AND trigger_action IS NOT NULL AND trigger_action IN (live triggers) AND audience matches AND within [starts_at, ends_at]` — exactly 18 of the ~45 seeded missions are `app_visible=true` (5 attendee / 7 business / 6 community), all on live triggers. Event challenges (`trigger_action IS NULL`) stay peer-verified and are excluded from `/me/missions`; general missions (`trigger_action IS NOT NULL`) are excluded from the event-scoped surfaces — enforced in **three** places: `SystemChallengeController`, `Admin\ChallengeDefaultsController`, `ChallengeService::listForEvent()`. See §11.
 
 ---
 
@@ -165,6 +166,11 @@ Gamification / wallets (§11):
  ├─ wallets, withdrawal_requests, point_ledger
  ├─ badges, badge_awards, earned_badges
  ├─ event_checkins, event_photos, event_rewards
+ ├─ challenges (trigger_action? string(60), target_value uint default 1,
+ │              repeat_interval string(20) default 'once', starts_at?, ends_at?,
+ │              slug string(120) UNIQUE?, app_visible bool default false)   ← mission columns (#49)
+ ├─ challenge_progress (challenge_id FK, profile_id FK, progress_count, target_value,
+ │                       completed_at?, period_key?; UNIQUE(challenge_id, profile_id, period_key))
  └─ collaboration_challenges, challenge_completions, referral_codes, referral_redemptions
 
 Lookups / admin:
@@ -188,6 +194,7 @@ Fixed since the last revision:
 - [x] Collaboration cancellation now persists `cancellation_reason`, `cancelled_at`, and `cancelled_by_profile_id` (§10).
 - [x] **Feedback gate on `/complete` shipped** with admin force-complete, auto-timeout scheduler, and a `/review`→`/feedback` mirror for legacy clients (§3, §9, §10). XP moved from `/complete` to `/feedback` per Q7. PR #9, 2026-06-01.
 - [x] **NF-6 community members + tiers, Phase 1 shipped** (2026-06-03): `communities` / `community_tiers` / `community_members` tables, `events.community_id`, `CommunityPolicy`, the cap gate (NOT the paywall), the auto-assignment command + on-check-in hook, and the chapter-scoped leaderboard. See §12.
+- [x] **Gamification mission system v1 shipped** (2026-06-27, #49): `challenges.app_visible` curation column, atomic `challenge_progress` upsert, wallet-service delegation + `isLive()` guard on `/me/missions`, the DTO refactor, and the curated 18-mission v1 set (5 attendee / 7 business / 6 community). Event/general mission separation enforced in three places. See §11.1.
 
 Still open:
 
@@ -289,6 +296,35 @@ The attendee track ships substantial code despite `ROLES-AND-PERMISSIONS.md §0`
 - Should the canonical permissions doc grow a full §4 covering attendees, replacing the "deferred" stub?
 
 Until those are resolved, treat this section as the source of truth for what attendees can do, and treat `ROLES-AND-PERMISSIONS.md §0` (attendee = deferred) as **stale**.
+
+### 11.1 General missions vs. event challenges (added 2026-06-27, #49)
+
+`MissionController::index()` (`GET /api/v1/me/missions`, `app/Http/Controllers/Api/V1/MissionController.php:29`)
+returns only missions matching every one of: `is_system=true`, `event_id IS NULL`,
+`app_visible=true`, `trigger_action IS NOT NULL`, `trigger_action` in `MissionTrigger::isLive()`'s
+true set, `audience` in `MissionService::audiencesFor($viewer)`, and now within
+`[starts_at, ends_at]`. Of the ~45 missions `SystemChallengeSeeder` seeds, exactly
+**18 have `app_visible=true`** (5 attendee, 7 business, 6 community) — see
+`database/seeders/SystemChallengeSeeder.php` (`row()` helper, `$appVisible` 11th arg,
+default `false`). All 18 use a live trigger; the rest of the seeded set sits inert
+pending Phase 2/3 trigger wiring or a future product decision to flip `app_visible`.
+
+Event challenges (`trigger_action IS NULL`, peer-verified, attached to a kolab event)
+are excluded from `/me/missions` by the `whereNotNull('trigger_action')` clause, and
+general missions are symmetrically excluded from every event-scoped surface. That
+exclusion is enforced independently in **three** places (all filter
+`whereNull('trigger_action')` / `whereNull('trigger_action')`-equivalent):
+
+| Endpoint | Code |
+|---|---|
+| `GET /api/v1/challenges/system` | `SystemChallengeController` (`app/Http/Controllers/Api/V1/SystemChallengeController.php:23`) |
+| Admin defaults matrix | `Admin\ChallengeDefaultsController` (`app/Http/Controllers/Admin/ChallengeDefaultsController.php:33`) |
+| `GET /api/v1/events/{event}/challenges` | `ChallengeService::listForEvent()` (`app/Services/ChallengeService.php:23`) |
+
+`challenges.app_visible` (migration `2026_06_27_100000_add_app_visible_to_challenges_table.php`,
+boolean default `false`) is the v1-launch curation gate layered on top of the
+trigger-null/not-null split — it does not affect event-challenge visibility at all,
+only which *general* missions the app surfaces today.
 
 ---
 

@@ -1,6 +1,6 @@
 # Kolabing — Pre-launch Backlog
 
-**Last updated:** 2026-06-21
+**Last updated:** 2026-06-27
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical.
 
 A consolidated punch list of everything we've identified but haven't shipped. Items are tagged by **owner** (`backend` = kolabing-v2, `app` = kolabing-app, `cross` = both, `infra` = hosting) and **priority** (`P0` = blocker for launch, `P1` = needed soon after, `P2` = nice-to-have).
@@ -199,6 +199,7 @@ Cross-references to PRs and plans already on file — listed here so they don't 
 - [ ] **Lifecycle filter UX fix** on `/admin/kolabs` — rename "Matched" → "Pending match", add composite "Has match" + "Completed or done" filters. Same plan doc. Owner: **backend**.
 - [ ] **Admin stats — feedback metrics** — `PlatformStatsService::quality()` currently reads `collaboration_reviews`. Extend to surface the new `collaboration_feedback` columns (revenue, expectation_match %, would_recommend %) with the `mirrored_from_review` filter for clean rich aggregates. Tied to PR #9. Owner: **backend**.
 - [ ] **`Admin\ManagedUserController::destroy()`** should run the full `ProfileService::deleteProfile()` cleanup transaction, not a bare soft-delete. Currently bypasses email-free + collab-cancel side effects. Owner: **backend**.
+- [x] ~~**Gamification mission system v1** — `challenges.app_visible` curation column + atomic `challenge_progress` upsert + wallet-service delegation + `isLive()` trigger guard + DTO refactor + the curated 18-mission v1 set (5 attendee / 7 business / 6 community), all on live triggers. Event challenges (peer-verified, `trigger_action IS NULL`) and general missions (auto-tracked, `trigger_action IS NOT NULL`) kept separate across three filter sites (`SystemChallengeController`, `Admin\ChallengeDefaultsController`, `ChallengeService::listForEvent()`). See `docs/plans/2026-06-22-gamification-mission-system.md` and `ROLES-BACKEND-DB-MAP.md §11.1`. Owner: **backend**. (2026-06-27)~~ Remaining ⧖ triggers (profile completion, kolab publish, application accept, etc.) and wider `app_visible` rollout stay tracked in the plan doc, not here.
 
 ---
 

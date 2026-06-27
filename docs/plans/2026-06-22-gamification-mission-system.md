@@ -176,3 +176,28 @@ two so each surface shows the right kind:**
 3. `GET /me/missions` already filters to **general** (live `trigger_action`), so it
    correctly excludes event missions. No change there.
 4. Don't re-seed demo event missions; the picker is simply empty until real ones exist.
+
+---
+
+## RESOLVED (2026-06-27, tasks A1–A7, PR #49)
+
+The items below were open questions/risks when this plan was written; they are now
+resolved in code. Cross-reference: `ROLES-AND-PERMISSIONS.md §7.4`, `ROLES-BACKEND-DB-MAP.md §11.1`.
+
+- **Event/general mission coexistence (the addendum above).** Resolved exactly as
+  specced: `trigger_action IS NULL` = event challenge, `trigger_action IS NOT NULL` =
+  general mission. The separation is enforced in **three** places, not just the picker
+  called out above — `SystemChallengeController`, `Admin\ChallengeDefaultsController`,
+  and (new) `ChallengeService::listForEvent()` all filter `trigger_action IS NULL`.
+- **The curated v1 app-visible set.** Rather than surfacing all ~45 seeded missions,
+  a new `challenges.app_visible` boolean (default `false`) gates what `/me/missions`
+  returns. Exactly 18 missions are `app_visible = true` for v1 launch — 5 attendee,
+  7 business, 6 community — each verified to use a trigger in `MissionTrigger::isLive()`'s
+  true set. The rest of the seeded missions stay in the DB (admin-manageable) but are
+  held back from the app until their trigger source is wired or product flips the flag.
+- **Concurrency / wallet / isLive fixes (A3, A3b, A4, A5).** The event-picker filters
+  (A3) and the `listForEvent()` leak fix (A3b) closed the gap where event surfaces could
+  show general missions. `MissionService`'s progress upsert is now atomic (A4, avoids a
+  race on concurrent trigger fires for the same period_key). `/me/missions` now delegates
+  through the wallet service and gates on `MissionTrigger::isLive()` (A5) so a mission
+  whose trigger isn't wired yet can never appear half-progressed or stuck.

@@ -1,6 +1,6 @@
 # Kolabing — Roles, Permissions & Features (Canonical Reference)
 
-**Last updated:** 2026-06-19 (legacy `collab_opportunities` table-level code archived; canonical create/apply moved to `/kolabs/*` with new `/kolabs/{kolab}/applications` apply routes — #30)
+**Last updated:** 2026-06-27 (gamification mission system v1: curated `app_visible` mission set + event/general mission separation — #49)
 **Status:** Authoritative. This document overrides assumptions.
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical. When role behaviour changes, update both **and bump the Last updated date** in both.
 
@@ -227,6 +227,39 @@ The attendee role's backend track has shipped and the canonical position that at
 - Earn points (`point_ledger` — append-only) and badges (`BadgeService` awards on milestones like `LoyalAttendee = total_events_attended >= N`).
 - See per-event and global leaderboards.
 - Hold a reward wallet and redeem rewards.
+- Track self-completing "general missions" on the app Missions screen (added 2026-06-27, v1 curation — #49). See §7.4 below.
+
+### 7.4 General missions vs. event challenges — two kinds, both stay (added 2026-06-27)
+
+There are two distinct kinds of `challenges` row, distinguished by `trigger_action`:
+
+- **General missions** (`trigger_action IS NOT NULL`) — self-tracked onboarding/growth
+  goals such as "Complete your profile" or "Attend 3 events this month". These auto-progress
+  via `MissionService::record()` whenever the matching platform action fires, and are
+  surfaced to the attendee/business/community viewer on `GET /api/v1/me/missions`.
+- **Event challenges** (`trigger_action IS NULL`) — peer-verified, in-event tasks attached
+  to a specific kolab event (e.g. "Take a selfie together"). These power the kolab
+  "GAMIFICATION SETUP" attendee picker and the admin challenge-defaults matrix. They are
+  never auto-tracked and never appear on the Missions screen.
+
+`GET /me/missions` returns a mission only when **all** of the following hold:
+`is_system = true` AND `event_id IS NULL` AND `app_visible = true` AND
+`trigger_action IS NOT NULL` AND `trigger_action` is one of the **live** triggers
+(`MissionTrigger::isLive()` — the triggers actually wired to a source action today) AND
+the mission's `audience` matches the viewer's profile type AND the current time falls
+within `[starts_at, ends_at]` (nulls treated as open-ended).
+
+`app_visible` is a separate v1-launch curation flag on top of that: of the ~45 missions
+seeded by `SystemChallengeSeeder`, exactly **18 are `app_visible = true`** today — 5
+attendee, 7 business, 6 community — each independently verified to use a live trigger.
+The remaining seeded missions exist in the database (manageable from admin, visible in
+the defaults matrix where relevant) but are deliberately held back from the app surface
+until their triggers are wired or product decides to launch them.
+
+The event/general separation is enforced in **three** places, all filtering
+`trigger_action IS NULL` to keep general missions out of event-scoped surfaces:
+`SystemChallengeController` (`GET /api/v1/challenges/system`), `Admin\ChallengeDefaultsController`
+(the admin defaults matrix), and `ChallengeService::listForEvent()` (`GET /api/v1/events/{event}/challenges`).
 
 ### 7.2 What an attendee CANNOT do (confirmed at the service layer)
 - Create or publish kolabs / opportunities — neither service path accepts an attendee creator.
