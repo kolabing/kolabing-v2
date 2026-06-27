@@ -30,6 +30,7 @@ class ChallengeDefaultsController extends Controller
             'systemChallenges' => Challenge::query()
                 ->where('is_system', true)
                 ->whereNull('event_id')
+                ->whereNull('trigger_action')
                 ->orderBy('category')
                 ->orderBy('name')
                 ->get(),
