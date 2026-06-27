@@ -101,6 +101,7 @@ class CollaborationCompletionTest extends TestCase
             'role' => 'creator',
             'status' => 'yes',
             'created_at' => now()->subDays(4),
+            'updated_at' => now()->subDays(4),
         ]);
 
         Artisan::call('app:auto-complete-stale-collaborations');
@@ -121,6 +122,7 @@ class CollaborationCompletionTest extends TestCase
             'role' => 'creator',
             'status' => 'yes',
             'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
         ]);
 
         Artisan::call('app:auto-complete-stale-collaborations');
@@ -148,6 +150,7 @@ class CollaborationCompletionTest extends TestCase
             'profile_id' => $business->id,
             'role' => 'creator',
             'created_at' => now()->subDays(4),
+            'updated_at' => now()->subDays(4),
         ]);
 
         Artisan::call('app:auto-complete-stale-collaborations');
@@ -165,6 +168,7 @@ class CollaborationCompletionTest extends TestCase
             'role' => 'creator',
             'status' => 'yes',
             'created_at' => now()->subDays(4),
+            'updated_at' => now()->subDays(4),
         ]);
         // Partner explicitly asked to wait — a real signal, not silence.
         CollaborationCompletion::factory()->notYet()->create([
@@ -172,6 +176,7 @@ class CollaborationCompletionTest extends TestCase
             'profile_id' => $community->id,
             'role' => 'applicant',
             'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
         ]);
 
         Artisan::call('app:auto-complete-stale-collaborations');
@@ -188,17 +193,62 @@ class CollaborationCompletionTest extends TestCase
             'profile_id' => $business->id,
             'role' => 'creator',
             'created_at' => now()->subDays(4),
+            'updated_at' => now()->subDays(4),
         ]);
         CollaborationCompletion::factory()->notYet()->create([
             'collaboration_id' => $collab->id,
             'profile_id' => $community->id,
             'role' => 'applicant',
             'created_at' => now()->subDays(4),
+            'updated_at' => now()->subDays(4),
         ]);
 
         Artisan::call('app:auto-complete-stale-collaborations');
 
         $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
+    }
+
+    public function test_auto_complete_command_skips_when_yes_was_only_just_reconfirmed(): void
+    {
+        // Regression: a 'not_yet' submitted long ago and only just changed to
+        // 'yes' (old created_at, recent updated_at) must get a fresh grace
+        // window from the 'yes', not auto-complete instantly off created_at.
+        ['collab' => $collab, 'business' => $business] = $this->kolabWithActiveCollaboration();
+
+        CollaborationCompletion::factory()->create([
+            'collaboration_id' => $collab->id,
+            'profile_id' => $business->id,
+            'role' => 'creator',
+            'status' => 'yes',
+            'created_at' => now()->subDays(10),
+            'updated_at' => now(),
+        ]);
+
+        Artisan::call('app:auto-complete-stale-collaborations');
+
+        $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
+    }
+
+    public function test_auto_complete_command_completes_legacy_feedback_only_collaboration(): void
+    {
+        // Regression: a legacy /feedback-only collaboration (no completion row)
+        // whose feedback predates the grace window must still auto-complete,
+        // matching the old feedback-based scheduler.
+        ['collab' => $collab, 'business' => $business] = $this->kolabWithActiveCollaboration();
+
+        \App\Models\CollaborationFeedback::factory()->create([
+            'collaboration_id' => $collab->id,
+            'reviewer_profile_id' => $business->id,
+            'reviewer_role' => 'creator',
+            'created_at' => now()->subDays(4),
+            'updated_at' => now()->subDays(4),
+        ]);
+
+        Artisan::call('app:auto-complete-stale-collaborations');
+
+        $fresh = $collab->fresh();
+        $this->assertSame(CollaborationStatus::Completed, $fresh->status);
+        $this->assertNotNull($fresh->auto_completed_at);
     }
 
     public function test_auto_complete_command_dry_run_does_not_write(): void
@@ -211,6 +261,7 @@ class CollaborationCompletionTest extends TestCase
             'role' => 'creator',
             'status' => 'yes',
             'created_at' => now()->subDays(4),
+            'updated_at' => now()->subDays(4),
         ]);
 
         Artisan::call('app:auto-complete-stale-collaborations', ['--dry-run' => true]);

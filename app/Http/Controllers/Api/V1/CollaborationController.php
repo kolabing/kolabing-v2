@@ -199,7 +199,14 @@ class CollaborationController extends Controller
         return response()->json([
             'success' => true,
             'message' => __('Completion confirmation submitted.'),
-            'data' => $completion,
+            // Shape matches CollaborationResource::own_completion; internal
+            // columns (id, profile_id, role, collaboration_id) are not exposed.
+            'data' => [
+                'status' => $completion->status->value,
+                'note' => $completion->note,
+                'created_at' => $completion->created_at?->toIso8601String(),
+                'updated_at' => $completion->updated_at?->toIso8601String(),
+            ],
         ], 201);
     }
 

@@ -22,18 +22,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | [Deprecated] Legacy feedback gate
-    |--------------------------------------------------------------------------
-    |
-    | No longer read by CollaborationService::complete() (see above). Kept so
-    | existing .env files with this var set don't silently no-op elsewhere;
-    | safe to remove once confirmed unused in all environments.
-    |
-    */
-    'complete_requires_feedback' => env('COLLABORATIONS_COMPLETE_REQUIRES_FEEDBACK', true),
-
-    /*
-    |--------------------------------------------------------------------------
     | Auto-completion grace timer (mutual-confirm)
     |--------------------------------------------------------------------------
     |

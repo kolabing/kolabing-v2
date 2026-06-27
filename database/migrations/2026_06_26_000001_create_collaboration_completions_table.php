@@ -35,8 +35,9 @@ return new class extends Migration
 
             $table->timestamps();
 
+            // The composite unique already serves collaboration_id-prefix
+            // lookups, so no separate index('collaboration_id') is needed.
             $table->unique(['collaboration_id', 'profile_id']);
-            $table->index('collaboration_id');
         });
     }
 

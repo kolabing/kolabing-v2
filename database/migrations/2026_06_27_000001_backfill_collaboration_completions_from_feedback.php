@@ -33,11 +33,14 @@ return new class extends Migration
     {
         $now = now();
 
+        // Chunk the source table so a large production feedback table is never
+        // loaded into memory at once, and batch-insert each chunk in a single
+        // insertOrIgnore instead of one round-trip per row.
         DB::table('collaboration_feedback')
             ->select(['collaboration_id', 'reviewer_profile_id', 'reviewer_role'])
-            ->get()
-            ->each(function (object $row) use ($now): void {
-                DB::table('collaboration_completions')->insertOrIgnore([
+            ->orderBy('collaboration_id')
+            ->chunk(500, function ($rows) use ($now): void {
+                $batch = $rows->map(fn (object $row): array => [
                     'id' => (string) Str::uuid(),
                     'collaboration_id' => $row->collaboration_id,
                     'profile_id' => $row->reviewer_profile_id,
@@ -46,7 +49,9 @@ return new class extends Migration
                     'note' => null,
                     'created_at' => $now,
                     'updated_at' => $now,
-                ]);
+                ])->all();
+
+                DB::table('collaboration_completions')->insertOrIgnore($batch);
             });
     }
 

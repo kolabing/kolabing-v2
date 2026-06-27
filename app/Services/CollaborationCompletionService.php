@@ -35,7 +35,13 @@ class CollaborationCompletionService
      */
     public function submit(Collaboration $collaboration, Profile $confirmer, string $status, ?string $note = null): CollaborationCompletion
     {
-        $role = $this->resolveRole($collaboration, $confirmer);
+        // A completed/cancelled Kolab is settled — never accept a new
+        // confirmation (and never award its XP) against a terminal collaboration.
+        if ($collaboration->isInTerminalState()) {
+            throw CollaborationException::alreadyInTerminalState($collaboration->status->value);
+        }
+
+        $role = $collaboration->roleFor($confirmer);
 
         if ($role === null) {
             throw CollaborationException::notAParticipant();
@@ -88,7 +94,9 @@ class CollaborationCompletionService
 
     /**
      * Reviewer types ('business' | 'community') of participants who have NOT
-     * yet submitted ANY completion confirmation (regardless of status).
+     * confirmed 'yes' — i.e. they have no row at all, or answered 'no'/'not_yet'.
+     * This matches what the gate actually requires (both parties 'yes'), so the
+     * API resource and the gate never disagree about who is still blocking.
      *
      * @return array<int, string>
      */
@@ -96,23 +104,40 @@ class CollaborationCompletionService
     {
         $collaboration->loadMissing(['creatorProfile', 'applicantProfile']);
 
-        $participantTypes = collect([
-            $collaboration->creatorProfile?->user_type?->value,
-            $collaboration->applicantProfile?->user_type?->value,
-        ])->filter()->unique()->values()->all();
-
-        $submittedTypes = CollaborationCompletion::query()
-            ->where('collaboration_id', $collaboration->id)
-            ->get()
-            ->map(function (CollaborationCompletion $row) use ($collaboration): ?string {
-                return $row->role === 'creator'
-                    ? $collaboration->creatorProfile?->user_type?->value
-                    : $collaboration->applicantProfile?->user_type?->value;
-            })
-            ->filter()
+        $confirmedProfileIds = $this->completionRowsFor($collaboration)
+            ->filter(fn (CollaborationCompletion $row): bool => $row->status === CollaborationCompletionStatus::Yes)
+            ->pluck('profile_id')
             ->all();
 
-        return array_values(array_diff($participantTypes, $submittedTypes));
+        return collect([
+            $collaboration->creatorProfile,
+            $collaboration->applicantProfile,
+        ])
+            ->filter()
+            ->reject(fn (Profile $profile): bool => in_array($profile->id, $confirmedProfileIds, true))
+            ->map(fn (Profile $profile): ?string => $profile->user_type?->value)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Completion rows for a collaboration, served from the eager-loaded
+     * `completions` relation when present (avoids an N+1 in the API resource)
+     * and falling back to a single query otherwise.
+     *
+     * @return \Illuminate\Support\Collection<int, CollaborationCompletion>
+     */
+    private function completionRowsFor(Collaboration $collaboration): \Illuminate\Support\Collection
+    {
+        if ($collaboration->relationLoaded('completions')) {
+            return $collaboration->completions;
+        }
+
+        return CollaborationCompletion::query()
+            ->where('collaboration_id', $collaboration->id)
+            ->get();
     }
 
     /**
@@ -127,6 +152,10 @@ class CollaborationCompletionService
      */
     public function enforceGate(Collaboration $collaboration, ?Profile $caller): void
     {
+        // System path (non-interactive caller): require EVERY participant to
+        // have answered 'yes'. pendingConfirmationFrom now reports anyone who
+        // has not — including explicit 'no'/'not_yet' — so this path no longer
+        // lets a refusal slip through.
         if ($caller === null) {
             $pending = $this->pendingConfirmationFrom($collaboration);
             if ($pending !== []) {
@@ -137,12 +166,19 @@ class CollaborationCompletionService
         }
 
         $collaboration->loadMissing(['creatorProfile', 'applicantProfile']);
-        $callerRole = $this->resolveRole($collaboration, $caller);
+        $callerRole = $collaboration->roleFor($caller);
 
         if ($callerRole === null) {
             throw CollaborationException::notAParticipant();
         }
 
+        // Own answer is checked first (error precedence). The feedback fallback
+        // (own and partner) keeps legacy /feedback-only and /review-only clients
+        // un-stranded by treating an existing feedback row as an implicit 'yes'.
+        // It is safe against the new flow: a client that has touched the
+        // /completion endpoint always has a real row, so partnerRow() returns it
+        // and the fallback never overrides an explicit no/not_yet — the fallback
+        // only ever applies to genuine pre-PR-1 clients with no completion row.
         $own = $this->ownRow($collaboration, $caller)
             ?? $this->fallbackFromFeedback($collaboration, $caller, $callerRole);
 
@@ -164,8 +200,9 @@ class CollaborationCompletionService
             ?? ($partnerProfile !== null ? $this->fallbackFromFeedback($collaboration, $partnerProfile, $partnerRole) : null);
 
         if ($partner === null) {
-            $pending = $this->pendingConfirmationFrom($collaboration);
-            throw CollaborationException::awaitingPartnerCompletionConfirmation($pending);
+            throw CollaborationException::awaitingPartnerCompletionConfirmation(
+                $this->pendingConfirmationFrom($collaboration),
+            );
         }
 
         if ($partner->status !== CollaborationCompletionStatus::Yes) {
@@ -216,14 +253,5 @@ class CollaborationCompletionService
                 'note' => null,
             ],
         );
-    }
-
-    private function resolveRole(Collaboration $collaboration, Profile $confirmer): ?string
-    {
-        return match (true) {
-            $confirmer->id === $collaboration->creator_profile_id => 'creator',
-            $confirmer->id === $collaboration->applicant_profile_id => 'applicant',
-            default => null,
-        };
     }
 }

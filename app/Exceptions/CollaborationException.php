@@ -130,27 +130,6 @@ class CollaborationException extends Exception
         );
     }
 
-    public static function awaitingOwnFeedback(): self
-    {
-        return new self(
-            __('Submit your feedback before completing the collaboration.'),
-            Response::HTTP_UNPROCESSABLE_ENTITY,
-            ['error_code' => 'awaiting_own_feedback'],
-        );
-    }
-
-    /**
-     * @param  array<int, string>  $pendingRoles
-     */
-    public static function awaitingPartnerFeedback(array $pendingRoles): self
-    {
-        return new self(
-            __('Waiting on the other party to submit their feedback.'),
-            Response::HTTP_UNPROCESSABLE_ENTITY,
-            ['error_code' => 'awaiting_partner_feedback', 'pending_feedback_from' => $pendingRoles],
-        );
-    }
-
     public static function awaitingOwnCompletionConfirmation(): self
     {
         return new self(

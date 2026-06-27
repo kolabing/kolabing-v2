@@ -1,6 +1,6 @@
 # Kolabing — Roles, Permissions & Features (Canonical Reference)
 
-**Last updated:** 2026-06-26 (completion-flow simplification PR 1: `/complete` now gates on a lightweight yes/no/not_yet completion confirmation, not rich feedback — §2.9, §4)
+**Last updated:** 2026-06-27 (PR #59 review fixes: completion-confirmation gate hardening — terminal-state guard, resource/gate agreement on `no`/`not_yet`, auto-complete grace anchored on the `yes` timestamp + feedback-only rescue — §2.9, §4. Prior: 2026-06-26 PR 1)
 **Status:** Authoritative. This document overrides assumptions.
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical. When role behaviour changes, update both **and bump the Last updated date** in both.
 
@@ -108,7 +108,7 @@ The **community counterparty is NEVER affected**: communities keep full access t
 The admin panel (`/admin/*`, `auth:admin + maintainer` guard) exposes these collaboration-level actions:
 - **Force-cancel** (`POST /admin/kolabs/{kolab}/collaboration/cancel`): persists `cancellation_reason` and stamps `cancelled_at`. `cancelled_by_profile_id = null` indicates maintainer action.
 - **Force-complete** (`POST /admin/kolabs/{kolab}/collaboration/complete`): bypasses the completion-confirmation gate (see §4). Persists `completion_reason` and stamps `completed_at`. `completed_by_profile_id = null` indicates maintainer action. No XP is awarded.
-- **Auto-complete (system)**: a scheduled job (`app:auto-complete-stale-collaborations`, default `dailyAt('03:00')`) completes scheduled/active collaborations whose first `collaboration_completions` row is more than `config('collaborations.auto_complete_grace_days_after_first_completion_confirmation', 3)` days old, **unless** any party explicitly answered `no` (that signal is left for manual/admin resolution, never silently completed). Stamps `auto_completed_at`.
+- **Auto-complete (system)**: a scheduled job (`app:auto-complete-stale-collaborations`, default `dailyAt('03:00')`) completes scheduled/active collaborations once a `yes` confirmation has stood for more than `config('collaborations.auto_complete_grace_days_after_first_completion_confirmation', 3)` days (measured from when the `yes` was set, so a `not_yet→yes` change restarts the window) — or, for legacy feedback-only collaborations, once a `collaboration_feedback` row is that old — **unless** any party explicitly answered `no` or `not_yet` (those signals are left for manual/admin resolution, never silently completed). Stamps `auto_completed_at`.
 
 ### 2.10 Maintainer-granted subscription access — added 2026-06-01
 A Kolabing maintainer can grant a business **12 months of subscription access** from the admin panel (`/admin/users/{profile}/subscription/grant`). This produces a `business_subscriptions` row with `status = active` and **`source = maintainer`**. The grant bypasses Stripe/Apple IAP but is identical to a paid subscription as far as the paywall and re-gating logic are concerned — the business gets full subscribed-business capabilities until the period ends or a maintainer revokes it.

@@ -229,8 +229,9 @@ class CollaborationService
 
     /**
      * Scheduled-command path. Used by app:auto-complete-stale-collaborations
-     * when scheduled_date + threshold has passed AND at least one feedback
-     * row exists. Sets auto_completed_at as the audit marker.
+     * once a 'yes' completion confirmation (or a legacy feedback row treated as
+     * an implicit yes) has sat past the grace window with no 'no'/'not_yet'
+     * from either party. Sets auto_completed_at as the audit marker.
      */
     public function autoComplete(Collaboration $collaboration): Collaboration
     {

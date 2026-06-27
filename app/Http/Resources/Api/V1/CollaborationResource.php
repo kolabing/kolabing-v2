@@ -20,6 +20,23 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class CollaborationResource extends JsonResource
 {
     /**
+     * Per-instance memo of completion rows. Instance-scoped (not static) so it
+     * can never serve stale state across requests on a long-lived worker.
+     *
+     * @var \Illuminate\Support\Collection<int, CollaborationCompletion>|null
+     */
+    private ?\Illuminate\Support\Collection $completionRowsMemo = null;
+
+    /**
+     * Per-instance memo of the pending-confirmation types, so the value is
+     * computed once for both pending_completion_from and
+     * viewer_must_confirm_completion.
+     *
+     * @var array<int, string>|null
+     */
+    private ?array $pendingCompletionMemo = null;
+
+    /**
      * Indicates if the resource should include application details.
      */
     protected bool $includeApplication = true;
@@ -328,7 +345,8 @@ class CollaborationResource extends JsonResource
     }
 
     /**
-     * Cache and return the completion-confirmation rows for this collaboration.
+     * Memoize and return the completion-confirmation rows for this collaboration,
+     * preferring the eager-loaded relation.
      *
      * @return \Illuminate\Support\Collection<int, CollaborationCompletion>
      */
@@ -338,21 +356,15 @@ class CollaborationResource extends JsonResource
             return $this->resource->completions;
         }
 
-        /** @var array<string, \Illuminate\Support\Collection<int, CollaborationCompletion>> $cache */
-        static $cache = [];
-
-        if (! isset($cache[$this->id])) {
-            $cache[$this->id] = CollaborationCompletion::query()
-                ->where('collaboration_id', $this->id)
-                ->get();
-        }
-
-        return $cache[$this->id];
+        return $this->completionRowsMemo ??= CollaborationCompletion::query()
+            ->where('collaboration_id', $this->id)
+            ->get();
     }
 
     /**
-     * Reviewer types ('business' | 'community') who have NOT submitted ANY
-     * completion confirmation yet.
+     * Reviewer types ('business' | 'community') who have NOT confirmed 'yes'
+     * (no row, or answered 'no'/'not_yet') — the parties still blocking
+     * completion. Memoized so it is computed once per resource.
      *
      * @return array<int, string>
      */
@@ -361,7 +373,8 @@ class CollaborationResource extends JsonResource
         /** @var Collaboration $collab */
         $collab = $this->resource;
 
-        return app(CollaborationCompletionService::class)->pendingConfirmationFrom($collab);
+        return $this->pendingCompletionMemo ??= app(CollaborationCompletionService::class)
+            ->pendingConfirmationFrom($collab);
     }
 
     /**

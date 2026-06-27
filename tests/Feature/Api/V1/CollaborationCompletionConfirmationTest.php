@@ -358,4 +358,61 @@ class CollaborationCompletionConfirmationTest extends TestCase
             ->assertJsonPath('data.viewer_must_confirm_completion', true)
             ->assertJsonPath('data.partner_completion_status', 'yes');
     }
+
+    public function test_resource_marks_viewer_who_answered_not_yet_as_still_pending(): void
+    {
+        // A viewer who answered no/not_yet has NOT confirmed yes, so the
+        // resource must keep telling them to confirm and list them as pending —
+        // otherwise the client shows "ready" while /complete still 422s.
+        ['collab' => $collab, 'business' => $business] = $this->makeActiveCollab();
+
+        $this->actingAs($business)
+            ->postJson(route('api.v1.collaborations.completion.store', $collab), ['status' => 'not_yet'])
+            ->assertCreated();
+
+        $this->actingAs($business)
+            ->getJson(route('api.v1.collaborations.show', $collab))
+            ->assertOk()
+            ->assertJsonPath('data.viewer_must_confirm_completion', true)
+            ->assertJsonPath('data.own_completion.status', 'not_yet')
+            ->assertJsonFragment(['pending_completion_from' => ['business', 'community']]);
+    }
+
+    public function test_completion_response_is_shaped_and_hides_internal_columns(): void
+    {
+        ['collab' => $collab, 'business' => $business] = $this->makeActiveCollab();
+
+        $response = $this->actingAs($business)
+            ->postJson(route('api.v1.collaborations.completion.store', $collab), ['status' => 'yes', 'note' => 'done'])
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'yes')
+            ->assertJsonPath('data.note', 'done');
+
+        $data = $response->json('data');
+        $this->assertSame(['status', 'note', 'created_at', 'updated_at'], array_keys($data));
+        $this->assertArrayNotHasKey('role', $data);
+        $this->assertArrayNotHasKey('profile_id', $data);
+        $this->assertArrayNotHasKey('collaboration_id', $data);
+    }
+
+    public function test_submitting_completion_on_terminal_collaboration_is_rejected_and_awards_no_xp(): void
+    {
+        ['collab' => $collab, 'business' => $business] = $this->makeActiveCollab();
+
+        $collab->update(['status' => CollaborationStatus::Completed]);
+
+        $this->actingAs($business)
+            ->postJson(route('api.v1.collaborations.completion.store', $collab), ['status' => 'yes'])
+            ->assertStatus(422);
+
+        $this->assertDatabaseMissing('collaboration_completions', [
+            'collaboration_id' => $collab->id,
+            'profile_id' => $business->id,
+        ]);
+        $this->assertDatabaseMissing('point_ledger', [
+            'profile_id' => $business->id,
+            'event_type' => 'collaboration_completion_confirmed',
+            'reference_id' => $collab->id,
+        ]);
+    }
 }

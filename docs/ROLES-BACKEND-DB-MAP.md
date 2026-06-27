@@ -1,6 +1,6 @@
 # Kolabing — Roles → Backend → Database Map (Ground-Truth)
 
-**Last updated:** 2026-06-26 (completion-flow simplification PR 1: `/complete` gate moved from `collaboration_feedback` to a new lightweight `collaboration_completions` table — §0 item 10, §3, §9, §10)
+**Last updated:** 2026-06-27 (PR #59 review fixes: completion-confirmation gate hardening — terminal-state guard, `pending = not-yes` resource/gate alignment, auto-complete grace anchored on `updated_at` + feedback-only rescue, `Collaboration::roleFor()`, dead-code removal — §0 item 10, §3, §8, §10. Prior: 2026-06-26 PR 1 moved the `/complete` gate to `collaboration_completions`)
 **Status:** Authoritative companion to [`ROLES-AND-PERMISSIONS.md`](./ROLES-AND-PERMISSIONS.md). Read that first (the *what*), then this (the *where*).
 **Sync note:** Duplicated in both repos (`kolabing-app`, `kolabing-v2`). Keep identical, and **bump the Last updated date in both** when role behaviour or backend wiring changes.
 
@@ -73,7 +73,7 @@ Spec: paywall is **Business-only**, on **exactly two actions** (create a collabo
 
 All four backend gates now follow the same pattern: `if ($profile->isBusiness() && ! $profile->hasActiveSubscription())`. **Never copy this gate into community or attendee paths.**
 
-**Completion-confirmation gate on `/complete` (PR 1, 2026-06-26, supersedes the 2026-06-01 feedback gate; not a paywall):** `CollaborationService::complete()` now calls `CollaborationCompletionService::enforceGate()`, which throws `awaiting_own_completion_confirmation` (422, caller hasn't responded), `awaiting_partner_completion_confirmation` (422, partner hasn't responded — context carries `pending_completion_from: ['business'|'community']`), or `completion_not_confirmed` (422, both responded but at least one said `no`/`not_yet` — context carries `own_status`/`partner_status`). Subject to `config('collaborations.complete_requires_completion_confirmation', true)` so the gate can be soft-rolled. This is a UX gate, **not role-discriminatory** — both business and community must confirm. Rich `/feedback` no longer participates in this gate at all (its own `awaiting_own_feedback`/`awaiting_partner_feedback` exception factories are now dead code, kept harmlessly in `CollaborationException`).
+**Completion-confirmation gate on `/complete` (PR 1, 2026-06-26, supersedes the 2026-06-01 feedback gate; not a paywall):** `CollaborationService::complete()` now calls `CollaborationCompletionService::enforceGate()`, which throws `awaiting_own_completion_confirmation` (422, caller hasn't responded), `awaiting_partner_completion_confirmation` (422, partner hasn't responded — context carries `pending_completion_from: ['business'|'community']`), or `completion_not_confirmed` (422, both responded but at least one said `no`/`not_yet` — context carries `own_status`/`partner_status`). Subject to `config('collaborations.complete_requires_completion_confirmation', true)` so the gate can be soft-rolled. This is a UX gate, **not role-discriminatory** — both business and community must confirm. Rich `/feedback` no longer participates in this gate at all (the old `awaiting_own_feedback`/`awaiting_partner_feedback` exception factories were removed in PR #59). `submit()` rejects confirmations on terminal (completed/cancelled) collaborations so no XP is paid on a settled Kolab.
 
 ---
 
@@ -188,6 +188,7 @@ Fixed since the last revision:
 - [x] Collaboration cancellation now persists `cancellation_reason`, `cancelled_at`, and `cancelled_by_profile_id` (§10).
 - [x] **Feedback gate on `/complete` shipped** with admin force-complete, auto-timeout scheduler, and a `/review`→`/feedback` mirror for legacy clients (§3, §9, §10). XP moved from `/complete` to `/feedback` per Q7. PR #9, 2026-06-01.
 - [x] **NF-6 community members + tiers, Phase 1 shipped** (2026-06-03): `communities` / `community_tiers` / `community_members` tables, `events.community_id`, `CommunityPolicy`, the cap gate (NOT the paywall), the auto-assignment command + on-check-in hook, and the chapter-scoped leaderboard. See §12.
+- [x] **Completion-confirmation gate hardening (PR #59 review fixes, 2026-06-27):** `CollaborationCompletionService::submit()` now refuses confirmations on terminal collaborations (no XP on completed/cancelled Kolabs); `pendingConfirmationFrom()` (and the resource's `pending_completion_from` / `viewer_must_confirm_completion`) now mean "has not answered `yes`" so the resource and the gate agree when a party said `no`/`not_yet`; the auto-complete scheduler anchors the grace window on the confirmation's `updated_at` (a `not_yet→yes` change gets a fresh window) and again rescues legacy feedback-only collaborations; role resolution is unified on `Collaboration::roleFor()`; the dead `complete_requires_feedback` config and `awaiting*Feedback` exception factories were removed. The partner-side feedback fallback is intentionally retained (it only fires for genuine pre-PR-1 clients with no completion row, and never overrides an explicit `no`/`not_yet`). See §3, §10.
 
 Still open:
 
@@ -246,8 +247,8 @@ Added by the 2026-05-31 admin stats sprint. These columns are **observability-on
 
 Backfill for legacy rows: `php artisan app:backfill-lifecycle-timestamps [--dry-run]` copies `updated_at` into the matching transition column. Run once per environment after deploy.
 
-**Auto-completion scheduler:** `app:auto-complete-stale-collaborations` runs `dailyAt('03:00')` per `routes/console.php`. As of PR 1 (2026-06-26) it reads `collaboration_completions`, not `collaboration_feedback`. Configurable thresholds in `config/collaborations.php`:
-- `auto_complete_grace_days_after_first_completion_confirmation` (default 3): days after the FIRST `collaboration_completions` row before a stale collab is eligible. Never fires if any row has `status = 'no'` (an explicit refusal is left for manual/admin resolution).
+**Auto-completion scheduler:** `app:auto-complete-stale-collaborations` runs `dailyAt('03:00')` per `routes/console.php`. As of PR 1 (2026-06-26) it reads `collaboration_completions`; as of PR #59 (2026-06-27) it also treats a legacy `collaboration_feedback` row as an implicit `yes` so feedback-only collaborations are still rescued. Configurable thresholds in `config/collaborations.php`:
+- `auto_complete_grace_days_after_first_completion_confirmation` (default 3): days since a `yes` confirmation was set (measured from the row's `updated_at`, so a `not_yet→yes` change gets a fresh window) — or since a legacy feedback row was created — before a stale collab is eligible. Never fires if any completion row has `status = 'no'` OR `'not_yet'` (an explicit refusal/defer is left for manual/admin resolution).
 - `complete_requires_completion_confirmation` (default true): the `/complete` completion-confirmation gate. Soft-rollout knob if a mobile cutover regresses.
 - `complete_requires_feedback` (deprecated, no longer read by `CollaborationService::complete()`): kept only so a pre-existing `.env` setting doesn't silently affect anything else; safe to delete once confirmed unused everywhere.
 
