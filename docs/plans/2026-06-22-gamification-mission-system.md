@@ -201,3 +201,56 @@ resolved in code. Cross-reference: `ROLES-AND-PERMISSIONS.md §7.4`, `ROLES-BACK
   race on concurrent trigger fires for the same period_key). `/me/missions` now delegates
   through the wallet service and gates on `MissionTrigger::isLive()` (A5) so a mission
   whose trigger isn't wired yet can never appear half-progressed or stuck.
+
+## OPEN (2026-06-27, task B4): mission copy gaps needing Maria's sign-off
+
+Task B4 diffed the 18 `app_visible = true` seed rows' `name`/`description` against
+Maria's "Recommended v1 visible mission set" review comment on PR #49. Only
+`business-publish-first-kolab` had an unambiguous exact-string match ("Launch your
+first Kolab" — also called out explicitly in her comment's closing "Example:" list) and
+was updated. Everything below is left as-is pending her exact wording, because her
+comment gives either no string for that mission, a near-miss paraphrase, or (for the
+`collaboration_complete` trigger) two conflicting suggested strings in the same comment:
+
+- `attendee-complete-profile` (current: "Complete your attendee profile") — Maria's
+  recommended-set says "Complete your profile" (no "attendee"); need confirmation
+  whether to drop the audience word or keep it.
+- `attendee-attend-3-events-monthly` (current: "Attend 3 events this month") — Maria's
+  set says "Attend 3 Kolabs" with no monthly/recurring framing; need confirmation since
+  the seeded row is `MissionRepeat::Monthly` and her phrasing implies a one-time count.
+- `attendee-join-2-communities` (current: "Join 2 different communities") — Maria's set
+  only describes "Join your first community" (singular, first), not a 2-community
+  target; need confirmation this mission's scope/copy should change to match.
+- `business-upload-profile-photo` (current: "Upload a business profile photo") —
+  Maria's set says "Upload your first business photo"; need confirmation on exact copy.
+- `business-first-application-received` (current: "Receive your first community
+  application") — Maria's set says "Get your first community interested"; need
+  confirmation on exact copy.
+- `business-first-application-accepted` (current: "Accept your first community
+  application") — Maria's set says "Confirm your first community partner"; need
+  confirmation on exact copy.
+- `business-first-kolab-completed` (current: "Complete your first Kolab") — Maria's
+  recommended-set entry for this trigger (`collaboration_complete`) says "Complete your
+  first Kolab" (matches), but her comment's closing "Example:" list separately maps the
+  same trigger to "Host your first real-life Kolab" — these two are not the same
+  string; need her sign-off on which is authoritative before changing this row.
+- `business-receive-5-reviews` (current: "Receive 5 reviews from a Kolab") — Maria's
+  set says "Collect your first review or UGC" (singular/first, and bundles in UGC),
+  not a 5-review target; need confirmation this mission's scope/copy should change.
+- `community-upload-profile-photo` (current: "Upload community profile photo") —
+  Maria's set says "Upload your community photo"; need confirmation on exact copy.
+- `community-apply-first-kolab` (current: "Apply to your first Kolab") — Maria's set
+  says "Apply for your first Kolab" ("for" vs "to"); need confirmation this is an
+  intentional wording change and not a typo in her comment.
+- `community-get-accepted-first-kolab` (current: "Get accepted to your first Kolab") —
+  Maria's set says "Unlock your first business partner"; need confirmation on exact
+  copy.
+- `community-first-kolab-completed` (current: "Complete your first Kolab") — same
+  `collaboration_complete` trigger conflict as `business-first-kolab-completed` above
+  ("Complete your first Kolab" vs "Host your first real-life Kolab" in her Example
+  list); need her sign-off on which is authoritative.
+- `community-refer-first-business` (current: "Refer your first business") — Maria's
+  set says "Refer a business" (drops "first"); need confirmation this is intentional.
+- `attendee-first-checkin`, `attendee-first-review`, `business-complete-profile`,
+  `community-complete-profile` already match Maria's recommended-set wording verbatim
+  — no change needed, listed here only for completeness of the 18-slug audit.
