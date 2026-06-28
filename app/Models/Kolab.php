@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property KolabStatus $status
  * @property string $title
  * @property string $description
+ * @property string|null $goal
  * @property string|null $offer_headline
  * @property string|null $base_offer
  * @property array<int, array{condition: string, additional_offer: string}>|null $negotiation_triggers
@@ -49,6 +51,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $min_community_size
  * @property array<string, mixed>|null $expects
  * @property array<string, mixed>|null $past_events
+ * @property array<int, string>|null $highlights
  * @property \Illuminate\Support\Carbon|null $published_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -80,6 +83,7 @@ class Kolab extends Model
         'status',
         'title',
         'description',
+        'goal',
         'offer_headline',
         'base_offer',
         'negotiation_triggers',
@@ -108,6 +112,7 @@ class Kolab extends Model
         'min_community_size',
         'expects',
         'past_events',
+        'highlights',
         'published_at',
     ];
 
@@ -133,6 +138,7 @@ class Kolab extends Model
             'seeking_communities' => 'array',
             'expects' => 'array',
             'past_events' => 'array',
+            'highlights' => 'array',
             'published_at' => 'datetime',
         ];
     }
@@ -175,6 +181,17 @@ class Kolab extends Model
     public function collaborations(): HasMany
     {
         return $this->hasMany(Collaboration::class, 'kolab_id');
+    }
+
+    /**
+     * Profiles that have saved/bookmarked this kolab.
+     *
+     * @return BelongsToMany<Profile, $this>
+     */
+    public function savedByProfiles(): BelongsToMany
+    {
+        return $this->belongsToMany(Profile::class, 'saved_kolabs', 'kolab_id', 'profile_id')
+            ->withTimestamps();
     }
 
     /**

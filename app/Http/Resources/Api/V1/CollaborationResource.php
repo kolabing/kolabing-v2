@@ -6,8 +6,10 @@ namespace App\Http\Resources\Api\V1;
 
 use App\Enums\CollaborationStatus;
 use App\Models\Collaboration;
+use App\Models\CollaborationCompletion;
 use App\Models\CollaborationFeedback;
 use App\Models\CollaborationReview;
+use App\Services\CollaborationCompletionService;
 use App\Services\CollaborationFeedbackService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -17,6 +19,23 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class CollaborationResource extends JsonResource
 {
+    /**
+     * Per-instance memo of completion rows. Instance-scoped (not static) so it
+     * can never serve stale state across requests on a long-lived worker.
+     *
+     * @var \Illuminate\Support\Collection<int, CollaborationCompletion>|null
+     */
+    private ?\Illuminate\Support\Collection $completionRowsMemo = null;
+
+    /**
+     * Per-instance memo of the pending-confirmation types, so the value is
+     * computed once for both pending_completion_from and
+     * viewer_must_confirm_completion.
+     *
+     * @var array<int, string>|null
+     */
+    private ?array $pendingCompletionMemo = null;
+
     /**
      * Indicates if the resource should include application details.
      */
@@ -123,6 +142,12 @@ class CollaborationResource extends JsonResource
             'viewer_must_submit_feedback' => $this->viewerMustSubmitFeedback($currentProfile),
             'own_feedback' => $this->ownFeedback($currentProfile),
             'partner_feedback' => $this->partnerFeedback($currentProfile),
+            // Lightweight required confirmation step (PR 1, 2026-06-26) — this,
+            // not feedback above, gates /complete. Feedback is now optional.
+            'pending_completion_from' => $this->pendingCompletionFrom(),
+            'viewer_must_confirm_completion' => $this->viewerMustConfirmCompletion($currentProfile),
+            'own_completion' => $this->ownCompletion($currentProfile),
+            'partner_completion_status' => $this->partnerCompletionStatus($currentProfile),
             'reviews' => $this->whenLoaded('reviews', function () {
                 return $this->reviews->map(fn ($review): array => [
                     'reviewer_role' => $review->reviewer_role,
@@ -281,6 +306,7 @@ class CollaborationResource extends JsonResource
             'rating' => $row->rating,
             'expectation_match' => $row->expectation_match,
             'would_recommend' => $row->would_recommend,
+            'would_collaborate_again' => $row->would_collaborate_again,
             'posts_reels' => $row->posts_reels,
             'stories_posted' => $row->stories_posted,
             'revenue' => $row->revenue,
@@ -316,5 +342,93 @@ class CollaborationResource extends JsonResource
         }
 
         return $partner->publicSubset();
+    }
+
+    /**
+     * Memoize and return the completion-confirmation rows for this collaboration,
+     * preferring the eager-loaded relation.
+     *
+     * @return \Illuminate\Support\Collection<int, CollaborationCompletion>
+     */
+    private function completionRows(): \Illuminate\Support\Collection
+    {
+        if ($this->resource->relationLoaded('completions')) {
+            return $this->resource->completions;
+        }
+
+        return $this->completionRowsMemo ??= CollaborationCompletion::query()
+            ->where('collaboration_id', $this->id)
+            ->get();
+    }
+
+    /**
+     * Reviewer types ('business' | 'community') who have NOT confirmed 'yes'
+     * (no row, or answered 'no'/'not_yet') — the parties still blocking
+     * completion. Memoized so it is computed once per resource.
+     *
+     * @return array<int, string>
+     */
+    private function pendingCompletionFrom(): array
+    {
+        /** @var Collaboration $collab */
+        $collab = $this->resource;
+
+        return $this->pendingCompletionMemo ??= app(CollaborationCompletionService::class)
+            ->pendingConfirmationFrom($collab);
+    }
+
+    /**
+     * @param  \App\Models\Profile|null  $profile
+     */
+    private function viewerMustConfirmCompletion($profile): bool
+    {
+        if ($profile === null) {
+            return false;
+        }
+
+        return in_array($profile->user_type->value, $this->pendingCompletionFrom(), true);
+    }
+
+    /**
+     * @param  \App\Models\Profile|null  $profile
+     * @return array<string, mixed>|null
+     */
+    private function ownCompletion($profile): ?array
+    {
+        if ($profile === null) {
+            return null;
+        }
+
+        $row = $this->completionRows()->firstWhere('profile_id', $profile->id);
+        if ($row === null) {
+            return null;
+        }
+
+        return [
+            'status' => $row->status->value,
+            'note' => $row->note,
+            'created_at' => $row->created_at?->toIso8601String(),
+            'updated_at' => $row->updated_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * The partner's confirmation status only (no note — keeps this minimal,
+     * matching the lightweight nature of this step). Null until the partner
+     * has submitted.
+     *
+     * @param  \App\Models\Profile|null  $profile
+     */
+    private function partnerCompletionStatus($profile): ?string
+    {
+        if ($profile === null) {
+            return null;
+        }
+
+        $partner = $this->completionRows()->first(
+            fn (CollaborationCompletion $row): bool => $row->profile_id !== $profile->id
+        );
+
+        return $partner?->status->value;
     }
 }

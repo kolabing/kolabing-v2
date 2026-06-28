@@ -380,11 +380,12 @@ class EventSignupService
 
         $this->resequenceWaitlist($event);
 
-        $this->notificationService->createNotification(
+        $this->notificationService->createLocalizedNotification(
             recipient: $next->profile,
             type: NotificationType::WaitlistPromoted,
-            title: __('You\'re in!'),
-            body: __('A spot opened up for ":event" — you\'re now going.', ['event' => $event->name]),
+            titleKey: 'notifications.waitlist.promoted.title',
+            bodyKey: 'notifications.waitlist.promoted.body',
+            replace: ['event' => $event->name],
             targetId: $event->id,
             targetType: 'event',
         );

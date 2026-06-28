@@ -29,6 +29,9 @@ class StoreCollaborationFeedbackRequest extends FormRequest
             'rating' => ['required', 'integer', 'between:1,5'],
             'expectation_match' => ['required', 'boolean'],
             'would_recommend' => ['required', 'boolean'],
+            // "Would you kolab again?" — first-class feedback question; this is
+            // what gets mirrored into the public collaboration_reviews row.
+            'would_collaborate_again' => ['required', 'boolean'],
             'posts_reels' => ['nullable', 'integer', 'min:0', 'max:10000'],
 
             // Business-only.

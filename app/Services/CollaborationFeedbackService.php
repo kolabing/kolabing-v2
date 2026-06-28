@@ -9,6 +9,7 @@ use App\Enums\PointEventType;
 use App\Exceptions\CollaborationException;
 use App\Models\Collaboration;
 use App\Models\CollaborationFeedback;
+use App\Models\CollaborationReview;
 use App\Models\Profile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -18,6 +19,7 @@ class CollaborationFeedbackService
     public function __construct(
         private readonly GamificationWalletService $walletService,
         private readonly MissionService $missionService,
+        private readonly NotificationService $notificationService,
     ) {}
 
     /**
@@ -43,7 +45,7 @@ class CollaborationFeedbackService
             throw CollaborationException::feedbackAlreadySubmitted();
         }
 
-        return DB::transaction(function () use ($collaboration, $reviewer, $payload, $role, $existing): CollaborationFeedback {
+        $feedback = DB::transaction(function () use ($collaboration, $reviewer, $payload, $role, $existing): CollaborationFeedback {
             $attributes = $this->attributesForRole($reviewer, $payload);
             $attributes['reviewer_role'] = $role;
             $attributes['reviewer_type'] = $reviewer->user_type->value;
@@ -52,8 +54,11 @@ class CollaborationFeedbackService
             if ($existing !== null) {
                 $existing->fill($attributes);
                 $existing->save();
+                $fresh = $existing->fresh();
 
-                return $existing->fresh();
+                $this->mirrorToReview($collaboration, $reviewer, $role, $fresh);
+
+                return $fresh;
             }
 
             $feedback = CollaborationFeedback::create(array_merge($attributes, [
@@ -89,8 +94,21 @@ class CollaborationFeedbackService
                 ]);
             }
 
+            $this->mirrorToReview($collaboration, $reviewer, $role, $feedback);
+
             return $feedback;
         });
+
+        try {
+            $this->notificationService->notifyCollaborationFeedbackReceived(
+                $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'kolab']),
+                $reviewer,
+            );
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $feedback;
     }
 
     /**
@@ -122,10 +140,15 @@ class CollaborationFeedbackService
         $attributes = $this->attributesForRole($reviewer, $payload);
         $attributes['mirrored_from_review'] = false;
 
-        $existing->fill($attributes);
-        $existing->save();
+        return DB::transaction(function () use ($collaboration, $reviewer, $role, $existing, $attributes): CollaborationFeedback {
+            $existing->fill($attributes);
+            $existing->save();
+            $fresh = $existing->fresh();
 
-        return $existing->fresh();
+            $this->mirrorToReview($collaboration, $reviewer, $role, $fresh);
+
+            return $fresh;
+        });
     }
 
     /**
@@ -247,6 +270,7 @@ class CollaborationFeedbackService
             'rating' => $payload['rating'] ?? null,
             'expectation_match' => $payload['expectation_match'] ?? null,
             'would_recommend' => $payload['would_recommend'] ?? null,
+            'would_collaborate_again' => $payload['would_collaborate_again'] ?? null,
             'posts_reels' => $payload['posts_reels'] ?? null,
         ];
 
@@ -263,5 +287,53 @@ class CollaborationFeedbackService
             'revenue' => null,
             'benefits' => $payload['benefits'] ?? null,
         ]);
+    }
+
+    /**
+     * Auto-mirror this reviewer's completion feedback into the public
+     * collaboration_reviews row (shown on profiles). Decision 2026-06-22: the
+     * feedback IS the public review, so users are no longer asked to rate twice.
+     *
+     * Maps rating -> rating, would_collaborate_again -> would_collaborate_again,
+     * and the only free-text field a reviewer has (community `benefits`) ->
+     * body/note (business feedback has no note, so it stays null).
+     *
+     * Idempotent: keyed on the (collaboration_id, reviewer_profile_id) unique
+     * constraint via updateOrCreate, so re-submit / edit updates THIS reviewer's
+     * single review row — never a duplicate.
+     *
+     * Loop-safe: this writes collaboration_reviews directly and never invokes
+     * the controller `/review` action, so the inverse review->feedback mirror
+     * (mirrorFromReview, the only caller of which is CollaborationController::review)
+     * is never triggered. No XP is awarded here — feedback already awards its own
+     * CollaborationComplete XP, and the /review endpoint owns ReviewPosted XP.
+     */
+    private function mirrorToReview(
+        Collaboration $collaboration,
+        Profile $reviewer,
+        string $role,
+        CollaborationFeedback $feedback,
+    ): void {
+        $reviewedProfileId = $role === 'creator'
+            ? $collaboration->applicant_profile_id
+            : $collaboration->creator_profile_id;
+
+        // Only the community side carries free text (benefits); business has none.
+        $note = $reviewer->isCommunity() ? $feedback->benefits : null;
+
+        CollaborationReview::query()->updateOrCreate(
+            [
+                'collaboration_id' => $collaboration->id,
+                'reviewer_profile_id' => $reviewer->id,
+            ],
+            [
+                'reviewed_profile_id' => $reviewedProfileId,
+                'reviewer_role' => $role,
+                'rating' => $feedback->rating,
+                'would_collaborate_again' => $feedback->would_collaborate_again,
+                'body' => $note,
+                'note' => $note !== null ? mb_substr($note, 0, 200) : null,
+            ],
+        );
     }
 }

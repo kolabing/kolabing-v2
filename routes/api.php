@@ -48,6 +48,7 @@ use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\ReferralController;
 use App\Http\Controllers\Api\V1\RewardWalletController;
+use App\Http\Controllers\Api\V1\SavedKolabController;
 use App\Http\Controllers\Api\V1\SpinWheelController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\SystemChallengeController;
@@ -138,6 +139,18 @@ Route::prefix('v1')->group(function (): void {
 
     Route::get('lookup/venue-types', [LookupController::class, 'venueTypes'])
         ->name('api.v1.lookup.venue-types');
+
+    Route::get('lookup/goals', [LookupController::class, 'goals'])
+        ->name('api.v1.lookup.goals');
+
+    Route::get('lookup/product-interactions', [LookupController::class, 'productInteractions'])
+        ->name('api.v1.lookup.product-interactions');
+
+    Route::get('lookup/venue-fits', [LookupController::class, 'venueFits'])
+        ->name('api.v1.lookup.venue-fits');
+
+    Route::get('lookup/kolab-highlights', [LookupController::class, 'kolabHighlights'])
+        ->name('api.v1.lookup.kolab-highlights');
 
     // Universal @handle availability check (leaks no PII; usable pre-auth too).
     Route::get('handle/available', [LookupController::class, 'handleAvailable'])
@@ -713,6 +726,12 @@ Route::prefix('v1')->group(function (): void {
         Route::post('kolabs/{kolab}/close', [KolabController::class, 'close'])
             ->name('api.v1.kolabs.close');
 
+        // Save / unsave a kolab (viewer-scoped bookmark). List via GET kolabs?saved=1
+        Route::post('kolabs/{kolab}/save', [SavedKolabController::class, 'store'])
+            ->name('api.v1.kolabs.save');
+        Route::delete('kolabs/{kolab}/save', [SavedKolabController::class, 'destroy'])
+            ->name('api.v1.kolabs.unsave');
+
         // List applications for a kolab (creator only)
         Route::get('kolabs/{kolab}/applications', [ApplicationController::class, 'forOpportunity'])
             ->name('api.v1.kolabs.applications.index');
@@ -861,7 +880,13 @@ Route::prefix('v1')->group(function (): void {
         Route::post('collaborations/{collaboration}/review', [CollaborationController::class, 'review'])
             ->name('api.v1.collaborations.review');
 
-        // Rich, role-specific completion feedback (gates the /complete endpoint).
+        // Lightweight, required completion confirmation (yes/no/not_yet).
+        // Gates the /complete endpoint as of the 2026-06-26 simplification.
+        Route::post('collaborations/{collaboration}/completion', [CollaborationController::class, 'submitCompletion'])
+            ->name('api.v1.collaborations.completion.store');
+
+        // Rich, role-specific completion feedback. Optional impact data —
+        // no longer gates /complete.
         Route::post('collaborations/{collaboration}/feedback', [CollaborationController::class, 'feedback'])
             ->name('api.v1.collaborations.feedback.store');
         Route::put('collaborations/{collaboration}/feedback', [CollaborationController::class, 'updateFeedback'])

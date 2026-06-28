@@ -7,6 +7,10 @@ namespace App\Enums;
 enum PointEventType: string
 {
     case CollaborationComplete = 'collaboration_complete';
+    // Awarded once per party for the lightweight yes/no/not_yet completion
+    // confirmation step — distinct from CollaborationComplete (rich feedback)
+    // so the two never collide/double-pay (2026-06-26 completion-flow PR 1).
+    case CollaborationCompletionConfirmed = 'collaboration_completion_confirmed';
     case KolabPublished = 'kolab_published';
     case FirstKolabBonus = 'first_kolab_bonus';
     case ReviewPosted = 'review_posted';
@@ -35,6 +39,7 @@ enum PointEventType: string
     {
         return match ($this) {
             self::CollaborationComplete => 10,
+            self::CollaborationCompletionConfirmed => 10,
             self::KolabPublished => 30,
             self::FirstKolabBonus => 50,
             self::ReviewPosted => 10,

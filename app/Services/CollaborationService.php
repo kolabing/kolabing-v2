@@ -15,13 +15,16 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CollaborationService
 {
     public function __construct(
         private readonly GamificationWalletService $walletService,
         private readonly CollaborationFeedbackService $feedbackService,
+        private readonly CollaborationCompletionService $completionService,
         private readonly PostHogService $postHog,
+        private readonly NotificationService $notificationService,
     ) {}
 
     /**
@@ -58,6 +61,7 @@ class CollaborationService
                 'challenges',
                 'challengeBonuses',
                 'feedbacks',
+                'completions',
                 'reviews',
             ])
             ->orderByDesc('created_at')
@@ -91,6 +95,7 @@ class CollaborationService
                 'challenges',
                 'challengeBonuses',
                 'feedbacks',
+                'completions',
                 'reviews',
             ])
             ->findOrFail($id);
@@ -103,7 +108,7 @@ class CollaborationService
      *
      * @throws CollaborationException
      */
-    public function activate(Collaboration $collaboration): Collaboration
+    public function activate(Collaboration $collaboration, ?Profile $actor = null): Collaboration
     {
         if ($collaboration->isInTerminalState()) {
             throw CollaborationException::alreadyInTerminalState($collaboration->status->value);
@@ -118,23 +123,33 @@ class CollaborationService
             'activated_at' => Carbon::now(),
         ]);
 
-        return $collaboration->fresh([
+        $fresh = $collaboration->fresh([
             'kolab',
             'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
             'application',
         ]);
+
+        $this->dispatchNotification(fn () => $this->notificationService->notifyCollaborationActivated(
+            $fresh,
+            $actor ?? $fresh->creatorProfile,
+        ));
+
+        return $fresh;
     }
 
     /**
      * Complete an active collaboration. The caller must have submitted their
-     * own feedback row and the partner must have too. XP is NOT awarded here
-     * — each party's CollaborationComplete XP fires when they POST /feedback.
+     * own completion confirmation (yes/no/not_yet) and the partner must have
+     * too, both answering 'yes'. XP for confirming fires per party on
+     * /completion-confirmation, not here. Rich /feedback stays optional and
+     * is no longer part of this gate (PR 1, 2026-06-26).
      *
-     * Gating can be disabled via the `collaborations.complete_requires_feedback`
-     * config (true by default) — provides a soft-rollout knob if a mobile
-     * cutover regresses.
+     * Gating can be disabled via the
+     * `collaborations.complete_requires_completion_confirmation` config
+     * (true by default) — provides a soft-rollout knob if a mobile cutover
+     * regresses.
      *
      * @throws CollaborationException
      */
@@ -148,8 +163,8 @@ class CollaborationService
             throw CollaborationException::cannotComplete($collaboration->status->value);
         }
 
-        if (config('collaborations.complete_requires_feedback', true) === true) {
-            $this->enforceFeedbackGate($collaboration, $caller);
+        if (config('collaborations.complete_requires_completion_confirmation', true) === true) {
+            $this->completionService->enforceGate($collaboration, $caller);
         }
 
         $collaboration->update([
@@ -157,13 +172,25 @@ class CollaborationService
             'completed_at' => Carbon::now(),
         ]);
 
-        return $collaboration->fresh([
+        Log::info('Collaboration completed', [
+            'collaboration_id' => $collaboration->id,
+            'completed_by_profile_id' => $caller?->id,
+        ]);
+
+        $fresh = $collaboration->fresh([
             'kolab',
             'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
             'application',
         ]);
+
+        $this->dispatchNotification(fn () => $this->notificationService->notifyCollaborationCompleted(
+            $fresh,
+            $caller ?? $fresh->creatorProfile,
+        ));
+
+        return $fresh;
     }
 
     /**
@@ -185,19 +212,26 @@ class CollaborationService
             'completed_by_profile_id' => null,
         ]);
 
-        return $collaboration->fresh([
+        $fresh = $collaboration->fresh([
             'kolab',
             'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
             'application',
         ]);
+
+        $this->dispatchNotification(
+            fn () => $this->notificationService->notifyCollaborationCompleted($fresh, null),
+        );
+
+        return $fresh;
     }
 
     /**
      * Scheduled-command path. Used by app:auto-complete-stale-collaborations
-     * when scheduled_date + threshold has passed AND at least one feedback
-     * row exists. Sets auto_completed_at as the audit marker.
+     * once a 'yes' completion confirmation has sat past the grace window with
+     * no 'no'/'not_yet' from either party. Sets auto_completed_at as the audit
+     * marker.
      */
     public function autoComplete(Collaboration $collaboration): Collaboration
     {
@@ -212,31 +246,19 @@ class CollaborationService
             'auto_completed_at' => $now,
         ]);
 
-        return $collaboration->fresh([
+        $fresh = $collaboration->fresh([
             'kolab',
             'kolab.creatorProfile',
             'creatorProfile',
             'applicantProfile',
             'application',
         ]);
-    }
 
-    /**
-     * @throws CollaborationException
-     */
-    private function enforceFeedbackGate(Collaboration $collaboration, ?Profile $caller): void
-    {
-        $pending = $this->feedbackService->pendingFeedbackFrom($collaboration);
+        $this->dispatchNotification(
+            fn () => $this->notificationService->notifyCollaborationCompleted($fresh, null),
+        );
 
-        if ($pending === []) {
-            return;
-        }
-
-        if ($caller !== null && in_array($caller->user_type->value, $pending, true)) {
-            throw CollaborationException::awaitingOwnFeedback();
-        }
-
-        throw CollaborationException::awaitingPartnerFeedback($pending);
+        return $fresh;
     }
 
     /**
@@ -278,6 +300,10 @@ class CollaborationService
             'cancelled_by_role' => $cancelledBy?->user_type->value ?? 'maintainer',
         ]);
 
+        $this->dispatchNotification(
+            fn () => $this->notificationService->notifyCollaborationCancelled($fresh, $cancelledBy),
+        );
+
         return $fresh;
     }
 
@@ -315,7 +341,7 @@ class CollaborationService
         $businessProfileId = $this->resolveBusinessProfileId($creatorProfile, $applicantProfile);
         $communityProfileId = $this->resolveCommunityProfileId($creatorProfile, $applicantProfile);
 
-        return DB::transaction(function () use (
+        $collaboration = DB::transaction(function () use (
             $application,
             $creatorProfile,
             $applicantProfile,
@@ -349,6 +375,25 @@ class CollaborationService
                 'challenges',
             ]);
         });
+
+        $this->dispatchNotification(
+            fn () => $this->notificationService->notifyCollaborationCreated($collaboration),
+        );
+
+        return $collaboration;
+    }
+
+    /**
+     * Dispatch a collaboration notification, swallowing and reporting any
+     * failure so a push/notification error never breaks the state transition.
+     */
+    private function dispatchNotification(callable $callback): void
+    {
+        try {
+            $callback();
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     /**

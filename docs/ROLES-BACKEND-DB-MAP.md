@@ -1,6 +1,6 @@
 # Kolabing — Roles → Backend → Database Map (Ground-Truth)
 
-**Last updated:** 2026-06-27 (gamification mission system v1 curation: `challenges.app_visible` column + the three event/general mission filter sites — #49)
+**Last updated:** 2026-06-28 (gamification mission system v1 curation: `challenges.app_visible` column + the three event/general mission filter sites — #49. Prior same day: #61 Saved Kolabs — new `saved_kolabs` pivot + save/unsave endpoints + `?saved=1` list + viewer-scoped `is_saved` flag — §7, §7.1. PR #59 review fixes: completion-confirmation gate hardening — terminal-state guard, `pending = not-yes` resource/gate alignment, auto-complete grace anchored on `updated_at`, `Collaboration::roleFor()`, **legacy feedback fallback + backfill removed (`/complete` now gates purely on real completion confirmations)**, dead-code removal — §0 item 10, §3, §8, §10. Prior: 2026-06-26 PR 1 moved the `/complete` gate to `collaboration_completions`)
 **Status:** Authoritative companion to [`ROLES-AND-PERMISSIONS.md`](./ROLES-AND-PERMISSIONS.md). Read that first (the *what*), then this (the *where*).
 **Sync note:** Duplicated in both repos (`kolabing-app`, `kolabing-v2`). Keep identical, and **bump the Last updated date in both** when role behaviour or backend wiring changes.
 
@@ -21,8 +21,8 @@
 7. ⚠️ **NEW — `coliving` is in the canonical role spec (`ROLES-AND-PERMISSIONS.md` §2.1) but missing from `BusinessOnboardingRequest::BUSINESS_TYPES`.** A `coliving` onboarding payload is rejected server-side. Trivial fix; see §8 checklist.
 8. ⚠️ **NEW — admin operator surfaces.** Maintainers can grant a 12-month subscription with `source = maintainer`, force-cancel collaborations, and (since 2026-06-01) **force-complete** collaborations from `/admin/*`. Make sure new gate code accounts for `source = maintainer` (still an `active` row; behaves identically to a Stripe-paid sub). See §9.
 9. ⚠️ **NEW — community members + tiers surface (NF-6).** Three new tables (`communities`, `community_tiers`, `community_members`) + a nullable `events.community_id`. The "one free community" cap is a **NEW config-driven gate** (`config('communities.max_free_communities')` → `CommunityLimitReachedException` → 422 `community_limit_reached`). It is NOT the business paywall — do NOT add `hasActiveSubscription()` anywhere on this surface. See §12.
-10. ✅ **Feedback gate on `/complete` is live** (2026-06-01). `CollaborationService::complete()` refuses until both participants have a `collaboration_feedback` row; per-party CollaborationComplete XP fires on `/feedback` not `/complete`; legacy `/review` calls auto-mirror a stub feedback row so the gate succeeds during mobile rollout. Soft-rollout knob: `config('collaborations.complete_requires_feedback')`. See §3 and §10.
-11. ✅ **NEW — gamification mission system v1 shipped (2026-06-27, #49).** `challenges` now has `trigger_action`/`target_value`/`repeat_interval`/`starts_at`/`ends_at`/`slug`/`app_visible`; a new `challenge_progress` table backs self-tracked mission progress; `MissionService` does atomic upsert + award. `GET /me/missions` filters to `is_system=true AND event_id IS NULL AND app_visible=true AND trigger_action IS NOT NULL AND trigger_action IN (live triggers) AND audience matches AND within [starts_at, ends_at]` — exactly 18 of the 49 seeded missions are `app_visible=true` (5 attendee / 7 business / 6 community), all on live triggers. Event challenges (`trigger_action IS NULL`) stay peer-verified and are excluded from `/me/missions`; general missions (`trigger_action IS NOT NULL`) are excluded from the event-scoped surfaces — enforced in **three** places: `SystemChallengeController`, `Admin\ChallengeDefaultsController`, `ChallengeService::listForEvent()`. See §11.
+10. ✅ **Completion-confirmation gate on `/complete` is live** (2026-06-26, PR 1 — replaces the 2026-06-01 feedback gate). `CollaborationService::complete()` now refuses until both participants have a `collaboration_completions` row AND both said `status = 'yes'`, via `CollaborationCompletionService::enforceGate()`. Rich `/feedback` is now optional impact data and no longer gates completion — its own XP and the legacy `/review` mirror are unchanged. Per-party `CollaborationCompletionConfirmed` XP fires on `/completion`, once, on first submission. Soft-rollout knob: `config('collaborations.complete_requires_completion_confirmation')`. See §3 and §10.
+11. ✅ **NEW — gamification mission system v1 shipped (2026-06-28, #49).** `challenges` now has `trigger_action`/`target_value`/`repeat_interval`/`starts_at`/`ends_at`/`slug`/`app_visible`; a new `challenge_progress` table backs self-tracked mission progress; `MissionService` does atomic upsert + award. `GET /me/missions` filters to `is_system=true AND event_id IS NULL AND app_visible=true AND trigger_action IS NOT NULL AND trigger_action IN (live triggers) AND audience matches AND within [starts_at, ends_at]` — exactly 18 of the 49 seeded missions are `app_visible=true` (5 attendee / 7 business / 6 community), all on live triggers. Event challenges (`trigger_action IS NULL`) stay peer-verified and are excluded from `/me/missions`; general missions (`trigger_action IS NOT NULL`) are excluded from the event-scoped surfaces — enforced in **three** places: `SystemChallengeController`, `Admin\ChallengeDefaultsController`, `ChallengeService::listForEvent()`. See §11.
 
 ---
 
@@ -74,7 +74,7 @@ Spec: paywall is **Business-only**, on **exactly two actions** (create a collabo
 
 All four backend gates now follow the same pattern: `if ($profile->isBusiness() && ! $profile->hasActiveSubscription())`. **Never copy this gate into community or attendee paths.**
 
-**Feedback gate on `/complete` (added 2026-06-01, not a paywall):** `CollaborationService::complete()` now calls `enforceFeedbackGate()` which throws `awaiting_own_feedback` (422) or `awaiting_partner_feedback` (422) until both participants have a `collaboration_feedback` row. Subject to `config('collaborations.complete_requires_feedback', true)` so the gate can be soft-rolled. This is a UX gate, **not role-discriminatory** — both business and community must submit. The `awaiting_partner_feedback` error context carries `pending_feedback_from: ['business'|'community']` so the client knows who to nudge.
+**Completion-confirmation gate on `/complete` (PR 1, 2026-06-26, supersedes the 2026-06-01 feedback gate; not a paywall):** `CollaborationService::complete()` now calls `CollaborationCompletionService::enforceGate()`, which throws `awaiting_own_completion_confirmation` (422, caller hasn't responded), `awaiting_partner_completion_confirmation` (422, partner hasn't responded — context carries `pending_completion_from: ['business'|'community']`), or `completion_not_confirmed` (422, both responded but at least one said `no`/`not_yet` — context carries `own_status`/`partner_status`). Subject to `config('collaborations.complete_requires_completion_confirmation', true)` so the gate can be soft-rolled. This is a UX gate, **not role-discriminatory** — both business and community must confirm. Rich `/feedback` no longer participates in this gate at all (the old `awaiting_own_feedback`/`awaiting_partner_feedback` exception factories were removed in PR #59). `submit()` rejects confirmations on terminal (completed/cancelled) collaborations so no XP is paid on a settled Kolab.
 
 ---
 
@@ -144,6 +144,7 @@ profiles (id uuid PK, email UNIQUE, user_type[business|community|attendee], avat
  │                              product_promotion], status[draft|published|closed], media json,
  │                              needs json, community_types json, venue_preference, offering json,
  │                              published_at)                                                    ← System B (canonical)
+ │        └─N:M─ saved_kolabs   (profile_id FK, kolab_id FK, timestamps; PK(profile_id,kolab_id)) ← Saved/bookmarked kolabs (§7.1)
  ├─1:N─ events                 (profile_id FK, partner_id FK, event_date, attendee_count)        ← past events
  └─1:N─ applications           (applicant_profile_id FK, applicant_profile_type[business|community],
                                 kolab_id FK ← canonical, collab_opportunity_id FK ARCHIVED (no longer written, drop #31),
@@ -180,6 +181,15 @@ Lookups / admin:
 
 **Role lives in `profiles.user_type`. Subscription lives in `business_subscriptions.status` (with `source` as audit trail).** Everything else branches off those two.
 
+### 7.1 Saved Kolabs (bookmarks) — added 2026-06-27 (#61)
+
+Viewer-scoped bookmarks of published kolabs. Pivot `saved_kolabs` (`profile_id` FK→profiles cascade, `kolab_id` FK→kolabs cascade, timestamps, composite PK — no UUID surrogate, so `belongsToMany` attach/sync is safe). Relations: `Profile::savedKolabs()` / `Kolab::savedByProfiles()`; service `KolabService::save()/unsave()` (idempotent via `syncWithoutDetaching`/`detach`).
+
+- `POST /api/v1/kolabs/{kolab}/save` → 200 (idempotent); requires `can('view', $kolab)` so visibility/paywall rules are respected (you can only save what you can see).
+- `DELETE /api/v1/kolabs/{kolab}/save` → 204 (idempotent).
+- **List:** `GET /api/v1/kolabs?saved=1` reuses `KolabService::browse()` (identical resource shape + paging). The saved list keeps the published + recipient-visibility scope but, unlike the normal feed, does **not** hide kolabs the viewer already applied to.
+- **Flag:** `is_saved` (bool, viewer-scoped) on `KolabResource` and `OpportunitySummaryResource`. N+1-free in list/detail via `withExists`/`loadExists` annotation (`ResolvesSavedFlag` trait), with a single-existence-query fallback for nested resources. Not role-discriminatory — any authenticated profile may save any visible kolab.
+
 > **ARCHIVED (2026-06-19, #30):** `collab_opportunities` and the `collab_opportunity_id` columns on `applications`/`collaborations` are no longer read or written by application code. They are retained physically and scheduled for drop in #31. `kolabs` is the sole source of truth for the opportunity/kolab lifecycle; `kolab_id` is the canonical FK on applications/collaborations.
 
 ---
@@ -194,7 +204,8 @@ Fixed since the last revision:
 - [x] Collaboration cancellation now persists `cancellation_reason`, `cancelled_at`, and `cancelled_by_profile_id` (§10).
 - [x] **Feedback gate on `/complete` shipped** with admin force-complete, auto-timeout scheduler, and a `/review`→`/feedback` mirror for legacy clients (§3, §9, §10). XP moved from `/complete` to `/feedback` per Q7. PR #9, 2026-06-01.
 - [x] **NF-6 community members + tiers, Phase 1 shipped** (2026-06-03): `communities` / `community_tiers` / `community_members` tables, `events.community_id`, `CommunityPolicy`, the cap gate (NOT the paywall), the auto-assignment command + on-check-in hook, and the chapter-scoped leaderboard. See §12.
-- [x] **Gamification mission system v1 shipped** (2026-06-27, #49): `challenges.app_visible` curation column, atomic `challenge_progress` upsert, wallet-service delegation + `isLive()` guard on `/me/missions`, the DTO refactor, and the curated 18-mission v1 set (5 attendee / 7 business / 6 community). Event/general mission separation enforced in three places. See §11.1.
+- [x] **Completion-confirmation gate hardening (PR #59 review fixes, 2026-06-27):** `CollaborationCompletionService::submit()` now refuses confirmations on terminal collaborations (no XP on completed/cancelled Kolabs); `pendingConfirmationFrom()` (and the resource's `pending_completion_from` / `viewer_must_confirm_completion`) now mean "has not answered `yes`" so the resource and the gate agree when a party said `no`/`not_yet`; the auto-complete scheduler anchors the grace window on the confirmation's `updated_at` (a `not_yet→yes` change gets a fresh window); role resolution is unified on `Collaboration::roleFor()`; the dead `complete_requires_feedback` config and `awaiting*Feedback` exception factories were removed. **Legacy support dropped:** the feedback→implicit-yes runtime fallback and the one-time backfill migration were removed — `/complete` and the auto-complete scheduler now gate purely on real `collaboration_completions` rows. Each party must confirm via `POST /completion`; `/feedback` and `/review` are impact data only and no longer satisfy the gate. See §3, §10.
+- [x] **Gamification mission system v1 shipped** (2026-06-28, #49): `challenges.app_visible` curation column, atomic `challenge_progress` upsert, wallet-service delegation + `isLive()` guard on `/me/missions`, the DTO refactor, and the curated 18-mission v1 set (5 attendee / 7 business / 6 community). Event/general mission separation enforced in three places. See §11.1.
 
 Still open:
 
@@ -224,7 +235,7 @@ The admin panel is a **server-rendered Blade surface inside this Laravel backend
 | Grant subscription | `POST /admin/users/{profile}/subscription/grant` → `::grantSubscription` | `ManagedProfileService::grantSubscription($profile, $months = 12)` | `updateOrCreate` `business_subscriptions` with `status = active`, `source = maintainer`, `current_period_start = now()`, `current_period_end = now()+12mo`. Aborts 422 if profile is not `business`. |
 | Revoke subscription | `POST /admin/users/{profile}/subscription/revoke` → `::revokeSubscription` | `ManagedProfileService::revokeSubscription` | Sets `status = inactive`, `cancel_at_period_end = true`. Standard re-gate (`ROLES-AND-PERMISSIONS.md §2.8`) then applies. |
 | Force-cancel collaboration | `POST /admin/kolabs/{kolab}/collaboration/cancel` → `Admin\KolabController::cancelCollaboration` | `CollaborationService::cancel($collab, $reason, $cancelledBy = null)` | Requires a reason (min 3 chars). Persists `cancellation_reason`, `cancelled_at`, leaves `cancelled_by_profile_id` null — **`null` = cancelled by maintainer**. |
-| Force-complete collaboration | `POST /admin/kolabs/{kolab}/collaboration/complete` → `Admin\KolabController::completeCollaboration` | `CollaborationService::adminForceComplete($collab, $reason)` | Bypasses the feedback gate. Requires a reason. Persists `completion_reason`, stamps `completed_at`, leaves `completed_by_profile_id` null. No XP awarded. |
+| Force-complete collaboration | `POST /admin/kolabs/{kolab}/collaboration/complete` → `Admin\KolabController::completeCollaboration` | `CollaborationService::adminForceComplete($collab, $reason)` | Bypasses the completion-confirmation gate (§3, §10). Requires a reason. Persists `completion_reason`, stamps `completed_at`, leaves `completed_by_profile_id` null. No XP awarded. |
 
 **Key invariant for the role logic:** an admin-granted subscription is indistinguishable from a paid sub at the gate level. `Profile::hasActiveSubscription()` checks `status == active`; it does not branch on `source`. The `source` column is purely for audit and analytics. **Do not** add `source == stripe` checks anywhere — that would silently lock out maintainer-granted users.
 
@@ -249,13 +260,14 @@ Added by the 2026-05-31 admin stats sprint. These columns are **observability-on
 | `collaborations.auto_completed_at` | timestamp nullable | `CollaborationService::autoComplete()` (called by `app:auto-complete-stale-collaborations`) |
 | `collaboration_feedback.mirrored_from_review` | boolean default false | `CollaborationFeedbackService::mirrorFromReview()` (stub rows created when a legacy client POSTs `/review`) |
 | `collaboration_feedback.expectation_match` / `would_recommend` | bool **nullable** (was NOT NULL) | relaxed in the same migration so mirrored stubs sit alongside rich rows |
+| `collaboration_completions` (new table, PR 1 2026-06-26) | `id`, `collaboration_id`, `profile_id`, `role` (`creator`\|`applicant`), `status` (`yes`\|`no`\|`not_yet`), `note` varchar 500 nullable, timestamps; unique on `(collaboration_id, profile_id)` | `CollaborationCompletionService::submit()`. Gates `/complete` — see §0 item 10, §3. |
 
 Backfill for legacy rows: `php artisan app:backfill-lifecycle-timestamps [--dry-run]` copies `updated_at` into the matching transition column. Run once per environment after deploy.
 
-**Auto-completion scheduler:** `app:auto-complete-stale-collaborations` runs `dailyAt('03:00')` per `routes/console.php`. Configurable thresholds in `config/collaborations.php`:
-- `auto_complete_threshold_days` (default 7): days past `scheduled_date` before a stale collab is eligible.
-- `auto_complete_requires_feedback_rows` (default true): also require at least one `collaboration_feedback` row before auto-completing (avoids declaring "done" on collabs nobody acknowledged).
-- `complete_requires_feedback` (default true): the `/complete` feedback gate. Soft-rollout knob if a mobile cutover regresses.
+**Auto-completion scheduler:** `app:auto-complete-stale-collaborations` runs `dailyAt('03:00')` per `routes/console.php`. It gates purely on `collaboration_completions` (no feedback fallback). Configurable thresholds in `config/collaborations.php`:
+- `auto_complete_grace_days_after_first_completion_confirmation` (default 3): days since a `yes` confirmation was set (measured from the row's `updated_at`, so a `not_yet→yes` change gets a fresh window) before a stale collab is eligible. Never fires if any completion row has `status = 'no'` OR `'not_yet'` (an explicit refusal/defer is left for manual/admin resolution).
+- `complete_requires_completion_confirmation` (default true): the `/complete` completion-confirmation gate. Soft-rollout knob if a mobile cutover regresses.
+- `complete_requires_feedback` (deprecated, no longer read by `CollaborationService::complete()`): kept only so a pre-existing `.env` setting doesn't silently affect anything else; safe to delete once confirmed unused everywhere.
 
 ---
 

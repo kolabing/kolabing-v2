@@ -1,6 +1,6 @@
 # Kolabing — Pre-launch Backlog
 
-**Last updated:** 2026-06-27
+**Last updated:** 2026-06-28
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical.
 
 A consolidated punch list of everything we've identified but haven't shipped. Items are tagged by **owner** (`backend` = kolabing-v2, `app` = kolabing-app, `cross` = both, `infra` = hosting) and **priority** (`P0` = blocker for launch, `P1` = needed soon after, `P2` = nice-to-have).
@@ -53,6 +53,11 @@ Each item lists what exists now, what's missing, and any open decisions. See ref
 
 **What exists** (`NotificationService` + `PushNotificationService` + `OneSignalService`):
 - `NewMessage`, `ApplicationReceived`, `ApplicationAccepted`, `ApplicationDeclined`, `ChallengeVerified`, `RewardWon`, `CollabDayReminder`, `CollabFollowUpReminder`, `KolabCreateIncomplete`, `ApplicationPending`, `UnreadMessage` — all dispatch correctly.
+- **Collaboration completion-flow notifications (shipped 2026-06-23):** five new dispatched types — `CollaborationCreated`, `CollaborationActivated`, `CollaborationFeedbackReceived`, `CollaborationCompleted`, `CollaborationCancelled`. Each notifies **both** parties (actor gets actor-aware copy, counterpart gets "{name}…" copy); `target_type='collaboration'`, `target_id=collaboration.id`. Wired from `CollaborationService` (createFromApplication/activate/complete/adminForceComplete/autoComplete/cancel — autoComplete uses the no-actor "automatically marked complete" copy), `ApplicationService::accept()` (Created), and `CollaborationFeedbackService::submit()` (FeedbackReceived). Each dispatch is wrapped in `try/catch + report($e)` so a push failure never breaks the state transition.
+- **Deeplink fix (2026-06-23):** the five new types **and** the existing `CollabDayReminder` / `CollabFollowUpReminder` now resolve to `/collaboration/{id}` in `PushNotificationService::resolveDeeplink()` (the two reminders previously fell through to `/notifications`). Mirrored byte-identical in `kolabing-app` (`feat/collaboration-completion-notifications`). `resolveDeeplink()` now also has a `default => '/notifications'` arm so a future `NotificationType` can never throw `UnhandledMatchError`.
+- **Notifications are now localized server-side per recipient (2026-06-23):** every dispatched notification title/body is resolved in the *recipient's* `profiles.preferred_locale` (en / es / ca, fallback en) via `NotificationService::createLocalizedNotification()` + `lang/{en,es,ca}/notifications.php`. `notifyBothParties` resolves copy per recipient inside its loop (each party may differ in locale and in actor-vs-counterpart copy). The mobile app sends `locale` on `POST /api/v1/device-token`, persisted to `profiles.preferred_locale` (validated `in:en,es,ca`). All call sites localized: every `notify*` in `NotificationService`, plus `EventSignupService` (waitlist promoted), `CommunityJoinRequestService`, `Admin\CommunityVerificationService`, `GamificationWalletService`, `BadgeService`, `ProfileService` (account-deletion collaboration-cancelled). English values are byte-identical to the previous hardcoded strings.
+- **Withdraw notification added (2026-06-23):** new `NotificationType::ApplicationWithdrawn = 'application_withdrawn'`. `ApplicationService::withdraw()` now notifies the kolab creator/business (primary) and confirms to the withdrawing applicant (secondary), wrapped in `try/catch + report`. Deeplink resolves to `/application/{id}`. The mobile app is adding the same enum string in parallel.
+- **Admin force-complete copy fix (2026-06-23):** `CollaborationService::adminForceComplete` now passes a `null` actor so both parties receive the actor-less "was automatically marked complete" copy (previously the business falsely saw "You marked … complete" for a maintainer action).
 - Reminders cadence: 2h, 24h, 72h via `NotificationReminder` model + `notifications:send-reminders` command.
 - `routes/console.php` schedules `app:send-collab-reminders` daily 08:00 and the new `app:auto-complete-stale-collaborations` daily 03:00.
 - iOS/Android deep linking, thread IDs, interruption levels, badge counts all configured.
@@ -60,7 +65,7 @@ Each item lists what exists now, what's missing, and any open decisions. See ref
 **P1 — gaps that block real-world use:**
 - [ ] **`NotificationPreference` isn't respected.** `Profile` has the relation, the table exists, but no runtime filter inside `NotificationService` — all pushes go regardless of opt-out. Owner: **backend**.
 - [ ] **Schedule the reminders cron.** Audit found `notifications:send-reminders` exists but isn't registered in `routes/console.php` (collab reminders are; this one isn't). Owner: **backend**.
-- [ ] Trigger the four enum types currently defined but never dispatched: `BadgeAwarded`, `GamificationBadgeEarned`, `PointsEarned`, `WithdrawalProcessed`. Owner: **backend** (wire from `GamificationWalletService` + `WithdrawalService`).
+- [ ] Trigger the remaining enum types currently defined but never dispatched: `PointsEarned`, `WithdrawalProcessed`. Owner: **backend** (wire from `GamificationWalletService` + `WithdrawalService`). (`BadgeAwarded` + `GamificationBadgeEarned` are dispatched as of the gamification work and are now localized.)
 - [ ] Subscription state pushes — renewal succeeded, payment failed, sub cancelled (depends on §3 Stripe ship; Apple IAP webhook should trigger these too). Owner: **backend**.
 
 **P2:**
@@ -222,6 +227,13 @@ From [docs/ROLES-BACKEND-DB-MAP.md](ROLES-BACKEND-DB-MAP.md) §8 — still-open 
 
 **Follow-up (new):**
 - [ ] **Remove `/opportunities` API shim + port freemium limit & portfolio photos to `/kolabs` + drop `collab_opportunities` table** — #31 (gated on mobile `kolabing-app` #20). The freemium collab limit + portfolio-photo handling currently live only on the legacy `OpportunityService` path; port them onto `/kolabs` create, then retire `OpportunityController`/`OpportunityService` and drop the archived table + `collab_opportunity_id` columns. Owner: **backend** (after mobile migrates off `/opportunities`).
+
+## 10. Business Kolab creation flow redesign
+
+**Status:** Backend half done (this PR, `feat/business-kolab-flow-backend`): `goal`/`highlights` columns on `kolabs`, 4 new admin-managed `OfferOption` taxonomy kinds (goal/product_interaction/venue_fit/kolab_highlight) + lookup endpoints, expanded `deliverable` options, immediate-availability validation fix. Frontend half (8 screen reworks in `kolabing-app`) not started yet — plan at `docs/superpowers/plans/2026-06-24-business-kolab-flow-frontend.md` in `kolabing-app`. Design spec: `docs/superpowers/specs/2026-06-24-business-kolab-creation-flow-redesign.md`.
+
+**Incomplete (in flight):**
+- [ ] `kolabing-app`: implement the 8 frontend tasks (Goal step, offer-first Offering reorder, dynamic best-fit-community/venue-fit/product-interaction chips, Past Events relabel + highlights, immediate availability mode, media defaulting, review restyle). Owner: **app**.
 
 ---
 

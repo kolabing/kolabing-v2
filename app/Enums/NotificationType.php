@@ -10,6 +10,7 @@ enum NotificationType: string
     case ApplicationReceived = 'application_received';
     case ApplicationAccepted = 'application_accepted';
     case ApplicationDeclined = 'application_declined';
+    case ApplicationWithdrawn = 'application_withdrawn';
     case BadgeAwarded = 'badge_awarded';
     case ChallengeVerified = 'challenge_verified';
     case RewardWon = 'reward_won';
@@ -28,6 +29,11 @@ enum NotificationType: string
     case CommunityJoinDeclined = 'community_join_declined';
     case CommunityVerified = 'community_verified';
     case CommunityVerificationRejected = 'community_verification_rejected';
+    case CollaborationCreated = 'collaboration_created';
+    case CollaborationActivated = 'collaboration_activated';
+    case CollaborationFeedbackReceived = 'collaboration_feedback_received';
+    case CollaborationCompleted = 'collaboration_completed';
+    case CollaborationCancelled = 'collaboration_cancelled';
 
     /**
      * @return array<string>

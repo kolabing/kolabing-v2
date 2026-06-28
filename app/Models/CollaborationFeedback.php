@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $posts_reels
  * @property bool|null $expectation_match
  * @property bool|null $would_recommend
+ * @property bool|null $would_collaborate_again
  * @property int|null $stories_posted
  * @property string|null $revenue
  * @property string|null $benefits
@@ -58,6 +59,7 @@ class CollaborationFeedback extends Model
         'posts_reels',
         'expectation_match',
         'would_recommend',
+        'would_collaborate_again',
         'stories_posted',
         'revenue',
         'benefits',
@@ -76,6 +78,7 @@ class CollaborationFeedback extends Model
             'posts_reels' => 'integer',
             'expectation_match' => 'boolean',
             'would_recommend' => 'boolean',
+            'would_collaborate_again' => 'boolean',
             'stories_posted' => 'integer',
             'revenue' => 'decimal:2',
             'mirrored_from_review' => 'boolean',
@@ -94,6 +97,7 @@ class CollaborationFeedback extends Model
             'rating' => $this->rating,
             'expectation_match' => $this->expectation_match,
             'would_recommend' => $this->would_recommend,
+            'would_collaborate_again' => $this->would_collaborate_again,
         ];
     }
 

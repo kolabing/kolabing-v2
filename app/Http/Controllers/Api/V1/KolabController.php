@@ -43,6 +43,7 @@ class KolabController extends Controller
             'needs' => $request->query('needs'),
             'community_types' => $request->query('community_types'),
             'search' => $request->query('search'),
+            'saved' => $request->query('saved'),
         ];
 
         $perPage = (int) $request->query('per_page', 15);
@@ -145,6 +146,9 @@ class KolabController extends Controller
         }
 
         $kolab->load('creatorProfile');
+        $kolab->loadExists(['savedByProfiles as is_saved' => function ($q) use ($profile): void {
+            $q->whereKey($profile->id);
+        }]);
 
         return response()->json([
             'success' => true,

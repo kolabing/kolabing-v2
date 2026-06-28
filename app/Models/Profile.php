@@ -32,6 +32,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string|null $avatar_url
  * @property string|null $device_token
  * @property string|null $device_platform
+ * @property string|null $preferred_locale
  * @property \Illuminate\Support\Carbon|null $email_verified_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -95,6 +96,7 @@ class Profile extends Authenticatable
         'email_verified_at',
         'device_token',
         'device_platform',
+        'preferred_locale',
         'last_active_at',
         'analytics_opt_out',
     ];
@@ -323,6 +325,17 @@ class Profile extends Authenticatable
     public function kolabs(): HasMany
     {
         return $this->hasMany(Kolab::class, 'creator_profile_id');
+    }
+
+    /**
+     * Kolabs this profile has saved/bookmarked.
+     *
+     * @return BelongsToMany<Kolab, $this>
+     */
+    public function savedKolabs(): BelongsToMany
+    {
+        return $this->belongsToMany(Kolab::class, 'saved_kolabs', 'profile_id', 'kolab_id')
+            ->withTimestamps();
     }
 
     /**

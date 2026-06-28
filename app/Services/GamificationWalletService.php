@@ -191,11 +191,12 @@ class GamificationWalletService
             return;
         }
 
-        $this->notificationService->createNotification(
+        $this->notificationService->createLocalizedNotification(
             recipient: $profile,
             type: NotificationType::GamificationBadgeEarned,
-            title: 'Badge Earned!',
-            body: "You earned the \"{$badgeSlug->displayName()}\" badge!",
+            titleKey: 'notifications.badge.gamification_earned.title',
+            bodyKey: 'notifications.badge.gamification_earned.body',
+            replace: ['badge' => $badgeSlug->displayName()],
             targetId: $badgeId,
             targetType: 'earned_badge',
         );

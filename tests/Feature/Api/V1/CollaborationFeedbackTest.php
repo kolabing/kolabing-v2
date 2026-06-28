@@ -13,6 +13,7 @@ use App\Models\Application;
 use App\Models\BusinessSubscription;
 use App\Models\Collaboration;
 use App\Models\CollaborationFeedback;
+use App\Models\CollaborationReview;
 use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -70,6 +71,7 @@ class CollaborationFeedbackTest extends TestCase
                 'rating' => 5,
                 'expectation_match' => true,
                 'would_recommend' => true,
+                'would_collaborate_again' => true,
                 'posts_reels' => 3,
                 'stories_posted' => 12,
                 'revenue' => '450.50',
@@ -101,6 +103,7 @@ class CollaborationFeedbackTest extends TestCase
                 'rating' => 4,
                 'expectation_match' => false,
                 'would_recommend' => true,
+                'would_collaborate_again' => true,
                 'benefits' => 'Free coffee for the whole group',
             ])
             ->assertCreated();
@@ -123,6 +126,7 @@ class CollaborationFeedbackTest extends TestCase
                 'rating' => 4,
                 'expectation_match' => true,
                 'would_recommend' => true,
+                'would_collaborate_again' => true,
                 'revenue' => '500',
                 'stories_posted' => 10,
             ])
@@ -139,6 +143,7 @@ class CollaborationFeedbackTest extends TestCase
                 'rating' => 4,
                 'expectation_match' => true,
                 'would_recommend' => true,
+                'would_collaborate_again' => true,
                 'benefits' => 'should be rejected',
             ])
             ->assertStatus(422)
@@ -149,7 +154,7 @@ class CollaborationFeedbackTest extends TestCase
     {
         ['collab' => $collab, 'business' => $business] = $this->makeActiveCollab();
 
-        $payload = ['rating' => 5, 'expectation_match' => true, 'would_recommend' => true];
+        $payload = ['rating' => 5, 'expectation_match' => true, 'would_recommend' => true, 'would_collaborate_again' => true];
 
         $this->actingAs($business)
             ->postJson(route('api.v1.collaborations.feedback.store', $collab), $payload)
@@ -167,7 +172,7 @@ class CollaborationFeedbackTest extends TestCase
 
         $this->actingAs($business)
             ->postJson(route('api.v1.collaborations.feedback.store', $collab), [
-                'rating' => 3, 'expectation_match' => true, 'would_recommend' => true, 'revenue' => '100',
+                'rating' => 3, 'expectation_match' => true, 'would_recommend' => true, 'would_collaborate_again' => true, 'revenue' => '100',
             ])->assertCreated();
 
         $this->actingAs($business)
@@ -191,12 +196,12 @@ class CollaborationFeedbackTest extends TestCase
 
         $this->actingAs($business)
             ->postJson(route('api.v1.collaborations.feedback.store', $collab), [
-                'rating' => 4, 'expectation_match' => true, 'would_recommend' => true,
+                'rating' => 4, 'expectation_match' => true, 'would_recommend' => true, 'would_collaborate_again' => true,
             ])->assertCreated();
 
         $this->actingAs($community)
             ->postJson(route('api.v1.collaborations.feedback.store', $collab), [
-                'rating' => 5, 'expectation_match' => true, 'would_recommend' => true,
+                'rating' => 5, 'expectation_match' => true, 'would_recommend' => true, 'would_collaborate_again' => true,
             ])->assertCreated();
 
         $this->actingAs($business)
@@ -207,59 +212,63 @@ class CollaborationFeedbackTest extends TestCase
             ->assertJsonPath('error_code', 'feedback_locked');
     }
 
-    public function test_complete_returns_422_awaiting_own_feedback_when_caller_has_not_submitted(): void
+    public function test_complete_returns_422_awaiting_own_completion_confirmation_when_caller_has_not_confirmed(): void
     {
+        // PR 1 (2026-06-26): /complete no longer cares about feedback at all —
+        // it gates on the lightweight completion-confirmation table.
         ['collab' => $collab, 'business' => $business] = $this->makeActiveCollab();
 
         $this->actingAs($business)
             ->postJson(route('api.v1.collaborations.complete', $collab))
             ->assertStatus(422)
-            ->assertJsonPath('error_code', 'awaiting_own_feedback');
+            ->assertJsonPath('error_code', 'awaiting_own_completion_confirmation');
 
         $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
     }
 
-    public function test_complete_returns_422_awaiting_partner_feedback(): void
+    public function test_complete_returns_422_awaiting_partner_completion_confirmation(): void
     {
         ['collab' => $collab, 'business' => $business] = $this->makeActiveCollab();
 
         $this->actingAs($business)
-            ->postJson(route('api.v1.collaborations.feedback.store', $collab), [
-                'rating' => 5, 'expectation_match' => true, 'would_recommend' => true,
-            ])->assertCreated();
+            ->postJson(route('api.v1.collaborations.completion.store', $collab), ['status' => 'yes'])
+            ->assertCreated();
 
         $this->actingAs($business)
             ->postJson(route('api.v1.collaborations.complete', $collab))
             ->assertStatus(422)
-            ->assertJsonPath('error_code', 'awaiting_partner_feedback')
-            ->assertJsonPath('errors.pending_feedback_from', ['community']);
+            ->assertJsonPath('error_code', 'awaiting_partner_completion_confirmation')
+            ->assertJsonPath('errors.pending_completion_from', ['community']);
     }
 
-    public function test_complete_succeeds_when_both_feedbacks_exist(): void
+    public function test_submitting_feedback_alone_does_not_satisfy_complete(): void
     {
+        // Completion gates purely on real completion confirmations — there is
+        // no feedback-based fallback. Feedback alone must NOT complete the Kolab.
         ['collab' => $collab, 'business' => $business, 'community' => $community] = $this->makeActiveCollab();
 
         foreach ([$business, $community] as $actor) {
             $this->actingAs($actor)
                 ->postJson(route('api.v1.collaborations.feedback.store', $collab), [
-                    'rating' => 4, 'expectation_match' => true, 'would_recommend' => true,
+                    'rating' => 4, 'expectation_match' => true, 'would_recommend' => true, 'would_collaborate_again' => true,
                 ])->assertCreated();
         }
 
         $this->actingAs($business)
             ->postJson(route('api.v1.collaborations.complete', $collab))
-            ->assertOk();
+            ->assertStatus(422)
+            ->assertJsonPath('error_code', 'awaiting_own_completion_confirmation');
 
-        $fresh = $collab->fresh();
-        $this->assertSame(CollaborationStatus::Completed, $fresh->status);
-        $this->assertNotNull($fresh->completed_at);
+        $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
+        $this->assertDatabaseMissing('collaboration_completions', [
+            'collaboration_id' => $collab->id,
+        ]);
     }
 
-    public function test_review_mirrors_to_feedback_so_complete_succeeds(): void
+    public function test_review_alone_does_not_satisfy_complete(): void
     {
         ['collab' => $collab, 'business' => $business, 'community' => $community] = $this->makeActiveCollab();
 
-        // Both parties on the legacy app path: post /review only.
         foreach ([$business, $community] as $actor) {
             $this->actingAs($actor)
                 ->postJson(route('api.v1.collaborations.review', $collab), [
@@ -267,15 +276,38 @@ class CollaborationFeedbackTest extends TestCase
                 ])->assertCreated();
         }
 
-        $this->assertSame(2, CollaborationFeedback::query()
-            ->where('collaboration_id', $collab->id)
-            ->where('mirrored_from_review', true)
-            ->count());
-
-        // /complete now succeeds because both stub feedback rows exist.
+        // The /review mirror still writes feedback stubs (impact data), but
+        // those no longer satisfy the completion gate.
         $this->actingAs($business)
             ->postJson(route('api.v1.collaborations.complete', $collab))
-            ->assertOk();
+            ->assertStatus(422)
+            ->assertJsonPath('error_code', 'awaiting_own_completion_confirmation');
+
+        $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
+    }
+
+    public function test_complete_requires_partner_completion_even_when_partner_left_feedback(): void
+    {
+        // The caller confirmed via /completion; the partner only left feedback.
+        // Feedback is not a confirmation, so /complete must wait on the partner.
+        ['collab' => $collab, 'business' => $business, 'community' => $community] = $this->makeActiveCollab();
+
+        $this->actingAs($business)
+            ->postJson(route('api.v1.collaborations.completion.store', $collab), ['status' => 'yes'])
+            ->assertCreated();
+
+        $this->actingAs($community)
+            ->postJson(route('api.v1.collaborations.feedback.store', $collab), [
+                'rating' => 5, 'expectation_match' => true, 'would_recommend' => true, 'would_collaborate_again' => true,
+            ])->assertCreated();
+
+        $this->actingAs($business)
+            ->postJson(route('api.v1.collaborations.complete', $collab))
+            ->assertStatus(422)
+            ->assertJsonPath('error_code', 'awaiting_partner_completion_confirmation')
+            ->assertJsonPath('errors.pending_completion_from', ['community']);
+
+        $this->assertSame(CollaborationStatus::Active, $collab->fresh()->status);
     }
 
     public function test_feedback_submit_upgrades_existing_mirrored_stub(): void
@@ -300,6 +332,7 @@ class CollaborationFeedbackTest extends TestCase
                 'rating' => 5,
                 'expectation_match' => true,
                 'would_recommend' => true,
+                'would_collaborate_again' => true,
                 'revenue' => '300',
             ])
             ->assertCreated();
@@ -325,7 +358,7 @@ class CollaborationFeedbackTest extends TestCase
 
         $this->actingAs($business)
             ->postJson(route('api.v1.collaborations.feedback.store', $collab), [
-                'rating' => 4, 'expectation_match' => true, 'would_recommend' => true,
+                'rating' => 4, 'expectation_match' => true, 'would_recommend' => true, 'would_collaborate_again' => true,
             ])
             ->assertCreated();
     }
@@ -336,7 +369,7 @@ class CollaborationFeedbackTest extends TestCase
 
         $this->actingAs($business)
             ->postJson(route('api.v1.collaborations.feedback.store', $collab), [
-                'rating' => 5, 'expectation_match' => true, 'would_recommend' => true,
+                'rating' => 5, 'expectation_match' => true, 'would_recommend' => true, 'would_collaborate_again' => true,
             ])->assertCreated();
 
         $response = $this->actingAs($business)
@@ -361,7 +394,7 @@ class CollaborationFeedbackTest extends TestCase
         foreach ([$business, $community] as $actor) {
             $this->actingAs($actor)
                 ->postJson(route('api.v1.collaborations.feedback.store', $collab), [
-                    'rating' => 4, 'expectation_match' => true, 'would_recommend' => false,
+                    'rating' => 4, 'expectation_match' => true, 'would_recommend' => false, 'would_collaborate_again' => false,
                 ])->assertCreated();
         }
 
@@ -373,5 +406,155 @@ class CollaborationFeedbackTest extends TestCase
             ->assertJsonPath('data.partner_feedback.would_recommend', false)
             ->assertJsonMissingPath('data.partner_feedback.revenue')
             ->assertJsonMissingPath('data.partner_feedback.benefits');
+    }
+
+    public function test_would_collaborate_again_is_required_on_feedback(): void
+    {
+        ['collab' => $collab, 'business' => $business] = $this->makeActiveCollab();
+
+        $this->actingAs($business)
+            ->postJson(route('api.v1.collaborations.feedback.store', $collab), [
+                'rating' => 5,
+                'expectation_match' => true,
+                'would_recommend' => true,
+                // would_collaborate_again intentionally omitted.
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['would_collaborate_again']);
+    }
+
+    public function test_would_collaborate_again_persists_and_is_emitted(): void
+    {
+        ['collab' => $collab, 'business' => $business] = $this->makeActiveCollab();
+
+        $this->actingAs($business)
+            ->postJson(route('api.v1.collaborations.feedback.store', $collab), [
+                'rating' => 5,
+                'expectation_match' => true,
+                'would_recommend' => true,
+                'would_collaborate_again' => true,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.would_collaborate_again', true);
+
+        $this->assertDatabaseHas('collaboration_feedback', [
+            'collaboration_id' => $collab->id,
+            'reviewer_profile_id' => $business->id,
+            'would_collaborate_again' => true,
+        ]);
+
+        // Surfaced in own_feedback on the collaboration resource too.
+        $this->actingAs($business)
+            ->getJson(route('api.v1.collaborations.show', $collab))
+            ->assertOk()
+            ->assertJsonPath('data.own_feedback.would_collaborate_again', true);
+    }
+
+    public function test_submitting_feedback_creates_exactly_one_public_review_for_the_reviewer(): void
+    {
+        ['collab' => $collab, 'business' => $business] = $this->makeActiveCollab();
+
+        $this->actingAs($business)
+            ->postJson(route('api.v1.collaborations.feedback.store', $collab), [
+                'rating' => 4,
+                'expectation_match' => true,
+                'would_recommend' => true,
+                'would_collaborate_again' => true,
+            ])->assertCreated();
+
+        $reviews = CollaborationReview::query()
+            ->where('collaboration_id', $collab->id)
+            ->where('reviewer_profile_id', $business->id)
+            ->get();
+
+        $this->assertCount(1, $reviews);
+        $review = $reviews->first();
+        $this->assertSame(4, $review->rating);
+        $this->assertTrue($review->would_collaborate_again);
+        // reviewed_profile_id is the partner (cross-party attribution).
+        $this->assertSame($collab->applicant_profile_id, $review->reviewed_profile_id);
+        $this->assertSame('creator', $review->reviewer_role);
+    }
+
+    public function test_community_benefits_text_is_mirrored_into_review_body(): void
+    {
+        ['collab' => $collab, 'community' => $community] = $this->makeActiveCollab();
+
+        $this->actingAs($community)
+            ->postJson(route('api.v1.collaborations.feedback.store', $collab), [
+                'rating' => 5,
+                'expectation_match' => true,
+                'would_recommend' => true,
+                'would_collaborate_again' => false,
+                'benefits' => 'Great exposure and free drinks',
+            ])->assertCreated();
+
+        $review = CollaborationReview::query()
+            ->where('collaboration_id', $collab->id)
+            ->where('reviewer_profile_id', $community->id)
+            ->firstOrFail();
+
+        $this->assertSame('Great exposure and free drinks', $review->body);
+        $this->assertFalse($review->would_collaborate_again);
+    }
+
+    public function test_resubmitting_via_edit_updates_the_same_review_no_duplicate(): void
+    {
+        ['collab' => $collab, 'business' => $business] = $this->makeActiveCollab();
+
+        $this->actingAs($business)
+            ->postJson(route('api.v1.collaborations.feedback.store', $collab), [
+                'rating' => 3,
+                'expectation_match' => true,
+                'would_recommend' => true,
+                'would_collaborate_again' => false,
+            ])->assertCreated();
+
+        // Edit the feedback while the partner has not submitted.
+        $this->actingAs($business)
+            ->putJson(route('api.v1.collaborations.feedback.update', $collab), [
+                'rating' => 5,
+                'expectation_match' => true,
+                'would_recommend' => true,
+                'would_collaborate_again' => true,
+            ])->assertOk();
+
+        // Still exactly one feedback row and one review row, both updated.
+        $this->assertSame(1, CollaborationFeedback::query()
+            ->where('collaboration_id', $collab->id)
+            ->where('reviewer_profile_id', $business->id)
+            ->count());
+
+        $reviews = CollaborationReview::query()
+            ->where('collaboration_id', $collab->id)
+            ->where('reviewer_profile_id', $business->id)
+            ->get();
+
+        $this->assertCount(1, $reviews);
+        $this->assertSame(5, $reviews->first()->rating);
+        $this->assertTrue($reviews->first()->would_collaborate_again);
+    }
+
+    public function test_feedback_mirror_does_not_create_a_second_feedback_row_no_loop(): void
+    {
+        ['collab' => $collab, 'business' => $business] = $this->makeActiveCollab();
+
+        $this->actingAs($business)
+            ->postJson(route('api.v1.collaborations.feedback.store', $collab), [
+                'rating' => 4,
+                'expectation_match' => true,
+                'would_recommend' => true,
+                'would_collaborate_again' => true,
+            ])->assertCreated();
+
+        // The feedback->review mirror must NOT trigger the inverse review->feedback
+        // mirror: exactly one feedback row, and it is NOT a mirrored stub.
+        $feedbacks = CollaborationFeedback::query()
+            ->where('collaboration_id', $collab->id)
+            ->where('reviewer_profile_id', $business->id)
+            ->get();
+
+        $this->assertCount(1, $feedbacks);
+        $this->assertFalse($feedbacks->first()->mirrored_from_review);
     }
 }

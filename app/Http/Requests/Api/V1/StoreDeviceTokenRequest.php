@@ -24,6 +24,7 @@ class StoreDeviceTokenRequest extends FormRequest
         return [
             'token' => ['required', 'string'],
             'platform' => ['required', 'string', Rule::in(['ios', 'android'])],
+            'locale' => ['nullable', 'string', Rule::in(['en', 'es', 'ca'])],
         ];
     }
 
