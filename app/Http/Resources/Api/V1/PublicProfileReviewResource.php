@@ -27,7 +27,9 @@ class PublicProfileReviewResource extends JsonResource
         return [
             'id' => $this->id,
             'rating' => $this->rating,
+            'overall_rating' => $this->overall_rating,
             'body' => $this->body ?? $this->note,
+            'public_comment' => $this->public_comment,
             'would_collaborate_again' => $this->would_collaborate_again,
             'created_at' => $this->created_at?->toIso8601String(),
             'reviewer' => [

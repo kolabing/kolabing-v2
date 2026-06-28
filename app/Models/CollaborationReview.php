@@ -16,9 +16,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $reviewer_role
  * @property string|null $reviewed_profile_id
  * @property int|null $rating
+ * @property int|null $communication_rating
+ * @property int|null $reliability_rating
+ * @property int|null $fit_rating
+ * @property int|null $value_rating
+ * @property int|null $repeat_rating
  * @property string|null $note
  * @property string|null $body
+ * @property string|null $public_comment
  * @property bool|null $would_collaborate_again
+ * @property-read float|null $overall_rating
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Collaboration $collaboration
@@ -32,6 +39,19 @@ class CollaborationReview extends Model
     use HasUuids;
 
     /**
+     * The five star-rating columns introduced for the new review format.
+     *
+     * @var list<string>
+     */
+    public const STAR_RATING_FIELDS = [
+        'communication_rating',
+        'reliability_rating',
+        'fit_rating',
+        'value_rating',
+        'repeat_rating',
+    ];
+
+    /**
      * @var list<string>
      */
     protected $fillable = [
@@ -40,8 +60,14 @@ class CollaborationReview extends Model
         'reviewed_profile_id',
         'reviewer_role',
         'rating',
+        'communication_rating',
+        'reliability_rating',
+        'fit_rating',
+        'value_rating',
+        'repeat_rating',
         'note',
         'body',
+        'public_comment',
         'would_collaborate_again',
     ];
 
@@ -52,8 +78,31 @@ class CollaborationReview extends Model
     {
         return [
             'rating' => 'integer',
+            'communication_rating' => 'integer',
+            'reliability_rating' => 'integer',
+            'fit_rating' => 'integer',
+            'value_rating' => 'integer',
+            'repeat_rating' => 'integer',
             'would_collaborate_again' => 'boolean',
         ];
+    }
+
+    /**
+     * Average of the five new star ratings when present, falling back to the
+     * legacy single `rating` field for reviews submitted before this format.
+     */
+    public function getOverallRatingAttribute(): ?float
+    {
+        $starRatings = array_filter(
+            array_map(fn (string $field) => $this->{$field}, self::STAR_RATING_FIELDS),
+            fn ($value) => $value !== null,
+        );
+
+        if (count($starRatings) === count(self::STAR_RATING_FIELDS)) {
+            return round(array_sum($starRatings) / count($starRatings), 2);
+        }
+
+        return $this->rating !== null ? (float) $this->rating : null;
     }
 
     /**

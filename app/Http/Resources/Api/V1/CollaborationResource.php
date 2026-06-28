@@ -152,8 +152,17 @@ class CollaborationResource extends JsonResource
                 return $this->reviews->map(fn ($review): array => [
                     'reviewer_role' => $review->reviewer_role,
                     'rating' => $review->rating,
+                    'overall_rating' => $review->overall_rating,
+                    'communication_rating' => $review->communication_rating,
+                    'reliability_rating' => $review->reliability_rating,
+                    'fit_rating' => $review->fit_rating,
+                    'value_rating' => $review->value_rating,
+                    'repeat_rating' => $review->repeat_rating,
                     'note' => $review->body ?? $review->note,
                     'body' => $review->body ?? $review->note,
+                    // `public_comment` is the field intended for display on a
+                    // reviewed profile; `note`/`body` remain internal-only.
+                    'public_comment' => $review->public_comment,
                     'would_collaborate_again' => $review->would_collaborate_again,
                     'created_at' => $review->created_at?->toIso8601String(),
                 ])->values();
