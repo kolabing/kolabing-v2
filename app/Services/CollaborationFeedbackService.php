@@ -188,7 +188,28 @@ class CollaborationFeedbackService
             $attributes['benefits'] = $reviewPayload['body'];
         }
 
-        return CollaborationFeedback::create($attributes);
+        $feedback = CollaborationFeedback::create($attributes);
+
+        // Mission progress parity with submit(): a legacy /review-only client
+        // that never calls /feedback must still progress its
+        // collaboration_complete missions. Guarded so a mission failure never
+        // breaks the review/mirror flow.
+        try {
+            $this->missionService->record(
+                $reviewer,
+                MissionTrigger::CollaborationComplete,
+                1,
+                ['reference_id' => $collaboration->id],
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Mission record failed (collaboration_complete via review mirror)', [
+                'profile_id' => $reviewer->id,
+                'collaboration_id' => $collaboration->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $feedback;
     }
 
     /**

@@ -96,6 +96,7 @@ class MissionAutoAwardTest extends TestCase
                 'rating' => 5,
                 'expectation_match' => true,
                 'would_recommend' => true,
+                'would_collaborate_again' => true,
                 'posts_reels' => 3,
                 'stories_posted' => 12,
                 'revenue' => '450.50',
@@ -166,6 +167,46 @@ class MissionAutoAwardTest extends TestCase
             'challenge_id' => $reviewReceivedBiz->id,
             'profile_id' => $business->id,
         ]);
+    }
+
+    public function test_legacy_review_path_progresses_reviewer_collaboration_complete_mission(): void
+    {
+        // A legacy /review-only client (never calls /feedback) must still
+        // progress its collaboration_complete missions, in parity with submit().
+        $bizMission = $this->mission(MissionTrigger::CollaborationComplete, ChallengeAudience::Business, 1, 50);
+
+        $business = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $business->id, 'name' => 'Reviewer Biz']);
+
+        $community = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create(['profile_id' => $community->id, 'name' => 'Reviewed Com']);
+
+        $collab = Collaboration::factory()
+            ->completed()
+            ->forCreator($business)
+            ->forApplicant($community)
+            ->create([
+                'business_profile_id' => $business->businessProfile?->id,
+                'community_profile_id' => $community->communityProfile?->id,
+            ]);
+
+        $this->actingAs($business)
+            ->postJson("/api/v1/collaborations/{$collab->id}/review", [
+                'rating' => 5,
+                'body' => 'Great collaboration',
+                'would_collaborate_again' => true,
+            ])->assertCreated();
+
+        // The reviewer's collaboration_complete mission completed + awarded,
+        // even though no /feedback row was submitted (only the mirrored stub).
+        $this->assertNotNull(ChallengeProgress::query()
+            ->where('challenge_id', $bizMission->id)
+            ->where('profile_id', $business->id)
+            ->value('completed_at'));
+        $this->assertSame(50, PointLedger::query()
+            ->where('profile_id', $business->id)
+            ->where('event_type', PointEventType::MissionCompleted->value)
+            ->sum('points'));
     }
 
     public function test_referral_conversion_progresses_business_referred_mission(): void

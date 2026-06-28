@@ -13,6 +13,7 @@ use App\Models\ChallengeProgress;
 use App\Models\Profile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -92,12 +93,21 @@ class MissionService
      */
     public function audiencesFor(Profile $earner): array
     {
-        return match (true) {
+        $audiences = match (true) {
             $earner->isBusiness() => [ChallengeAudience::Business->value, ChallengeAudience::Both->value],
             $earner->isCommunity() => [ChallengeAudience::Community->value, ChallengeAudience::Both->value],
             $earner->isAttendee() => [ChallengeAudience::Attendee->value],
             default => [],
         };
+
+        if ($audiences === []) {
+            Log::warning('Mission record skipped: profile matches no mission audience', [
+                'profile_id' => $earner->id,
+                'user_type' => $earner->user_type?->value,
+            ]);
+        }
+
+        return $audiences;
     }
 
     /**
@@ -109,12 +119,18 @@ class MissionService
      */
     public static function periodKeyFor(?MissionRepeat $repeat, Carbon $now): string
     {
+        // Calendar buckets must roll over at local midnight, not UTC. Timestamps
+        // are stored in UTC but the product operates in a single local timezone,
+        // so a check-in just after local midnight counts toward the correct
+        // day/month. `once` is timezone-independent.
+        $local = (clone $now)->setTimezone(config('gamification.local_timezone'));
+
         return match ($repeat ?? MissionRepeat::Once) {
             MissionRepeat::Once => 'once',
-            MissionRepeat::Daily => $now->format('Y-m-d'),
-            MissionRepeat::Weekly => $now->format('o-\WW'),
-            MissionRepeat::Monthly => $now->format('Y-m'),
-            MissionRepeat::Seasonal => $now->format('Y').'-Q'.$now->quarter,
+            MissionRepeat::Daily => $local->format('Y-m-d'),
+            MissionRepeat::Weekly => $local->format('o-\WW'),
+            MissionRepeat::Monthly => $local->format('Y-m'),
+            MissionRepeat::Seasonal => $local->format('Y').'-Q'.$local->quarter,
         };
     }
 
@@ -134,10 +150,13 @@ class MissionService
         $periodKey = self::periodKeyFor($mission->repeat_interval, $now);
 
         return DB::transaction(function () use ($earner, $mission, $increment, $now, $periodKey, $context): ChallengeProgress {
-            // Atomic find-or-create: ON CONFLICT DO UPDATE means two concurrent
+            // Atomic find-or-create: ON CONFLICT DO NOTHING means two concurrent
             // requests for a brand-new (challenge, profile, period) row never race
-            // on the unique index — the loser's upsert becomes a no-op update
-            // instead of a duplicate-key exception.
+            // on the unique index — the loser's upsert becomes a no-op instead of
+            // a duplicate-key exception. The empty update list is deliberate:
+            // `target_value` is frozen at row creation so an admin editing the
+            // mission's target mid-period never retroactively reopens or
+            // auto-completes an in-flight progress row.
             ChallengeProgress::query()->upsert(
                 [[
                     'id' => (string) Str::uuid(),
@@ -150,7 +169,7 @@ class MissionService
                     'updated_at' => $now,
                 ]],
                 ['challenge_id', 'profile_id', 'period_key'],
-                ['target_value'],
+                [],
             );
 
             $progress = ChallengeProgress::query()
@@ -159,6 +178,13 @@ class MissionService
                 ->where('period_key', $periodKey)
                 ->lockForUpdate()
                 ->first();
+
+            // Defensive: the row was just upserted, so this should always hit.
+            // If a concurrent delete or unexpected DB state loses it, bail
+            // rather than dereference null — callers swallow mission failures.
+            if ($progress === null) {
+                throw new \RuntimeException("Mission progress row vanished after upsert (challenge {$mission->id}, profile {$earner->id}, period {$periodKey}).");
+            }
 
             if ($progress->completed_at !== null) {
                 return $progress;

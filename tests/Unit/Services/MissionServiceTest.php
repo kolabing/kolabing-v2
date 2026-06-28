@@ -222,4 +222,33 @@ class MissionServiceTest extends TestCase
         $this->assertCount(0, $touched);
         $this->assertDatabaseMissing('challenge_progress', ['challenge_id' => $future->id]);
     }
+
+    public function test_target_value_is_frozen_at_progress_row_creation(): void
+    {
+        $business = Profile::factory()->business()->create();
+        $mission = $this->mission(MissionTrigger::CollaborationComplete, ChallengeAudience::Business, 3, MissionRepeat::Once, 50);
+
+        // First event: row created with target 3, progress 1, not yet complete.
+        $this->service->record($business, MissionTrigger::CollaborationComplete);
+
+        // Admin lowers the mission target mid-period.
+        $mission->update(['target_value' => 1]);
+
+        // Next event must NOT rewrite the in-flight row's target to 1: the row
+        // keeps its frozen target of 3, so it is not yet complete at count 2.
+        $this->service->record($business, MissionTrigger::CollaborationComplete);
+
+        $progress = ChallengeProgress::query()
+            ->where('challenge_id', $mission->id)
+            ->where('profile_id', $business->id)
+            ->first();
+
+        $this->assertSame(3, $progress->target_value);
+        $this->assertSame(2, $progress->progress_count);
+        $this->assertNull($progress->completed_at);
+        $this->assertSame(0, PointLedger::query()
+            ->where('profile_id', $business->id)
+            ->where('event_type', PointEventType::MissionCompleted->value)
+            ->count());
+    }
 }

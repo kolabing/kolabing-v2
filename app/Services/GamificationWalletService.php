@@ -48,10 +48,7 @@ class GamificationWalletService
                 'description' => $description,
             ]);
 
-            $wallet = Wallet::query()->firstOrCreate(
-                ['profile_id' => $profileId],
-                ['points' => 0, 'redeemed_points' => 0, 'pending_withdrawal' => false]
-            );
+            $wallet = $this->getOrCreateWallet($profileId);
 
             $wallet->increment('points', $points);
 
@@ -100,10 +97,7 @@ class GamificationWalletService
                 'description' => $description,
             ]);
 
-            $wallet = Wallet::query()->firstOrCreate(
-                ['profile_id' => $profileId],
-                ['points' => 0, 'redeemed_points' => 0, 'pending_withdrawal' => false]
-            );
+            $wallet = $this->getOrCreateWallet($profileId);
 
             $wallet->increment('points', $points);
 

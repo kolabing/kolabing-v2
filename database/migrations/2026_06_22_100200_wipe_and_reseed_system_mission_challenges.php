@@ -6,6 +6,7 @@ use App\Models\Challenge;
 use Database\Seeders\SystemChallengeSeeder;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Replace the old peer-verified system icebreakers with the new self-tracked
@@ -30,12 +31,18 @@ return new class extends Migration
             return;
         }
 
-        Challenge::query()->where('is_system', true)->delete();
+        // Wrap the destructive wipe and the reseed in a single transaction: if
+        // the seeder throws partway (slug collision, DB hiccup, enum overflow),
+        // the delete rolls back too, so the system-challenge catalogue is never
+        // left empty or half-seeded in production.
+        DB::transaction(function (): void {
+            Challenge::query()->where('is_system', true)->delete();
 
-        Artisan::call('db:seed', [
-            '--class' => SystemChallengeSeeder::class,
-            '--force' => true,
-        ]);
+            Artisan::call('db:seed', [
+                '--class' => SystemChallengeSeeder::class,
+                '--force' => true,
+            ]);
+        });
     }
 
     public function down(): void
