@@ -72,40 +72,14 @@ enum MissionTrigger: string
     }
 
     /**
-     * Single source of truth for which triggers actually fire today (the ones
-     * wired to a source action in Phase 2/3). A mission whose trigger is NOT in
-     * this set can never progress, so the read endpoint hides it and any future
-     * admin "live/inert" badge reads off the same method. As later phases wire
-     * more sources, flip the matching cases here and those missions light up.
+     * Whether this trigger actually fires today (i.e. is wired to a source
+     * action). Reads off `config('gamification.live_triggers')` — the single
+     * source of truth — so the live set can be adjusted without editing the
+     * enum, and the read endpoint hides missions whose trigger is not live.
      */
     public function isLive(): bool
     {
-        return match ($this) {
-            self::CollaborationComplete,
-            self::ReviewPosted,
-            self::ReviewReceived,
-            self::BusinessReviewReceived,
-            self::BusinessReferred,
-            self::ProfileCompleted,
-            self::BusinessProfileCompleted,
-            self::CommunityProfileCompleted,
-            self::BusinessPhotoUploaded,
-            self::CommunityPhotoUploaded,
-            self::EventCheckin,
-            self::MemberCheckin,
-            self::KolabPublished,
-            self::KolabCreatedProduct,
-            self::RecurringKolabCreated,
-            self::RecurringKolabHosted,
-            self::ApplicationSubmitted,
-            self::ApplicationReceived,
-            self::ApplicationAccepted,
-            self::SubscriptionRenewed,
-            self::CommunityJoined,
-            self::MembersInvited,
-            self::ChallengeCompleted => true,
-            default => false,
-        };
+        return in_array($this->value, config('gamification.live_triggers', []), true);
     }
 
     /**

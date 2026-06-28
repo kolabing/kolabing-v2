@@ -17,7 +17,6 @@ use App\Services\HandleService;
 use App\Services\MissionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class CommunityMemberController extends Controller
 {
@@ -99,20 +98,12 @@ class CommunityMemberController extends Controller
         // invites of the same person never re-fire. Audience scoping limits this
         // to the community's missions. Guarded — never breaks the invite.
         if ($member->wasRecentlyCreated) {
-            try {
-                $this->missionService->record(
-                    $profile,
-                    MissionTrigger::MembersInvited,
-                    1,
-                    ['reference_id' => $member->id],
-                );
-            } catch (\Throwable $e) {
-                Log::warning('Mission record failed (members_invited)', [
-                    'profile_id' => $profile->id,
-                    'community_id' => $community->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+            $this->missionService->recordSafely(
+                $profile,
+                MissionTrigger::MembersInvited,
+                1,
+                ['reference_id' => $member->id],
+            );
         }
 
         return response()->json([

@@ -337,25 +337,18 @@ class AppleIAPService
      */
     private function recordRenewalMission(BusinessSubscription $subscription): void
     {
-        try {
-            $profile = $subscription->profile;
+        $profile = $subscription->profile;
 
-            if ($profile === null) {
-                return;
-            }
-
-            $this->missionService->record(
-                $profile,
-                MissionTrigger::SubscriptionRenewed,
-                1,
-                ['reference_id' => $subscription->id],
-            );
-        } catch (\Throwable $e) {
-            Log::warning('Mission record failed (subscription_renewed)', [
-                'subscription_id' => $subscription->id,
-                'error' => $e->getMessage(),
-            ]);
+        if ($profile === null) {
+            return;
         }
+
+        $this->missionService->recordSafely(
+            $profile,
+            MissionTrigger::SubscriptionRenewed,
+            1,
+            ['reference_id' => $subscription->id],
+        );
     }
 
     private function generateApiToken(): string

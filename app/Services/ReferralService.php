@@ -13,7 +13,6 @@ use App\Models\ReferralCode;
 use App\Models\ReferralRedemption;
 use App\Services\Admin\XpEarnRuleService;
 use Illuminate\Database\QueryException;
-use Illuminate\Support\Facades\Log;
 
 class ReferralService
 {
@@ -114,20 +113,12 @@ class ReferralService
         // Guarded so a mission failure never reverses the reward.
         $referrer = Profile::find($referralCode->profile_id);
         if ($referrer !== null) {
-            try {
-                $this->missionService->record(
-                    $referrer,
-                    MissionTrigger::BusinessReferred,
-                    1,
-                    ['reference_id' => $subscription->id],
-                );
-            } catch (\Throwable $e) {
-                Log::warning('Mission record failed (business_referred)', [
-                    'profile_id' => $referralCode->profile_id,
-                    'subscription_id' => $subscription->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+            $this->missionService->recordSafely(
+                $referrer,
+                MissionTrigger::BusinessReferred,
+                1,
+                ['reference_id' => $subscription->id],
+            );
         }
 
         return true;

@@ -12,7 +12,6 @@ use App\Models\CollaborationFeedback;
 use App\Models\CollaborationReview;
 use App\Models\Profile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class CollaborationFeedbackService
 {
@@ -77,22 +76,13 @@ class CollaborationFeedbackService
 
             // Mission progress for the reviewer's own completion. Each
             // participant submits their own feedback row, so each side's
-            // collaboration_complete missions progress independently. Guarded:
-            // a mission failure must never break feedback submission.
-            try {
-                $this->missionService->record(
-                    $reviewer,
-                    MissionTrigger::CollaborationComplete,
-                    1,
-                    ['reference_id' => $collaboration->id],
-                );
-            } catch (\Throwable $e) {
-                Log::warning('Mission record failed (collaboration_complete)', [
-                    'profile_id' => $reviewer->id,
-                    'collaboration_id' => $collaboration->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+            // collaboration_complete missions progress independently.
+            $this->missionService->recordSafely(
+                $reviewer,
+                MissionTrigger::CollaborationComplete,
+                1,
+                ['reference_id' => $collaboration->id],
+            );
 
             $this->mirrorToReview($collaboration, $reviewer, $role, $feedback);
 
@@ -192,22 +182,13 @@ class CollaborationFeedbackService
 
         // Mission progress parity with submit(): a legacy /review-only client
         // that never calls /feedback must still progress its
-        // collaboration_complete missions. Guarded so a mission failure never
-        // breaks the review/mirror flow.
-        try {
-            $this->missionService->record(
-                $reviewer,
-                MissionTrigger::CollaborationComplete,
-                1,
-                ['reference_id' => $collaboration->id],
-            );
-        } catch (\Throwable $e) {
-            Log::warning('Mission record failed (collaboration_complete via review mirror)', [
-                'profile_id' => $reviewer->id,
-                'collaboration_id' => $collaboration->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
+        // collaboration_complete missions.
+        $this->missionService->recordSafely(
+            $reviewer,
+            MissionTrigger::CollaborationComplete,
+            1,
+            ['reference_id' => $collaboration->id],
+        );
 
         return $feedback;
     }

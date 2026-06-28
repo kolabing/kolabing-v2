@@ -16,7 +16,6 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -317,16 +316,7 @@ class KolabService
         }
 
         foreach ($triggers as $trigger) {
-            try {
-                $this->missionService->record($creator, $trigger, 1, ['reference_id' => $kolab->id]);
-            } catch (\Throwable $e) {
-                Log::warning('Mission record failed (kolab publish)', [
-                    'profile_id' => $creator->id,
-                    'kolab_id' => $kolab->id,
-                    'trigger' => $trigger->value,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+            $this->missionService->recordSafely($creator, $trigger, 1, ['reference_id' => $kolab->id]);
         }
     }
 

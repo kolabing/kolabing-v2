@@ -12,7 +12,6 @@ use App\Models\CommunityMember;
 use App\Models\Profile;
 use DomainException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Log;
 
 class CommunityMemberService
 {
@@ -38,20 +37,12 @@ class CommunityMemberService
         // join (idempotent — re-joining an existing membership must not re-fire).
         // Audience scoping limits this to the attendee's missions. Guarded.
         if ($member->wasRecentlyCreated) {
-            try {
-                $this->missionService->record(
-                    $profile,
-                    MissionTrigger::CommunityJoined,
-                    1,
-                    ['reference_id' => $community->id],
-                );
-            } catch (\Throwable $e) {
-                Log::warning('Mission record failed (community_joined)', [
-                    'profile_id' => $profile->id,
-                    'community_id' => $community->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+            $this->missionService->recordSafely(
+                $profile,
+                MissionTrigger::CommunityJoined,
+                1,
+                ['reference_id' => $community->id],
+            );
         }
 
         return $member;

@@ -33,6 +33,7 @@ class PointLedger extends Model
         'points',
         'event_type',
         'reference_id',
+        'challenge_id',
         'description',
     ];
 

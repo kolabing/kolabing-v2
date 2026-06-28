@@ -41,6 +41,30 @@ class MissionService
      * @param  array<string, mixed>  $context  Optional reference data (e.g. reference_id).
      * @return list<ChallengeProgress> The progress rows touched by this call.
      */
+    /**
+     * Guarded wrapper around record(): progresses missions but never lets a
+     * mission-engine failure bubble into the host action. Every caller fires
+     * missions as a side effect of a real platform action (check-in, review,
+     * publish, …), so a mission error must be logged and swallowed, not
+     * propagated. Use this from call sites; reserve record() for when the
+     * caller genuinely needs the touched rows back.
+     *
+     * @param  array<string, mixed>  $context  Optional reference data (e.g. reference_id).
+     */
+    public function recordSafely(Profile $earner, MissionTrigger $trigger, int $increment = 1, array $context = []): void
+    {
+        try {
+            $this->record($earner, $trigger, $increment, $context);
+        } catch (\Throwable $e) {
+            Log::warning('Mission record failed', [
+                'trigger' => $trigger->value,
+                'profile_id' => $earner->id,
+                'context' => $context,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
     public function record(Profile $earner, MissionTrigger $trigger, int $increment = 1, array $context = []): array
     {
         if ($increment < 1) {
@@ -74,6 +98,7 @@ class MissionService
         return Challenge::query()
             ->where('is_system', true)
             ->whereNull('event_id')
+            ->where('app_visible', true)
             ->where('trigger_action', $trigger)
             ->whereIn('audience', $this->audiencesFor($earner))
             ->where(function ($query) use ($now): void {
@@ -220,6 +245,7 @@ class MissionService
                 $mission->points,
                 $context['reference_id'] ?? $mission->id,
                 'Mission completed: '.$mission->name,
+                $mission->id,
             );
 
             return;

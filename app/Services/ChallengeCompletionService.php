@@ -173,14 +173,7 @@ class ChallengeCompletionService
         // Progress the attendee challenge missions (e.g. "complete N event
         // challenges"). The challenger is the earner; verification is the
         // source action for the `challenge_completed` mission trigger.
-        try {
-            $this->missionService->record($result->challenger, MissionTrigger::ChallengeCompleted);
-        } catch (\Throwable $e) {
-            Log::warning('Mission record on challenge verify failed', [
-                'completion_id' => $result->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
+        $this->missionService->recordSafely($result->challenger, MissionTrigger::ChallengeCompleted);
 
         return $result;
     }

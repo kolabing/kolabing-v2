@@ -56,6 +56,7 @@ class ChallengeFactory extends Factory
         return $this->state(fn (): array => [
             'is_system' => true,
             'event_id' => null,
+            'app_visible' => true,
             'audience' => $audience,
             'trigger_action' => $trigger ?? $this->faker->randomElement(MissionTrigger::cases()),
             'target_value' => $targetValue,

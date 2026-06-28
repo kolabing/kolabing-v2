@@ -223,6 +223,39 @@ class MissionServiceTest extends TestCase
         $this->assertDatabaseMissing('challenge_progress', ['challenge_id' => $future->id]);
     }
 
+    public function test_mission_credit_records_challenge_id_on_the_ledger(): void
+    {
+        $business = Profile::factory()->business()->create();
+        $mission = $this->mission(MissionTrigger::CollaborationComplete, ChallengeAudience::Business, 1, MissionRepeat::Once, 50);
+
+        $this->service->record($business, MissionTrigger::CollaborationComplete, 1, ['reference_id' => 'src-123']);
+
+        $ledger = PointLedger::query()
+            ->where('profile_id', $business->id)
+            ->where('event_type', PointEventType::MissionCompleted->value)
+            ->first();
+
+        $this->assertNotNull($ledger);
+        // challenge_id attributes the credit to its mission even though
+        // reference_id holds the (heterogeneous) source entity.
+        $this->assertSame($mission->id, $ledger->challenge_id);
+        $this->assertSame('src-123', $ledger->reference_id);
+    }
+
+    public function test_app_hidden_mission_does_not_progress(): void
+    {
+        $business = Profile::factory()->business()->create();
+        $hidden = Challenge::factory()
+            ->mission(MissionTrigger::CollaborationComplete, 1, MissionRepeat::Once, ChallengeAudience::Business)
+            ->create(['app_visible' => false]);
+
+        $touched = $this->service->record($business, MissionTrigger::CollaborationComplete);
+
+        $this->assertCount(0, $touched);
+        $this->assertDatabaseMissing('challenge_progress', ['challenge_id' => $hidden->id]);
+        $this->assertSame(0, PointLedger::query()->where('profile_id', $business->id)->count());
+    }
+
     public function test_target_value_is_frozen_at_progress_row_creation(): void
     {
         $business = Profile::factory()->business()->create();

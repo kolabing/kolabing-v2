@@ -106,63 +106,47 @@ class CheckinService
      */
     private function recordCheckinMissions(Event $event, Profile $profile, EventCheckin $checkin): void
     {
-        try {
-            $this->missionService->record(
-                $profile,
-                MissionTrigger::EventCheckin,
-                1,
-                ['reference_id' => $checkin->id],
-            );
-        } catch (\Throwable $e) {
-            Log::warning('Mission record failed (event_checkin)', [
-                'profile_id' => $profile->id,
-                'event_id' => $event->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
+        $this->missionService->recordSafely(
+            $profile,
+            MissionTrigger::EventCheckin,
+            1,
+            ['reference_id' => $checkin->id],
+        );
 
         if ($event->community_id === null) {
             return;
         }
 
-        try {
-            $community = Community::query()->find($event->community_id);
+        $community = Community::query()->find($event->community_id);
 
-            if ($community === null) {
-                return;
-            }
-
-            // Scope member_checkin to genuine member attendance, matching the
-            // community-points rule (an owner only earns for their own members).
-            $isMember = CommunityMember::query()
-                ->where('community_id', $community->id)
-                ->where('profile_id', $profile->id)
-                ->where('status', CommunityMemberStatus::Active->value)
-                ->exists();
-
-            if (! $isMember) {
-                return;
-            }
-
-            $owner = $community->owner;
-
-            if ($owner === null) {
-                return;
-            }
-
-            $this->missionService->record(
-                $owner,
-                MissionTrigger::MemberCheckin,
-                1,
-                ['reference_id' => $checkin->id],
-            );
-        } catch (\Throwable $e) {
-            Log::warning('Mission record failed (member_checkin)', [
-                'profile_id' => $profile->id,
-                'event_id' => $event->id,
-                'error' => $e->getMessage(),
-            ]);
+        if ($community === null) {
+            return;
         }
+
+        // Scope member_checkin to genuine member attendance, matching the
+        // community-points rule (an owner only earns for their own members).
+        $isMember = CommunityMember::query()
+            ->where('community_id', $community->id)
+            ->where('profile_id', $profile->id)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->exists();
+
+        if (! $isMember) {
+            return;
+        }
+
+        $owner = $community->owner;
+
+        if ($owner === null) {
+            return;
+        }
+
+        $this->missionService->recordSafely(
+            $owner,
+            MissionTrigger::MemberCheckin,
+            1,
+            ['reference_id' => $checkin->id],
+        );
     }
 
     /**
