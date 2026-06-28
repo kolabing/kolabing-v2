@@ -40,6 +40,7 @@ use App\Http\Controllers\Api\V1\KolabController;
 use App\Http\Controllers\Api\V1\LeaderboardController;
 use App\Http\Controllers\Api\V1\LookupController;
 use App\Http\Controllers\Api\V1\MeRewardsOverviewController;
+use App\Http\Controllers\Api\V1\MissionController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OnboardingController;
@@ -564,6 +565,10 @@ Route::prefix('v1')->group(function (): void {
         // My gamification stats
         Route::get('me/gamification-stats', [GamificationStatsController::class, 'myStats'])
             ->name('api.v1.me.gamification-stats');
+
+        // My missions (role-scoped, live triggers only, with current-period progress)
+        Route::get('me/missions', [MissionController::class, 'index'])
+            ->name('api.v1.me.missions');
 
         // Public game card for a profile
         Route::get('profiles/{profile}/game-card', [GamificationStatsController::class, 'gameCard'])

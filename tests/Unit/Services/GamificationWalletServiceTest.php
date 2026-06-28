@@ -157,6 +157,28 @@ class GamificationWalletServiceTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
+    | creditPoints()
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_credit_points_writes_explicit_amount_not_xp_rule_lookup(): void
+    {
+        $profile = Profile::factory()->business()->create();
+
+        $ledger = $this->service->creditPoints(
+            $profile->id,
+            PointEventType::MissionCompleted,
+            35,
+            null,
+            'Mission completed: test',
+        );
+
+        $this->assertSame(35, $ledger->points);
+        $this->assertSame(35, Wallet::query()->where('profile_id', $profile->id)->first()->points);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | evaluateBadges()
     |--------------------------------------------------------------------------
     */

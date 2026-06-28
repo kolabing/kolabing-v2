@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\MissionTrigger;
 use App\Enums\PointEventType;
 use App\Exceptions\CollaborationException;
 use App\Models\Collaboration;
@@ -16,6 +17,7 @@ class CollaborationFeedbackService
 {
     public function __construct(
         private readonly GamificationWalletService $walletService,
+        private readonly MissionService $missionService,
         private readonly NotificationService $notificationService,
     ) {}
 
@@ -70,6 +72,16 @@ class CollaborationFeedbackService
                 PointEventType::CollaborationComplete,
                 $collaboration->id,
                 'Submitted collaboration feedback',
+            );
+
+            // Mission progress for the reviewer's own completion. Each
+            // participant submits their own feedback row, so each side's
+            // collaboration_complete missions progress independently.
+            $this->missionService->recordSafely(
+                $reviewer,
+                MissionTrigger::CollaborationComplete,
+                1,
+                ['reference_id' => $collaboration->id],
             );
 
             $this->mirrorToReview($collaboration, $reviewer, $role, $feedback);
@@ -166,7 +178,19 @@ class CollaborationFeedbackService
             $attributes['benefits'] = $reviewPayload['body'];
         }
 
-        return CollaborationFeedback::create($attributes);
+        $feedback = CollaborationFeedback::create($attributes);
+
+        // Mission progress parity with submit(): a legacy /review-only client
+        // that never calls /feedback must still progress its
+        // collaboration_complete missions.
+        $this->missionService->recordSafely(
+            $reviewer,
+            MissionTrigger::CollaborationComplete,
+            1,
+            ['reference_id' => $collaboration->id],
+        );
+
+        return $feedback;
     }
 
     /**

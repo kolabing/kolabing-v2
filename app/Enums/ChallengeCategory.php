@@ -6,10 +6,21 @@ namespace App\Enums;
 
 enum ChallengeCategory: string
 {
+    // Legacy peer-verified event categories.
     case IceBreaker = 'ice_breaker';
     case CulturalExchange = 'cultural_exchange';
     case BarcelonaVibe = 'barcelona_vibe';
     case CreativeFun = 'creative_fun';
+
+    // Mission categories (self-tracked onboarding/growth missions).
+    case Onboarding = 'onboarding';
+    case Attendance = 'attendance';
+    case Engagement = 'engagement';
+    case Content = 'content';
+    case Referral = 'referral';
+    case Growth = 'growth';
+    case Social = 'social';
+    case Milestone = 'milestone';
 
     /**
      * @return array<string>

@@ -150,3 +150,107 @@ Idempotent + safe to call from anywhere a trigger fires.
 - Converting legacy custom **event** challenges to missions (they stay peer-verified).
 - Reward_type/value/badge_slug columns (points + existing bonus/badge systems cover it).
 - XP↔money changes (separate Economics concern).
+
+---
+
+## ADDENDUM (Daniel, 2026-06-23): EVENT missions vs GENERAL missions — TWO kinds, coexist
+
+There are **two distinct kinds of mission** and both stay in the architecture:
+
+- **Event missions** — in-event, peer-style tasks done AT a kolab event, e.g.
+  *"Take a story with a friend in the cafe"*, *"Get a coffee"*, *"Take a selfie together"*.
+  Peer-verified; power the kolab **"GAMIFICATION SETUP"** attendee picker. **Architecture
+  stays.** The ones currently SEEDED (the old icebreakers) were **DEMO data — remove them**;
+  real event missions get added later (curated and/or business-authored per event).
+- **General missions** — auto-tracked onboarding/growth goals (the 49 seeded here), e.g.
+  *"Complete your profile"*, *"Attend 5 Kolabs"*, *"Refer a business"*. Shown on the app
+  Missions screen; fired by `MissionService` triggers.
+
+**So:** wiping the demo event challenges was fine. The missing piece is **separating the
+two so each surface shows the right kind:**
+1. Distinguish by `trigger_action`: **event mission = no `trigger_action`** (peer-verified),
+   **general mission = `trigger_action` set** (auto-tracked).
+2. The kolab attendee-challenge picker (`ChallengeController` / challenge defaults) must
+   filter to **event** missions (`trigger_action` null) — NOT show the general missions.
+   (Today it'd show the 49 general missions — that's the bug Daniel saw in a seeded kolab.)
+3. `GET /me/missions` already filters to **general** (live `trigger_action`), so it
+   correctly excludes event missions. No change there.
+4. Don't re-seed demo event missions; the picker is simply empty until real ones exist.
+
+---
+
+## RESOLVED (2026-06-27, tasks A1–A7, PR #49)
+
+The items below were open questions/risks when this plan was written; they are now
+resolved in code. Cross-reference: `ROLES-AND-PERMISSIONS.md §7.4`, `ROLES-BACKEND-DB-MAP.md §11.1`.
+
+- **Event/general mission coexistence (the addendum above).** Resolved exactly as
+  specced: `trigger_action IS NULL` = event challenge, `trigger_action IS NOT NULL` =
+  general mission. The separation is enforced in **three** places, not just the picker
+  called out above — `SystemChallengeController`, `Admin\ChallengeDefaultsController`,
+  and (new) `ChallengeService::listForEvent()` all filter `trigger_action IS NULL`.
+- **The curated v1 app-visible set.** Rather than surfacing all ~45 seeded missions,
+  a new `challenges.app_visible` boolean (default `false`) gates what `/me/missions`
+  returns. Exactly 18 missions are `app_visible = true` for v1 launch — 5 attendee,
+  7 business, 6 community — each verified to use a trigger in `MissionTrigger::isLive()`'s
+  true set. The rest of the seeded missions stay in the DB (admin-manageable) but are
+  held back from the app until their trigger source is wired or product flips the flag.
+- **Concurrency / wallet / isLive fixes (A3, A3b, A4, A5).** The event-picker filters
+  (A3) and the `listForEvent()` leak fix (A3b) closed the gap where event surfaces could
+  show general missions. `MissionService`'s progress upsert is now atomic (A4, avoids a
+  race on concurrent trigger fires for the same period_key). `/me/missions` now delegates
+  through the wallet service and gates on `MissionTrigger::isLive()` (A5) so a mission
+  whose trigger isn't wired yet can never appear half-progressed or stuck.
+
+## OPEN (2026-06-27, task B4): mission copy gaps needing Maria's sign-off
+
+Task B4 diffed the 18 `app_visible = true` seed rows' `name`/`description` against
+Maria's "Recommended v1 visible mission set" review comment on PR #49. Only
+`business-publish-first-kolab` had an unambiguous exact-string match ("Launch your
+first Kolab" — also called out explicitly in her comment's closing "Example:" list) and
+was updated. Everything below is left as-is pending her exact wording, because her
+comment gives either no string for that mission, a near-miss paraphrase, or (for the
+`collaboration_complete` trigger) two conflicting suggested strings in the same comment:
+
+- `attendee-complete-profile` (current: "Complete your attendee profile") — Maria's
+  recommended-set says "Complete your profile" (no "attendee"); need confirmation
+  whether to drop the audience word or keep it.
+- `attendee-attend-3-events-monthly` (current: "Attend 3 events this month") — Maria's
+  set says "Attend 3 Kolabs" with no monthly/recurring framing; need confirmation since
+  the seeded row is `MissionRepeat::Monthly` and her phrasing implies a one-time count.
+- `attendee-join-2-communities` (current: "Join 2 different communities") — Maria's set
+  only describes "Join your first community" (singular, first), not a 2-community
+  target; need confirmation this mission's scope/copy should change to match.
+- `business-upload-profile-photo` (current: "Upload a business profile photo") —
+  Maria's set says "Upload your first business photo"; need confirmation on exact copy.
+- `business-first-application-received` (current: "Receive your first community
+  application") — Maria's set says "Get your first community interested"; need
+  confirmation on exact copy.
+- `business-first-application-accepted` (current: "Accept your first community
+  application") — Maria's set says "Confirm your first community partner"; need
+  confirmation on exact copy.
+- `business-first-kolab-completed` (current: "Complete your first Kolab") — Maria's
+  recommended-set entry for this trigger (`collaboration_complete`) says "Complete your
+  first Kolab" (matches), but her comment's closing "Example:" list separately maps the
+  same trigger to "Host your first real-life Kolab" — these two are not the same
+  string; need her sign-off on which is authoritative before changing this row.
+- `business-receive-5-reviews` (current: "Receive 5 reviews from a Kolab") — Maria's
+  set says "Collect your first review or UGC" (singular/first, and bundles in UGC),
+  not a 5-review target; need confirmation this mission's scope/copy should change.
+- `community-upload-profile-photo` (current: "Upload community profile photo") —
+  Maria's set says "Upload your community photo"; need confirmation on exact copy.
+- `community-apply-first-kolab` (current: "Apply to your first Kolab") — Maria's set
+  says "Apply for your first Kolab" ("for" vs "to"); need confirmation this is an
+  intentional wording change and not a typo in her comment.
+- `community-get-accepted-first-kolab` (current: "Get accepted to your first Kolab") —
+  Maria's set says "Unlock your first business partner"; need confirmation on exact
+  copy.
+- `community-first-kolab-completed` (current: "Complete your first Kolab") — same
+  `collaboration_complete` trigger conflict as `business-first-kolab-completed` above
+  ("Complete your first Kolab" vs "Host your first real-life Kolab" in her Example
+  list); need her sign-off on which is authoritative.
+- `community-refer-first-business` (current: "Refer your first business") — Maria's
+  set says "Refer a business" (drops "first"); need confirmation this is intentional.
+- `attendee-first-checkin`, `attendee-first-review`, `business-complete-profile`,
+  `community-complete-profile` already match Maria's recommended-set wording verbatim
+  — no change needed, listed here only for completeness of the 18-slug audit.

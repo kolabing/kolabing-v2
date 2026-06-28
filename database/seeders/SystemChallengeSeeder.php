@@ -4,368 +4,183 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Enums\ChallengeAudience;
 use App\Enums\ChallengeCategory;
 use App\Enums\ChallengeDifficulty;
+use App\Enums\MissionRepeat;
+use App\Enums\MissionTrigger;
 use App\Models\Challenge;
 use Illuminate\Database\Seeder;
 
+/**
+ * Seeds the system MISSION set (self-tracked onboarding/growth missions for
+ * attendee / business / community). Idempotent: keyed on `slug` via
+ * updateOrCreate. This replaces the old peer-verified event icebreakers; the
+ * accompanying data migration wipes those before (re)running this seeder.
+ *
+ * Field mapping follows docs/plans/2026-06-22-gamification-mission-system.md:
+ * target_value from the number in the title, repeat from "this month"/recurring
+ * cues, category/points/difficulty from the mapping rules.
+ */
 class SystemChallengeSeeder extends Seeder
 {
-    /**
-     * Seed system challenges across all categories.
-     */
     public function run(): void
     {
-        $challenges = [
-            /*
-            |------------------------------------------------------------------
-            | ICE BREAKER & SOCIAL
-            |------------------------------------------------------------------
-            */
-
-            // Easy
-            [
-                'name' => 'Give each other a genuine compliment',
-                'description' => 'Say something nice about each other — be sincere!',
-                'difficulty' => ChallengeDifficulty::Easy,
-                'category' => ChallengeCategory::IceBreaker,
-            ],
-            [
-                'name' => 'Share your favorite travel story in 30 seconds',
-                'description' => 'Pick your best travel moment and tell it in half a minute.',
-                'difficulty' => ChallengeDifficulty::Easy,
-                'category' => ChallengeCategory::IceBreaker,
-            ],
-            [
-                'name' => 'Show each other a photo from your hometown',
-                'description' => 'Open your camera roll and share a glimpse of where you come from.',
-                'difficulty' => ChallengeDifficulty::Easy,
-                'category' => ChallengeCategory::IceBreaker,
-            ],
-            [
-                'name' => 'Exchange social media handles',
-                'description' => 'Follow each other on social media.',
-                'difficulty' => ChallengeDifficulty::Easy,
-                'category' => ChallengeCategory::IceBreaker,
-            ],
-            [
-                'name' => 'Introduce yourself in a creative way',
-                'description' => 'High-five and introduce yourself without saying your job title.',
-                'difficulty' => ChallengeDifficulty::Easy,
-                'category' => ChallengeCategory::IceBreaker,
-            ],
-
-            // Medium
-            [
-                'name' => 'Find 3 things you have in common',
-                'description' => 'Discover what you share — hobbies, places, taste in music…',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::IceBreaker,
-            ],
-            [
-                'name' => 'Play Two Truths and a Lie',
-                'description' => 'Each of you shares 3 statements — guess which one is the lie!',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::IceBreaker,
-            ],
-            [
-                'name' => 'Describe your dream life in 10 years',
-                'description' => 'Tell each other where you see yourself in a decade.',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::IceBreaker,
-            ],
-            [
-                'name' => 'Share the story behind your name',
-                'description' => 'Tell each other why your parents chose your name or what it means.',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::IceBreaker,
-            ],
-            [
-                'name' => 'Have a 2-minute conversation without mentioning work',
-                'description' => 'Talk about anything except your job for 2 full minutes.',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::IceBreaker,
-            ],
-
-            // Hard
-            [
-                'name' => 'Have a 5-minute deep conversation phone-free',
-                'description' => 'Put your phones away and talk about something meaningful for 5 minutes.',
-                'difficulty' => ChallengeDifficulty::Hard,
-                'category' => ChallengeCategory::IceBreaker,
-            ],
-            [
-                'name' => 'Tell your life story in exactly 60 seconds',
-                'description' => 'Each of you has exactly one minute — summarize your whole life!',
-                'difficulty' => ChallengeDifficulty::Hard,
-                'category' => ChallengeCategory::IceBreaker,
-            ],
-
-            /*
-            |------------------------------------------------------------------
-            | CULTURAL EXCHANGE
-            |------------------------------------------------------------------
-            */
-
-            // Easy
-            [
-                'name' => 'Teach each other how to say cheers in your language',
-                'description' => 'Learn how to toast in each other\'s native tongue. Cheers!',
-                'difficulty' => ChallengeDifficulty::Easy,
-                'category' => ChallengeCategory::CulturalExchange,
-            ],
-            [
-                'name' => 'Share a fun fact about your home country',
-                'description' => 'Tell each other something surprising about where you\'re from.',
-                'difficulty' => ChallengeDifficulty::Easy,
-                'category' => ChallengeCategory::CulturalExchange,
-            ],
-            [
-                'name' => 'Greet each other in your native language',
-                'description' => 'Say hello the way you do back home and teach the pronunciation.',
-                'difficulty' => ChallengeDifficulty::Easy,
-                'category' => ChallengeCategory::CulturalExchange,
-            ],
-            [
-                'name' => 'Show each other a traditional gesture from your culture',
-                'description' => 'A hand sign, a bow, a cheek kiss — share how your culture greets.',
-                'difficulty' => ChallengeDifficulty::Easy,
-                'category' => ChallengeCategory::CulturalExchange,
-            ],
-
-            // Medium
-            [
-                'name' => 'Teach each other 5 useful words in your language',
-                'description' => 'Pick 5 everyday words and teach them with proper pronunciation.',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::CulturalExchange,
-            ],
-            [
-                'name' => 'Describe a traditional dish and make them crave it',
-                'description' => 'Talk about a dish from your country so passionately they want to try it.',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::CulturalExchange,
-            ],
-            [
-                'name' => 'Teach each other a dance move from your culture',
-                'description' => 'Show a traditional dance step and help each other learn it.',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::CulturalExchange,
-            ],
-            [
-                'name' => 'Compare a tradition from your cultures and find similarities',
-                'description' => 'Pick a tradition (weddings, holidays, food) and see what you share.',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::CulturalExchange,
-            ],
-
-            // Hard
-            [
-                'name' => 'Learn to count to 10 in each other\'s language',
-                'description' => 'Teach and learn — you both must count to 10 correctly!',
-                'difficulty' => ChallengeDifficulty::Hard,
-                'category' => ChallengeCategory::CulturalExchange,
-            ],
-            [
-                'name' => 'Sing or hum a melody from your culture and explain it',
-                'description' => 'Share a song that means something to you and tell the story behind it.',
-                'difficulty' => ChallengeDifficulty::Hard,
-                'category' => ChallengeCategory::CulturalExchange,
-            ],
-            [
-                'name' => 'Teach each other how to write your name in your native script',
-                'description' => 'Arabic, Cyrillic, Chinese, Korean, Greek — show your alphabet!',
-                'difficulty' => ChallengeDifficulty::Hard,
-                'category' => ChallengeCategory::CulturalExchange,
-            ],
-            [
-                'name' => 'Explain a cultural holiday and answer 3 questions about it',
-                'description' => 'Describe a special celebration from your country in detail.',
-                'difficulty' => ChallengeDifficulty::Hard,
-                'category' => ChallengeCategory::CulturalExchange,
-            ],
-
-            /*
-            |------------------------------------------------------------------
-            | BARCELONA & SPAIN VIBE
-            |------------------------------------------------------------------
-            */
-
-            // Easy
-            [
-                'name' => 'Say Salud and clink glasses together',
-                'description' => 'The classic Spanish toast — clink your glasses and celebrate!',
-                'difficulty' => ChallengeDifficulty::Easy,
-                'category' => ChallengeCategory::BarcelonaVibe,
-            ],
-            [
-                'name' => 'Take a selfie together',
-                'description' => 'Capture the moment with your new friend!',
-                'difficulty' => ChallengeDifficulty::Easy,
-                'category' => ChallengeCategory::BarcelonaVibe,
-            ],
-            [
-                'name' => 'Share your favorite Barcelona spot',
-                'description' => 'Tell each other about a hidden gem or favorite place in the city.',
-                'difficulty' => ChallengeDifficulty::Easy,
-                'category' => ChallengeCategory::BarcelonaVibe,
-            ],
-            [
-                'name' => 'High-five and shout Vamos together',
-                'description' => 'Channel your inner Spanish energy with a loud Vamos!',
-                'difficulty' => ChallengeDifficulty::Easy,
-                'category' => ChallengeCategory::BarcelonaVibe,
-            ],
-
-            // Medium
-            [
-                'name' => 'Teach each other a Spanish phrase you learned recently',
-                'description' => 'Share a useful phrase you picked up while in Spain.',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::BarcelonaVibe,
-            ],
-            [
-                'name' => 'Debate Barca or Real Madrid for 1 minute',
-                'description' => 'Pick a side and defend it with passion! No wrong answers.',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::BarcelonaVibe,
-            ],
-            [
-                'name' => 'Plan a dream Barcelona tapas crawl together',
-                'description' => 'Pick 3 tapas spots for the ultimate Barcelona food tour.',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::BarcelonaVibe,
-            ],
-            [
-                'name' => 'Strike your best flamenco pose and hold it for 5 seconds',
-                'description' => 'Channel your inner flamenco dancer — dramatic hands required!',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::BarcelonaVibe,
-            ],
-            [
-                'name' => 'Recommend one must-do experience before leaving Barcelona',
-                'description' => 'Give each other your number one Barcelona recommendation.',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::BarcelonaVibe,
-            ],
-
-            // Hard
-            [
-                'name' => 'Dance together on stage',
-                'description' => 'Hit the stage and show your moves together!',
-                'difficulty' => ChallengeDifficulty::Hard,
-                'category' => ChallengeCategory::BarcelonaVibe,
-            ],
-            [
-                'name' => 'Sing a few lines of a Spanish song together',
-                'description' => 'Macarena, Despacito, Bamboleo — pick one and perform it!',
-                'difficulty' => ChallengeDifficulty::Hard,
-                'category' => ChallengeCategory::BarcelonaVibe,
-            ],
-            [
-                'name' => 'Create a 30-second Barcelona travel vlog together',
-                'description' => 'Film a mini travel vlog like you\'re professional content creators.',
-                'difficulty' => ChallengeDifficulty::Hard,
-                'category' => ChallengeCategory::BarcelonaVibe,
-            ],
-
-            /*
-            |------------------------------------------------------------------
-            | CREATIVE & FUN
-            |------------------------------------------------------------------
-            */
-
-            // Easy
-            [
-                'name' => 'Make each other laugh in under 30 seconds',
-                'description' => 'You have 30 seconds — joke, face, story — whatever it takes!',
-                'difficulty' => ChallengeDifficulty::Easy,
-                'category' => ChallengeCategory::CreativeFun,
-            ],
-            [
-                'name' => 'Do a funny pose and take a photo together',
-                'description' => 'Get creative with your pose — the sillier, the better!',
-                'difficulty' => ChallengeDifficulty::Easy,
-                'category' => ChallengeCategory::CreativeFun,
-            ],
-            [
-                'name' => 'Do your best impression of each other',
-                'description' => 'Observe and imitate — laughter guaranteed!',
-                'difficulty' => ChallengeDifficulty::Easy,
-                'category' => ChallengeCategory::CreativeFun,
-            ],
-            [
-                'name' => 'Invent a unique handshake together',
-                'description' => 'Create a custom handshake that\'s yours alone.',
-                'difficulty' => ChallengeDifficulty::Easy,
-                'category' => ChallengeCategory::CreativeFun,
-            ],
-
-            // Medium
-            [
-                'name' => 'Create a 15-second Reel together',
-                'description' => 'Film a quick Reel or TikTok — make it entertaining!',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::CreativeFun,
-            ],
-            [
-                'name' => 'Draw a portrait of each other in 60 seconds',
-                'description' => 'Grab a napkin and pen — speed-sketch each other\'s face!',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::CreativeFun,
-            ],
-            [
-                'name' => 'Invent a new cocktail and name it',
-                'description' => 'Create a cocktail concept — name, ingredients, and vibe.',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::CreativeFun,
-            ],
-            [
-                'name' => 'Create a secret handshake with at least 5 moves',
-                'description' => 'Design an elaborate handshake — fist bumps, snaps, the works!',
-                'difficulty' => ChallengeDifficulty::Medium,
-                'category' => ChallengeCategory::CreativeFun,
-            ],
-
-            // Hard
-            [
-                'name' => 'Perform a 30-second improv scene about meeting in Barcelona',
-                'description' => 'Act out a dramatic scene of how you "first met" in Barcelona.',
-                'difficulty' => ChallengeDifficulty::Hard,
-                'category' => ChallengeCategory::CreativeFun,
-            ],
-            [
-                'name' => 'Do a 1-minute dance battle',
-                'description' => 'Face off in a friendly dance battle — crowd picks the winner!',
-                'difficulty' => ChallengeDifficulty::Hard,
-                'category' => ChallengeCategory::CreativeFun,
-            ],
-            [
-                'name' => 'Freestyle rap or sing about the event together',
-                'description' => 'Make up lyrics about tonight\'s event and perform them!',
-                'difficulty' => ChallengeDifficulty::Hard,
-                'category' => ChallengeCategory::CreativeFun,
-            ],
-            [
-                'name' => 'Create and perform a mini comedy sketch',
-                'description' => 'Write a 30-second comedy sketch and act it out together.',
-                'difficulty' => ChallengeDifficulty::Hard,
-                'category' => ChallengeCategory::CreativeFun,
-            ],
-        ];
-
-        foreach ($challenges as $challengeData) {
+        foreach ($this->missions() as $m) {
             Challenge::query()->updateOrCreate(
-                ['name' => $challengeData['name'], 'is_system' => true],
+                ['slug' => $m['slug']],
                 [
-                    'description' => $challengeData['description'],
-                    'difficulty' => $challengeData['difficulty'],
-                    'points' => $challengeData['difficulty']->points(),
+                    'name' => $m['name'],
+                    'description' => $m['description'],
+                    'audience' => $m['audience'],
+                    'category' => $m['category'],
+                    'difficulty' => $m['difficulty'],
+                    'points' => $m['points'],
+                    'trigger_action' => $m['trigger_action'],
+                    'target_value' => $m['target_value'],
+                    'repeat_interval' => $m['repeat_interval'],
                     'is_system' => true,
-                    'category' => $challengeData['category'],
+                    'app_visible' => $m['app_visible'],
                     'event_id' => null,
                 ]
             );
         }
+    }
+
+    /**
+     * @return array<int, array{
+     *     slug: string,
+     *     name: string,
+     *     description: string,
+     *     audience: ChallengeAudience,
+     *     category: ChallengeCategory,
+     *     difficulty: ChallengeDifficulty,
+     *     points: int,
+     *     trigger_action: MissionTrigger,
+     *     target_value: int,
+     *     repeat_interval: MissionRepeat,
+     *     app_visible: bool
+     * }>
+     */
+    private function missions(): array
+    {
+        return array_merge(
+            $this->attendeeMissions(),
+            $this->businessMissions(),
+            $this->communityMissions(),
+        );
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function attendeeMissions(): array
+    {
+        $a = ChallengeAudience::Attendee;
+
+        return [
+            $this->row($a, 'attendee-complete-profile', 'Complete your attendee profile', 'Fill in your attendee profile to get started.', ChallengeCategory::Onboarding, MissionTrigger::ProfileCompleted, 1, ChallengeDifficulty::Easy, 10, MissionRepeat::Once, true),
+            $this->row($a, 'attendee-first-checkin', 'Check in to your first Kolab', 'Check in at your first Kolab event.', ChallengeCategory::Milestone, MissionTrigger::EventCheckin, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once, true),
+            $this->row($a, 'attendee-attend-3-events-monthly', 'Attend 3 events this month', 'Check in to 3 events within a single month.', ChallengeCategory::Attendance, MissionTrigger::EventCheckin, 3, ChallengeDifficulty::Medium, 30, MissionRepeat::Monthly, true),
+            $this->row($a, 'attendee-attend-5-kolabs', 'Attend 5 Kolabs', 'Check in to 5 Kolabs.', ChallengeCategory::Attendance, MissionTrigger::EventCheckin, 5, ChallengeDifficulty::Medium, 30, MissionRepeat::Once),
+            $this->row($a, 'attendee-attend-10-kolabs', 'Attend 10 Kolabs', 'Check in to 10 Kolabs.', ChallengeCategory::Attendance, MissionTrigger::EventCheckin, 10, ChallengeDifficulty::Hard, 50, MissionRepeat::Once),
+            $this->row($a, 'attendee-first-challenge', 'Complete your first challenge', 'Complete your first verified event challenge.', ChallengeCategory::Milestone, MissionTrigger::ChallengeCompleted, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($a, 'attendee-bring-a-friend', 'Bring a friend to an event', 'Invite a friend who attends an event with you.', ChallengeCategory::Social, MissionTrigger::FriendInvited, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($a, 'attendee-first-review', 'Leave your first review', 'Post your first review after an event.', ChallengeCategory::Content, MissionTrigger::ReviewPosted, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once, true),
+            $this->row($a, 'attendee-share-on-instagram', 'Share a Kolab on Instagram', 'Share a Kolab on Instagram.', ChallengeCategory::Content, MissionTrigger::SocialShare, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($a, 'attendee-join-2-communities', 'Join 2 different communities', 'Join 2 different communities on the platform.', ChallengeCategory::Social, MissionTrigger::CommunityJoined, 2, ChallengeDifficulty::Easy, 20, MissionRepeat::Once, true),
+            $this->row($a, 'attendee-try-new-event-type', 'Try a new type of event', 'Attend an event of a type you have not been to before.', ChallengeCategory::Attendance, MissionTrigger::NewEventType, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($a, 'attendee-complete-5-verified-challenges', 'Complete 5 verified challenges', 'Complete 5 peer-verified event challenges.', ChallengeCategory::Engagement, MissionTrigger::ChallengeCompleted, 5, ChallengeDifficulty::Medium, 30, MissionRepeat::Once),
+            $this->row($a, 'attendee-complete-10-verified-challenges', 'Complete 10 verified challenges', 'Complete 10 peer-verified event challenges.', ChallengeCategory::Engagement, MissionTrigger::ChallengeCompleted, 10, ChallengeDifficulty::Hard, 50, MissionRepeat::Once),
+            $this->row($a, 'attendee-top-attendee-monthly', 'Become a top attendee this month', 'Rank among the top attendees for the month.', ChallengeCategory::Milestone, MissionTrigger::TopAttendeeMonthly, 1, ChallengeDifficulty::Easy, 50, MissionRepeat::Monthly),
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function businessMissions(): array
+    {
+        $b = ChallengeAudience::Business;
+
+        return [
+            $this->row($b, 'business-complete-profile', 'Complete your business profile', 'Fill in your business profile to get started.', ChallengeCategory::Onboarding, MissionTrigger::BusinessProfileCompleted, 1, ChallengeDifficulty::Easy, 10, MissionRepeat::Once, true),
+            $this->row($b, 'business-upload-profile-photo', 'Upload a business profile photo', 'Add a profile photo for your business.', ChallengeCategory::Onboarding, MissionTrigger::BusinessPhotoUploaded, 1, ChallengeDifficulty::Easy, 10, MissionRepeat::Once, true),
+            $this->row($b, 'business-publish-first-kolab', 'Launch your first Kolab', 'Publish your first Kolab opportunity.', ChallengeCategory::Milestone, MissionTrigger::KolabPublished, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once, true),
+            $this->row($b, 'business-first-application-received', 'Receive your first community application', 'Receive your first application from a community.', ChallengeCategory::Milestone, MissionTrigger::ApplicationReceived, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once, true),
+            $this->row($b, 'business-first-application-accepted', 'Accept your first community application', 'Accept your first application from a community.', ChallengeCategory::Milestone, MissionTrigger::ApplicationAccepted, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once, true),
+            $this->row($b, 'business-first-kolab-completed', 'Complete your first Kolab', 'Complete your first collaboration end to end.', ChallengeCategory::Milestone, MissionTrigger::CollaborationComplete, 1, ChallengeDifficulty::Easy, 50, MissionRepeat::Once, true),
+            $this->row($b, 'business-create-content-kolab', 'Create a Content Kolab', 'Create a Kolab focused on content.', ChallengeCategory::Milestone, MissionTrigger::KolabCreatedContent, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($b, 'business-create-review-kolab', 'Create a Review Kolab', 'Create a Kolab focused on reviews.', ChallengeCategory::Milestone, MissionTrigger::KolabCreatedReview, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($b, 'business-create-revenue-kolab', 'Create a Revenue Kolab', 'Create a Kolab focused on revenue.', ChallengeCategory::Milestone, MissionTrigger::KolabCreatedRevenue, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($b, 'business-create-product-testing-kolab', 'Create a Product Testing Kolab', 'Create a Kolab focused on product testing.', ChallengeCategory::Milestone, MissionTrigger::KolabCreatedProduct, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($b, 'business-create-recurring-kolab', 'Create a recurring Kolab', 'Set up a recurring Kolab.', ChallengeCategory::Growth, MissionTrigger::RecurringKolabCreated, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($b, 'business-receive-5-reviews', 'Receive 5 reviews from a Kolab', 'Collect 5 reviews from a Kolab.', ChallengeCategory::Content, MissionTrigger::ReviewReceived, 5, ChallengeDifficulty::Medium, 30, MissionRepeat::Once, true),
+            $this->row($b, 'business-get-10-attendees', 'Get 10 attendees from a Kolab', 'Draw 10 attendees from a single Kolab.', ChallengeCategory::Growth, MissionTrigger::AttendeeCountReached, 10, ChallengeDifficulty::Hard, 50, MissionRepeat::Once),
+            $this->row($b, 'business-upload-content-brief', 'Upload a content brief', 'Upload a content brief for a Kolab.', ChallengeCategory::Content, MissionTrigger::ContentBriefUploaded, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($b, 'business-refer-another-business', 'Refer another business', 'Refer another business that joins the platform.', ChallengeCategory::Referral, MissionTrigger::BusinessReferred, 1, ChallengeDifficulty::Easy, 50, MissionRepeat::Once),
+            $this->row($b, 'business-renew-subscription', 'Renew your subscription', 'Renew your business subscription.', ChallengeCategory::Growth, MissionTrigger::SubscriptionRenewed, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($b, 'business-upgrade-plan', 'Upgrade your plan', 'Upgrade to a higher subscription plan.', ChallengeCategory::Growth, MissionTrigger::PlanUpgraded, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($b, 'business-launch-giveaway-kolab', 'Launch a giveaway Kolab', 'Launch a Kolab built around a giveaway.', ChallengeCategory::Milestone, MissionTrigger::GiveawayKolabCreated, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($b, 'business-collaborate-with-3-communities', 'Collaborate with 3 communities', 'Complete collaborations with 3 different communities.', ChallengeCategory::Growth, MissionTrigger::CollaborationComplete, 3, ChallengeDifficulty::Medium, 30, MissionRepeat::Once),
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function communityMissions(): array
+    {
+        $c = ChallengeAudience::Community;
+
+        return [
+            $this->row($c, 'community-complete-profile', 'Complete your community profile', 'Fill in your community profile to get started.', ChallengeCategory::Onboarding, MissionTrigger::CommunityProfileCompleted, 1, ChallengeDifficulty::Easy, 10, MissionRepeat::Once, true),
+            $this->row($c, 'community-upload-profile-photo', 'Upload community profile photo', 'Add a profile photo for your community.', ChallengeCategory::Onboarding, MissionTrigger::CommunityPhotoUploaded, 1, ChallengeDifficulty::Easy, 10, MissionRepeat::Once, true),
+            $this->row($c, 'community-apply-first-kolab', 'Apply to your first Kolab', 'Submit your first application to a Kolab.', ChallengeCategory::Milestone, MissionTrigger::ApplicationSubmitted, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once, true),
+            $this->row($c, 'community-get-accepted-first-kolab', 'Get accepted to your first Kolab', 'Have your first Kolab application accepted.', ChallengeCategory::Milestone, MissionTrigger::ApplicationAccepted, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once, true),
+            $this->row($c, 'community-first-kolab-completed', 'Complete your first Kolab', 'Complete your first collaboration end to end.', ChallengeCategory::Milestone, MissionTrigger::CollaborationComplete, 1, ChallengeDifficulty::Easy, 50, MissionRepeat::Once, true),
+            $this->row($c, 'community-bring-10-members', 'Bring 10 members to a Kolab', 'Bring 10 of your members to a Kolab.', ChallengeCategory::Social, MissionTrigger::MembersBrought, 10, ChallengeDifficulty::Hard, 50, MissionRepeat::Once),
+            $this->row($c, 'community-generate-20-checkins', 'Generate 20 member check-ins', 'Generate 20 member check-ins.', ChallengeCategory::Engagement, MissionTrigger::MemberCheckin, 20, ChallengeDifficulty::Hard, 50, MissionRepeat::Monthly),
+            $this->row($c, 'community-create-ugc', 'Create UGC for a business', 'Create user-generated content for a business.', ChallengeCategory::Content, MissionTrigger::UgcCreated, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($c, 'community-post-tagged-story', 'Post a tagged story after a Kolab', 'Post a tagged story after a Kolab.', ChallengeCategory::Content, MissionTrigger::TaggedStoryPosted, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($c, 'community-refer-first-business', 'Refer your first business', 'Refer a business that joins the platform.', ChallengeCategory::Referral, MissionTrigger::BusinessReferred, 1, ChallengeDifficulty::Easy, 50, MissionRepeat::Once, true),
+            $this->row($c, 'community-complete-3-kolabs', 'Complete 3 Kolabs', 'Complete 3 collaborations.', ChallengeCategory::Growth, MissionTrigger::CollaborationComplete, 3, ChallengeDifficulty::Medium, 30, MissionRepeat::Once),
+            $this->row($c, 'community-complete-5-kolabs', 'Complete 5 Kolabs', 'Complete 5 collaborations.', ChallengeCategory::Growth, MissionTrigger::CollaborationComplete, 5, ChallengeDifficulty::Medium, 30, MissionRepeat::Once),
+            $this->row($c, 'community-first-business-review', 'Get your first business review', 'Receive your first review from a business.', ChallengeCategory::Milestone, MissionTrigger::BusinessReviewReceived, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($c, 'community-host-recurring-kolab', 'Host a recurring Kolab', 'Host a recurring Kolab.', ChallengeCategory::Growth, MissionTrigger::RecurringKolabHosted, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($c, 'community-invite-members', 'Invite members to join the platform', 'Invite your members to join the platform.', ChallengeCategory::Social, MissionTrigger::MembersInvited, 1, ChallengeDifficulty::Easy, 20, MissionRepeat::Once),
+            $this->row($c, 'community-reach-100-checkins', 'Reach 100 total check-ins', 'Reach 100 total member check-ins.', ChallengeCategory::Engagement, MissionTrigger::MemberCheckin, 100, ChallengeDifficulty::Hard, 50, MissionRepeat::Once),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function row(
+        ChallengeAudience $audience,
+        string $slug,
+        string $name,
+        string $description,
+        ChallengeCategory $category,
+        MissionTrigger $trigger,
+        int $targetValue,
+        ChallengeDifficulty $difficulty,
+        int $points,
+        MissionRepeat $repeat,
+        bool $appVisible = false,
+    ): array {
+        return [
+            'audience' => $audience,
+            'slug' => $slug,
+            'name' => $name,
+            'description' => $description,
+            'category' => $category,
+            'trigger_action' => $trigger,
+            'target_value' => $targetValue,
+            'difficulty' => $difficulty,
+            'points' => $points,
+            'repeat_interval' => $repeat,
+            'app_visible' => $appVisible,
+        ];
     }
 }

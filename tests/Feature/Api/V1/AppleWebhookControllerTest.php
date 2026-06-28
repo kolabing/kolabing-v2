@@ -9,6 +9,7 @@ use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
 use App\Models\Profile;
 use App\Services\AppleIAPService;
+use App\Services\MissionService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Mockery;
 use Tests\TestCase;
@@ -19,7 +20,10 @@ class AppleWebhookControllerTest extends TestCase
 
     private function partialAppleIAPService(): \Mockery\MockInterface
     {
-        $mock = Mockery::mock(AppleIAPService::class)->makePartial();
+        // Pass the real constructor dependency so the partial mock's readonly
+        // properties are initialized (the renew handler fires a guarded
+        // mission via $this->missionService).
+        $mock = Mockery::mock(AppleIAPService::class, [app(MissionService::class)])->makePartial();
         $this->app->instance(AppleIAPService::class, $mock);
 
         return $mock;

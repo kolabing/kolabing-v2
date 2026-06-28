@@ -20,6 +20,7 @@ class SystemChallengeController extends Controller
     {
         $challenges = Challenge::query()
             ->where('is_system', true)
+            ->whereNull('trigger_action')
             ->orderBy('category')
             ->orderBy('difficulty')
             ->get();

@@ -48,10 +48,7 @@ class GamificationWalletService
                 'description' => $description,
             ]);
 
-            $wallet = Wallet::query()->firstOrCreate(
-                ['profile_id' => $profileId],
-                ['points' => 0, 'redeemed_points' => 0, 'pending_withdrawal' => false]
-            );
+            $wallet = $this->getOrCreateWallet($profileId);
 
             $wallet->increment('points', $points);
 
@@ -79,6 +76,40 @@ class GamificationWalletService
     }
 
     /**
+     * Credit an EXPLICIT point amount (bypassing the xp_earn_rules lookup) via
+     * the same ledger + wallet + badge-evaluation path as awardPoints(). For
+     * callers that already know the correct point value per-event (e.g.
+     * MissionService, which stores `points` directly on the mission row).
+     */
+    public function creditPoints(
+        string $profileId,
+        PointEventType $eventType,
+        int $points,
+        ?string $referenceId = null,
+        ?string $description = null,
+        ?string $challengeId = null,
+    ): PointLedger {
+        return DB::transaction(function () use ($profileId, $points, $eventType, $referenceId, $description, $challengeId): PointLedger {
+            $ledgerEntry = PointLedger::create([
+                'profile_id' => $profileId,
+                'points' => $points,
+                'event_type' => $eventType,
+                'reference_id' => $referenceId,
+                'challenge_id' => $challengeId,
+                'description' => $description,
+            ]);
+
+            $wallet = $this->getOrCreateWallet($profileId);
+
+            $wallet->increment('points', $points);
+
+            $this->evaluateBadges($profileId);
+
+            return $ledgerEntry;
+        });
+    }
+
+    /**
      * Get or create a wallet for the given profile.
      */
     public function getOrCreateWallet(string $profileId): Wallet
@@ -94,18 +125,26 @@ class GamificationWalletService
      */
     public function evaluateBadges(string $profileId): void
     {
+        // Fetch every already-earned slug in one query, then skip them before
+        // running any per-badge condition check. Once all badges are earned
+        // this short-circuits without touching the wallet or the ledger.
+        $earnedSlugs = EarnedBadge::query()
+            ->where('profile_id', $profileId)
+            ->pluck('badge_slug')
+            ->all();
+
+        $unearned = array_filter(
+            GamificationBadgeSlug::cases(),
+            static fn (GamificationBadgeSlug $slug): bool => ! in_array($slug, $earnedSlugs, true),
+        );
+
+        if ($unearned === []) {
+            return;
+        }
+
         $wallet = Wallet::query()->where('profile_id', $profileId)->first();
 
-        foreach (GamificationBadgeSlug::cases() as $badgeSlug) {
-            $alreadyEarned = EarnedBadge::query()
-                ->where('profile_id', $profileId)
-                ->where('badge_slug', $badgeSlug)
-                ->exists();
-
-            if ($alreadyEarned) {
-                continue;
-            }
-
+        foreach ($unearned as $badgeSlug) {
             if ($this->isBadgeConditionMet($profileId, $badgeSlug, $wallet)) {
                 $badge = EarnedBadge::create([
                     'profile_id' => $profileId,

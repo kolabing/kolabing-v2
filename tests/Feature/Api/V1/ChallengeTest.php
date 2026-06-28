@@ -92,6 +92,39 @@ class ChallengeTest extends TestCase
             ]);
     }
 
+    public function test_list_for_event_excludes_general_missions(): void
+    {
+        $owner = $this->createBusinessProfile();
+        $event = Event::factory()->forProfile($owner)->create();
+
+        $eventChallenge = Challenge::factory()->create([
+            'is_system' => true,
+            'event_id' => null,
+            'trigger_action' => null,
+        ]);
+
+        $generalMission = Challenge::factory()->create([
+            'is_system' => true,
+            'event_id' => null,
+            'audience' => \App\Enums\ChallengeAudience::Business,
+            'trigger_action' => \App\Enums\MissionTrigger::KolabPublished,
+        ]);
+
+        $customEventChallenge = Challenge::factory()->create([
+            'is_system' => false,
+            'event_id' => $event->id,
+            'trigger_action' => null,
+        ]);
+
+        $service = app(\App\Services\ChallengeService::class);
+        $result = $service->listForEvent($event);
+
+        $ids = $result->pluck('id')->all();
+        $this->assertContains($eventChallenge->id, $ids);
+        $this->assertContains($customEventChallenge->id, $ids);
+        $this->assertNotContains($generalMission->id, $ids);
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Create Challenge (POST /api/v1/events/{event}/challenges)

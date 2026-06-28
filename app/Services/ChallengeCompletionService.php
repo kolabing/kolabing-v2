@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\ChallengeCompletionStatus;
+use App\Enums\MissionTrigger;
 use App\Models\Challenge;
 use App\Models\ChallengeCompletion;
 use App\Models\Event;
@@ -20,6 +21,7 @@ class ChallengeCompletionService
         private readonly BadgeService $badgeService,
         private readonly NotificationService $notificationService,
         private readonly CommunityPointsService $communityPointsService,
+        private readonly MissionService $missionService,
     ) {}
 
     /**
@@ -167,6 +169,11 @@ class ChallengeCompletionService
                 'error' => $e->getMessage(),
             ]);
         }
+
+        // Progress the attendee challenge missions (e.g. "complete N event
+        // challenges"). The challenger is the earner; verification is the
+        // source action for the `challenge_completed` mission trigger.
+        $this->missionService->recordSafely($result->challenger, MissionTrigger::ChallengeCompleted);
 
         return $result;
     }

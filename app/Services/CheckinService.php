@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\CommunityMemberStatus;
+use App\Enums\MissionTrigger;
+use App\Models\Community;
 use App\Models\CommunityMember;
 use App\Models\Event;
 use App\Models\EventCheckin;
@@ -19,6 +21,7 @@ class CheckinService
         private readonly BadgeService $badgeService,
         private readonly TierAssignmentService $tierAssignmentService,
         private readonly CommunityPointsService $communityPointsService,
+        private readonly MissionService $missionService,
     ) {}
 
     /**
@@ -87,7 +90,63 @@ class CheckinService
 
         $this->evaluateCommunityTiers($profile);
 
+        // Missions (guarded): the check-in itself progresses the attendee's
+        // event_checkin missions, and — when the event is community-linked and
+        // the attendee is an active member — the community owner's member_checkin
+        // missions. Mirrors the community-points scoping. Never breaks check-in.
+        $this->recordCheckinMissions($event, $profile, $checkin);
+
         return $checkin->load(['event', 'profile']);
+    }
+
+    /**
+     * Fire mission progress for a check-in: event_checkin for the attendee, and
+     * member_checkin for the community owner when the event is community-linked
+     * and the attendee is an active member of that community. Fully guarded.
+     */
+    private function recordCheckinMissions(Event $event, Profile $profile, EventCheckin $checkin): void
+    {
+        $this->missionService->recordSafely(
+            $profile,
+            MissionTrigger::EventCheckin,
+            1,
+            ['reference_id' => $checkin->id],
+        );
+
+        if ($event->community_id === null) {
+            return;
+        }
+
+        $community = Community::query()->find($event->community_id);
+
+        if ($community === null) {
+            return;
+        }
+
+        // Scope member_checkin to genuine member attendance, matching the
+        // community-points rule (an owner only earns for their own members).
+        $isMember = CommunityMember::query()
+            ->where('community_id', $community->id)
+            ->where('profile_id', $profile->id)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->exists();
+
+        if (! $isMember) {
+            return;
+        }
+
+        $owner = $community->owner;
+
+        if ($owner === null) {
+            return;
+        }
+
+        $this->missionService->recordSafely(
+            $owner,
+            MissionTrigger::MemberCheckin,
+            1,
+            ['reference_id' => $checkin->id],
+        );
     }
 
     /**

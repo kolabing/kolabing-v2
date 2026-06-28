@@ -16,6 +16,7 @@ enum PointEventType: string
     case ReviewPosted = 'review_posted';
     case UgcPosted = 'ugc_posted';
     case ReferralConversion = 'referral_conversion';
+    case MissionCompleted = 'mission_completed';
     case Withdrawal = 'withdrawal';
     // Community-points earns. Earning a community's points also awards global XP
     // through these rules (XP stays global, points stay per-community).
@@ -44,6 +45,11 @@ enum PointEventType: string
             self::ReviewPosted => 10,
             self::UgcPosted => 10,
             self::ReferralConversion => 50,
+            // Mission awards carry their own per-mission `points`; this default
+            // is only a fallback if MissionCompleted ever flows through the
+            // xp_earn_rules lookup (it should not — MissionService credits the
+            // ledger directly with the mission's points).
+            self::MissionCompleted => 0,
             self::Withdrawal => 0,
             self::EventCheckin => 10,
             self::CommunityGoalCompleted => 25,

@@ -19,8 +19,9 @@ class ChallengeService
     {
         return Challenge::query()
             ->where(function ($q) use ($event) {
-                $q->where('is_system', true)
-                    ->orWhere('event_id', $event->id);
+                $q->where(function ($sq) {
+                    $sq->where('is_system', true)->whereNull('trigger_action');
+                })->orWhere('event_id', $event->id);
             })
             ->orderBy('is_system', 'desc')
             ->orderBy('difficulty')

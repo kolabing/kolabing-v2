@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\MissionTrigger;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\StoreCommunityMemberRequest;
 use App\Http\Requests\Api\V1\UpdateCommunityMemberRequest;
@@ -13,6 +14,7 @@ use App\Models\CommunityMember;
 use App\Models\Profile;
 use App\Services\CommunityMemberService;
 use App\Services\HandleService;
+use App\Services\MissionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -21,6 +23,7 @@ class CommunityMemberController extends Controller
     public function __construct(
         private readonly CommunityMemberService $memberService,
         private readonly HandleService $handleService,
+        private readonly MissionService $missionService,
     ) {}
 
     /**
@@ -89,6 +92,19 @@ class CommunityMemberController extends Controller
 
         $member = $this->memberService->addMember($community, $targetProfileId, $tierId);
         $member->load(['tier', 'profile']);
+
+        // Missions: the inviter (community owner / manager) progresses
+        // members_invited, but only on a genuinely new membership so repeated
+        // invites of the same person never re-fire. Audience scoping limits this
+        // to the community's missions. Guarded — never breaks the invite.
+        if ($member->wasRecentlyCreated) {
+            $this->missionService->recordSafely(
+                $profile,
+                MissionTrigger::MembersInvited,
+                1,
+                ['reference_id' => $member->id],
+            );
+        }
 
         return response()->json([
             'success' => true,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\MissionTrigger;
 use App\Enums\PointEventType;
 use App\Exceptions\InvalidReferralCodeException;
 use App\Models\BusinessSubscription;
@@ -18,6 +19,7 @@ class ReferralService
     public function __construct(
         private readonly GamificationWalletService $walletService,
         private readonly XpEarnRuleService $xpEarnRuleService,
+        private readonly MissionService $missionService,
     ) {}
 
     public function normalizeCode(?string $code): ?string
@@ -105,6 +107,19 @@ class ReferralService
 
         $referralCode->increment('total_conversions');
         $referralCode->increment('total_points_earned', $points);
+
+        // Mission progress for the referrer's business_referred missions
+        // (business + community both have a "refer a business" mission).
+        // Guarded so a mission failure never reverses the reward.
+        $referrer = Profile::find($referralCode->profile_id);
+        if ($referrer !== null) {
+            $this->missionService->recordSafely(
+                $referrer,
+                MissionTrigger::BusinessReferred,
+                1,
+                ['reference_id' => $subscription->id],
+            );
+        }
 
         return true;
     }

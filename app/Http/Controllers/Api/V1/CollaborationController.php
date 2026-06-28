@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\MissionTrigger;
 use App\Enums\PointEventType;
 use App\Exceptions\CollaborationException;
 use App\Http\Controllers\Controller;
@@ -22,6 +23,7 @@ use App\Services\CollaborationCompletionService;
 use App\Services\CollaborationFeedbackService;
 use App\Services\CollaborationService;
 use App\Services\GamificationWalletService;
+use App\Services\MissionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -31,6 +33,7 @@ class CollaborationController extends Controller
         private readonly CollaborationService $collaborationService,
         private readonly GamificationWalletService $gamificationService,
         private readonly CollaborationFeedbackService $feedbackService,
+        private readonly MissionService $missionService,
         private readonly CollaborationCompletionService $completionService,
     ) {}
 
@@ -405,6 +408,34 @@ class CollaborationController extends Controller
             $collaboration->id,
             'Left a review for a completed Kolab',
         );
+
+        // Mission progress: the reviewer's review_posted missions and the
+        // reviewed party's review_received missions. Audience-scoped inside
+        // record(), so each only matches missions for that profile's role.
+        $this->missionService->recordSafely(
+            $reviewer,
+            MissionTrigger::ReviewPosted,
+            1,
+            ['reference_id' => $collaboration->id],
+        );
+
+        $reviewedProfile = Profile::find($reviewedProfileId);
+        if ($reviewedProfile !== null) {
+            $this->missionService->recordSafely(
+                $reviewedProfile,
+                MissionTrigger::ReviewReceived,
+                1,
+                ['reference_id' => $collaboration->id],
+            );
+            if ($reviewedProfile->isCommunity()) {
+                $this->missionService->recordSafely(
+                    $reviewedProfile,
+                    MissionTrigger::BusinessReviewReceived,
+                    1,
+                    ['reference_id' => $collaboration->id],
+                );
+            }
+        }
 
         // Mirror the review into a stub /feedback row so feedback-dependent
         // aggregates stay consistent for legacy /review-only clients. This does
