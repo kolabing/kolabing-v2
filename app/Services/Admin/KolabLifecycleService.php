@@ -219,7 +219,10 @@ class KolabLifecycleService
                 ->get()
             : new Collection;
 
-        $ratings = $reviews->pluck('rating')->filter()->values();
+        $ratings = $reviews
+            ->map(fn (CollaborationReview $review): ?float => $review->overall_rating)
+            ->filter(fn (?float $rating): bool => $rating !== null)
+            ->values();
         $averageRating = $ratings->isNotEmpty() ? (float) round($ratings->avg(), 1) : null;
 
         return [

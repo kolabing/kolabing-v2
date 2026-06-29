@@ -106,6 +106,21 @@ class CollaborationReview extends Model
     }
 
     /**
+     * SQL expression that yields each review's overall rating — the average of
+     * the five star columns when all are present, otherwise the legacy `rating`.
+     * Mirrors {@see getOverallRatingAttribute()} so aggregate queries (admin
+     * stats, per-kolab averages) score star reviews precisely instead of the
+     * rounded legacy fallback. Built from the {@see STAR_RATING_FIELDS} constant
+     * — no user input — so it is safe to interpolate into a raw expression.
+     */
+    public static function overallRatingSqlExpression(): string
+    {
+        $sum = implode(' + ', self::STAR_RATING_FIELDS);
+
+        return '(COALESCE(('.$sum.') / '.count(self::STAR_RATING_FIELDS).'.0, rating))';
+    }
+
+    /**
      * @return BelongsTo<Collaboration, $this>
      */
     public function collaboration(): BelongsTo

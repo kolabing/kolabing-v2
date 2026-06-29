@@ -299,6 +299,10 @@ class CollaborationFeedbackService
         // Only the community side carries free text (benefits); business has none.
         $note = $reviewer->isCommunity() ? $feedback->benefits : null;
 
+        // The legacy /feedback flow has no per-dimension star scores, so the
+        // five star columns are intentionally left null here. Consumers read
+        // CollaborationReview::overall_rating (or its SQL equivalent), which
+        // falls back to this single `rating` when the stars are absent.
         CollaborationReview::query()->updateOrCreate(
             [
                 'collaboration_id' => $collaboration->id,
