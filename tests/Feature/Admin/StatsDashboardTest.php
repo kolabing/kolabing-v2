@@ -9,9 +9,11 @@ use App\Enums\UserType;
 use App\Models\Application;
 use App\Models\BusinessSubscription;
 use App\Models\Collaboration;
+use App\Models\CollaborationReview;
 use App\Models\Kolab;
 use App\Models\Profile;
 use App\Models\User;
+use App\Services\Admin\KolabLifecycleService;
 use App\Services\Admin\PlatformStatsService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -36,6 +38,52 @@ class StatsDashboardTest extends TestCase
             ->get(route('admin.stats.index'))
             ->assertOk()
             ->assertSee('Statistics');
+    }
+
+    public function test_quality_avg_rating_uses_star_overall_not_rounded_legacy_rating(): void
+    {
+        $collaboration = Collaboration::factory()->completed()->create();
+
+        // Mirrors what the controller stores for a 5-star review: the legacy
+        // `rating` column holds the rounded average (5), while the precise
+        // per-dimension scores average to 4.6.
+        CollaborationReview::factory()->create([
+            'collaboration_id' => $collaboration->id,
+            'reviewer_role' => 'creator',
+            'rating' => 5,
+            'communication_rating' => 5,
+            'reliability_rating' => 4,
+            'fit_rating' => 4,
+            'value_rating' => 5,
+            'repeat_rating' => 5,
+        ]);
+
+        $quality = app(PlatformStatsService::class)->summary('all')['quality'];
+
+        // (5 + 4 + 4 + 5 + 5) / 5 = 4.6, NOT the rounded legacy 5.
+        $this->assertSame(4.6, $quality['avg_rating']);
+        $this->assertSame(4.6, $quality['per_side']['creator']['avg']);
+    }
+
+    public function test_kolab_lifecycle_average_rating_uses_star_overall(): void
+    {
+        $collaboration = Collaboration::factory()->completed()->create();
+        $kolab = Kolab::findOrFail($collaboration->kolab_id);
+
+        CollaborationReview::factory()->create([
+            'collaboration_id' => $collaboration->id,
+            'reviewer_role' => 'creator',
+            'rating' => 5,
+            'communication_rating' => 5,
+            'reliability_rating' => 4,
+            'fit_rating' => 4,
+            'value_rating' => 5,
+            'repeat_rating' => 5,
+        ]);
+
+        $summary = app(KolabLifecycleService::class)->summarize($kolab);
+
+        $this->assertSame(4.6, $summary['average_rating']);
     }
 
     public function test_summary_returns_audience_counts_split_by_user_type(): void

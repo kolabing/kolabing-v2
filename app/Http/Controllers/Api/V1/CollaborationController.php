@@ -389,14 +389,31 @@ class CollaborationController extends Controller
 
         $validated = $request->validated();
 
+        $usesStarRatings = isset($validated['communication_rating']);
+
+        // Legacy `rating` still gets stored so `overall_rating` has a fallback
+        // and older clients reading it directly keep working. When the new
+        // 5-star format is used, derive it as the rounded average.
+        $legacyRating = $validated['rating']
+            ?? ($usesStarRatings ? (int) round(
+                ($validated['communication_rating'] + $validated['reliability_rating']
+                    + $validated['fit_rating'] + $validated['value_rating'] + $validated['repeat_rating']) / 5
+            ) : null);
+
         $review = CollaborationReview::create([
             'collaboration_id' => $collaboration->id,
             'reviewer_profile_id' => $reviewer->id,
             'reviewed_profile_id' => $reviewedProfileId,
             'reviewer_role' => $reviewerRole,
-            'rating' => $validated['rating'],
+            'rating' => $legacyRating,
+            'communication_rating' => $validated['communication_rating'] ?? null,
+            'reliability_rating' => $validated['reliability_rating'] ?? null,
+            'fit_rating' => $validated['fit_rating'] ?? null,
+            'value_rating' => $validated['value_rating'] ?? null,
+            'repeat_rating' => $validated['repeat_rating'] ?? null,
             'note' => isset($validated['body']) ? mb_substr((string) $validated['body'], 0, 200) : null,
             'body' => $validated['body'] ?? null,
+            'public_comment' => $validated['public_comment'] ?? null,
             'would_collaborate_again' => $validated['would_collaborate_again'] ?? null,
         ]);
 
@@ -442,7 +459,7 @@ class CollaborationController extends Controller
         // NOT affect /complete (the gate reads completion confirmations only).
         // No-op if a real /feedback row already exists.
         $this->feedbackService->mirrorFromReview($collaboration, $reviewer, [
-            'rating' => $validated['rating'],
+            'rating' => $legacyRating,
             'body' => $validated['body'] ?? null,
             'would_collaborate_again' => $validated['would_collaborate_again'] ?? null,
         ]);

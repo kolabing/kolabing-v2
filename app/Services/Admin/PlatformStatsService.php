@@ -293,13 +293,16 @@ class PlatformStatsService
      */
     private function quality(?CarbonImmutable $since): array
     {
+        $overall = CollaborationReview::overallRatingSqlExpression();
+
         $avgRating = CollaborationReview::query()
             ->when($since, fn ($q) => $q->where('created_at', '>=', $since))
-            ->avg('rating');
+            ->selectRaw("AVG({$overall}) as aggregate")
+            ->value('aggregate');
 
         $perSide = CollaborationReview::query()->toBase()
             ->when($since, fn ($q) => $q->where('created_at', '>=', $since))
-            ->selectRaw('reviewer_role, AVG(rating) as avg_rating, count(*) as total')
+            ->selectRaw("reviewer_role, AVG({$overall}) as avg_rating, count(*) as total")
             ->groupBy('reviewer_role')
             ->get()
             ->mapWithKeys(fn ($r) => [(string) $r->reviewer_role => [
