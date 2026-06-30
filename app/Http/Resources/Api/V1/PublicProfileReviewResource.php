@@ -29,7 +29,7 @@ class PublicProfileReviewResource extends JsonResource
             'rating' => $this->rating,
             'overall_rating' => $this->overall_rating,
             'body' => $this->body ?? $this->note,
-            'public_comment' => $this->public_comment,
+            'public_comment' => $this->public_comment_visible ? $this->public_comment : null,
             'would_collaborate_again' => $this->would_collaborate_again,
             'created_at' => $this->created_at?->toIso8601String(),
             'reviewer' => [
