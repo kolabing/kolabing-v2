@@ -1,6 +1,13 @@
 # Kolabing — Roles → Backend → Database Map (Ground-Truth)
 
-**Last updated:** 2026-06-28 (gamification mission system v1 curation: `challenges.app_visible` column + the three event/general mission filter sites — #49. Prior same day: #61 Saved Kolabs — new `saved_kolabs` pivot + save/unsave endpoints + `?saved=1` list + viewer-scoped `is_saved` flag — §7, §7.1. PR #59 review fixes: completion-confirmation gate hardening — terminal-state guard, `pending = not-yes` resource/gate alignment, auto-complete grace anchored on `updated_at`, `Collaboration::roleFor()`, **legacy feedback fallback + backfill removed (`/complete` now gates purely on real completion confirmations)**, dead-code removal — §0 item 10, §3, §8, §10. Prior: 2026-06-26 PR 1 moved the `/complete` gate to `collaboration_completions`)
+> Note: `kolabing-v2/CLAUDE.md` references `docs/BACKEND-SCHEMA.md` as a
+> MUST-READ schema doc; that file does not currently exist in this repo.
+> This file (`ROLES-BACKEND-DB-MAP.md`) is the closest existing
+> schema/reference doc and is kept up to date for role-affecting tables.
+> Restoring/creating `BACKEND-SCHEMA.md` is tracked as backlog, not part of
+> this PR.
+
+**Last updated:** 2026-06-30 (PR 4: public reputation summary — `collaboration_reviews` schema expansion with five category star ratings + `public_comment` + `public_comment_visible` gate, `ProfileService::getReputationSummary()` aggregation, and new `reputation` block on `PublicProfileResource` — §13. Prior: 2026-06-28 gamification mission system v1 curation: `challenges.app_visible` column + the three event/general mission filter sites — #49. Prior same day: #61 Saved Kolabs — new `saved_kolabs` pivot + save/unsave endpoints + `?saved=1` list + viewer-scoped `is_saved` flag — §7, §7.1. PR #59 review fixes: completion-confirmation gate hardening — terminal-state guard, `pending = not-yes` resource/gate alignment, auto-complete grace anchored on `updated_at`, `Collaboration::roleFor()`, **legacy feedback fallback + backfill removed (`/complete` now gates purely on real completion confirmations)**, dead-code removal — §0 item 10, §3, §8, §10. Prior: 2026-06-26 PR 1 moved the `/complete` gate to `collaboration_completions`)
 **Status:** Authoritative companion to [`ROLES-AND-PERMISSIONS.md`](./ROLES-AND-PERMISSIONS.md). Read that first (the *what*), then this (the *where*).
 **Sync note:** Duplicated in both repos (`kolabing-app`, `kolabing-v2`). Keep identical, and **bump the Last updated date in both** when role behaviour or backend wiring changes.
 
@@ -160,7 +167,11 @@ profiles (id uuid PK, email UNIQUE, user_type[business|community|attendee], avat
                                    event_id, qr_code_url)                                        ← (§10)
                        ├─1:N─ collaboration_reviews (collaboration_id FK, reviewer_profile_id,
                        │                              reviewed_profile_id, reviewer_role, rating,
-                       │                              body, note, would_collaborate_again)
+                       │                              communication_rating, reliability_rating,
+                       │                              fit_rating, value_rating, repeat_rating,
+                       │                              body, note, public_comment,
+                       │                              public_comment_visible[bool, default true],
+                       │                              would_collaborate_again)               ← (§13)
                        └─1:N─ chat_messages         (application_id FK, sender_profile_id, …)
 
 Gamification / wallets (§11):
@@ -422,3 +433,11 @@ Resources (`app/Http/Resources/Api/V1`): `CommunityResource`, `CommunityTierReso
 - Never call `Profile::hasActiveSubscription()` or throw `SubscriptionRequiredException`. The cap is the only gate and it is config-driven.
 - Never add a `user_type` enum value for "community member" — the wire value stays `attendee` (D4).
 - Never couple `can_manage` to the top tier (D1).
+
+---
+
+## 13. Public reputation aggregates (added 2026-06-30, PR 4)
+
+The `collaboration_reviews` table now carries five category-specific star ratings (`communication_rating`, `reliability_rating`, `fit_rating`, `value_rating`, `repeat_rating`), a `public_comment` (user-authored text), and a `public_comment_visible` boolean gate (default true). The computed accessor `overall_rating` averages the five stars, falling back to the legacy `rating` column if a reviewer has not set the new ratings yet.
+
+`public_comment_visible` gates only the `public_comment` field (not the legacy `body` / `note`). `ProfileService::getReputationSummary()` aggregates these fields into a public-facing reputation block (`average_rating`, `review_count`, `unique_partner_count`, and a `breakdown` object with category medians), counting only reviews on `status = completed` collaborations. The block is serialized as the `reputation` key on `PublicProfileResource` (sibling to `recent_reviews`), and is accessible to any authenticated viewer (same public-profile visibility rules apply).

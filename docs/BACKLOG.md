@@ -1,6 +1,6 @@
 # Kolabing — Pre-launch Backlog
 
-**Last updated:** 2026-06-28
+**Last updated:** 2026-06-30
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical.
 
 A consolidated punch list of everything we've identified but haven't shipped. Items are tagged by **owner** (`backend` = kolabing-v2, `app` = kolabing-app, `cross` = both, `infra` = hosting) and **priority** (`P0` = blocker for launch, `P1` = needed soon after, `P2` = nice-to-have).
@@ -228,7 +228,22 @@ From [docs/ROLES-BACKEND-DB-MAP.md](ROLES-BACKEND-DB-MAP.md) §8 — still-open 
 **Follow-up (new):**
 - [ ] **Remove `/opportunities` API shim + port freemium limit & portfolio photos to `/kolabs` + drop `collab_opportunities` table** — #31 (gated on mobile `kolabing-app` #20). The freemium collab limit + portfolio-photo handling currently live only on the legacy `OpportunityService` path; port them onto `/kolabs` create, then retire `OpportunityController`/`OpportunityService` and drop the archived table + `collab_opportunity_id` columns. Owner: **backend** (after mobile migrates off `/opportunities`).
 
-## 10. Business Kolab creation flow redesign
+## 10. Restore/create BACKEND-SCHEMA.md
+
+**Status:** Missing. Referenced by `kolabing-v2/CLAUDE.md` as a MUST-READ schema doc. Currently absent from the repo.
+
+**What exists:**
+- `ROLES-BACKEND-DB-MAP.md` serves as the closest interim schema/reference doc and is kept up to date for role-affecting tables.
+
+**What's missing:**
+- The `docs/BACKEND-SCHEMA.md` file itself (likely existed earlier, was deleted or archived).
+
+**P2 (out of scope for this PR):**
+- [ ] Restore from git history or create a new `docs/BACKEND-SCHEMA.md` that documents the full production Postgres schema, replacing the interim reference in `ROLES-BACKEND-DB-MAP.md` with the authoritative schema doc. Owner: **backend**.
+
+---
+
+## 11. Business Kolab creation flow redesign
 
 **Status:** Backend half done (this PR, `feat/business-kolab-flow-backend`): `goal`/`highlights` columns on `kolabs`, 4 new admin-managed `OfferOption` taxonomy kinds (goal/product_interaction/venue_fit/kolab_highlight) + lookup endpoints, expanded `deliverable` options, immediate-availability validation fix. Frontend half (8 screen reworks in `kolabing-app`) not started yet — plan at `docs/superpowers/plans/2026-06-24-business-kolab-flow-frontend.md` in `kolabing-app`. Design spec: `docs/superpowers/specs/2026-06-24-business-kolab-creation-flow-redesign.md`.
 
