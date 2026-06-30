@@ -257,4 +257,27 @@ class ProfileReputationTest extends TestCase
             ->assertJsonPath('data.reputation.average_rating', null)
             ->assertJsonPath('data.reputation.breakdown', null);
     }
+
+    public function test_public_profile_endpoint_exposes_decimal_average_rating(): void
+    {
+        $community = $this->makeReviewedCommunity();
+        $reviewerA = $this->makeBusinessReviewer();
+        $reviewerB = $this->makeBusinessReviewer();
+
+        $this->reviewedCollaboration($reviewerA, $community);
+        $this->reviewedCollaboration($reviewerB, $community, [
+            'communication_rating' => 4,
+            'reliability_rating' => 4,
+            'fit_rating' => 4,
+            'value_rating' => 4,
+            'repeat_rating' => 4,
+        ]);
+
+        $response = $this->actingAs($reviewerA)
+            ->getJson("/api/v1/profiles/{$community->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('data.reputation.review_count', 2)
+            ->assertJsonPath('data.reputation.average_rating', 4.5);
+    }
 }
