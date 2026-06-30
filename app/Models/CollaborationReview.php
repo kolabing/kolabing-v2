@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $note
  * @property string|null $body
  * @property string|null $public_comment
+ * @property bool $public_comment_visible
  * @property bool|null $would_collaborate_again
  * @property-read float|null $overall_rating
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -68,6 +69,7 @@ class CollaborationReview extends Model
         'note',
         'body',
         'public_comment',
+        'public_comment_visible',
         'would_collaborate_again',
     ];
 
@@ -84,6 +86,7 @@ class CollaborationReview extends Model
             'value_rating' => 'integer',
             'repeat_rating' => 'integer',
             'would_collaborate_again' => 'boolean',
+            'public_comment_visible' => 'boolean',
         ];
     }
 

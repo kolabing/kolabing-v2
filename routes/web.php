@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\KolabController as AdminKolabController;
 use App\Http\Controllers\Admin\ManagedUserController;
 use App\Http\Controllers\Admin\OfferOptionController as AdminOfferOptionController;
 use App\Http\Controllers\Admin\PartnerRewardController as AdminPartnerRewardController;
+use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Admin\RewardEconomicsController as AdminRewardEconomicsController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Admin\TaskController as AdminTaskController;
@@ -58,6 +59,9 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::post('/kolabs/{kolab}/collaboration/complete', [AdminKolabController::class, 'completeCollaboration'])->name('kolabs.collaboration.complete');
 
     Route::get('/stats', [AdminStatsController::class, 'index'])->name('stats.index');
+
+    Route::get('/reviews', [AdminReviewController::class, 'index'])->name('reviews.index');
+    Route::post('/reviews/{review}/toggle-comment', [AdminReviewController::class, 'toggleComment'])->name('reviews.toggle-comment');
 
     // CRM (businesses / communities / ambassadors) + Tasks
     Route::get('/crm', [AdminCrmController::class, 'index'])->name('crm.index');

@@ -278,4 +278,54 @@ class CollaborationReviewTest extends TestCase
         // to reach/stay in that state.
         $this->assertSame('completed', $collaboration->status->value ?? $collaboration->status);
     }
+
+    public function test_hidden_public_comment_is_not_exposed_on_public_profile(): void
+    {
+        [$collaboration, $business, $community] = $this->makeCollaboration();
+
+        CollaborationReview::factory()->create([
+            'collaboration_id' => $collaboration->id,
+            'reviewer_profile_id' => $business->id,
+            'reviewed_profile_id' => $community->id,
+            'reviewer_role' => 'creator',
+            'public_comment' => 'This should be hidden',
+            'public_comment_visible' => false,
+            'communication_rating' => 5,
+            'reliability_rating' => 5,
+            'fit_rating' => 5,
+            'value_rating' => 5,
+            'repeat_rating' => 5,
+        ]);
+
+        $response = $this->actingAs($business)
+            ->getJson("/api/v1/profiles/{$community->id}/reviews");
+
+        $response->assertOk();
+        $this->assertNull($response->json('data.0.public_comment'));
+    }
+
+    public function test_visible_public_comment_is_exposed_on_public_profile(): void
+    {
+        [$collaboration, $business, $community] = $this->makeCollaboration();
+
+        CollaborationReview::factory()->create([
+            'collaboration_id' => $collaboration->id,
+            'reviewer_profile_id' => $business->id,
+            'reviewed_profile_id' => $community->id,
+            'reviewer_role' => 'creator',
+            'public_comment' => 'This should be visible',
+            'public_comment_visible' => true,
+            'communication_rating' => 5,
+            'reliability_rating' => 5,
+            'fit_rating' => 5,
+            'value_rating' => 5,
+            'repeat_rating' => 5,
+        ]);
+
+        $response = $this->actingAs($business)
+            ->getJson("/api/v1/profiles/{$community->id}/reviews");
+
+        $response->assertOk();
+        $this->assertSame('This should be visible', $response->json('data.0.public_comment'));
+    }
 }
