@@ -40,6 +40,9 @@
                             <td>
                                 {{ $review->reviewerProfile?->getExtendedProfile()?->name ?? '—' }}
                                 <span class="badge badge-secondary">{{ $review->reviewer_role }}</span>
+                                @if (in_array($review->id, $excludedReviewIds))
+                                    <span class="badge badge-warning">⚠ Excluded from reputation</span>
+                                @endif
                             </td>
                             <td>
                                 {{ $review->reviewed?->getExtendedProfile()?->name ?? '—' }}
