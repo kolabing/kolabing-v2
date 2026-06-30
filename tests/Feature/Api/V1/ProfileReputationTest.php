@@ -227,4 +227,34 @@ class ProfileReputationTest extends TestCase
         $this->assertSame(2.0, $summary['breakdown']['value']);
         $this->assertSame(1.0, $summary['breakdown']['repeat']);
     }
+
+    public function test_public_profile_endpoint_exposes_reputation_summary(): void
+    {
+        $community = $this->makeReviewedCommunity();
+        $reviewer = $this->makeBusinessReviewer();
+
+        $this->reviewedCollaboration($reviewer, $community);
+
+        $response = $this->actingAs($reviewer)
+            ->getJson("/api/v1/profiles/{$community->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('data.reputation.review_count', 1)
+            ->assertJsonPath('data.reputation.unique_partner_count', 1)
+            ->assertJsonPath('data.reputation.average_rating', 5);
+    }
+
+    public function test_public_profile_endpoint_reputation_is_null_safe_with_no_reviews(): void
+    {
+        $community = $this->makeReviewedCommunity();
+        $reviewer = $this->makeBusinessReviewer();
+
+        $response = $this->actingAs($reviewer)
+            ->getJson("/api/v1/profiles/{$community->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('data.reputation.review_count', 0)
+            ->assertJsonPath('data.reputation.average_rating', null)
+            ->assertJsonPath('data.reputation.breakdown', null);
+    }
 }
