@@ -332,6 +332,12 @@ return [
             'icon' => 'fas fa-fw fa-handshake',
             'active' => ['admin/kolabs', 'admin/kolabs/*'],
         ],
+        [
+            'text' => 'Reviews',
+            'route' => 'admin.reviews.index',
+            'icon' => 'fas fa-fw fa-star',
+            'active' => ['admin/reviews', 'admin/reviews/*'],
+        ],
         ['header' => 'INSIGHTS'],
         [
             'text' => 'Statistics',
