@@ -234,6 +234,66 @@ class ProfileService
     }
 
     /**
+     * Compute the public reputation summary for a profile: average rating,
+     * review count, unique reviewing-partner count, and a per-criterion
+     * breakdown. Only counts reviews on collaborations that have reached
+     * `completed` status — reviews left while a collaboration is merely
+     * `active` (allowed by the /review endpoint for legacy-client
+     * compatibility) intentionally do not count until the collaboration
+     * finishes.
+     *
+     * @return array{average_rating: ?float, review_count: int, unique_partner_count: int, breakdown: ?array<string, float>}
+     */
+    public function getReputationSummary(Profile $profile): array
+    {
+        $overallRatingExpression = CollaborationReview::overallRatingSqlExpression();
+
+        $row = CollaborationReview::query()
+            ->where('reviewed_profile_id', $profile->id)
+            ->whereNotNull('rating')
+            ->whereHas('collaboration', fn ($q) => $q->where('status', CollaborationStatus::Completed))
+            ->selectRaw(
+                "AVG({$overallRatingExpression}) as average_rating, ".
+                'COUNT(*) as review_count, '.
+                'COUNT(DISTINCT reviewer_profile_id) as unique_partner_count, '.
+                'AVG(communication_rating) as avg_communication, '.
+                'AVG(reliability_rating) as avg_reliability, '.
+                'AVG(fit_rating) as avg_fit, '.
+                'AVG(value_rating) as avg_value, '.
+                'AVG(repeat_rating) as avg_repeat'
+            )
+            ->first();
+
+        $reviewCount = (int) ($row->review_count ?? 0);
+
+        if ($reviewCount === 0) {
+            return [
+                'average_rating' => null,
+                'review_count' => 0,
+                'unique_partner_count' => 0,
+                'breakdown' => null,
+            ];
+        }
+
+        $breakdown = $row->avg_communication !== null
+            ? [
+                'communication' => round((float) $row->avg_communication, 1),
+                'reliability' => round((float) $row->avg_reliability, 1),
+                'fit' => round((float) $row->avg_fit, 1),
+                'value' => round((float) $row->avg_value, 1),
+                'repeat' => round((float) $row->avg_repeat, 1),
+            ]
+            : null;
+
+        return [
+            'average_rating' => round((float) $row->average_rating, 1),
+            'review_count' => $reviewCount,
+            'unique_partner_count' => (int) $row->unique_partner_count,
+            'breakdown' => $breakdown,
+        ];
+    }
+
+    /**
      * Get a safe public-facing community profile payload.
      *
      * @throws ModelNotFoundException

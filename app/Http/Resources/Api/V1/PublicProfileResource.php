@@ -10,6 +10,7 @@ use App\Models\Collaboration;
 use App\Models\CollaborationReview;
 use App\Models\Profile;
 use App\Services\FriendshipService;
+use App\Services\ProfileService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Str;
@@ -75,6 +76,7 @@ class PublicProfileResource extends JsonResource
             'friend_status' => $this->resolveFriendStatus($request),
             'friends_count' => app(FriendshipService::class)->friendsCountFor($this->resource),
             'recent_reviews' => $this->buildRecentReviews(),
+            'reputation' => app(ProfileService::class)->getReputationSummary($this->resource),
         ];
     }
 
