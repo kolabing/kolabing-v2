@@ -365,4 +365,18 @@ class ProfileReputationTest extends TestCase
             ->assertOk()
             ->assertJsonMissingPath('data.reputation.unique_partner_count');
     }
+
+    public function test_recent_reviews_include_is_verified_kolab_review_flag(): void
+    {
+        $community = $this->makeReviewedCommunity();
+        $business = $this->makeBusinessReviewer();
+        $this->reviewedCollaboration($business, $community);
+
+        $viewer = Profile::factory()->business()->create();
+
+        $this->actingAs($viewer)
+            ->getJson("/api/v1/profiles/{$community->id}")
+            ->assertOk()
+            ->assertJsonPath('data.recent_reviews.0.is_verified_kolab_review', true);
+    }
 }
