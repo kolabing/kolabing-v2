@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\CollaborationStatus;
 use App\Http\Controllers\Controller;
 use App\Models\CollaborationReview;
 use Illuminate\Contracts\View\View;
@@ -68,6 +69,8 @@ class ReviewController extends Controller
             $ranked = CollaborationReview::query()
                 ->where('reviewer_profile_id', $reviewerId)
                 ->where('reviewed_profile_id', $reviewedId)
+                ->whereNotNull('rating')
+                ->whereHas('collaboration', fn ($q) => $q->where('status', CollaborationStatus::Completed))
                 ->orderBy('created_at')
                 ->pluck('id');
 
