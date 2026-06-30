@@ -47,12 +47,31 @@ class ProfileReputationTest extends TestCase
             ->forApplicant($reviewed)
             ->create();
 
+        $defaults = [
+            'communication_rating' => 5,
+            'reliability_rating' => 5,
+            'fit_rating' => 5,
+            'value_rating' => 5,
+            'repeat_rating' => 5,
+        ];
+        $merged = array_merge($defaults, $reviewOverrides);
+
+        $starFields = ['communication_rating', 'reliability_rating', 'fit_rating', 'value_rating', 'repeat_rating'];
+        $hasAllStars = collect($starFields)->every(fn ($field) => array_key_exists($field, $merged) && $merged[$field] !== null);
+
+        // Mirrors CollaborationController::review(), which always backfills the
+        // legacy `rating` column from the star ratings when they are present —
+        // a star-rated review can never have `rating === null` in production.
+        $legacyRating = $hasAllStars
+            ? (int) round(array_sum(array_intersect_key($merged, array_flip($starFields))) / 5)
+            : ($merged['rating'] ?? null);
+
         return CollaborationReview::factory()->create(array_merge([
             'collaboration_id' => $collaboration->id,
             'reviewer_profile_id' => $reviewer->id,
             'reviewed_profile_id' => $reviewed->id,
             'reviewer_role' => 'creator',
-            'rating' => null,
+            'rating' => $legacyRating,
             'communication_rating' => 5,
             'reliability_rating' => 5,
             'fit_rating' => 5,

@@ -250,6 +250,7 @@ class ProfileService
 
         $row = CollaborationReview::query()
             ->where('reviewed_profile_id', $profile->id)
+            ->whereNotNull('rating')
             ->whereHas('collaboration', fn ($q) => $q->where('status', CollaborationStatus::Completed))
             ->selectRaw(
                 "AVG({$overallRatingExpression}) as average_rating, ".
