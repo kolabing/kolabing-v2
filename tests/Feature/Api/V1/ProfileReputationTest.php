@@ -352,4 +352,17 @@ class ProfileReputationTest extends TestCase
 
         $this->assertArrayNotHasKey('unique_partner_count', $summary);
     }
+
+    public function test_public_profile_reputation_has_no_unique_partner_count(): void
+    {
+        $community = $this->makeReviewedCommunity();
+        $this->reviewedCollaboration($this->makeBusinessReviewer(), $community);
+
+        $viewer = Profile::factory()->business()->create();
+
+        $this->actingAs($viewer)
+            ->getJson("/api/v1/profiles/{$community->id}")
+            ->assertOk()
+            ->assertJsonMissingPath('data.reputation.unique_partner_count');
+    }
 }
