@@ -328,7 +328,7 @@ class CollaborationController extends Controller
      * POST /api/v1/collaborations/{collaboration}/review
      *
      * Rules:
-     * - Collaboration must be completed
+     * - Collaboration must not be cancelled (scheduled / active / completed all accepted)
      * - Reviewer must be a participant
      * - One review per reviewer per collaboration (idempotent: returns 200 on duplicate)
      * - reviewed_profile_id is derived from business/community profile columns,
@@ -344,13 +344,10 @@ class CollaborationController extends Controller
 
         $this->authorize('view', $collaboration);
 
-        // Reviews are allowed on active|completed collaborations (a legacy
-        // client may call /review before /complete). Scheduled and cancelled
-        // collabs remain out of scope.
-        if (! ($collaboration->isCompleted() || $collaboration->isActive())) {
+        if ($collaboration->isCancelled()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Reviews can only be left for active or completed collaborations.',
+                'message' => 'Reviews cannot be left for cancelled collaborations.',
                 'error_code' => 'collaboration_not_reviewable',
             ], 422);
         }
