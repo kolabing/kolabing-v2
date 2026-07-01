@@ -242,7 +242,7 @@ class ProfileService
      * compatibility) intentionally do not count until the collaboration
      * finishes.
      *
-     * @return array{average_rating: ?float, review_count: int, unique_partner_count: int, breakdown: ?array<string, float>}
+     * @return array{average_rating: ?float, review_count: int, completed_kolabs_count: int, breakdown: ?array<string, float>}
      */
     public function getReputationSummary(Profile $profile): array
     {
@@ -255,7 +255,6 @@ class ProfileService
             ->selectRaw(
                 "AVG({$overallRatingExpression}) as average_rating, ".
                 'COUNT(*) as review_count, '.
-                'COUNT(DISTINCT reviewer_profile_id) as unique_partner_count, '.
                 'AVG(communication_rating) as avg_communication, '.
                 'AVG(reliability_rating) as avg_reliability, '.
                 'AVG(fit_rating) as avg_fit, '.
@@ -266,11 +265,19 @@ class ProfileService
 
         $reviewCount = (int) ($row->review_count ?? 0);
 
+        $completedKolabsCount = Collaboration::query()
+            ->where('status', CollaborationStatus::Completed)
+            ->where(fn ($q) => $q
+                ->where('creator_profile_id', $profile->id)
+                ->orWhere('applicant_profile_id', $profile->id)
+            )
+            ->count();
+
         if ($reviewCount === 0) {
             return [
                 'average_rating' => null,
                 'review_count' => 0,
-                'unique_partner_count' => 0,
+                'completed_kolabs_count' => $completedKolabsCount,
                 'breakdown' => null,
             ];
         }
@@ -288,7 +295,7 @@ class ProfileService
         return [
             'average_rating' => round((float) $row->average_rating, 1),
             'review_count' => $reviewCount,
-            'unique_partner_count' => (int) $row->unique_partner_count,
+            'completed_kolabs_count' => $completedKolabsCount,
             'breakdown' => $breakdown,
         ];
     }
