@@ -88,6 +88,7 @@ class ProfileReputationTest extends TestCase
 
         $this->assertNull($summary['average_rating']);
         $this->assertSame(0, $summary['review_count']);
+        $this->assertSame(0, $summary['completed_kolabs_count']);
         $this->assertNull($summary['breakdown']);
     }
 
@@ -103,6 +104,7 @@ class ProfileReputationTest extends TestCase
         $summary = app(ProfileService::class)->getReputationSummary($community);
 
         $this->assertSame(2, $summary['review_count']);
+        $this->assertSame(2, $summary['completed_kolabs_count']);
     }
 
     public function test_average_rating_uses_overall_rating(): void
@@ -134,6 +136,7 @@ class ProfileReputationTest extends TestCase
         $summary = app(ProfileService::class)->getReputationSummary($community);
 
         $this->assertSame(2, $summary['review_count']);
+        $this->assertSame(2, $summary['completed_kolabs_count']);
     }
 
     public function test_hidden_comment_rating_still_counts_in_summary(): void
@@ -237,6 +240,7 @@ class ProfileReputationTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.reputation.review_count', 1)
+            ->assertJsonPath('data.reputation.completed_kolabs_count', 1)
             ->assertJsonPath('data.reputation.average_rating', 5);
     }
 

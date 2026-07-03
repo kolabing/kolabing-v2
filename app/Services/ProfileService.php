@@ -240,7 +240,7 @@ class ProfileService
      * may contribute at most 2 reviews — further reviews from the same pair
      * are excluded via a ROW_NUMBER window function (no schema change needed).
      *
-     * @return array{average_rating: ?float, review_count: int, breakdown: ?array<string, float>}
+     * @return array{average_rating: ?float, review_count: int, completed_kolabs_count: int, breakdown: ?array<string, float>}
      */
     public function getReputationSummary(Profile $profile): array
     {
@@ -277,10 +277,19 @@ class ProfileService
 
         $reviewCount = (int) ($row->review_count ?? 0);
 
+        $completedKolabsCount = Collaboration::query()
+            ->where('status', CollaborationStatus::Completed)
+            ->where(fn ($q) => $q
+                ->where('creator_profile_id', $profile->id)
+                ->orWhere('applicant_profile_id', $profile->id)
+            )
+            ->count();
+
         if ($reviewCount === 0) {
             return [
                 'average_rating' => null,
                 'review_count' => 0,
+                'completed_kolabs_count' => $completedKolabsCount,
                 'breakdown' => null,
             ];
         }
@@ -298,6 +307,7 @@ class ProfileService
         return [
             'average_rating' => round((float) $row->average_rating, 1),
             'review_count' => $reviewCount,
+            'completed_kolabs_count' => $completedKolabsCount,
             'breakdown' => $breakdown,
         ];
     }

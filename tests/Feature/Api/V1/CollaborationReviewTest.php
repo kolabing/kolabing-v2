@@ -328,4 +328,38 @@ class CollaborationReviewTest extends TestCase
         $response->assertOk();
         $this->assertSame('This should be visible', $response->json('data.0.public_comment'));
     }
+
+    public function test_review_can_be_submitted_for_a_scheduled_collaboration(): void
+    {
+        $business = Profile::factory()->business()->create();
+        $community = Profile::factory()->community()->create();
+
+        $collaboration = Collaboration::factory()
+            ->scheduled()
+            ->forCreator($business)
+            ->forApplicant($community)
+            ->create();
+
+        $this->actingAs($business)
+            ->postJson("/api/v1/collaborations/{$collaboration->id}/review", $this->starPayload())
+            ->assertCreated()
+            ->assertJsonPath('success', true);
+    }
+
+    public function test_review_is_rejected_for_a_cancelled_collaboration(): void
+    {
+        $business = Profile::factory()->business()->create();
+        $community = Profile::factory()->community()->create();
+
+        $collaboration = Collaboration::factory()
+            ->cancelled()
+            ->forCreator($business)
+            ->forApplicant($community)
+            ->create();
+
+        $this->actingAs($business)
+            ->postJson("/api/v1/collaborations/{$collaboration->id}/review", $this->starPayload())
+            ->assertUnprocessable()
+            ->assertJson(['error_code' => 'collaboration_not_reviewable']);
+    }
 }
