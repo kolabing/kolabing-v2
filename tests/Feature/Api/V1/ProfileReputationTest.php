@@ -280,4 +280,107 @@ class ProfileReputationTest extends TestCase
             ->assertJsonPath('data.reputation.review_count', 2)
             ->assertJsonPath('data.reputation.average_rating', 4.5);
     }
+
+    public function test_two_reviews_from_same_pair_both_count(): void
+    {
+        $community = $this->makeReviewedCommunity();
+        $business = $this->makeBusinessReviewer();
+
+        $this->reviewedCollaboration($business, $community, ['communication_rating' => 4, 'reliability_rating' => 4, 'fit_rating' => 4, 'value_rating' => 4, 'repeat_rating' => 4]);
+        $this->reviewedCollaboration($business, $community, ['communication_rating' => 2, 'reliability_rating' => 2, 'fit_rating' => 2, 'value_rating' => 2, 'repeat_rating' => 2]);
+
+        $summary = app(\App\Services\ProfileService::class)->getReputationSummary($community);
+
+        $this->assertSame(2, $summary['review_count']);
+        $this->assertEqualsWithDelta(3.0, $summary['average_rating'], 0.15);
+    }
+
+    public function test_third_review_from_same_pair_is_excluded(): void
+    {
+        $community = $this->makeReviewedCommunity();
+        $business = $this->makeBusinessReviewer();
+
+        // First two reviews: perfect scores
+        $this->reviewedCollaboration($business, $community, ['communication_rating' => 5, 'reliability_rating' => 5, 'fit_rating' => 5, 'value_rating' => 5, 'repeat_rating' => 5]);
+        $this->reviewedCollaboration($business, $community, ['communication_rating' => 5, 'reliability_rating' => 5, 'fit_rating' => 5, 'value_rating' => 5, 'repeat_rating' => 5]);
+        // Third review: terrible score — must be excluded from the aggregate
+        $this->reviewedCollaboration($business, $community, ['communication_rating' => 1, 'reliability_rating' => 1, 'fit_rating' => 1, 'value_rating' => 1, 'repeat_rating' => 1]);
+
+        $summary = app(\App\Services\ProfileService::class)->getReputationSummary($community);
+
+        $this->assertSame(2, $summary['review_count']);
+        $this->assertEqualsWithDelta(5.0, $summary['average_rating'], 0.1);
+    }
+
+    public function test_reviews_from_different_pairs_all_count(): void
+    {
+        $community = $this->makeReviewedCommunity();
+        $business1 = $this->makeBusinessReviewer();
+        $business2 = $this->makeBusinessReviewer();
+
+        $this->reviewedCollaboration($business1, $community, ['communication_rating' => 4, 'reliability_rating' => 4, 'fit_rating' => 4, 'value_rating' => 4, 'repeat_rating' => 4]);
+        $this->reviewedCollaboration($business2, $community, ['communication_rating' => 2, 'reliability_rating' => 2, 'fit_rating' => 2, 'value_rating' => 2, 'repeat_rating' => 2]);
+
+        $summary = app(\App\Services\ProfileService::class)->getReputationSummary($community);
+
+        $this->assertSame(2, $summary['review_count']);
+        $this->assertEqualsWithDelta(3.0, $summary['average_rating'], 0.15);
+    }
+
+    public function test_mix_of_pairs_caps_per_pair(): void
+    {
+        $community = $this->makeReviewedCommunity();
+        $business1 = $this->makeBusinessReviewer();
+        $business2 = $this->makeBusinessReviewer();
+
+        // business1: 3 reviews (only first 2 count)
+        $this->reviewedCollaboration($business1, $community, ['communication_rating' => 5, 'reliability_rating' => 5, 'fit_rating' => 5, 'value_rating' => 5, 'repeat_rating' => 5]);
+        $this->reviewedCollaboration($business1, $community, ['communication_rating' => 5, 'reliability_rating' => 5, 'fit_rating' => 5, 'value_rating' => 5, 'repeat_rating' => 5]);
+        $this->reviewedCollaboration($business1, $community, ['communication_rating' => 1, 'reliability_rating' => 1, 'fit_rating' => 1, 'value_rating' => 1, 'repeat_rating' => 1]);
+        // business2: 2 reviews (both count)
+        $this->reviewedCollaboration($business2, $community, ['communication_rating' => 3, 'reliability_rating' => 3, 'fit_rating' => 3, 'value_rating' => 3, 'repeat_rating' => 3]);
+        $this->reviewedCollaboration($business2, $community, ['communication_rating' => 3, 'reliability_rating' => 3, 'fit_rating' => 3, 'value_rating' => 3, 'repeat_rating' => 3]);
+
+        $summary = app(\App\Services\ProfileService::class)->getReputationSummary($community);
+
+        // 2 from business1 (both 5.0) + 2 from business2 (both 3.0) = 4 reviews
+        $this->assertSame(4, $summary['review_count']);
+        $this->assertEqualsWithDelta(4.0, $summary['average_rating'], 0.1);
+    }
+
+    public function test_reputation_summary_has_no_unique_partner_count_key(): void
+    {
+        $community = $this->makeReviewedCommunity();
+
+        $summary = app(\App\Services\ProfileService::class)->getReputationSummary($community);
+
+        $this->assertArrayNotHasKey('unique_partner_count', $summary);
+    }
+
+    public function test_public_profile_reputation_has_no_unique_partner_count(): void
+    {
+        $community = $this->makeReviewedCommunity();
+        $this->reviewedCollaboration($this->makeBusinessReviewer(), $community);
+
+        $viewer = Profile::factory()->business()->create();
+
+        $this->actingAs($viewer)
+            ->getJson("/api/v1/profiles/{$community->id}")
+            ->assertOk()
+            ->assertJsonMissingPath('data.reputation.unique_partner_count');
+    }
+
+    public function test_recent_reviews_include_is_verified_kolab_review_flag(): void
+    {
+        $community = $this->makeReviewedCommunity();
+        $business = $this->makeBusinessReviewer();
+        $this->reviewedCollaboration($business, $community);
+
+        $viewer = Profile::factory()->business()->create();
+
+        $this->actingAs($viewer)
+            ->getJson("/api/v1/profiles/{$community->id}")
+            ->assertOk()
+            ->assertJsonPath('data.recent_reviews.0.is_verified_kolab_review', true);
+    }
 }

@@ -234,26 +234,38 @@ class ProfileService
     }
 
     /**
-     * Compute the public reputation summary for a profile: average rating,
-     * review count, unique reviewing-partner count, and a per-criterion
-     * breakdown. Only counts reviews on collaborations that have reached
-     * `completed` status — reviews left while a collaboration is merely
-     * `active` (allowed by the /review endpoint for legacy-client
-     * compatibility) intentionally do not count until the collaboration
-     * finishes.
+     * Public reputation summary for a profile.
+     *
+     * Only reviews from completed Kolabs count. A (reviewer, reviewed) pair
+     * may contribute at most 2 reviews — further reviews from the same pair
+     * are excluded via a ROW_NUMBER window function (no schema change needed).
      *
      * @return array{average_rating: ?float, review_count: int, completed_kolabs_count: int, breakdown: ?array<string, float>}
      */
     public function getReputationSummary(Profile $profile): array
     {
-        $overallRatingExpression = CollaborationReview::overallRatingSqlExpression();
+        $overallExpr = CollaborationReview::overallRatingSqlExpression();
 
-        $row = CollaborationReview::query()
+        // Inner subquery: rank each review per reviewer (within this reviewed
+        // profile) by created_at ASC. reviewed_profile_id is fixed in the WHERE
+        // so partitioning by reviewer_profile_id alone gives pair-level ranking.
+        $inner = CollaborationReview::query()
             ->where('reviewed_profile_id', $profile->id)
             ->whereNotNull('rating')
             ->whereHas('collaboration', fn ($q) => $q->where('status', CollaborationStatus::Completed))
             ->selectRaw(
-                "AVG({$overallRatingExpression}) as average_rating, ".
+                '*, ROW_NUMBER() OVER (PARTITION BY reviewer_profile_id ORDER BY created_at ASC) AS pair_review_rank'
+            )
+            ->toBase();
+
+        // Outer aggregate: only the first 2 reviews per reviewer count.
+        $row = DB::table(
+            DB::raw("({$inner->toSql()}) AS ranked_reviews")
+        )
+            ->mergeBindings($inner)
+            ->where('pair_review_rank', '<=', 2)
+            ->selectRaw(
+                "AVG({$overallExpr}) as average_rating, ".
                 'COUNT(*) as review_count, '.
                 'AVG(communication_rating) as avg_communication, '.
                 'AVG(reliability_rating) as avg_reliability, '.

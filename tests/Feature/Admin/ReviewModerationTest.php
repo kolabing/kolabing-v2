@@ -121,4 +121,48 @@ class ReviewModerationTest extends TestCase
             ->assertSee('Great Kolab partner, would work with again!')
             ->assertSee('Hidden');
     }
+
+    public function test_third_review_from_same_pair_shows_excluded_badge(): void
+    {
+        $reviewer = Profile::factory()->business()->create();
+        $reviewed = Profile::factory()->community()->create();
+
+        $this->collaborationWithReview([
+            'reviewer_profile_id' => $reviewer->id,
+            'reviewed_profile_id' => $reviewed->id,
+        ]);
+        $this->collaborationWithReview([
+            'reviewer_profile_id' => $reviewer->id,
+            'reviewed_profile_id' => $reviewed->id,
+        ]);
+        $this->collaborationWithReview([
+            'reviewer_profile_id' => $reviewer->id,
+            'reviewed_profile_id' => $reviewed->id,
+        ]);
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.reviews.index'))
+            ->assertOk()
+            ->assertSee('Excluded from reputation');
+    }
+
+    public function test_first_two_reviews_from_same_pair_show_no_excluded_badge(): void
+    {
+        $reviewer = Profile::factory()->business()->create();
+        $reviewed = Profile::factory()->community()->create();
+
+        $this->collaborationWithReview([
+            'reviewer_profile_id' => $reviewer->id,
+            'reviewed_profile_id' => $reviewed->id,
+        ]);
+        $this->collaborationWithReview([
+            'reviewer_profile_id' => $reviewer->id,
+            'reviewed_profile_id' => $reviewed->id,
+        ]);
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.reviews.index'))
+            ->assertOk()
+            ->assertDontSee('Excluded from reputation');
+    }
 }

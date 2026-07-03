@@ -31,6 +31,7 @@ class PublicProfileReviewResource extends JsonResource
             'body' => $this->body ?? $this->note,
             'public_comment' => $this->public_comment_visible ? $this->public_comment : null,
             'would_collaborate_again' => $this->would_collaborate_again,
+            'is_verified_kolab_review' => true,
             'created_at' => $this->created_at?->toIso8601String(),
             'reviewer' => [
                 'id' => $reviewer?->id,
