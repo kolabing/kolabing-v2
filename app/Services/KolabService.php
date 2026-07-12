@@ -48,9 +48,14 @@ class KolabService
         $query = Kolab::query()
             ->where('status', KolabStatus::Published)
             ->withCount('applications')
-            ->withExists(['savedByProfiles as is_saved' => function (Builder $q) use ($viewer): void {
-                $q->whereKey($viewer->id);
-            }])
+            ->withExists([
+                'savedByProfiles as is_saved' => function (Builder $q) use ($viewer): void {
+                    $q->whereKey($viewer->id);
+                },
+                'applications as has_applied' => function (Builder $q) use ($viewer): void {
+                    $q->where('applicant_profile_id', $viewer->id);
+                },
+            ])
             ->with([
                 'creatorProfile' => function ($query) {
                     $query->with([

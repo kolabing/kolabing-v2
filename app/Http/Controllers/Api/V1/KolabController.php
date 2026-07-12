@@ -146,9 +146,14 @@ class KolabController extends Controller
         }
 
         $kolab->load('creatorProfile');
-        $kolab->loadExists(['savedByProfiles as is_saved' => function ($q) use ($profile): void {
-            $q->whereKey($profile->id);
-        }]);
+        $kolab->loadExists([
+            'savedByProfiles as is_saved' => function ($q) use ($profile): void {
+                $q->whereKey($profile->id);
+            },
+            'applications as has_applied' => function ($q) use ($profile): void {
+                $q->where('applicant_profile_id', $profile->id);
+            },
+        ]);
 
         return response()->json([
             'success' => true,
