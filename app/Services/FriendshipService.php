@@ -157,6 +157,7 @@ class FriendshipService
 
         return Profile::query()
             ->whereIn('id', $friendIds)
+            ->with(['attendeeProfile', 'businessProfile', 'communityProfile'])
             ->orderByDesc('created_at')
             ->paginate($perPage);
     }
@@ -176,6 +177,7 @@ class FriendshipService
 
         return Profile::query()
             ->whereIn('id', $requesterIds)
+            ->with(['attendeeProfile', 'businessProfile', 'communityProfile'])
             ->get();
     }
 

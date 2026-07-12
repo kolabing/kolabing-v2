@@ -27,7 +27,7 @@ class NotificationService
     {
         return Notification::query()
             ->where('profile_id', $profile->id)
-            ->with(['actorProfile.businessProfile', 'actorProfile.communityProfile'])
+            ->with(['actorProfile.businessProfile', 'actorProfile.communityProfile', 'actorProfile.attendeeProfile'])
             ->orderByDesc('created_at')
             ->paginate($perPage);
     }

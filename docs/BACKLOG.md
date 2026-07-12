@@ -1,6 +1,6 @@
 # Kolabing — Pre-launch Backlog
 
-**Last updated:** 2026-07-12 (rewards-overview N+1 — §12)
+**Last updated:** 2026-07-12 (query-audit N+1 sweep — §12)
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical.
 
 A consolidated punch list of everything we've identified but haven't shipped. Items are tagged by **owner** (`backend` = kolabing-v2, `app` = kolabing-app, `cross` = both, `infra` = hosting) and **priority** (`P0` = blocker for launch, `P1` = needed soon after, `P2` = nice-to-have).
@@ -267,6 +267,13 @@ From [docs/ROLES-BACKEND-DB-MAP.md](ROLES-BACKEND-DB-MAP.md) §8 — still-open 
 **P2 — 100k+ scale:**
 - [ ] Event discovery Haversine (Postgres path) full-scans and recomputes trig per row with no bounding box → add a bounding-box prefilter or PostGIS / `cube`+GiST index. Owner: **backend**.
 - [ ] Move cache / queue / session drivers to Redis; enable Reverb so chat unread polling is replaced by push; add a read replica for read-heavy aggregates. Owner: **infra**.
+
+**Query-audit sweep (2026-07-12, #80) — additional N+1s found & fixed:**
+- [x] `CollaborationResource::has_reviewed` fired `CollaborationReview::exists()` per row on the collaborations list → now derives from the already eager-loaded `reviews` relation (single-query fallback only when unloaded).
+- [x] `CommunityRewardsHubController` goal progress ran per-goal count queries in BOTH the response map AND `CommunityPointsService::completeGoals()` → new `goalProgressForMany()` batches all earn-types (one grouped query for challenge goals); `completeGoals` bulk-loads already-paid goal ids.
+- [x] `NotificationService::getNotifications` missed `actorProfile.attendeeProfile` → attendee-actor rows lazy-loaded per row; added to eager loads.
+- [x] `FriendshipService::friendsOf` + `incomingRequests` loaded `Profile`s with no `with()` → `FriendResource` hit extended profiles per row; added `attendeeProfile`/`businessProfile`/`communityProfile` eager loads.
+- [ ] **Open:** the collaborations list nests `KolabResource`, which fires a per-row `saved_kolabs` `is_saved` existence check and lazy-loads `kolab.creatorProfile.businessProfile`/`communityProfile` per row. Fix: eager-load `kolab.creatorProfile.businessProfile`+`communityProfile` and annotate `is_saved` on the nested kolab via a scoped `withExists`. Owner: **backend**.
 
 ---
 

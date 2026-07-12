@@ -16,6 +16,7 @@ use App\Models\CommunityPointLedger;
 use App\Models\CommunityPoints;
 use App\Models\Event;
 use App\Models\EventCheckin;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -193,19 +194,28 @@ class CommunityPointsService
 
         $goals = $community->goals()->where('is_active', true)->get();
 
-        foreach ($goals as $goal) {
-            $alreadyPaid = CommunityPointLedger::query()
-                ->where('community_id', $community->id)
-                ->where('profile_id', $profileId)
-                ->where('source', CommunityPointSource::GoalCompleted->value)
-                ->where('reference_id', $goal->id)
-                ->exists();
+        if ($goals->isEmpty()) {
+            return;
+        }
 
-            if ($alreadyPaid) {
+        // Bulk-resolve the two per-goal reads that were previously an N+1: which
+        // goals are already paid, and each goal's progress.
+        $paidGoalIds = CommunityPointLedger::query()
+            ->where('community_id', $community->id)
+            ->where('profile_id', $profileId)
+            ->where('source', CommunityPointSource::GoalCompleted->value)
+            ->whereIn('reference_id', $goals->pluck('id'))
+            ->pluck('reference_id')
+            ->all();
+
+        $progressByGoal = $this->goalProgressForMany($community, $profileId, $goals);
+
+        foreach ($goals as $goal) {
+            if (in_array($goal->id, $paidGoalIds, true)) {
                 continue;
             }
 
-            if ($this->goalProgress($community, $profileId, $goal) >= $goal->target) {
+            if (($progressByGoal[$goal->id] ?? 0) >= $goal->target) {
                 $this->award(
                     $community,
                     $profileId,
@@ -229,6 +239,63 @@ class CommunityPointsService
             CommunityGoalEarnType::DaysInCommunity => $this->daysInCommunity($community, $profileId),
             CommunityGoalEarnType::Challenge => $this->challengeVerifiedCount($community, $profileId, $goal->challenge_id),
         };
+    }
+
+    /**
+     * Progress for many goals of one community/member, keyed by goal id. Each
+     * earn-type is resolved with a bounded number of queries regardless of how
+     * many goals use it (no per-goal N+1): the community-wide check-in count and
+     * days-in-community are computed at most once each, and Challenge goals share
+     * a single grouped count over their challenge ids. Values match goalProgress().
+     *
+     * @param  Collection<int, CommunityGoal>  $goals
+     * @return array<string, int>
+     */
+    public function goalProgressForMany(Community $community, string $profileId, Collection $goals): array
+    {
+        if ($goals->isEmpty()) {
+            return [];
+        }
+
+        $checkinCount = $goals->contains(fn (CommunityGoal $g): bool => $g->earn_type === CommunityGoalEarnType::EventCheckIns)
+            ? $this->communityCheckinCount($community, $profileId)
+            : 0;
+
+        $days = $goals->contains(fn (CommunityGoal $g): bool => $g->earn_type === CommunityGoalEarnType::DaysInCommunity)
+            ? $this->daysInCommunity($community, $profileId)
+            : 0;
+
+        $challengeGoals = $goals->filter(fn (CommunityGoal $g): bool => $g->earn_type === CommunityGoalEarnType::Challenge);
+        $challengeIds = $challengeGoals->pluck('challenge_id')->filter()->unique()->values();
+
+        $challengeCounts = $challengeIds->isEmpty()
+            ? collect()
+            : ChallengeCompletion::query()
+                ->where('challenger_profile_id', $profileId)
+                ->where('status', \App\Enums\ChallengeCompletionStatus::Verified->value)
+                ->whereIn('event_id', Event::query()->where('community_id', $community->id)->select('id'))
+                ->whereIn('challenge_id', $challengeIds)
+                ->selectRaw('challenge_id, count(*) as aggregate')
+                ->groupBy('challenge_id')
+                ->pluck('aggregate', 'challenge_id');
+
+        // A Challenge goal with a null challenge_id counts ALL verified completions
+        // in the community (matching goalProgress → challengeVerifiedCount(null)).
+        $allVerifiedCount = $challengeGoals->contains(fn (CommunityGoal $g): bool => $g->challenge_id === null)
+            ? $this->challengeVerifiedCount($community, $profileId, null)
+            : 0;
+
+        return $goals->mapWithKeys(function (CommunityGoal $goal) use ($checkinCount, $days, $challengeCounts, $allVerifiedCount): array {
+            $progress = match ($goal->earn_type) {
+                CommunityGoalEarnType::EventCheckIns => $checkinCount,
+                CommunityGoalEarnType::DaysInCommunity => $days,
+                CommunityGoalEarnType::Challenge => $goal->challenge_id === null
+                    ? $allVerifiedCount
+                    : (int) ($challengeCounts[$goal->challenge_id] ?? 0),
+            };
+
+            return [(string) $goal->id => $progress];
+        })->all();
     }
 
     private function afterEarn(Community $community, string $profileId): void
