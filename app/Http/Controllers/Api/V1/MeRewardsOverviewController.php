@@ -11,14 +11,15 @@ use App\Http\Resources\Api\V1\CommunityRewardResource;
 use App\Http\Resources\Api\V1\PartnerRewardResource;
 use App\Models\PartnerReward;
 use App\Models\Profile;
-use App\Services\CommunityPointsService;
+use App\Services\CommunityMembershipHydrator;
+use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class MeRewardsOverviewController extends Controller
 {
     public function __construct(
-        private readonly CommunityPointsService $pointsService,
+        private readonly CommunityMembershipHydrator $membershipHydrator,
     ) {}
 
     /**
@@ -43,19 +44,27 @@ class MeRewardsOverviewController extends Controller
 
         $memberships = $profile->communityMemberships()
             ->where('status', CommunityMemberStatus::Active->value)
-            ->with('community')
+            ->with([
+                'tier',
+                'community.communityProfile',
+                'community.rewards' => function (Builder $query): void {
+                    $query->where('is_active', true)->orderBy('cost_points');
+                },
+            ])
             ->get();
+
+        // Bulk-resolve the viewer-scoped CommunityResource fields (member count,
+        // points, tier, …) once, and reuse the returned points map for the
+        // per-community balance + reward affordability — no per-community N+1.
+        $balances = $this->membershipHydrator->hydrate($profile, $memberships);
 
         $communities = $memberships
             ->filter(fn ($m) => $m->community !== null)
-            ->map(function ($membership) use ($profile): array {
+            ->map(function ($membership) use ($balances): array {
                 $community = $membership->community;
-                $myPoints = $this->pointsService->balance($community, $profile->id);
+                $myPoints = $balances[$community->id] ?? 0;
 
-                $rewards = $community->rewards()
-                    ->where('is_active', true)
-                    ->orderBy('cost_points')
-                    ->get()
+                $rewards = $community->rewards
                     ->map(function ($reward) use ($myPoints): mixed {
                         $inStock = $reward->stock === null || $reward->stock > 0;
                         $reward->setAttribute('affordable', $myPoints >= $reward->cost_points && $inStock);
