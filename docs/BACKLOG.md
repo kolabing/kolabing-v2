@@ -273,7 +273,7 @@ From [docs/ROLES-BACKEND-DB-MAP.md](ROLES-BACKEND-DB-MAP.md) §8 — still-open 
 - [x] `CommunityRewardsHubController` goal progress ran per-goal count queries in BOTH the response map AND `CommunityPointsService::completeGoals()` → new `goalProgressForMany()` batches all earn-types (one grouped query for challenge goals); `completeGoals` bulk-loads already-paid goal ids.
 - [x] `NotificationService::getNotifications` missed `actorProfile.attendeeProfile` → attendee-actor rows lazy-loaded per row; added to eager loads.
 - [x] `FriendshipService::friendsOf` + `incomingRequests` loaded `Profile`s with no `with()` → `FriendResource` hit extended profiles per row; added `attendeeProfile`/`businessProfile`/`communityProfile` eager loads.
-- [ ] **Open:** the collaborations list nests `KolabResource`, which fires a per-row `saved_kolabs` `is_saved` existence check and lazy-loads `kolab.creatorProfile.businessProfile`/`communityProfile` per row. Fix: eager-load `kolab.creatorProfile.businessProfile`+`communityProfile` and annotate `is_saved` on the nested kolab via a scoped `withExists`. Owner: **backend**.
+- [x] The collaborations list nests `KolabResource` + `OpportunitySummaryResource`, which fired a per-row `saved_kolabs` `is_saved` check (both resources), a `has_applied` check (KolabResource), and lazy-loaded `kolab.creatorProfile.businessProfile`/`communityProfile` per row. **Shipped 2026-07-12 (#82):** `CollaborationService::getForProfile` now annotates `is_saved` + `has_applied` on the nested kolab via a viewer-scoped `withExists`, and eager-loads the kolab creator's extended profiles. Query count is constant across rows. Owner: **backend**.
 
 ---
 

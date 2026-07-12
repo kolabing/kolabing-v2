@@ -45,8 +45,19 @@ class CollaborationService
 
         $paginator = $query
             ->with([
-                'kolab',
-                'kolab.creatorProfile',
+                // Annotate the nested kolab with the viewer-scoped flags its
+                // KolabResource / OpportunitySummaryResource render, so they read
+                // preloaded attributes instead of one query per row (is_saved,
+                // has_applied). Creator extended profiles are eager-loaded for the
+                // nested creator_profile summary.
+                'kolab' => function ($kolabQuery) use ($profile): void {
+                    $kolabQuery->withExists([
+                        'savedByProfiles as is_saved' => fn ($q) => $q->whereKey($profile->id),
+                        'applications as has_applied' => fn ($q) => $q->where('applicant_profile_id', $profile->id),
+                    ]);
+                },
+                'kolab.creatorProfile.businessProfile',
+                'kolab.creatorProfile.communityProfile',
                 // The collaboration's own business/community profiles carry the
                 // partner logo (profile_photo) the Active/Finished cards show —
                 // load them so CollaborationResource surfaces business_profile /
