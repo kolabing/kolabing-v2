@@ -16,10 +16,17 @@ use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class ProfileService
 {
+    /**
+     * Self-healing backstop TTL (seconds) for the reputation summary cache.
+     * Observers keep it fresh; this only bounds staleness if a write path is missed.
+     */
+    private const REPUTATION_CACHE_TTL = 86400;
+
     public function __construct(
         private readonly NotificationService $notificationService
     ) {}
@@ -240,9 +247,43 @@ class ProfileService
      * may contribute at most 2 reviews — further reviews from the same pair
      * are excluded via a ROW_NUMBER window function (no schema change needed).
      *
+     * The result is cached per profile and busted by CollaborationReviewObserver
+     * (reviews received) and CollaborationObserver (completed-collaboration
+     * changes), so reads are always fresh; the TTL is only a self-healing
+     * backstop should a future write path ever be missed.
+     *
      * @return array{average_rating: ?float, review_count: int, completed_kolabs_count: int, breakdown: ?array<string, float>}
      */
     public function getReputationSummary(Profile $profile): array
+    {
+        return Cache::remember(
+            self::reputationCacheKey($profile->id),
+            self::REPUTATION_CACHE_TTL,
+            fn (): array => $this->computeReputationSummary($profile),
+        );
+    }
+
+    /**
+     * Cache key for a profile's reputation summary.
+     */
+    public static function reputationCacheKey(string $profileId): string
+    {
+        return "profile:reputation:{$profileId}";
+    }
+
+    /**
+     * Forget the cached reputation summary for a profile. Called by the
+     * observers whenever data feeding the summary changes.
+     */
+    public static function forgetReputationSummary(string $profileId): void
+    {
+        Cache::forget(self::reputationCacheKey($profileId));
+    }
+
+    /**
+     * @return array{average_rating: ?float, review_count: int, completed_kolabs_count: int, breakdown: ?array<string, float>}
+     */
+    private function computeReputationSummary(Profile $profile): array
     {
         $overallExpr = CollaborationReview::overallRatingSqlExpression();
 

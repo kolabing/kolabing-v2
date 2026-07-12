@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources\Api\V1;
 
-use App\Enums\CollaborationStatus;
 use App\Enums\UserType;
-use App\Models\Collaboration;
 use App\Models\CollaborationReview;
 use App\Models\Profile;
 use App\Services\FriendshipService;
@@ -42,6 +40,10 @@ class PublicProfileResource extends JsonResource
         // avatar_url. Always serialize as an absolute URL.
         $logo = $this->absoluteUrl($extendedProfile?->profile_photo ?? $this->avatar_url);
 
+        // Single (cached) reputation computation feeds both the top-level
+        // completed_kolabs_count and the reputation block — no duplicate COUNT.
+        $reputation = app(ProfileService::class)->getReputationSummary($this->resource);
+
         return [
             'id' => $this->id,
             'user_type' => $this->user_type->value,
@@ -66,17 +68,11 @@ class PublicProfileResource extends JsonResource
                 : null,
             'website' => $extendedProfile?->website,
             'profile_photo' => $logo,
-            'completed_kolabs_count' => Collaboration::query()
-                ->where('status', CollaborationStatus::Completed)
-                ->where(fn ($q) => $q
-                    ->where('creator_profile_id', $this->id)
-                    ->orWhere('applicant_profile_id', $this->id)
-                )
-                ->count(),
+            'completed_kolabs_count' => $reputation['completed_kolabs_count'],
             'friend_status' => $this->resolveFriendStatus($request),
             'friends_count' => app(FriendshipService::class)->friendsCountFor($this->resource),
             'recent_reviews' => $this->buildRecentReviews(),
-            'reputation' => app(ProfileService::class)->getReputationSummary($this->resource),
+            'reputation' => $reputation,
         ];
     }
 
