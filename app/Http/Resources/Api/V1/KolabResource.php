@@ -220,9 +220,26 @@ class KolabResource extends JsonResource
             return true;
         }
 
+        return $this->viewerHasApplied($viewer->id);
+    }
+
+    /**
+     * Whether the viewer has applied to this kolab. Prefers a query-annotated
+     * `has_applied` attribute (set via withExists/loadExists in the list and
+     * detail paths, so no N+1) and falls back to a single existence check when
+     * the resource is rendered without that annotation (e.g. nested resources).
+     */
+    private function viewerHasApplied(string $viewerId): bool
+    {
+        $model = $this->resource;
+
+        if (array_key_exists('has_applied', $model->getAttributes())) {
+            return (bool) $model->getAttribute('has_applied');
+        }
+
         return Application::query()
             ->where('kolab_id', $this->id)
-            ->where('applicant_profile_id', $viewer->id)
+            ->where('applicant_profile_id', $viewerId)
             ->exists();
     }
 
