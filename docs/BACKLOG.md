@@ -1,6 +1,6 @@
 # Kolabing — Pre-launch Backlog
 
-**Last updated:** 2026-06-30
+**Last updated:** 2026-07-12
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical.
 
 A consolidated punch list of everything we've identified but haven't shipped. Items are tagged by **owner** (`backend` = kolabing-v2, `app` = kolabing-app, `cross` = both, `infra` = hosting) and **priority** (`P0` = blocker for launch, `P1` = needed soon after, `P2` = nice-to-have).
@@ -249,6 +249,24 @@ From [docs/ROLES-BACKEND-DB-MAP.md](ROLES-BACKEND-DB-MAP.md) §8 — still-open 
 
 **Incomplete (in flight):**
 - [ ] `kolabing-app`: implement the 8 frontend tasks (Goal step, offer-first Offering reorder, dynamic best-fit-community/venue-fit/product-interaction chips, Past Events relabel + highlights, immediate availability mode, media defaulting, review restyle). Owner: **app**.
+
+---
+
+## 12. Database performance & indexing
+
+**Status:** Indexing shipped (#72, `perf/db-scalability-indexes`) — 37 previously-unindexed foreign keys + hot-path composite/partial indexes (`kolabs(status,published_at)`, `attendee_profiles(total_points)`, `community_members(community_id,status)`, `community_points(community_id,points)`, `challenge_completions(event_id,status)`, `collaboration_reviews(reviewed_profile_id,rating,created_at)`, partial `chat_messages(...) WHERE read_at IS NULL`). Live catalog shows 0 unindexed FKs remaining. Sufficient for the ~5k-user target at the DB layer. The items below are **algorithmic** issues an index cannot fix, surfaced by the same audit.
+
+**P1 — needed before ~50k users:**
+- [ ] `KolabResource::negotiation_triggers` fires a per-row `Application::exists()` on the browse feed → pre-annotate via `withExists` in `KolabService::browse()`. Owner: **backend**.
+- [ ] `ChatService::visibleThreads` is unpaginated (fetches all threads, sorts in PHP) → paginate / order in SQL. Owner: **backend**.
+- [ ] Leaderboards (`getCommunityPointsLeaderboard`, global) hydrate all members then sort in PHP → move ranking + LIMIT into SQL. Owner: **backend**.
+- [ ] `PublicProfileResource` runs ~7 uncached queries per profile view (reputation window fn + double `completed_kolabs_count`) → cache or denormalise `reputation` / `completed_kolabs_count` onto `profiles`. Owner: **backend**.
+- [ ] `/me/dashboard` fires 4–5 live aggregate queries uncached → short-TTL cache. Owner: **backend**.
+- [ ] `/me/rewards-overview` N+1 (2 queries per active membership) → batch with `whereIn`. Owner: **backend**.
+
+**P2 — 100k+ scale:**
+- [ ] Event discovery Haversine (Postgres path) full-scans and recomputes trig per row with no bounding box → add a bounding-box prefilter or PostGIS / `cube`+GiST index. Owner: **backend**.
+- [ ] Move cache / queue / session drivers to Redis; enable Reverb so chat unread polling is replaced by push; add a read replica for read-heavy aggregates. Owner: **infra**.
 
 ---
 
