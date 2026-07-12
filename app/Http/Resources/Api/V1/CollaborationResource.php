@@ -37,6 +37,14 @@ class CollaborationResource extends JsonResource
     private ?array $pendingCompletionMemo = null;
 
     /**
+     * Per-instance memo of the review rows for the has_reviewed check, used
+     * only on the fallback (un-eager-loaded) path.
+     *
+     * @var \Illuminate\Support\Collection<int, CollaborationReview>|null
+     */
+    private ?\Illuminate\Support\Collection $reviewRowsMemo = null;
+
+    /**
      * Indicates if the resource should include application details.
      */
     protected bool $includeApplication = true;
@@ -180,10 +188,7 @@ class CollaborationResource extends JsonResource
             ]),
             'has_reviewed' => $this->when(
                 $currentProfile !== null && $this->isCompleted(),
-                fn () => CollaborationReview::query()
-                    ->where('collaboration_id', $this->id)
-                    ->where('reviewer_profile_id', $currentProfile->id)
-                    ->exists()
+                fn () => $this->hasReviewedBy($currentProfile->id)
             ),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
@@ -368,6 +373,24 @@ class CollaborationResource extends JsonResource
         return $this->completionRowsMemo ??= CollaborationCompletion::query()
             ->where('collaboration_id', $this->id)
             ->get();
+    }
+
+    /**
+     * Whether the given profile has reviewed this collaboration. Prefers the
+     * eager-loaded `reviews` relation (so the list path fires no per-row query),
+     * falling back to a single memoized fetch when the relation is not loaded.
+     */
+    private function hasReviewedBy(string $profileId): bool
+    {
+        $reviews = $this->resource->relationLoaded('reviews')
+            ? $this->resource->reviews
+            : ($this->reviewRowsMemo ??= CollaborationReview::query()
+                ->where('collaboration_id', $this->id)
+                ->get());
+
+        return $reviews->contains(
+            fn (CollaborationReview $review): bool => $review->reviewer_profile_id === $profileId
+        );
     }
 
     /**

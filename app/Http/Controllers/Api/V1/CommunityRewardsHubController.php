@@ -51,14 +51,15 @@ class CommunityRewardsHubController extends Controller
             ->pluck('community_badge_id')
             ->all();
 
-        $goals = $community->goals()->where('is_active', true)->orderByDesc('created_at')->get()
-            ->map(function ($goal) use ($community, $profile): mixed {
-                $progress = $this->pointsService->goalProgress($community, $profile->id, $goal);
-                $goal->setAttribute('progress', $progress);
-                $goal->setAttribute('completed', $progress >= $goal->target);
+        $goalRows = $community->goals()->where('is_active', true)->orderByDesc('created_at')->get();
+        $progressByGoal = $this->pointsService->goalProgressForMany($community, $profile->id, $goalRows);
+        $goals = $goalRows->map(function ($goal) use ($progressByGoal): mixed {
+            $progress = $progressByGoal[$goal->id] ?? 0;
+            $goal->setAttribute('progress', $progress);
+            $goal->setAttribute('completed', $progress >= $goal->target);
 
-                return $goal;
-            });
+            return $goal;
+        });
 
         $badges = $community->badges()->where('is_active', true)->orderByDesc('created_at')->get()
             ->map(function ($badge) use ($earnedBadgeIds): mixed {
