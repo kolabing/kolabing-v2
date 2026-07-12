@@ -381,6 +381,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $login = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'logout-refresh@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -424,6 +425,7 @@ class AuthControllerTest extends TestCase
     public function test_register_business_requires_email(): void
     {
         $response = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'name' => 'Test Business',
@@ -446,6 +448,7 @@ class AuthControllerTest extends TestCase
         $existingProfile = Profile::factory()->create(['email' => 'existing@example.com']);
 
         $response = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'existing@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -464,6 +467,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $response = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'test@example.com',
             'password' => 'short',
             'password_confirmation' => 'short',
@@ -486,6 +490,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $response = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'test@example.com',
             'password' => 'password123',
             'password_confirmation' => 'different',
@@ -508,6 +513,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $response = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'test@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -528,6 +534,7 @@ class AuthControllerTest extends TestCase
     public function test_register_business_validates_city_exists(): void
     {
         $response = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'test@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -550,6 +557,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $response = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'newbusiness@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -638,6 +646,7 @@ class AuthControllerTest extends TestCase
         $cityB = City::factory()->create(['name' => 'Valencia', 'country' => 'Spain']);
 
         $response = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'productbiz@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -680,6 +689,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create(['name' => 'Madrid', 'country' => 'Spain']);
 
         $response = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'producttype@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -713,6 +723,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create(['name' => 'Madrid', 'country' => 'Spain']);
 
         $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'defaultpt@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -735,6 +746,7 @@ class AuthControllerTest extends TestCase
     public function test_register_product_business_requires_city_when_no_venue(): void
     {
         $response = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'nocity@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -759,6 +771,7 @@ class AuthControllerTest extends TestCase
         ]);
 
         $response = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'venuebusiness@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -809,6 +822,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $response = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'invalidvenue@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -834,6 +848,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $response = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'invalid-photo@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -862,6 +877,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $response = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'multicategory@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -893,6 +909,7 @@ class AuthControllerTest extends TestCase
     public function test_register_community_requires_email(): void
     {
         $response = $this->postJson('/api/v1/auth/register/community', [
+            'accepted_terms' => true,
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'name' => 'Test Community',
@@ -914,6 +931,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $response = $this->postJson('/api/v1/auth/register/community', [
+            'accepted_terms' => true,
             'email' => 'test@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -936,6 +954,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $response = $this->postJson('/api/v1/auth/register/community', [
+            'accepted_terms' => true,
             'email' => 'sizedcommunity@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -960,6 +979,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $response = $this->postJson('/api/v1/auth/register/community', [
+            'accepted_terms' => true,
             'email' => 'newcommunity@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -1108,6 +1128,7 @@ class AuthControllerTest extends TestCase
 
         // Create a user with email/password registration
         $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'passworduser@example.com',
             'password' => 'correctpassword',
             'password_confirmation' => 'correctpassword',
@@ -1141,6 +1162,7 @@ class AuthControllerTest extends TestCase
 
         // Create a user with email/password registration
         $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'validuser@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -1206,6 +1228,7 @@ class AuthControllerTest extends TestCase
 
         // Create a community user with email/password registration
         $this->postJson('/api/v1/auth/register/community', [
+            'accepted_terms' => true,
             'email' => 'communityuser@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -1247,6 +1270,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'rotating-login@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -1310,6 +1334,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $login = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'refreshable@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -1377,6 +1402,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'fresh-login@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -1431,6 +1457,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $this->postJson('/api/v1/auth/register/community', [
+            'accepted_terms' => true,
             'email' => 'autocomm@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -1455,6 +1482,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'autoprodbiz@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -1484,6 +1512,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'autovenuebiz@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -1520,6 +1549,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $register = $this->postJson('/api/v1/auth/register/community', [
+            'accepted_terms' => true,
             'email' => 'idemcomm@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -1551,6 +1581,7 @@ class AuthControllerTest extends TestCase
         $city = City::factory()->create();
 
         $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'idembiz@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',

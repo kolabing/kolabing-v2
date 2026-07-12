@@ -33,6 +33,8 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string|null $device_token
  * @property string|null $device_platform
  * @property string|null $preferred_locale
+ * @property \Illuminate\Support\Carbon|null $terms_accepted_at
+ * @property string|null $terms_version
  * @property \Illuminate\Support\Carbon|null $email_verified_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -99,6 +101,8 @@ class Profile extends Authenticatable
         'preferred_locale',
         'last_active_at',
         'analytics_opt_out',
+        'terms_accepted_at',
+        'terms_version',
     ];
 
     /**
@@ -130,6 +134,7 @@ class Profile extends Authenticatable
             'last_active_at' => 'datetime',
             'analytics_opt_out' => 'boolean',
             'interests' => 'array',
+            'terms_accepted_at' => 'datetime',
         ];
     }
 
@@ -437,6 +442,16 @@ class Profile extends Authenticatable
         }
 
         return $this->subscription?->isActive() ?? false;
+    }
+
+    /**
+     * Determine whether the user still needs to accept the current published
+     * version of the Terms of Service + Privacy Policy. True when they have
+     * never accepted, or accepted an older version than the one in effect.
+     */
+    public function needsTermsAcceptance(): bool
+    {
+        return $this->terms_version !== (string) config('legal.terms_version');
     }
 
     /**

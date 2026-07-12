@@ -1,5 +1,12 @@
+@props([
+    'title',
+    'description',
+    'canonical',
+    'locale' => 'en',
+    'alternates' => null,
+])
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ $locale }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +14,11 @@
     <meta name="description" content="{{ $description }}">
     <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
     <link rel="canonical" href="{{ $canonical }}">
+    @isset($alternates)
+        @foreach ($alternates as $alternate)
+            <link rel="alternate" hreflang="{{ $alternate['hreflang'] }}" href="{{ $alternate['href'] }}">
+        @endforeach
+    @endisset
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Kolabing">
     <meta property="og:title" content="{{ $title }} | Kolabing">

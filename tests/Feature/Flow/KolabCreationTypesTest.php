@@ -173,6 +173,7 @@ class KolabCreationTypesTest extends TestCase
     private function registerCommunity(): string
     {
         $response = $this->postJson('/api/v1/auth/register/community', [
+            'accepted_terms' => true,
             'email' => 'types.community@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -188,6 +189,7 @@ class KolabCreationTypesTest extends TestCase
     private function registerBusinessProductOnly(): string
     {
         $response = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'types.product@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -206,6 +208,7 @@ class KolabCreationTypesTest extends TestCase
         $city = City::query()->firstOrFail();
 
         $response = $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'types.venue@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',

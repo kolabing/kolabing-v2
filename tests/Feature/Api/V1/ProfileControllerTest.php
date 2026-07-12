@@ -601,6 +601,7 @@ class ProfileControllerTest extends TestCase
 
         // Register a user
         $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'deleteme@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',

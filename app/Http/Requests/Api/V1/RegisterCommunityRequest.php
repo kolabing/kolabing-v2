@@ -58,6 +58,7 @@ class RegisterCommunityRequest extends FormRequest
         return [
             'email' => ['required', 'email', 'max:255', 'unique:profiles,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'accepted_terms' => ['required', 'accepted'],
             'name' => ['required', 'string', 'max:255'],
             'about' => ['nullable', 'string', 'max:1000'],
             // Source of truth: community_types table (admin-managed). Constant retired.
@@ -88,6 +89,8 @@ class RegisterCommunityRequest extends FormRequest
             'password.required' => __('The password field is required'),
             'password.min' => __('The password must be at least 8 characters'),
             'password.confirmed' => __('The password confirmation does not match'),
+            'accepted_terms.required' => __('You must accept the Terms of Service and Privacy Policy'),
+            'accepted_terms.accepted' => __('You must accept the Terms of Service and Privacy Policy'),
             'name.required' => __('The name field is required'),
             'name.max' => __('The name must not exceed 255 characters'),
             'about.max' => __('The about description must not exceed 1000 characters'),

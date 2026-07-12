@@ -1,6 +1,6 @@
 # Kolabing — Pre-launch Backlog
 
-**Last updated:** 2026-07-12 (query-audit N+1 sweep — §12)
+**Last updated:** 2026-07-12 (legal: bilingual Terms/Privacy (EN + `/es`) with full GDPR/LOPDGDD copy + mobile consent tracking — §4. Prior: query-audit N+1 sweep — §12)
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical.
 
 A consolidated punch list of everything we've identified but haven't shipped. Items are tagged by **owner** (`backend` = kolabing-v2, `app` = kolabing-app, `cross` = both, `infra` = hosting) and **priority** (`P0` = blocker for launch, `P1` = needed soon after, `P2` = nice-to-have).
@@ -128,10 +128,11 @@ Builds on §3.2. Add a public-facing flow:
 - `routes/web.php`: `/`, `/for-businesses`, `/for-communities`, `/support`, `/careers`, `/privacy`, `/terms`, `/reset-password` (password reset form + handler), plus the `/sitemap.xml` + `/llms.txt` + `/.well-known/security.txt` helpers.
 - `welcome.blade.php` — 1582-line custom-CSS hero (separate from the Tailwind-CDN layout used by other pages). 7 sections: hero, manifesto, reveal, how-it-works, examples, FAQ, final CTA, footer. Real case-study imagery. Mobile responsive at 900 / 540 breakpoints.
 - `for-businesses` / `for-communities` use the Tailwind-CDN `marketing-page` layout.
-- Legal pages exist with proper copy.
+- Legal pages (`/terms`, `/privacy`) now carry full GDPR/LOPDGDD copy in **English + Spanish** (`/es/terms`, `/es/privacy`) with `hreflang` alternates + per-page language toggle; the `welcome.blade.php` footer legal links were wired (were `href="#"`). Data-controller identity uses `[COMPANY NAME]`/`[REGISTERED ADDRESS]` placeholders to fill in one pass.
 
 **Fixes:**
 - ~~`/reset-password` 404'd — the password-reset email links to `{APP_URL}/reset-password?token=&email=` (`AppServiceProvider`) but no web route/page existed. Added GET form + POST handler (`PasswordResetPageController`) on the marketing layout, posting through `AuthService::resetPassword`. (2026-06-21, tested)~~
+- [x] ~~**Legal agreements + mobile consent tracking** — `/terms` + `/privacy` rewritten with full GDPR/LOPDGDD copy (data-controller placeholders) + Spanish `/es/*` mirrors + `hreflang`; footer legal links wired. Consent recorded per profile (`profiles.terms_accepted_at`/`terms_version` vs `config('legal.terms_version')`); `accepted_terms` (`required|accepted`) enforced on all `register/*` endpoints; OAuth signups stamped in `AuthService::consentStamp()`; `GET /auth/me` returns a `terms` re-consent block; `POST /me/consent` (`ConsentController`) re-accepts. App flow: `docs/mobile-consent-flow.md`. Mirror the app-side flow in `kolabing-app`. (2026-07-12, tested)~~
 
 **P0 — landing-page must-fixes before any traffic push:**
 - [ ] **All primary CTAs are broken** (`href="#"`):
