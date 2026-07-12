@@ -53,6 +53,7 @@ class RealUserKolabFlowTest extends TestCase
 
         // 1. Business registers (product path — no venue) and gets a bearer token.
         $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'flow.business@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -106,6 +107,7 @@ class RealUserKolabFlowTest extends TestCase
 
         // 5. A different community account registers and gets its own token.
         $registerCommunity = $this->postJson('/api/v1/auth/register/community', [
+            'accepted_terms' => true,
             'email' => 'flow.community@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',

@@ -20,6 +20,7 @@ class AttendeeRegistrationTest extends TestCase
             'email' => 'attendee@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
+            'accepted_terms' => true,
         ]);
 
         $response->assertStatus(201)
@@ -37,6 +38,7 @@ class AttendeeRegistrationTest extends TestCase
             'email' => 'attendee@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
+            'accepted_terms' => true,
         ]);
 
         $profile = Profile::query()->where('email', 'attendee@example.com')->first();

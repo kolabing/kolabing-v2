@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\CommunityMemberController;
 use App\Http\Controllers\Api\V1\CommunityRewardController;
 use App\Http\Controllers\Api\V1\CommunityRewardsHubController;
 use App\Http\Controllers\Api\V1\CommunityTierController;
+use App\Http\Controllers\Api\V1\ConsentController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\DiscoveryOpportunityController;
@@ -173,6 +174,11 @@ Route::prefix('v1')->group(function (): void {
 
         Route::post('auth/logout', [AuthController::class, 'logout'])
             ->name('api.v1.auth.logout');
+
+        // Record acceptance of the current Terms of Service + Privacy Policy
+        // version (re-consent when the published terms change).
+        Route::post('me/consent', [ConsentController::class, 'store'])
+            ->name('api.v1.me.consent');
 
         // Onboarding - Business only
         Route::put('onboarding/business', [OnboardingController::class, 'business'])

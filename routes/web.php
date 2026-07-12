@@ -162,6 +162,8 @@ Route::view('/support', 'pages.support')->name('support');
 Route::view('/careers', 'pages.careers')->name('careers');
 Route::view('/privacy', 'pages.privacy')->name('privacy');
 Route::view('/terms', 'pages.terms')->name('terms');
+Route::view('/es/privacy', 'pages.es.privacy')->name('privacy.es');
+Route::view('/es/terms', 'pages.es.terms')->name('terms.es');
 
 Route::get('/sitemap.xml', function () {
     $urls = [
@@ -172,6 +174,8 @@ Route::get('/sitemap.xml', function () {
         route('careers'),
         route('privacy'),
         route('terms'),
+        route('privacy.es'),
+        route('terms.es'),
     ];
 
     return response()->view('sitemap', [

@@ -29,6 +29,7 @@ class RegisterAttendeeRequest extends FormRequest
         return [
             'email' => ['required', 'email', 'max:255', 'unique:profiles,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'accepted_terms' => ['required', 'accepted'],
         ];
     }
 
@@ -46,6 +47,8 @@ class RegisterAttendeeRequest extends FormRequest
             'password.required' => __('Password is required.'),
             'password.min' => __('Password must be at least 8 characters.'),
             'password.confirmed' => __('Password confirmation does not match.'),
+            'accepted_terms.required' => __('You must accept the Terms of Service and Privacy Policy.'),
+            'accepted_terms.accepted' => __('You must accept the Terms of Service and Privacy Policy.'),
         ];
     }
 

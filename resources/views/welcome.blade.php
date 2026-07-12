@@ -1580,10 +1580,10 @@ COMMUNITIES GET PERKS.</div>
       <img class="logo-mark logo-mark--footer" src="/brand/logo-mark.svg" alt="kolabing"/>
     </div>
     <div class="footer-links">
-      <a href="#">terms</a>
-      <a href="#">privacy</a>
-      <a href="#">support</a>
-      <a href="#">careers</a>
+      <a href="{{ route('terms') }}">terms</a>
+      <a href="{{ route('privacy') }}">privacy</a>
+      <a href="{{ route('support') }}">support</a>
+      <a href="{{ route('careers') }}">careers</a>
     </div>
   </div>
   <p class="footer-copy">

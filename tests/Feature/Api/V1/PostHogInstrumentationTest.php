@@ -33,6 +33,7 @@ class PostHogInstrumentationTest extends TestCase
         Queue::fake();
 
         $response = $this->postJson('/api/v1/auth/register/attendee', [
+            'accepted_terms' => true,
             'email' => 'attendee@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',

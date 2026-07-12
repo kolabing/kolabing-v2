@@ -34,6 +34,12 @@ class UserResource extends JsonResource
             'email_verified_at' => $this->email_verified_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
+            'terms' => [
+                'current_version' => (string) config('legal.terms_version'),
+                'accepted_version' => $this->terms_version,
+                'accepted_at' => $this->terms_accepted_at?->toIso8601String(),
+                'needs_acceptance' => $this->needsTermsAcceptance(),
+            ],
         ];
 
         // Add extended profile based on user type

@@ -26,6 +26,7 @@ class CommunityVerificationTest extends TestCase
         $city = City::factory()->create();
 
         $response = $this->postJson('/api/v1/auth/register/community', [
+            'accepted_terms' => true,
             'email' => 'verifyme@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -55,6 +56,7 @@ class CommunityVerificationTest extends TestCase
         $city = City::factory()->create();
 
         $response = $this->postJson('/api/v1/auth/register/community', [
+            'accepted_terms' => true,
             'email' => 'bad@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -214,6 +216,7 @@ class CommunityVerificationTest extends TestCase
         $city = City::factory()->create();
 
         $response = $this->postJson('/api/v1/auth/register/community', [
+            'accepted_terms' => true,
             'email' => 'pub@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -241,6 +244,7 @@ class CommunityVerificationTest extends TestCase
         $city = City::factory()->create();
 
         $response = $this->postJson('/api/v1/auth/register/community', [
+            'accepted_terms' => true,
             'email' => 'contact@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -320,6 +324,7 @@ class CommunityVerificationTest extends TestCase
         $city = City::factory()->create();
 
         $response = $this->postJson('/api/v1/auth/register/community', [
+            'accepted_terms' => true,
             'email' => 'empty@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',

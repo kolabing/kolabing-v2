@@ -43,6 +43,7 @@ class SubscriptionPaymentFlowTest extends TestCase
 
         // 1. Business registers (creates an INACTIVE subscription row) and logs in.
         $this->postJson('/api/v1/auth/register/business', [
+            'accepted_terms' => true,
             'email' => 'pay.business@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',

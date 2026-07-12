@@ -171,6 +171,7 @@ class AuthService
                 'user_type' => $userType,
                 'name' => $name,
                 'email_verified_at' => now(),
+                ...$this->consentStamp(),
             ]);
 
             if ($userType === UserType::Business) {
@@ -291,6 +292,7 @@ class AuthService
                 'avatar_url' => $googleUserData['avatar_url'],
                 'user_type' => $userType,
                 'email_verified_at' => $googleUserData['email_verified'] ? now() : null,
+                ...$this->consentStamp(),
             ]);
 
             // Create extended profile based on user type
@@ -404,6 +406,7 @@ class AuthService
                 'password' => $profileData['password'],
                 'phone_number' => $profileData['phone_number'],
                 'user_type' => UserType::Business,
+                ...$this->consentStamp(),
             ]);
 
             $profilePhotoUrl = $this->handleProfilePhoto(
@@ -499,6 +502,21 @@ class AuthService
     }
 
     /**
+     * The consent stamp recorded on every account created through the app's
+     * sign-up / registration flows — the Terms/Privacy version in effect and
+     * the moment the user accepted it during onboarding.
+     *
+     * @return array{terms_accepted_at: \Illuminate\Support\Carbon, terms_version: string}
+     */
+    private function consentStamp(): array
+    {
+        return [
+            'terms_accepted_at' => now(),
+            'terms_version' => (string) config('legal.terms_version'),
+        ];
+    }
+
+    /**
      * Register a new community user with email and password.
      *
      * @param  ProfileData  $profileData
@@ -514,6 +532,7 @@ class AuthService
                 'password' => $profileData['password'],
                 'phone_number' => $profileData['phone_number'],
                 'user_type' => UserType::Community,
+                ...$this->consentStamp(),
             ]);
 
             // Create community profile with all data
@@ -569,6 +588,7 @@ class AuthService
                 'email' => $data['email'],
                 'password' => $data['password'],
                 'user_type' => UserType::Attendee,
+                ...$this->consentStamp(),
             ]);
 
             AttendeeProfile::query()->create([
