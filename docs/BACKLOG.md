@@ -1,6 +1,6 @@
 # Kolabing — Pre-launch Backlog
 
-**Last updated:** 2026-07-12 (profile reputation cache — §12)
+**Last updated:** 2026-07-12 (rewards-overview N+1 — §12)
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical.
 
 A consolidated punch list of everything we've identified but haven't shipped. Items are tagged by **owner** (`backend` = kolabing-v2, `app` = kolabing-app, `cross` = both, `infra` = hosting) and **priority** (`P0` = blocker for launch, `P1` = needed soon after, `P2` = nice-to-have).
@@ -262,7 +262,7 @@ From [docs/ROLES-BACKEND-DB-MAP.md](ROLES-BACKEND-DB-MAP.md) §8 — still-open 
 - [ ] Leaderboards (`getCommunityPointsLeaderboard`, global) hydrate all members then sort in PHP → move ranking + LIMIT into SQL. Owner: **backend**.
 - [x] `PublicProfileResource` runs ~7 uncached queries per profile view (reputation window fn + double `completed_kolabs_count`) → cache or denormalise `reputation` / `completed_kolabs_count` onto `profiles`. **Shipped 2026-07-12 (#76):** `ProfileService::getReputationSummary()` cached per profile (`profile:reputation:{id}`, 24h backstop TTL) and busted by `CollaborationReviewObserver` (reviews received) + `CollaborationObserver` (completed-status changes) so it is always fresh; the duplicate `completed_kolabs_count` COUNT removed (resource reads it from the single cached summary). Owner: **backend**.
 - [ ] `/me/dashboard` fires 4–5 live aggregate queries uncached → short-TTL cache. Owner: **backend**.
-- [ ] `/me/rewards-overview` N+1 (2 queries per active membership) → batch with `whereIn`. Owner: **backend**.
+- [x] `/me/rewards-overview` N+1 (2 queries per active membership) → batch with `whereIn`. **Shipped 2026-07-12 (#78):** extracted `CommunityMembershipHydrator` (shared with `/me/memberships`) to bulk-resolve the viewer-scoped `CommunityResource` fields, and eager-loaded `community.rewards` + `community.communityProfile`; reward affordability reuses the hydrator's points map. Query count is now constant regardless of membership count. Owner: **backend**.
 
 **P2 — 100k+ scale:**
 - [ ] Event discovery Haversine (Postgres path) full-scans and recomputes trig per row with no bounding box → add a bounding-box prefilter or PostGIS / `cube`+GiST index. Owner: **backend**.
