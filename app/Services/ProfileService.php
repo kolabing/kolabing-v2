@@ -249,12 +249,15 @@ class ProfileService
         // Inner subquery: rank each review per reviewer (within this reviewed
         // profile) by created_at ASC. reviewed_profile_id is fixed in the WHERE
         // so partitioning by reviewer_profile_id alone gives pair-level ranking.
+        // The id ASC tiebreaker keeps the ranking deterministic when two reviews
+        // share a created_at (uuid7 ids are time-ordered), so the per-pair cap
+        // always keeps the genuinely earliest reviews regardless of index/scan order.
         $inner = CollaborationReview::query()
             ->where('reviewed_profile_id', $profile->id)
             ->whereNotNull('rating')
             ->whereHas('collaboration', fn ($q) => $q->where('status', CollaborationStatus::Completed))
             ->selectRaw(
-                '*, ROW_NUMBER() OVER (PARTITION BY reviewer_profile_id ORDER BY created_at ASC) AS pair_review_rank'
+                '*, ROW_NUMBER() OVER (PARTITION BY reviewer_profile_id ORDER BY created_at ASC, id ASC) AS pair_review_rank'
             )
             ->toBase();
 
