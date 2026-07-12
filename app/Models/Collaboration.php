@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\CollaborationStatus;
+use App\Observers\CollaborationObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -38,6 +40,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Challenge> $challenges
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CollaborationReview> $reviews
  */
+#[ObservedBy([CollaborationObserver::class])]
 class Collaboration extends Model
 {
     use HasFactory;

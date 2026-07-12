@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Observers\CollaborationReviewObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -34,6 +36,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read Profile $reviewer
  * @property-read Profile $reviewed
  */
+#[ObservedBy([CollaborationReviewObserver::class])]
 class CollaborationReview extends Model
 {
     use HasFactory;
