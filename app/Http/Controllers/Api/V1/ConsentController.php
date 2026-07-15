@@ -6,11 +6,14 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Profile;
+use App\Services\Admin\CompanySettingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ConsentController extends Controller
 {
+    public function __construct(private readonly CompanySettingService $companySettings) {}
+
     /**
      * Record the authenticated user's acceptance of the current Terms of
      * Service + Privacy Policy version. Used by the app to clear the
@@ -23,7 +26,7 @@ class ConsentController extends Controller
         /** @var Profile $profile */
         $profile = $request->user();
 
-        $version = (string) config('legal.terms_version');
+        $version = $this->companySettings->termsVersion();
 
         $profile->update([
             'terms_accepted_at' => now(),

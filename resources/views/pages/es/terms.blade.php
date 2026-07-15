@@ -13,12 +13,12 @@
 <x-layouts.marketing-page :title="$title" :description="$description" :canonical="$canonical" :locale="$locale" :alternates="$alternates">
     <section class="mx-auto max-w-4xl px-6 py-20">
         <div class="flex items-center justify-between gap-4">
-            <p class="text-sm text-off-black/50">Última actualización: 12 de julio de 2026</p>
+            <p class="text-sm text-off-black/50">Última actualización: {{ $company->effectiveDateLabel($locale) }}</p>
             <p class="text-sm font-semibold"><span>Español</span> <span class="text-off-black/30">·</span> <a href="{{ route('terms') }}" class="text-off-black/60 underline hover:text-off-black">English</a></p>
         </div>
         <h1 class="mt-4 font-montserrat text-4xl font-black uppercase md:text-5xl">Términos del Servicio</h1>
         <div class="prose prose-lg mt-8 max-w-none prose-headings:font-montserrat prose-headings:uppercase prose-a:text-off-black">
-            <p>Te damos la bienvenida a Kolabing. Estos Términos del Servicio ("Términos") constituyen un acuerdo legal entre tú y [COMPANY NAME] ("Kolabing", "nosotros" o "nuestro"), operador de la plataforma Kolabing, sus aplicaciones móviles y servicios relacionados (en conjunto, el "Servicio"). Léelos con atención. Al crear una cuenta o usar el Servicio, aceptas quedar vinculado por estos Términos.</p>
+            <p>Te damos la bienvenida a Kolabing. Estos Términos del Servicio ("Términos") constituyen un acuerdo legal entre tú y {{ $company->legal_name }} ("Kolabing", "nosotros" o "nuestro"), operador de la plataforma Kolabing, sus aplicaciones móviles y servicios relacionados (en conjunto, el "Servicio"). Léelos con atención. Al crear una cuenta o usar el Servicio, aceptas quedar vinculado por estos Términos.</p>
 
             <h2>1. Aceptación y elegibilidad</h2>
             <p>Al acceder o usar el Servicio, confirmas que has leído, comprendido y aceptas estos Términos y nuestra Política de Privacidad. Si no estás de acuerdo, no uses el Servicio.</p>
@@ -39,7 +39,7 @@
                 <li>Proporcionar información veraz, actual y completa, y mantenerla actualizada.</li>
                 <li>Mantener la confidencialidad de tus credenciales y no compartir tu cuenta.</li>
                 <li>Ser responsable de toda la actividad que ocurra bajo tu cuenta.</li>
-                <li>Notificarnos de inmediato en <a href="mailto:support@kolabing.com">support@kolabing.com</a> si sospechas de un uso no autorizado de tu cuenta.</li>
+                <li>Notificarnos de inmediato en <a href="mailto:{{ $company->support_email }}">{{ $company->support_email }}</a> si sospechas de un uso no autorizado de tu cuenta.</li>
             </ul>
             <p>Eres responsable de mantener la seguridad de tu cuenta y de tu dispositivo. No somos responsables de ninguna pérdida derivada de que no protejas tus credenciales.</p>
 
@@ -49,7 +49,7 @@
                 <li><strong>Facturación y renovación.</strong> Las suscripciones de negocio se facturan mensualmente y se renuevan automáticamente al final de cada periodo de facturación hasta su cancelación.</li>
                 <li><strong>Cancelación.</strong> Puedes cancelar tu suscripción en cualquier momento. La cancelación surte efecto al final del periodo de facturación en curso, y mantendrás el acceso a las funciones de pago hasta entonces.</li>
                 <li><strong>Cambios de precio.</strong> Podemos modificar los precios de la suscripción. Te avisaremos con una antelación razonable y cualquier cambio se aplicará a partir de tu siguiente periodo de facturación.</li>
-                <li><strong>Reembolsos.</strong> [REFUND POLICY]. Salvo cuando lo exija la legislación de consumo española y de la UE aplicable, las cuotas de suscripción no son reembolsables.</li>
+                <li><strong>Reembolsos.</strong> {{ $company->refund_policy }}. Salvo cuando lo exija la legislación de consumo española y de la UE aplicable, las cuotas de suscripción no son reembolsables.</li>
                 <li><strong>Impuestos.</strong> Los precios pueden mostrarse con o sin los impuestos aplicables (como el IVA), según se indique en el proceso de pago.</li>
             </ul>
 
@@ -101,10 +101,10 @@
             <h2>16. Contacto</h2>
             <p>Si tienes cualquier pregunta sobre estos Términos, contáctanos:</p>
             <ul>
-                <li><strong>[COMPANY NAME]</strong></li>
-                <li>Domicilio social: [REGISTERED ADDRESS]</li>
-                <li>Número de registro mercantil / NIF: [COMPANY REG NUMBER / NIF]</li>
-                <li>Soporte: <a href="mailto:support@kolabing.com">support@kolabing.com</a></li>
+                <li><strong>{{ $company->legal_name }}</strong></li>
+                <li>Domicilio social: {{ $company->registered_address }}</li>
+                <li>Número de registro mercantil / NIF: {{ $company->registration_number }}</li>
+                <li>Soporte: <a href="mailto:{{ $company->support_email }}">{{ $company->support_email }}</a></li>
             </ul>
         </div>
     </section>

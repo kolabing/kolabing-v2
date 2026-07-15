@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Api\V1;
 
 use App\Models\Profile;
+use App\Services\Admin\CompanySettingService;
 use App\Services\GoogleAuthService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Mockery\MockInterface;
@@ -93,7 +94,7 @@ class TermsConsentTest extends TestCase
     {
         $token = $this->registerAttendee()->json('data.token');
 
-        config()->set('legal.terms_version', '2099-01-01');
+        app(CompanySettingService::class)->update(['terms_version' => '2099-01-01']);
 
         $this->withToken($token)->getJson('/api/v1/auth/me')
             ->assertOk()
@@ -105,7 +106,7 @@ class TermsConsentTest extends TestCase
     {
         $token = $this->registerAttendee()->json('data.token');
 
-        config()->set('legal.terms_version', '2099-01-01');
+        app(CompanySettingService::class)->update(['terms_version' => '2099-01-01']);
 
         $this->withToken($token)->postJson('/api/v1/me/consent')
             ->assertOk()

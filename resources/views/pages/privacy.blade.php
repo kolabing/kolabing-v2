@@ -13,7 +13,7 @@
 <x-layouts.marketing-page :title="$title" :description="$description" :canonical="$canonical" :locale="$locale" :alternates="$alternates">
     <section class="mx-auto max-w-4xl px-6 py-20">
         <div class="flex items-center justify-between gap-4">
-            <p class="text-sm text-off-black/50">Last updated: 12 July 2026</p>
+            <p class="text-sm text-off-black/50">Last updated: {{ $company->effectiveDateLabel($locale) }}</p>
             <p class="text-sm font-semibold"><span>English</span> <span class="text-off-black/30">·</span> <a href="{{ route('privacy.es') }}" class="text-off-black/60 underline hover:text-off-black">Español</a></p>
         </div>
         <h1 class="mt-4 font-montserrat text-4xl font-black uppercase md:text-5xl">Privacy Policy</h1>
@@ -23,10 +23,10 @@
             <h2>1. Who We Are</h2>
             <p>The data controller responsible for your personal data is:</p>
             <ul>
-                <li><strong>[COMPANY NAME]</strong></li>
-                <li>Registered address: [REGISTERED ADDRESS]</li>
-                <li>Company registration / NIF: [COMPANY REG NUMBER / NIF]</li>
-                <li>Privacy contact: <a href="mailto:privacy@kolabing.com">privacy@kolabing.com</a></li>
+                <li><strong>{{ $company->legal_name }}</strong></li>
+                <li>Registered address: {{ $company->registered_address }}</li>
+                <li>Company registration / NIF: {{ $company->registration_number }}</li>
+                <li>Privacy contact: <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a></li>
             </ul>
 
             <h2>2. Information We Collect</h2>
@@ -88,7 +88,7 @@
                 <li><strong>Objection</strong> — object to processing based on our legitimate interests.</li>
                 <li><strong>Withdraw consent</strong> — withdraw any consent you have given, at any time, without affecting prior processing.</li>
             </ul>
-            <p>To exercise your rights, contact us at <a href="mailto:privacy@kolabing.com">privacy@kolabing.com</a>. You also have the right to lodge a complaint with the Spanish supervisory authority, the Agencia Española de Protección de Datos (AEPD), at <a href="https://www.aepd.es">www.aepd.es</a>.</p>
+            <p>To exercise your rights, contact us at <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a>. You also have the right to lodge a complaint with the Spanish supervisory authority, the Agencia Española de Protección de Datos (AEPD), at <a href="https://www.aepd.es">www.aepd.es</a>.</p>
 
             <h2>9. Children</h2>
             <p>The Service is intended only for people aged 18 or older. We do not knowingly collect personal data from anyone under 18. If you believe a person under 18 has provided us with personal data, please contact us so we can delete it.</p>
@@ -102,11 +102,11 @@
             <h2>12. Contact</h2>
             <p>If you have any questions about this Privacy Policy or how we handle your data, please contact us:</p>
             <ul>
-                <li><strong>[COMPANY NAME]</strong></li>
-                <li>Registered address: [REGISTERED ADDRESS]</li>
-                <li>Company registration / NIF: [COMPANY REG NUMBER / NIF]</li>
-                <li>Privacy: <a href="mailto:privacy@kolabing.com">privacy@kolabing.com</a></li>
-                <li>Support: <a href="mailto:support@kolabing.com">support@kolabing.com</a></li>
+                <li><strong>{{ $company->legal_name }}</strong></li>
+                <li>Registered address: {{ $company->registered_address }}</li>
+                <li>Company registration / NIF: {{ $company->registration_number }}</li>
+                <li>Privacy: <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a></li>
+                <li>Support: <a href="mailto:{{ $company->support_email }}">{{ $company->support_email }}</a></li>
             </ul>
         </div>
     </section>

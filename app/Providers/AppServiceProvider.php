@@ -12,9 +12,11 @@ use App\Policies\ApplicationPolicy;
 use App\Policies\CollaborationPolicy;
 use App\Policies\CommunityPolicy;
 use App\Policies\KolabPolicy;
+use App\Services\Admin\CompanySettingService;
 use App\Services\PostmarkClient;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use PostHog\PostHog;
 
@@ -45,6 +47,21 @@ class AppServiceProvider extends ServiceProvider
         $this->registerPolicies();
         $this->initializePostHog();
         $this->configurePasswordReset();
+        $this->shareLegalPageData();
+    }
+
+    /**
+     * Share the admin-managed company / legal details with the public Terms of
+     * Service + Privacy Policy pages so their placeholders render live values.
+     */
+    private function shareLegalPageData(): void
+    {
+        View::composer(
+            ['pages.terms', 'pages.privacy', 'pages.es.terms', 'pages.es.privacy'],
+            function ($view): void {
+                $view->with('company', app(CompanySettingService::class)->current());
+            },
+        );
     }
 
     /**

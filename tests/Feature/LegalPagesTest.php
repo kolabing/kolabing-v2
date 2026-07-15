@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
 class LegalPagesTest extends TestCase
 {
+    use LazilyRefreshDatabase;
+
     public function test_all_legal_pages_render(): void
     {
         foreach (['terms', 'privacy', 'terms.es', 'privacy.es'] as $routeName) {
