@@ -377,6 +377,12 @@ return [
             'icon' => 'fas fa-fw fa-icons',
             'active' => ['admin/icons', 'admin/icons/*'],
         ],
+        [
+            'text' => 'Company / Legal',
+            'route' => 'admin.company-settings.edit',
+            'icon' => 'fas fa-fw fa-building',
+            'active' => ['admin/company-settings'],
+        ],
         ['header' => 'GAMIFICATION'],
         [
             'text' => 'Overview',

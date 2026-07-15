@@ -13,12 +13,12 @@
 <x-layouts.marketing-page :title="$title" :description="$description" :canonical="$canonical" :locale="$locale" :alternates="$alternates">
     <section class="mx-auto max-w-4xl px-6 py-20">
         <div class="flex items-center justify-between gap-4">
-            <p class="text-sm text-off-black/50">Last updated: 12 July 2026</p>
+            <p class="text-sm text-off-black/50">Last updated: {{ $company->effectiveDateLabel($locale) }}</p>
             <p class="text-sm font-semibold"><span>English</span> <span class="text-off-black/30">·</span> <a href="{{ route('terms.es') }}" class="text-off-black/60 underline hover:text-off-black">Español</a></p>
         </div>
         <h1 class="mt-4 font-montserrat text-4xl font-black uppercase md:text-5xl">Terms of Service</h1>
         <div class="prose prose-lg mt-8 max-w-none prose-headings:font-montserrat prose-headings:uppercase prose-a:text-off-black">
-            <p>Welcome to Kolabing. These Terms of Service ("Terms") are a legal agreement between you and [COMPANY NAME] ("Kolabing", "we", "us" or "our"), the operator of the Kolabing platform, mobile applications and related services (together, the "Service"). Please read them carefully. By creating an account or using the Service, you agree to be bound by these Terms.</p>
+            <p>Welcome to Kolabing. These Terms of Service ("Terms") are a legal agreement between you and {{ $company->legal_name }} ("Kolabing", "we", "us" or "our"), the operator of the Kolabing platform, mobile applications and related services (together, the "Service"). Please read them carefully. By creating an account or using the Service, you agree to be bound by these Terms.</p>
 
             <h2>1. Acceptance and Eligibility</h2>
             <p>By accessing or using the Service, you confirm that you have read, understood and agree to these Terms and to our Privacy Policy. If you do not agree, please do not use the Service.</p>
@@ -39,7 +39,7 @@
                 <li>Provide accurate, current and complete information and keep it up to date.</li>
                 <li>Keep your login credentials confidential and not share your account.</li>
                 <li>Be responsible for all activity that happens under your account.</li>
-                <li>Notify us promptly at <a href="mailto:support@kolabing.com">support@kolabing.com</a> if you suspect unauthorised use of your account.</li>
+                <li>Notify us promptly at <a href="mailto:{{ $company->support_email }}">{{ $company->support_email }}</a> if you suspect unauthorised use of your account.</li>
             </ul>
             <p>You are responsible for maintaining the security of your account and your device. We are not liable for any loss arising from your failure to keep your credentials secure.</p>
 
@@ -49,7 +49,7 @@
                 <li><strong>Billing and renewal.</strong> Business subscriptions are billed monthly and renew automatically at the end of each billing period until cancelled.</li>
                 <li><strong>Cancellation.</strong> You can cancel your subscription at any time. Cancellation takes effect at the end of the current billing period, and you will retain access to paid features until then.</li>
                 <li><strong>Price changes.</strong> We may change subscription prices. We will give you reasonable advance notice, and any change will apply from your next billing period.</li>
-                <li><strong>Refunds.</strong> [REFUND POLICY]. Except where required by applicable Spanish and EU consumer law, subscription fees are non-refundable.</li>
+                <li><strong>Refunds.</strong> {{ $company->refund_policy }}. Except where required by applicable Spanish and EU consumer law, subscription fees are non-refundable.</li>
                 <li><strong>Taxes.</strong> Prices may be shown exclusive or inclusive of applicable taxes (such as VAT/IVA), as indicated at checkout.</li>
             </ul>
 
@@ -101,10 +101,10 @@
             <h2>16. Contact</h2>
             <p>If you have any questions about these Terms, please contact us:</p>
             <ul>
-                <li><strong>[COMPANY NAME]</strong></li>
-                <li>Registered address: [REGISTERED ADDRESS]</li>
-                <li>Company registration / NIF: [COMPANY REG NUMBER / NIF]</li>
-                <li>Support: <a href="mailto:support@kolabing.com">support@kolabing.com</a></li>
+                <li><strong>{{ $company->legal_name }}</strong></li>
+                <li>Registered address: {{ $company->registered_address }}</li>
+                <li>Company registration / NIF: {{ $company->registration_number }}</li>
+                <li>Support: <a href="mailto:{{ $company->support_email }}">{{ $company->support_email }}</a></li>
             </ul>
         </div>
     </section>

@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
 use App\Http\Controllers\Admin\ChallengeController as AdminChallengeController;
 use App\Http\Controllers\Admin\ChallengeDefaultsController as AdminChallengeDefaultsController;
 use App\Http\Controllers\Admin\CommunityVerificationController as AdminCommunityVerificationController;
+use App\Http\Controllers\Admin\CompanySettingController as AdminCompanySettingController;
 use App\Http\Controllers\Admin\CrmController as AdminCrmController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\GamificationController as AdminGamificationController;
@@ -62,6 +63,11 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
 
     Route::get('/reviews', [AdminReviewController::class, 'index'])->name('reviews.index');
     Route::post('/reviews/{review}/toggle-comment', [AdminReviewController::class, 'toggleComment'])->name('reviews.toggle-comment');
+
+    // Company / legal details — populate the public Terms + Privacy pages and
+    // the consent version that drives the mobile re-consent gate.
+    Route::get('/company-settings', [AdminCompanySettingController::class, 'edit'])->name('company-settings.edit');
+    Route::put('/company-settings', [AdminCompanySettingController::class, 'update'])->name('company-settings.update');
 
     // CRM (businesses / communities / ambassadors) + Tasks
     Route::get('/crm', [AdminCrmController::class, 'index'])->name('crm.index');

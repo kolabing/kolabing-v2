@@ -35,7 +35,7 @@ class UserResource extends JsonResource
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
             'terms' => [
-                'current_version' => (string) config('legal.terms_version'),
+                'current_version' => app(\App\Services\Admin\CompanySettingService::class)->termsVersion(),
                 'accepted_version' => $this->terms_version,
                 'accepted_at' => $this->terms_accepted_at?->toIso8601String(),
                 'needs_acceptance' => $this->needsTermsAcceptance(),

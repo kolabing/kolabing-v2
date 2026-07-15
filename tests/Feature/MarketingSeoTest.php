@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 class MarketingSeoTest extends TestCase
 {
+    use LazilyRefreshDatabase;
+
     public function test_homepage_renders_the_preview_v5_landing_page(): void
     {
         $response = $this->get('/');

@@ -87,7 +87,8 @@ class AuthService
     public function __construct(
         private readonly BusinessVenueService $businessVenueService,
         private readonly FileUploadService $fileUploadService,
-        private readonly OnboardingService $onboardingService
+        private readonly OnboardingService $onboardingService,
+        private readonly \App\Services\Admin\CompanySettingService $companySettings,
     ) {}
 
     /**
@@ -512,7 +513,7 @@ class AuthService
     {
         return [
             'terms_accepted_at' => now(),
-            'terms_version' => (string) config('legal.terms_version'),
+            'terms_version' => $this->companySettings->termsVersion(),
         ];
     }
 

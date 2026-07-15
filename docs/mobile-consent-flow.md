@@ -19,9 +19,12 @@ Link to the locale matching the user's device language; default to English.
 
 ## Versioning
 
-The current agreement version is a backend constant: `config('legal.terms_version')`
-(date-based, e.g. `2026-07-12`). Bump it whenever the published terms change
-materially. The app never hardcodes the version — it always reads it from `/auth/me`.
+The current agreement version is **managed by maintainers** at
+`/admin/company-settings` (backed by the `company_settings` table; falls back to
+`config('legal.terms_version')` when unset). Bumping it there re-prompts everyone
+whose accepted version no longer matches. The app never hardcodes the version — it
+always reads `terms.current_version` from `/auth/me`, so **no app change is needed
+when the version or company details change**.
 
 ## Sign-up (first consent)
 
@@ -64,7 +67,9 @@ materially. The app never hardcodes the version — it always reads it from `/au
 
 - `profiles.terms_accepted_at` (timestamptz, nullable), `profiles.terms_version`
   (string, nullable).
-- `config/legal.php` → `terms_version`, `contact_email`.
+- `company_settings` (single row) — company/legal identity + `terms_version` +
+  `terms_effective_date`, edited at `/admin/company-settings`. `CompanySettingService`
+  is the version source of truth (`config/legal.php` is the fallback).
 - `POST /api/v1/me/consent` → records acceptance of the current version.
 - `GET /api/v1/auth/me` → adds the `terms` block shown above.
 - `Profile::needsTermsAcceptance()` → `accepted version !== current version`.

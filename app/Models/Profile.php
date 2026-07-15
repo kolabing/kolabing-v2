@@ -451,7 +451,7 @@ class Profile extends Authenticatable
      */
     public function needsTermsAcceptance(): bool
     {
-        return $this->terms_version !== (string) config('legal.terms_version');
+        return $this->terms_version !== app(\App\Services\Admin\CompanySettingService::class)->termsVersion();
     }
 
     /**

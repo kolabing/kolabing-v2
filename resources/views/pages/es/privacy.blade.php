@@ -13,7 +13,7 @@
 <x-layouts.marketing-page :title="$title" :description="$description" :canonical="$canonical" :locale="$locale" :alternates="$alternates">
     <section class="mx-auto max-w-4xl px-6 py-20">
         <div class="flex items-center justify-between gap-4">
-            <p class="text-sm text-off-black/50">Última actualización: 12 de julio de 2026</p>
+            <p class="text-sm text-off-black/50">Última actualización: {{ $company->effectiveDateLabel($locale) }}</p>
             <p class="text-sm font-semibold"><span>Español</span> <span class="text-off-black/30">·</span> <a href="{{ route('privacy') }}" class="text-off-black/60 underline hover:text-off-black">English</a></p>
         </div>
         <h1 class="mt-4 font-montserrat text-4xl font-black uppercase md:text-5xl">Política de Privacidad</h1>
@@ -23,10 +23,10 @@
             <h2>1. Quiénes somos</h2>
             <p>El responsable del tratamiento de tus datos personales es:</p>
             <ul>
-                <li><strong>[COMPANY NAME]</strong></li>
-                <li>Domicilio social: [REGISTERED ADDRESS]</li>
-                <li>Número de registro mercantil / NIF: [COMPANY REG NUMBER / NIF]</li>
-                <li>Contacto de privacidad: <a href="mailto:privacy@kolabing.com">privacy@kolabing.com</a></li>
+                <li><strong>{{ $company->legal_name }}</strong></li>
+                <li>Domicilio social: {{ $company->registered_address }}</li>
+                <li>Número de registro mercantil / NIF: {{ $company->registration_number }}</li>
+                <li>Contacto de privacidad: <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a></li>
             </ul>
 
             <h2>2. Información que recopilamos</h2>
@@ -88,7 +88,7 @@
                 <li><strong>Oposición</strong> — oponerte al tratamiento basado en nuestros intereses legítimos.</li>
                 <li><strong>Retirar el consentimiento</strong> — retirar cualquier consentimiento que hayas otorgado, en cualquier momento, sin que ello afecte al tratamiento previo.</li>
             </ul>
-            <p>Para ejercer tus derechos, contáctanos en <a href="mailto:privacy@kolabing.com">privacy@kolabing.com</a>. También tienes derecho a presentar una reclamación ante la autoridad de control española, la Agencia Española de Protección de Datos (AEPD), en <a href="https://www.aepd.es">www.aepd.es</a>.</p>
+            <p>Para ejercer tus derechos, contáctanos en <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a>. También tienes derecho a presentar una reclamación ante la autoridad de control española, la Agencia Española de Protección de Datos (AEPD), en <a href="https://www.aepd.es">www.aepd.es</a>.</p>
 
             <h2>9. Menores</h2>
             <p>El Servicio está destinado únicamente a personas de 18 años o más. No recopilamos conscientemente datos personales de menores de 18 años. Si crees que un menor de 18 años nos ha facilitado datos personales, contáctanos para que podamos eliminarlos.</p>
@@ -102,11 +102,11 @@
             <h2>12. Contacto</h2>
             <p>Si tienes cualquier pregunta sobre esta Política de Privacidad o sobre cómo tratamos tus datos, contáctanos:</p>
             <ul>
-                <li><strong>[COMPANY NAME]</strong></li>
-                <li>Domicilio social: [REGISTERED ADDRESS]</li>
-                <li>Número de registro mercantil / NIF: [COMPANY REG NUMBER / NIF]</li>
-                <li>Privacidad: <a href="mailto:privacy@kolabing.com">privacy@kolabing.com</a></li>
-                <li>Soporte: <a href="mailto:support@kolabing.com">support@kolabing.com</a></li>
+                <li><strong>{{ $company->legal_name }}</strong></li>
+                <li>Domicilio social: {{ $company->registered_address }}</li>
+                <li>Número de registro mercantil / NIF: {{ $company->registration_number }}</li>
+                <li>Privacidad: <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a></li>
+                <li>Soporte: <a href="mailto:{{ $company->support_email }}">{{ $company->support_email }}</a></li>
             </ul>
         </div>
     </section>
