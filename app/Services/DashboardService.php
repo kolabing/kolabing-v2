@@ -14,6 +14,10 @@ use App\Models\Profile;
 
 class DashboardService
 {
+    public function __construct(
+        private readonly BusinessPartnerStatusService $businessPartnerStatusService,
+    ) {}
+
     /**
      * Get dashboard stats for a business user.
      *
@@ -21,17 +25,137 @@ class DashboardService
      *     opportunities: array{total: int, published: int, draft: int, closed: int},
      *     applications_received: array{total: int, pending: int, accepted: int, declined: int},
      *     collaborations: array{total: int, active: int, upcoming: int, completed: int},
-     *     upcoming_collaborations: \Illuminate\Database\Eloquent\Collection
+     *     upcoming_collaborations: \Illuminate\Database\Eloquent\Collection,
+     *     partner_status: array{status: string, label: string, icon: string, breakdown: array<string, mixed>},
+     *     next_action: array{key: string, title: string, body: string}|null
      * }
      */
     public function getBusinessDashboard(Profile $profile): array
     {
+        $opportunities = $this->getOpportunityStats($profile);
+        $applicationsReceived = $this->getReceivedApplicationStats($profile);
+        $collaborations = $this->getCollaborationStats($profile);
+
         return [
-            'opportunities' => $this->getOpportunityStats($profile),
-            'applications_received' => $this->getReceivedApplicationStats($profile),
-            'collaborations' => $this->getCollaborationStats($profile),
+            'opportunities' => $opportunities,
+            'applications_received' => $applicationsReceived,
+            'collaborations' => $collaborations,
             'upcoming_collaborations' => $this->getUpcomingCollaborations($profile),
+            'partner_status' => $this->getPartnerStatus($profile),
+            'next_action' => $this->getNextAction($profile, $opportunities, $applicationsReceived, $collaborations),
         ];
+    }
+
+    /**
+     * Build the business's partner status block, including the component
+     * breakdown the audit calls for showing transparently to the business itself.
+     *
+     * @return array{status: string, label: string, icon: string, breakdown: array<string, mixed>}
+     */
+    private function getPartnerStatus(Profile $profile): array
+    {
+        $status = $this->businessPartnerStatusService->statusFor($profile);
+        $record = $profile->businessPartnerStatus;
+
+        return [
+            'status' => $status->value,
+            'label' => $status->label(),
+            'icon' => $status->icon(),
+            'breakdown' => [
+                'completed_kolabs' => $record?->completed_kolabs_count ?? 0,
+                'review_count' => $record?->review_count ?? 0,
+                'average_rating' => $record?->average_rating,
+                'repeat_partner_count' => $record?->repeat_partner_count ?? 0,
+            ],
+        ];
+    }
+
+    /**
+     * Single next-best-action for the business dashboard, evaluated as a
+     * priority-ordered rule chain — first match wins.
+     *
+     * @param  array{total: int, published: int, draft: int, closed: int}  $opportunities
+     * @param  array{total: int, pending: int, accepted: int, declined: int}  $applicationsReceived
+     * @param  array{total: int, active: int, upcoming: int, completed: int}  $collaborations
+     * @return array{key: string, title: string, body: string}|null
+     */
+    private function getNextAction(
+        Profile $profile,
+        array $opportunities,
+        array $applicationsReceived,
+        array $collaborations,
+    ): ?array {
+        if (! $this->isProfileComplete($profile)) {
+            return [
+                'key' => 'complete_profile',
+                'title' => 'Complete your profile',
+                'body' => 'A complete profile helps communities trust you and apply with confidence.',
+            ];
+        }
+
+        if ($opportunities['published'] === 0) {
+            return [
+                'key' => 'create_first_offer',
+                'title' => 'Create your first Kolab',
+                'body' => 'Publish an offer so communities can discover and apply to it.',
+            ];
+        }
+
+        if ($applicationsReceived['pending'] > 0) {
+            $count = $applicationsReceived['pending'];
+
+            return [
+                'key' => 'review_pending_applications',
+                'title' => $count === 1 ? 'Review 1 pending application' : "Review {$count} pending applications",
+                'body' => 'A new application is waiting for your review.',
+            ];
+        }
+
+        if ($collaborations['completed'] === 0) {
+            return null;
+        }
+
+        if ($this->hasUnreviewedCompletedCollaboration($profile)) {
+            return [
+                'key' => 'leave_review',
+                'title' => 'Leave your review',
+                'body' => 'Your review helps future partners collaborate with confidence.',
+            ];
+        }
+
+        if ($collaborations['completed'] === 1 && $opportunities['published'] < 2) {
+            return [
+                'key' => 'create_second_offer',
+                'title' => 'Ready for your next Kolab?',
+                'body' => 'Build on the momentum and create your next offer.',
+            ];
+        }
+
+        return null;
+    }
+
+    private function isProfileComplete(Profile $profile): bool
+    {
+        $businessProfile = $profile->businessProfile;
+
+        if ($businessProfile === null) {
+            return false;
+        }
+
+        return filled($businessProfile->name)
+            && filled($businessProfile->about)
+            && filled($businessProfile->business_type)
+            && filled($businessProfile->city_id);
+    }
+
+    private function hasUnreviewedCompletedCollaboration(Profile $profile): bool
+    {
+        return $this->getAllCollaborationsQuery($profile)
+            ->where('status', CollaborationStatus::Completed)
+            ->whereDoesntHave('reviews', function ($query) use ($profile): void {
+                $query->where('reviewer_profile_id', $profile->id);
+            })
+            ->exists();
     }
 
     /**

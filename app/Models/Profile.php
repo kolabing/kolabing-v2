@@ -344,6 +344,16 @@ class Profile extends Authenticatable
     }
 
     /**
+     * Get the business partner status for this profile.
+     *
+     * @return HasOne<BusinessPartnerStatus, $this>
+     */
+    public function businessPartnerStatus(): HasOne
+    {
+        return $this->hasOne(BusinessPartnerStatus::class);
+    }
+
+    /**
      * Get the gamification wallet for this profile.
      *
      * @return HasOne<Wallet, $this>
