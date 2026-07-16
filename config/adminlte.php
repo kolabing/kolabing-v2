@@ -444,6 +444,12 @@ return [
             'icon' => 'fas fa-fw fa-euro-sign',
             'active' => ['admin/gamification/economics', 'admin/gamification/economics/*'],
         ],
+        [
+            'text' => 'Business visibility boost',
+            'route' => 'admin.gamification.business-visibility-boost.edit',
+            'icon' => 'fas fa-fw fa-arrow-trend-up',
+            'active' => ['admin/gamification/business-visibility-boost', 'admin/gamification/business-visibility-boost/*'],
+        ],
     ],
 
     /*

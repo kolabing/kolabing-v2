@@ -11,6 +11,7 @@ use App\Enums\UserType;
 use App\Models\Collaboration;
 use App\Models\Kolab;
 use App\Models\Profile;
+use App\Services\Admin\BusinessVisibilityBoostService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator as LengthAwarePaginatorContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -25,6 +26,7 @@ class DiscoveryOpportunityService
 {
     public function __construct(
         private readonly BusinessPartnerStatusService $businessPartnerStatusService,
+        private readonly BusinessVisibilityBoostService $businessVisibilityBoostService,
     ) {}
 
     /**
@@ -1088,7 +1090,7 @@ class DiscoveryOpportunityService
         }
 
         $tier = $this->businessPartnerStatusService->statusFor($creator);
-        $points = (int) (config("gamification_business.visibility_boost_points.{$tier->value}") ?? 0);
+        $points = $this->businessVisibilityBoostService->pointsForTier($tier->value);
 
         return ['tier' => $tier->value, 'points' => $points];
     }
