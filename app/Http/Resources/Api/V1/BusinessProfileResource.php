@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources\Api\V1;
 
 use App\Models\BusinessProfile;
+use App\Services\BusinessPartnerStatusService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Str;
@@ -52,8 +53,30 @@ class BusinessProfileResource extends JsonResource
             'logo_url' => $logo,
             'primary_venue' => $this->primary_venue,
             'offer_photos' => $this->offer_photos ?? [],
+            'partner_status' => $this->partnerStatusBadge(),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Subtle, public partner status badge — status and label only, no
+     * component breakdown (that stays private to the business's own dashboard).
+     *
+     * @return array{status: string, label: string, icon: string}|null
+     */
+    private function partnerStatusBadge(): ?array
+    {
+        if ($this->profile === null) {
+            return null;
+        }
+
+        $status = app(BusinessPartnerStatusService::class)->statusFor($this->profile);
+
+        return [
+            'status' => $status->value,
+            'label' => $status->label(),
+            'icon' => $status->icon(),
         ];
     }
 

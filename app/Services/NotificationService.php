@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\NotificationType;
+use App\Enums\PartnerStatusTier;
 use App\Jobs\SendPushNotification;
 use App\Models\Application;
 use App\Models\ChallengeCompletion;
 use App\Models\ChatMessage;
 use App\Models\Collaboration;
+use App\Models\Kolab;
 use App\Models\Notification;
 use App\Models\Profile;
 use App\Models\RewardClaim;
@@ -660,6 +662,54 @@ class NotificationService
     private function applicationOpportunity(Application $application): mixed
     {
         return $application->kolab;
+    }
+
+    /**
+     * Notify a business that their Kolab is now live and discoverable.
+     */
+    public function notifyKolabPublished(Kolab $kolab): void
+    {
+        $this->createNotification(
+            recipient: $kolab->creatorProfile,
+            type: NotificationType::KolabPublished,
+            title: 'Your offer is live',
+            body: 'Communities can now discover it and apply. We\'ll let you know when there\'s a match.',
+            targetId: $kolab->id,
+            targetType: 'kolab',
+        );
+    }
+
+    /**
+     * Notify a business their partner status has been upgraded.
+     */
+    public function notifyPartnerStatusUpgraded(Profile $business, PartnerStatusTier $status): void
+    {
+        $body = match ($status) {
+            PartnerStatusTier::ActivePartner => 'You\'re building your reputation as a Kolabing partner.',
+            PartnerStatusTier::TrustedPartner => 'Communities can now see you as a Trusted Partner on Kolabing.',
+            PartnerStatusTier::CommunityFavourite => 'You\'ve reached Community Favourite — the top partner status on Kolabing.',
+            PartnerStatusTier::NewPartner => 'Welcome to Kolabing.',
+        };
+
+        $this->createNotification(
+            recipient: $business,
+            type: NotificationType::PartnerStatusUpgraded,
+            title: "You're now a {$status->label()}",
+            body: $body,
+        );
+    }
+
+    /**
+     * Nudge a subscribed but inactive business back to the platform.
+     */
+    public function notifyReactivation(Profile $business): void
+    {
+        $this->createNotification(
+            recipient: $business,
+            type: NotificationType::ReactivationPrompt,
+            title: 'Ready for your next Kolab?',
+            body: 'Create a new offer or reuse one of your previous ideas.',
+        );
     }
 
     /**

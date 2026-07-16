@@ -25,6 +25,8 @@ class CollaborationService
         private readonly CollaborationCompletionService $completionService,
         private readonly PostHogService $postHog,
         private readonly NotificationService $notificationService,
+        private readonly BusinessPartnerStatusService $businessPartnerStatusService,
+        private readonly NotificationReminderService $notificationReminderService,
     ) {}
 
     /**
@@ -196,6 +198,10 @@ class CollaborationService
             'application',
         ]);
 
+        $this->recalculateBusinessStatus($fresh);
+        $this->notificationReminderService->syncReviewReminder($fresh);
+        $this->notificationReminderService->syncSecondOfferPromptReminder($fresh);
+
         $this->dispatchNotification(fn () => $this->notificationService->notifyCollaborationCompleted(
             $fresh,
             $caller ?? $fresh->creatorProfile,
@@ -231,6 +237,10 @@ class CollaborationService
             'application',
         ]);
 
+        $this->recalculateBusinessStatus($fresh);
+        $this->notificationReminderService->syncReviewReminder($fresh);
+        $this->notificationReminderService->syncSecondOfferPromptReminder($fresh);
+
         $this->dispatchNotification(
             fn () => $this->notificationService->notifyCollaborationCompleted($fresh, null),
         );
@@ -264,6 +274,10 @@ class CollaborationService
             'applicantProfile',
             'application',
         ]);
+
+        $this->recalculateBusinessStatus($fresh);
+        $this->notificationReminderService->syncReviewReminder($fresh);
+        $this->notificationReminderService->syncSecondOfferPromptReminder($fresh);
 
         $this->dispatchNotification(
             fn () => $this->notificationService->notifyCollaborationCompleted($fresh, null),
@@ -487,5 +501,30 @@ class CollaborationService
         }
 
         return null;
+    }
+
+    /**
+     * Recalculate the business side's partner status and announce an upgrade, if any.
+     */
+    private function recalculateBusinessStatus(Collaboration $collaboration): void
+    {
+        $collaboration->loadMissing(['creatorProfile', 'applicantProfile']);
+
+        $businessProfile = match (true) {
+            $collaboration->creatorProfile->isBusiness() => $collaboration->creatorProfile,
+            $collaboration->applicantProfile->isBusiness() => $collaboration->applicantProfile,
+            default => null,
+        };
+
+        if ($businessProfile === null) {
+            return;
+        }
+
+        $previousStatus = $this->businessPartnerStatusService->statusFor($businessProfile);
+        $newStatus = $this->businessPartnerStatusService->recalculate($businessProfile);
+
+        if ($newStatus !== $previousStatus) {
+            $this->notificationService->notifyPartnerStatusUpgraded($businessProfile, $newStatus);
+        }
     }
 }

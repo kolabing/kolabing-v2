@@ -25,6 +25,7 @@ class KolabService
         private readonly NotificationReminderService $notificationReminderService,
         private readonly GamificationWalletService $walletService,
         private readonly MissionService $missionService,
+        private readonly NotificationService $notificationService,
     ) {}
 
     /**
@@ -291,6 +292,10 @@ class KolabService
         $this->notificationReminderService->syncKolabDraftReminder($kolab);
         $this->awardPublishXpOnce($kolab);
         $this->recordPublishMissions($kolab, $creator);
+
+        if ($creator->isBusiness()) {
+            $this->notificationService->notifyKolabPublished($kolab);
+        }
 
         return $kolab;
     }
