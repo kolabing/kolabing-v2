@@ -44,12 +44,12 @@
             <p>You are responsible for maintaining the security of your account and your device. We are not liable for any loss arising from your failure to keep your credentials secure.</p>
 
             <h2>4. Subscriptions and Payments</h2>
-            <p>Certain features are available only to business users through a paid monthly subscription. Payments are processed by our payment provider, <strong>Stripe</strong>. We do not store your full card number.</p>
+            <p>Certain features are available only to business users through a paid monthly subscription. Subscriptions are purchased and billed through your <strong>Apple App Store</strong> account as an in-app purchase; Apple processes the payment and we never receive or store your card details. Billing and renewals are managed by Apple through your Apple ID.</p>
             <ul>
                 <li><strong>Billing and renewal.</strong> Business subscriptions are billed monthly and renew automatically at the end of each billing period until cancelled.</li>
-                <li><strong>Cancellation.</strong> You can cancel your subscription at any time. Cancellation takes effect at the end of the current billing period, and you will retain access to paid features until then.</li>
+                <li><strong>Cancellation.</strong> You can cancel at any time from your Apple ID subscription settings on your device. Cancellation takes effect at the end of the current billing period, and you will retain access to paid features until then.</li>
                 <li><strong>Price changes.</strong> We may change subscription prices. We will give you reasonable advance notice, and any change will apply from your next billing period.</li>
-                <li><strong>Refunds.</strong> {{ $company->refund_policy }}. Except where required by applicable Estonian and EU consumer law, subscription fees are non-refundable.</li>
+                <li><strong>Refunds.</strong> {{ $company->refund_policy }}. Subscriptions purchased through the App Store are subject to Apple's refund process, and refund requests are handled by Apple. Except where required by applicable Estonian and EU consumer law, subscription fees are non-refundable.</li>
                 <li><strong>Taxes.</strong> Prices may be shown exclusive or inclusive of applicable taxes (such as VAT), as indicated at checkout.</li>
             </ul>
 
@@ -78,7 +78,7 @@
             <p>The Service, including its software, design, text, graphics, logos and trademarks (but excluding User Content), is owned by Kolabing or its licensors and is protected by intellectual property laws. We grant you a limited, personal, non-transferable, revocable licence to use the Service for its intended purpose. You may not copy, modify, distribute, sell or create derivative works from any part of the Service without our prior written consent.</p>
 
             <h2>9. Third-Party Services</h2>
-            <p>The Service relies on third-party providers (for example Google and Apple sign-in, Stripe for payments, and push notification services). Your use of those services may be subject to their own terms and policies. We are not responsible for third-party services and do not control them.</p>
+            <p>The Service relies on third-party providers (for example Google and Apple sign-in, the Apple App Store for subscription payments, and push notification services). Your use of those services may be subject to their own terms and policies. We are not responsible for third-party services and do not control them.</p>
 
             <h2>10. Suspension and Termination</h2>
             <p>You may stop using the Service and delete your account at any time. We may suspend or terminate your access to the Service, with or without notice, if you breach these Terms, if we are required to do so by law, or to protect the Service or other users. On termination, the licences you granted to us end (subject to Section 6), and provisions that by their nature should survive (such as disclaimers, limitation of liability and governing law) will continue to apply.</p>

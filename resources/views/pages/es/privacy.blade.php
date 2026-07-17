@@ -37,7 +37,7 @@
                 <li><strong>Datos de ubicación.</strong> Con tu permiso, tratamos tu ubicación aproximada o precisa (latitud y longitud) para mostrarte eventos cercanos y permitir el check-in en eventos.</li>
                 <li><strong>Notificaciones push.</strong> Si activas las notificaciones, tratamos un token push del dispositivo (a través de Firebase Cloud Messaging) y tus preferencias de notificación.</li>
                 <li><strong>Mensajería.</strong> Hilos de chat y mensajes intercambiados entre usuarios dentro de la aplicación.</li>
-                <li><strong>Datos de pago.</strong> Si eres un usuario de negocio con una suscripción mensual, los pagos son procesados por Stripe. No almacenamos el número completo de tu tarjeta; conservamos datos limitados de la transacción y de la suscripción.</li>
+                <li><strong>Datos de pago.</strong> Si eres un usuario de negocio con una suscripción mensual, el pago lo procesa <strong>Apple</strong> a través de tu cuenta de la App Store (compra dentro de la aplicación). No recibimos ni almacenamos los datos de tu tarjeta; conservamos datos limitados del estado de la suscripción e identificadores de transacción proporcionados por Apple.</li>
                 <li><strong>Datos de uso y analítica.</strong> Analítica de producto recopilada a través de PostHog para entender cómo se usa el Servicio y mejorarlo. Puedes optar por no participar en la analítica.</li>
                 <li><strong>Comunicaciones de soporte.</strong> El contenido de cualquier mensaje que nos envíes para obtener soporte.</li>
             </ul>
@@ -64,7 +64,7 @@
             <p>No vendemos tus datos personales. Los compartimos únicamente con proveedores de confianza ("encargados del tratamiento") que los tratan por cuenta nuestra bajo contrato, y cuando lo exige la ley. Entre ellos:</p>
             <ul>
                 <li><strong>Google</strong> y <strong>Apple</strong> — inicio de sesión y autenticación.</li>
-                <li><strong>Stripe</strong> — procesamiento de pagos.</li>
+                <li><strong>Apple</strong> (App Store / compra dentro de la aplicación) — facturación y procesamiento de pagos de la suscripción.</li>
                 <li><strong>Firebase Cloud Messaging</strong> y el <strong>servicio de notificaciones push de Apple</strong> — envío de notificaciones push.</li>
                 <li><strong>Proveedores de alojamiento en la nube</strong> — alojamiento y almacenamiento del Servicio y de sus datos.</li>
                 <li><strong>PostHog</strong> — analítica de producto.</li>
