@@ -60,10 +60,11 @@ class BusinessProfileResource extends JsonResource
     }
 
     /**
-     * Subtle, public partner status badge — status and label only, no
-     * component breakdown (that stays private to the business's own dashboard).
+     * Subtle, public partner status badge. Carries status/label/icon plus a
+     * quiet repeat-partner count (e.g. "2 repeat partnerships") — the rest of
+     * the component breakdown stays private to the business's own dashboard.
      *
-     * @return array{status: string, label: string, icon: string}|null
+     * @return array{status: string, label: string, icon: string, repeat_partner_count: int}|null
      */
     private function partnerStatusBadge(): ?array
     {
@@ -77,6 +78,7 @@ class BusinessProfileResource extends JsonResource
             'status' => $status->value,
             'label' => $status->label(),
             'icon' => $status->icon(),
+            'repeat_partner_count' => $this->profile->businessPartnerStatus?->repeat_partner_count ?? 0,
         ];
     }
 

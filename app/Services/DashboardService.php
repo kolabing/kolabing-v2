@@ -27,7 +27,8 @@ class DashboardService
      *     collaborations: array{total: int, active: int, upcoming: int, completed: int},
      *     upcoming_collaborations: \Illuminate\Database\Eloquent\Collection,
      *     partner_status: array{status: string, label: string, icon: string, breakdown: array<string, mixed>},
-     *     next_action: array{key: string, title: string, body: string}|null
+     *     next_action: array{key: string, title: string, body: string}|null,
+     *     monthly_goal: array{completed: int, goal: int, met: bool}
      * }
      */
     public function getBusinessDashboard(Profile $profile): array
@@ -43,6 +44,31 @@ class DashboardService
             'upcoming_collaborations' => $this->getUpcomingCollaborations($profile),
             'partner_status' => $this->getPartnerStatus($profile),
             'next_action' => $this->getNextAction($profile, $opportunities, $applicationsReceived, $collaborations),
+            'monthly_goal' => $this->getMonthlyGoal($profile),
+        ];
+    }
+
+    /**
+     * Rolling calendar-month collaboration goal. Deliberately not a streak:
+     * a quiet month just resets to 0/goal, never shown as "broken" — business
+     * collaboration cadence is naturally seasonal, see
+     * config('gamification_business.monthly_goal_count') for the target.
+     *
+     * @return array{completed: int, goal: int, met: bool}
+     */
+    private function getMonthlyGoal(Profile $profile): array
+    {
+        $goal = (int) config('gamification_business.monthly_goal_count');
+
+        $completed = $this->getAllCollaborationsQuery($profile)
+            ->where('status', CollaborationStatus::Completed)
+            ->where('completed_at', '>=', now()->startOfMonth())
+            ->count();
+
+        return [
+            'completed' => $completed,
+            'goal' => $goal,
+            'met' => $completed >= $goal,
         ];
     }
 
