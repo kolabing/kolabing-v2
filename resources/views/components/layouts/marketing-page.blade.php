@@ -61,7 +61,7 @@
     <header class="border-b border-off-black/10 bg-white/90 backdrop-blur">
         <div class="mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-4">
             <a href="{{ route('home') }}" class="flex items-center gap-3 text-off-black">
-                <img src="/brand/logo-wordmark.svg" alt="Kolabing" width="1200" height="260" class="h-8 w-auto">
+                <img src="/brand/kolabing-logo.png" alt="Kolabing" width="2000" height="894" class="h-9 w-auto">
             </a>
             <nav class="flex flex-wrap items-center gap-4 text-sm font-medium text-off-black/70">
                 <a href="{{ route('for-businesses') }}" class="hover:text-off-black">Businesses</a>

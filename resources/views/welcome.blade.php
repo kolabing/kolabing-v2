@@ -35,15 +35,17 @@
     .logo { display: flex; align-items: center; }
     .logo-mark {
       display: block;
-      height: 48px;
+      height: 38px;
       width: auto;
       transform: rotate(-2deg);
       transform-origin: left center;
-      margin: -8px 0;
     }
     .logo-mark--footer {
+      height: 46px;
       transform: rotate(-2deg);
-      filter: drop-shadow(0 6px 16px rgba(0,0,0,0.35));
+      /* Footer sits on a dark background; invert the black cloud to white so the
+         wordmark reads (white cloud + dark KOLABING letters). */
+      filter: invert(1) drop-shadow(0 6px 16px rgba(0,0,0,0.35));
     }
     nav { display: flex; align-items: center; gap: 32px; }
     nav a { text-decoration: none; color: var(--dark); font-size: 13px; font-weight: 600; opacity: 0.75; transition: opacity .2s, color .2s; }
@@ -981,7 +983,7 @@
       header { padding: 12px 20px; }
       nav { display: none; }
       .menu-icon { display: block; }
-      .logo-mark { height: 40px; margin: -6px 0; }
+      .logo-mark { height: 32px; }
 
       .hero { min-height: 100svh; padding: 96px 8px 40px; overflow: hidden; }
       .hero-inner { grid-template-columns: 1fr; gap: 32px; }
@@ -1033,7 +1035,7 @@
 <!-- NAV -->
 <header>
   <div class="logo">
-    <img class="logo-mark" src="/brand/logo-mark.svg" alt="kolabing"/>
+    <img class="logo-mark" src="/brand/kolabing-logo.png" alt="Kolabing"/>
   </div>
   <nav>
     <a href="#how-it-works">how it works</a>
@@ -1577,7 +1579,7 @@ COMMUNITIES GET PERKS.</div>
 <footer>
   <div class="footer-inner">
     <div class="logo">
-      <img class="logo-mark logo-mark--footer" src="/brand/logo-mark.svg" alt="kolabing"/>
+      <img class="logo-mark logo-mark--footer" src="/brand/kolabing-logo.png" alt="Kolabing"/>
     </div>
     <div class="footer-links">
       <a href="{{ route('terms') }}">terms</a>
