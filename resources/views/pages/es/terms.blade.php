@@ -44,12 +44,12 @@
             <p>Eres responsable de mantener la seguridad de tu cuenta y de tu dispositivo. No somos responsables de ninguna pérdida derivada de que no protejas tus credenciales.</p>
 
             <h2>4. Suscripciones y pagos</h2>
-            <p>Algunas funciones están disponibles únicamente para usuarios de negocio mediante una suscripción mensual de pago. Los pagos son procesados por nuestro proveedor de pagos, <strong>Stripe</strong>. No almacenamos el número completo de tu tarjeta.</p>
+            <p>Algunas funciones están disponibles únicamente para usuarios de negocio mediante una suscripción mensual de pago. Las suscripciones se compran y se facturan a través de tu cuenta de la <strong>App Store de Apple</strong> como una compra dentro de la aplicación; Apple procesa el pago y nosotros nunca recibimos ni almacenamos los datos de tu tarjeta. La facturación y las renovaciones las gestiona Apple a través de tu Apple ID.</p>
             <ul>
                 <li><strong>Facturación y renovación.</strong> Las suscripciones de negocio se facturan mensualmente y se renuevan automáticamente al final de cada periodo de facturación hasta su cancelación.</li>
-                <li><strong>Cancelación.</strong> Puedes cancelar tu suscripción en cualquier momento. La cancelación surte efecto al final del periodo de facturación en curso, y mantendrás el acceso a las funciones de pago hasta entonces.</li>
+                <li><strong>Cancelación.</strong> Puedes cancelar en cualquier momento desde los ajustes de suscripción de tu Apple ID en tu dispositivo. La cancelación surte efecto al final del periodo de facturación en curso, y mantendrás el acceso a las funciones de pago hasta entonces.</li>
                 <li><strong>Cambios de precio.</strong> Podemos modificar los precios de la suscripción. Te avisaremos con una antelación razonable y cualquier cambio se aplicará a partir de tu siguiente periodo de facturación.</li>
-                <li><strong>Reembolsos.</strong> {{ $company->refund_policy }}. Salvo cuando lo exija la legislación de consumo española y de la UE aplicable, las cuotas de suscripción no son reembolsables.</li>
+                <li><strong>Reembolsos.</strong> {{ $company->refund_policy }}. Las suscripciones compradas a través de la App Store están sujetas al proceso de reembolso de Apple, y las solicitudes de reembolso las gestiona Apple. Salvo cuando lo exija la legislación de consumo española y de la UE aplicable, las cuotas de suscripción no son reembolsables.</li>
                 <li><strong>Impuestos.</strong> Los precios pueden mostrarse con o sin los impuestos aplicables (como el IVA), según se indique en el proceso de pago.</li>
             </ul>
 
@@ -78,7 +78,7 @@
             <p>El Servicio, incluidos su software, diseño, textos, gráficos, logotipos y marcas (pero excluyendo el Contenido del Usuario), es propiedad de Kolabing o de sus licenciantes y está protegido por las leyes de propiedad intelectual. Te concedemos una licencia limitada, personal, intransferible y revocable para usar el Servicio según su finalidad prevista. No puedes copiar, modificar, distribuir, vender ni crear obras derivadas de ninguna parte del Servicio sin nuestro consentimiento previo por escrito.</p>
 
             <h2>9. Servicios de terceros</h2>
-            <p>El Servicio se apoya en proveedores externos (por ejemplo, el inicio de sesión de Google y Apple, Stripe para los pagos y los servicios de notificaciones push). Tu uso de esos servicios puede estar sujeto a sus propias condiciones y políticas. No somos responsables de los servicios de terceros ni tenemos control sobre ellos.</p>
+            <p>El Servicio se apoya en proveedores externos (por ejemplo, el inicio de sesión de Google y Apple, la App Store de Apple para los pagos de la suscripción y los servicios de notificaciones push). Tu uso de esos servicios puede estar sujeto a sus propias condiciones y políticas. No somos responsables de los servicios de terceros ni tenemos control sobre ellos.</p>
 
             <h2>10. Suspensión y terminación</h2>
             <p>Puedes dejar de usar el Servicio y eliminar tu cuenta en cualquier momento. Podemos suspender o cancelar tu acceso al Servicio, con o sin previo aviso, si incumples estos Términos, si la ley nos obliga a ello, o para proteger el Servicio o a otros usuarios. Tras la terminación, las licencias que nos concediste finalizan (sujeto a la Sección 6), y las disposiciones que por su naturaleza deban subsistir (como las exenciones de garantía, la limitación de responsabilidad y la ley aplicable) seguirán vigentes.</p>

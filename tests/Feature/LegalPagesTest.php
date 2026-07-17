@@ -18,6 +18,15 @@ class LegalPagesTest extends TestCase
         }
     }
 
+    public function test_legal_pages_reference_apple_not_stripe(): void
+    {
+        foreach (['terms', 'privacy', 'terms.es', 'privacy.es'] as $routeName) {
+            $this->get(route($routeName))
+                ->assertOk()
+                ->assertDontSee('Stripe', false);
+        }
+    }
+
     public function test_terms_page_declares_language_and_alternates(): void
     {
         $response = $this->get(route('terms'));

@@ -37,7 +37,7 @@
                 <li><strong>Location data.</strong> With your permission, we process your approximate or precise location (latitude and longitude) to show you nearby events and to enable event check-in.</li>
                 <li><strong>Push notifications.</strong> If you enable notifications, we process a device push token (through Firebase Cloud Messaging) and your notification preferences.</li>
                 <li><strong>Messaging.</strong> In-app chat threads and messages exchanged between users.</li>
-                <li><strong>Payment data.</strong> If you are a business user with a monthly subscription, payments are processed by Stripe. We do not store your full card number; we retain limited transaction and subscription details.</li>
+                <li><strong>Payment data.</strong> If you are a business user with a monthly subscription, the payment is processed by <strong>Apple</strong> through your App Store account (in-app purchase). We do not receive or store your card details; we retain limited subscription status and transaction identifiers returned by Apple.</li>
                 <li><strong>Usage and analytics data.</strong> Product analytics collected through PostHog to understand how the Service is used and to improve it. You can opt out of analytics.</li>
                 <li><strong>Support communications.</strong> The content of any messages you send us for support.</li>
             </ul>
@@ -64,7 +64,7 @@
             <p>We do not sell your personal data. We share it only with trusted service providers ("processors") who process it on our behalf under contract, and where required by law. These include:</p>
             <ul>
                 <li><strong>Google</strong> and <strong>Apple</strong> — sign-in and authentication.</li>
-                <li><strong>Stripe</strong> — payment processing.</li>
+                <li><strong>Apple</strong> (App Store / In-App Purchase) — subscription billing and payment processing.</li>
                 <li><strong>Firebase Cloud Messaging</strong> and the <strong>Apple Push Notification service</strong> — delivery of push notifications.</li>
                 <li><strong>Cloud hosting providers</strong> — hosting and storage of the Service and its data.</li>
                 <li><strong>PostHog</strong> — product analytics.</li>
