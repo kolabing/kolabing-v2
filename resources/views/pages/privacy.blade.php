@@ -18,7 +18,7 @@
         </div>
         <h1 class="mt-4 font-montserrat text-4xl font-black uppercase md:text-5xl">Privacy Policy</h1>
         <div class="prose prose-lg mt-8 max-w-none prose-headings:font-montserrat prose-headings:uppercase prose-a:text-off-black">
-            <p>This Privacy Policy explains how Kolabing collects, uses, shares and protects your personal data when you use our platform, mobile applications and related services (the "Service"). We are committed to protecting your privacy and complying with the EU General Data Protection Regulation (GDPR) and the Spanish Organic Law on Data Protection and Guarantee of Digital Rights (LOPDGDD).</p>
+            <p>This Privacy Policy explains how Kolabing collects, uses, shares and protects your personal data when you use our platform, mobile applications and related services (the "Service"). We are committed to protecting your privacy and complying with the EU General Data Protection Regulation (GDPR) and the Estonian Personal Data Protection Act (Isikuandmete kaitse seadus).</p>
 
             <h2>1. Who We Are</h2>
             <p>The data controller responsible for your personal data is:</p>
@@ -78,7 +78,7 @@
             <p>We keep your personal data only for as long as necessary for the purposes described in this policy. In general, we keep account data for as long as your account is active. When you delete your account, we soft-delete it and then remove or anonymise your personal data within a reasonable period, except where we must retain certain information to comply with legal obligations (such as tax and accounting records) or to resolve disputes.</p>
 
             <h2>8. Your Rights</h2>
-            <p>Under the GDPR and LOPDGDD, you have the right to:</p>
+            <p>Under the GDPR and the Estonian Personal Data Protection Act, you have the right to:</p>
             <ul>
                 <li><strong>Access</strong> — obtain a copy of the personal data we hold about you.</li>
                 <li><strong>Rectification</strong> — correct inaccurate or incomplete data.</li>
@@ -88,13 +88,13 @@
                 <li><strong>Objection</strong> — object to processing based on our legitimate interests.</li>
                 <li><strong>Withdraw consent</strong> — withdraw any consent you have given, at any time, without affecting prior processing.</li>
             </ul>
-            <p>To exercise your rights, contact us at <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a>. You also have the right to lodge a complaint with the Spanish supervisory authority, the Agencia Española de Protección de Datos (AEPD), at <a href="https://www.aepd.es">www.aepd.es</a>.</p>
+            <p>To exercise your rights, contact us at <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a>. You also have the right to lodge a complaint with the Estonian supervisory authority, the Data Protection Inspectorate (Andmekaitse Inspektsioon), at <a href="https://www.aki.ee">www.aki.ee</a>.</p>
 
             <h2>9. Children</h2>
             <p>The Service is intended only for people aged 18 or older. We do not knowingly collect personal data from anyone under 18. If you believe a person under 18 has provided us with personal data, please contact us so we can delete it.</p>
 
             <h2>10. Security</h2>
-            <p>We use appropriate technical and organisational measures to protect your personal data against loss, misuse and unauthorised access, including encryption in transit, access controls and secure hosting. No system is completely secure, but we work continuously to protect your data and will notify you and the AEPD of a personal data breach where required by law.</p>
+            <p>We use appropriate technical and organisational measures to protect your personal data against loss, misuse and unauthorised access, including encryption in transit, access controls and secure hosting. No system is completely secure, but we work continuously to protect your data and will notify you and the Data Protection Inspectorate of a personal data breach where required by law.</p>
 
             <h2>11. Changes to This Policy</h2>
             <p>We may update this Privacy Policy from time to time. If we make material changes, we will notify you (for example, in the app or by email) and update the "Last updated" date above. We encourage you to review this policy periodically.</p>
