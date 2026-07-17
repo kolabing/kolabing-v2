@@ -43,9 +43,8 @@
     .logo-mark--footer {
       height: 46px;
       transform: rotate(-2deg);
-      /* Footer sits on a dark background; invert the black cloud to white so the
-         wordmark reads (white cloud + dark KOLABING letters). */
-      filter: invert(1) drop-shadow(0 6px 16px rgba(0,0,0,0.35));
+      /* Gold letters read on the dark footer; the black cloud blends into it. */
+      filter: drop-shadow(0 6px 16px rgba(0,0,0,0.35));
     }
     nav { display: flex; align-items: center; gap: 32px; }
     nav a { text-decoration: none; color: var(--dark); font-size: 13px; font-weight: 600; opacity: 0.75; transition: opacity .2s, color .2s; }
