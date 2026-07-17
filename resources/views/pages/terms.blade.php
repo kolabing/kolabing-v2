@@ -25,7 +25,7 @@
             <p>You must be at least 18 years old to use Kolabing. By using the Service you represent and warrant that you are 18 or older and that you have the legal capacity to enter into these Terms. If you use the Service on behalf of a business or organisation, you represent that you are authorised to bind that entity to these Terms.</p>
 
             <h2>2. The Service</h2>
-            <p>Kolabing is a collaboration marketplace based in Spain that connects local businesses with community organisers, and also supports an attendee and gamification experience. Depending on how you sign up, you may use the Service as one of the following:</p>
+            <p>Kolabing is a collaboration marketplace based in Estonia that connects local businesses with community organisers, and also supports an attendee and gamification experience. Depending on how you sign up, you may use the Service as one of the following:</p>
             <ul>
                 <li><strong>Businesses</strong> — create and publish collaboration opportunities and offers.</li>
                 <li><strong>Communities</strong> — browse opportunities and apply to collaborate with businesses.</li>
@@ -49,8 +49,8 @@
                 <li><strong>Billing and renewal.</strong> Business subscriptions are billed monthly and renew automatically at the end of each billing period until cancelled.</li>
                 <li><strong>Cancellation.</strong> You can cancel your subscription at any time. Cancellation takes effect at the end of the current billing period, and you will retain access to paid features until then.</li>
                 <li><strong>Price changes.</strong> We may change subscription prices. We will give you reasonable advance notice, and any change will apply from your next billing period.</li>
-                <li><strong>Refunds.</strong> {{ $company->refund_policy }}. Except where required by applicable Spanish and EU consumer law, subscription fees are non-refundable.</li>
-                <li><strong>Taxes.</strong> Prices may be shown exclusive or inclusive of applicable taxes (such as VAT/IVA), as indicated at checkout.</li>
+                <li><strong>Refunds.</strong> {{ $company->refund_policy }}. Except where required by applicable Estonian and EU consumer law, subscription fees are non-refundable.</li>
+                <li><strong>Taxes.</strong> Prices may be shown exclusive or inclusive of applicable taxes (such as VAT), as indicated at checkout.</li>
             </ul>
 
             <h2>5. Collaborations</h2>
@@ -84,7 +84,7 @@
             <p>You may stop using the Service and delete your account at any time. We may suspend or terminate your access to the Service, with or without notice, if you breach these Terms, if we are required to do so by law, or to protect the Service or other users. On termination, the licences you granted to us end (subject to Section 6), and provisions that by their nature should survive (such as disclaimers, limitation of liability and governing law) will continue to apply.</p>
 
             <h2>11. Disclaimers</h2>
-            <p>The Service is provided "as is" and "as available". To the fullest extent permitted by law, we disclaim all warranties, whether express or implied, including fitness for a particular purpose, merchantability, and non-infringement. We do not warrant that the Service will be uninterrupted, error-free or secure, or that any content, opportunity, collaboration or reward will meet your expectations. Nothing in these Terms excludes any warranty or right that cannot be excluded under mandatory Spanish or EU law.</p>
+            <p>The Service is provided "as is" and "as available". To the fullest extent permitted by law, we disclaim all warranties, whether express or implied, including fitness for a particular purpose, merchantability, and non-infringement. We do not warrant that the Service will be uninterrupted, error-free or secure, or that any content, opportunity, collaboration or reward will meet your expectations. Nothing in these Terms excludes any warranty or right that cannot be excluded under mandatory Estonian or EU law.</p>
 
             <h2>12. Limitation of Liability</h2>
             <p>To the fullest extent permitted by law, Kolabing will not be liable for any indirect, incidental, special, consequential or punitive damages, or for any loss of profits, revenue, data or goodwill, arising out of or relating to your use of the Service. Our total aggregate liability for all claims relating to the Service will not exceed the greater of the amounts you paid us in the twelve months before the event giving rise to the claim, or one hundred euros (€100). Nothing in these Terms limits liability that cannot be limited under mandatory law, including liability for death or personal injury caused by negligence, or for fraud.</p>
@@ -93,7 +93,7 @@
             <p>You agree to indemnify and hold harmless Kolabing and its directors, employees and agents from any claims, damages, losses and expenses (including reasonable legal fees) arising out of your use of the Service, your User Content, your collaborations with other users, or your breach of these Terms or of any law.</p>
 
             <h2>14. Governing Law and Disputes</h2>
-            <p>These Terms are governed by the laws of Spain. Subject to any mandatory rights you have as a consumer, any dispute relating to these Terms or the Service will be subject to the jurisdiction of the competent courts of Spain. If you are a consumer, you may also have the right to bring proceedings in the courts of your place of residence, and you may use the European Commission's online dispute resolution platform.</p>
+            <p>These Terms are governed by the laws of Estonia. Subject to any mandatory rights you have as a consumer, any dispute relating to these Terms or the Service will be subject to the jurisdiction of the competent courts of Estonia. If you are a consumer, you may also have the right to bring proceedings in the courts of your place of residence, and you may use the European Commission's online dispute resolution platform.</p>
 
             <h2>15. Changes to These Terms</h2>
             <p>We may update these Terms from time to time. If we make material changes, we will notify you (for example, in the app or by email) and update the "Last updated" date above. Changes take effect when posted, unless we state otherwise. Your continued use of the Service after changes take effect means you accept the updated Terms.</p>
@@ -103,7 +103,7 @@
             <ul>
                 <li><strong>{{ $company->legal_name }}</strong></li>
                 <li>Registered address: {{ $company->registered_address }}</li>
-                <li>Company registration / NIF: {{ $company->registration_number }}</li>
+                <li>Company registration number: {{ $company->registration_number }}</li>
                 <li>Support: <a href="mailto:{{ $company->support_email }}">{{ $company->support_email }}</a></li>
             </ul>
         </div>
