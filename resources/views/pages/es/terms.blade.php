@@ -103,7 +103,7 @@
             <ul>
                 <li><strong>{{ $company->legal_name }}</strong></li>
                 <li>Domicilio social: {{ $company->registered_address }}</li>
-                <li>Número de registro mercantil / NIF: {{ $company->registration_number }}</li>
+                <li>Número de registro de la empresa: {{ $company->registration_number }}</li>
                 <li>Soporte: <a href="mailto:{{ $company->support_email }}">{{ $company->support_email }}</a></li>
             </ul>
         </div>

@@ -25,7 +25,7 @@
             <ul>
                 <li><strong>{{ $company->legal_name }}</strong></li>
                 <li>Registered address: {{ $company->registered_address }}</li>
-                <li>Company registration / NIF: {{ $company->registration_number }}</li>
+                <li>Company registration number: {{ $company->registration_number }}</li>
                 <li>Privacy contact: <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a></li>
             </ul>
 
@@ -104,7 +104,7 @@
             <ul>
                 <li><strong>{{ $company->legal_name }}</strong></li>
                 <li>Registered address: {{ $company->registered_address }}</li>
-                <li>Company registration / NIF: {{ $company->registration_number }}</li>
+                <li>Company registration number: {{ $company->registration_number }}</li>
                 <li>Privacy: <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a></li>
                 <li>Support: <a href="mailto:{{ $company->support_email }}">{{ $company->support_email }}</a></li>
             </ul>

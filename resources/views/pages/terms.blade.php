@@ -50,7 +50,7 @@
                 <li><strong>Cancellation.</strong> You can cancel your subscription at any time. Cancellation takes effect at the end of the current billing period, and you will retain access to paid features until then.</li>
                 <li><strong>Price changes.</strong> We may change subscription prices. We will give you reasonable advance notice, and any change will apply from your next billing period.</li>
                 <li><strong>Refunds.</strong> {{ $company->refund_policy }}. Except where required by applicable Estonian and EU consumer law, subscription fees are non-refundable.</li>
-                <li><strong>Taxes.</strong> Prices may be shown exclusive or inclusive of applicable taxes (such as VAT/IVA), as indicated at checkout.</li>
+                <li><strong>Taxes.</strong> Prices may be shown exclusive or inclusive of applicable taxes (such as VAT), as indicated at checkout.</li>
             </ul>
 
             <h2>5. Collaborations</h2>
@@ -103,7 +103,7 @@
             <ul>
                 <li><strong>{{ $company->legal_name }}</strong></li>
                 <li>Registered address: {{ $company->registered_address }}</li>
-                <li>Company registration / NIF: {{ $company->registration_number }}</li>
+                <li>Company registration number: {{ $company->registration_number }}</li>
                 <li>Support: <a href="mailto:{{ $company->support_email }}">{{ $company->support_email }}</a></li>
             </ul>
         </div>
