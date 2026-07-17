@@ -34,6 +34,11 @@ enum NotificationType: string
     case CollaborationFeedbackReceived = 'collaboration_feedback_received';
     case CollaborationCompleted = 'collaboration_completed';
     case CollaborationCancelled = 'collaboration_cancelled';
+    case KolabPublished = 'kolab_published';
+    case ReviewReminder = 'review_reminder';
+    case SecondOfferPrompt = 'second_offer_prompt';
+    case PartnerStatusUpgraded = 'partner_status_upgraded';
+    case ReactivationPrompt = 'reactivation_prompt';
 
     /**
      * @return array<string>

@@ -19,11 +19,14 @@ use App\Http\Resources\Api\V1\CollaborationResource;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
 use App\Models\Profile;
+use App\Services\BusinessPartnerStatusService;
 use App\Services\CollaborationCompletionService;
 use App\Services\CollaborationFeedbackService;
 use App\Services\CollaborationService;
 use App\Services\GamificationWalletService;
 use App\Services\MissionService;
+use App\Services\NotificationReminderService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -35,6 +38,9 @@ class CollaborationController extends Controller
         private readonly CollaborationFeedbackService $feedbackService,
         private readonly MissionService $missionService,
         private readonly CollaborationCompletionService $completionService,
+        private readonly BusinessPartnerStatusService $businessPartnerStatusService,
+        private readonly NotificationService $notificationService,
+        private readonly NotificationReminderService $notificationReminderService,
     ) {}
 
     /**
@@ -449,7 +455,18 @@ class CollaborationController extends Controller
                     ['reference_id' => $collaboration->id],
                 );
             }
+
+            if ($reviewedProfile->isBusiness()) {
+                $previousStatus = $this->businessPartnerStatusService->statusFor($reviewedProfile);
+                $newStatus = $this->businessPartnerStatusService->recalculate($reviewedProfile);
+
+                if ($newStatus !== $previousStatus) {
+                    $this->notificationService->notifyPartnerStatusUpgraded($reviewedProfile, $newStatus);
+                }
+            }
         }
+
+        $this->notificationReminderService->cancelReviewReminder($collaboration, $reviewer);
 
         // Mirror the review into a stub /feedback row so feedback-dependent
         // aggregates stay consistent for legacy /review-only clients. This does

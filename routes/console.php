@@ -26,3 +26,7 @@ Schedule::command('app:auto-complete-stale-collaborations')->dailyAt('03:00');
 // earned (xp / tenure / events). Manual tiers are never auto-applied. On-check-in
 // hooks handle immediate promotion; this nightly pass catches tenure rollovers.
 Schedule::command('app:evaluate-community-tiers')->dailyAt('02:00');
+
+// Nudge subscribed but inactive businesses back to the platform.
+// Dedup is done via the notifications table so re-runs are safe.
+Schedule::command('app:send-business-reactivation-reminders')->dailyAt('09:00');

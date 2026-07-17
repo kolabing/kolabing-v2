@@ -25,7 +25,7 @@
             <p>Debes tener al menos 18 años para usar Kolabing. Al usar el Servicio, declaras y garantizas que tienes 18 años o más y que tienes capacidad legal para aceptar estos Términos. Si usas el Servicio en nombre de una empresa u organización, declaras estar autorizado para vincular a esa entidad a estos Términos.</p>
 
             <h2>2. El Servicio</h2>
-            <p>Kolabing es un marketplace de colaboración con sede en España que conecta a negocios locales con organizadores de comunidades, y que además ofrece una experiencia para asistentes y de gamificación. Según cómo te registres, podrás usar el Servicio de alguna de estas formas:</p>
+            <p>Kolabing es un marketplace de colaboración con sede en Estonia que conecta a negocios locales con organizadores de comunidades, y que además ofrece una experiencia para asistentes y de gamificación. Según cómo te registres, podrás usar el Servicio de alguna de estas formas:</p>
             <ul>
                 <li><strong>Negocios</strong> — crear y publicar oportunidades de colaboración y ofertas.</li>
                 <li><strong>Comunidades</strong> — explorar oportunidades y postularse para colaborar con negocios.</li>
@@ -49,7 +49,7 @@
                 <li><strong>Facturación y renovación.</strong> Las suscripciones de negocio se facturan mensualmente y se renuevan automáticamente al final de cada periodo de facturación hasta su cancelación.</li>
                 <li><strong>Cancelación.</strong> Puedes cancelar en cualquier momento desde los ajustes de suscripción de tu Apple ID en tu dispositivo. La cancelación surte efecto al final del periodo de facturación en curso, y mantendrás el acceso a las funciones de pago hasta entonces.</li>
                 <li><strong>Cambios de precio.</strong> Podemos modificar los precios de la suscripción. Te avisaremos con una antelación razonable y cualquier cambio se aplicará a partir de tu siguiente periodo de facturación.</li>
-                <li><strong>Reembolsos.</strong> {{ $company->refund_policy }}. Las suscripciones compradas a través de la App Store están sujetas al proceso de reembolso de Apple, y las solicitudes de reembolso las gestiona Apple. Salvo cuando lo exija la legislación de consumo española y de la UE aplicable, las cuotas de suscripción no son reembolsables.</li>
+                <li><strong>Reembolsos.</strong> {{ $company->refund_policy }}. Las suscripciones compradas a través de la App Store están sujetas al proceso de reembolso de Apple, y las solicitudes de reembolso las gestiona Apple. Salvo cuando lo exija la legislación de consumo estonia y de la UE aplicable, las cuotas de suscripción no son reembolsables.</li>
                 <li><strong>Impuestos.</strong> Los precios pueden mostrarse con o sin los impuestos aplicables (como el IVA), según se indique en el proceso de pago.</li>
             </ul>
 
@@ -84,7 +84,7 @@
             <p>Puedes dejar de usar el Servicio y eliminar tu cuenta en cualquier momento. Podemos suspender o cancelar tu acceso al Servicio, con o sin previo aviso, si incumples estos Términos, si la ley nos obliga a ello, o para proteger el Servicio o a otros usuarios. Tras la terminación, las licencias que nos concediste finalizan (sujeto a la Sección 6), y las disposiciones que por su naturaleza deban subsistir (como las exenciones de garantía, la limitación de responsabilidad y la ley aplicable) seguirán vigentes.</p>
 
             <h2>11. Exenciones de garantía</h2>
-            <p>El Servicio se ofrece "tal cual" y "según disponibilidad". En la máxima medida permitida por la ley, declinamos toda garantía, ya sea expresa o implícita, incluida la idoneidad para un fin concreto, la comerciabilidad y la no infracción. No garantizamos que el Servicio sea ininterrumpido, esté libre de errores o sea seguro, ni que ningún contenido, oportunidad, colaboración o recompensa cumpla tus expectativas. Nada en estos Términos excluye ninguna garantía o derecho que no pueda excluirse conforme a la legislación imperativa española o de la UE.</p>
+            <p>El Servicio se ofrece "tal cual" y "según disponibilidad". En la máxima medida permitida por la ley, declinamos toda garantía, ya sea expresa o implícita, incluida la idoneidad para un fin concreto, la comerciabilidad y la no infracción. No garantizamos que el Servicio sea ininterrumpido, esté libre de errores o sea seguro, ni que ningún contenido, oportunidad, colaboración o recompensa cumpla tus expectativas. Nada en estos Términos excluye ninguna garantía o derecho que no pueda excluirse conforme a la legislación imperativa estonia o de la UE.</p>
 
             <h2>12. Limitación de responsabilidad</h2>
             <p>En la máxima medida permitida por la ley, Kolabing no será responsable de daños indirectos, incidentales, especiales, consecuentes o punitivos, ni de la pérdida de beneficios, ingresos, datos o fondo de comercio, derivados de o relacionados con tu uso del Servicio. Nuestra responsabilidad total acumulada por todas las reclamaciones relacionadas con el Servicio no superará la mayor de las siguientes cantidades: los importes que nos hayas pagado en los doce meses anteriores al hecho que origine la reclamación, o cien euros (100 €). Nada en estos Términos limita la responsabilidad que no pueda limitarse conforme a la legislación imperativa, incluida la responsabilidad por muerte o lesiones personales causadas por negligencia, o por fraude.</p>
@@ -93,7 +93,7 @@
             <p>Aceptas indemnizar y eximir de responsabilidad a Kolabing y a sus administradores, empleados y agentes frente a cualquier reclamación, daño, pérdida y gasto (incluidos honorarios legales razonables) que surjan de tu uso del Servicio, de tu Contenido del Usuario, de tus colaboraciones con otros usuarios, o del incumplimiento de estos Términos o de cualquier ley.</p>
 
             <h2>14. Ley aplicable y disputas</h2>
-            <p>Estos Términos se rigen por la legislación de España. Sin perjuicio de los derechos imperativos que te asisten como consumidor, cualquier disputa relacionada con estos Términos o con el Servicio se someterá a la jurisdicción de los tribunales competentes de España. Si eres consumidor, también podrás tener derecho a iniciar acciones ante los tribunales de tu lugar de residencia, y podrás utilizar la plataforma de resolución de litigios en línea de la Comisión Europea.</p>
+            <p>Estos Términos se rigen por la legislación de Estonia. Sin perjuicio de los derechos imperativos que te asisten como consumidor, cualquier disputa relacionada con estos Términos o con el Servicio se someterá a la jurisdicción de los tribunales competentes de Estonia. Si eres consumidor, también podrás tener derecho a iniciar acciones ante los tribunales de tu lugar de residencia, y podrás utilizar la plataforma de resolución de litigios en línea de la Comisión Europea.</p>
 
             <h2>15. Cambios en estos Términos</h2>
             <p>Podemos actualizar estos Términos de vez en cuando. Si realizamos cambios sustanciales, te lo notificaremos (por ejemplo, en la aplicación o por correo electrónico) y actualizaremos la fecha de "Última actualización" indicada arriba. Los cambios surten efecto en el momento de su publicación, salvo que indiquemos lo contrario. El uso continuado del Servicio tras la entrada en vigor de los cambios significa que aceptas los Términos actualizados.</p>
@@ -103,7 +103,7 @@
             <ul>
                 <li><strong>{{ $company->legal_name }}</strong></li>
                 <li>Domicilio social: {{ $company->registered_address }}</li>
-                <li>Número de registro mercantil / NIF: {{ $company->registration_number }}</li>
+                <li>Número de registro de la empresa: {{ $company->registration_number }}</li>
                 <li>Soporte: <a href="mailto:{{ $company->support_email }}">{{ $company->support_email }}</a></li>
             </ul>
         </div>

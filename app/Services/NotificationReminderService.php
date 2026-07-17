@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\ApplicationStatus;
+use App\Enums\CollaborationStatus;
 use App\Enums\KolabStatus;
 use App\Enums\NotificationType;
 use App\Models\Application;
 use App\Models\ChatMessage;
+use App\Models\Collaboration;
+use App\Models\CollaborationReview;
 use App\Models\Kolab;
 use App\Models\NotificationReminder;
 use App\Models\Profile;
@@ -24,6 +27,8 @@ class NotificationReminderService
     private const ENTITY_APPLICATION = 'application';
 
     private const ENTITY_KOLAB = 'kolab';
+
+    private const ENTITY_COLLABORATION = 'collaboration';
 
     public function __construct(
         private readonly NotificationService $notificationService,
@@ -68,6 +73,75 @@ class NotificationReminderService
             eligible: $application->status === ApplicationStatus::Pending,
             anchorAt: $application->created_at,
         );
+    }
+
+    /**
+     * Sync the review reminder for the business side of a just-completed collaboration.
+     * Cancelled once that business leaves a review (see cancelReviewReminder()).
+     */
+    public function syncReviewReminder(Collaboration $collaboration): void
+    {
+        $businessProfile = $this->resolveBusinessProfile($collaboration);
+
+        if ($businessProfile === null) {
+            return;
+        }
+
+        $this->syncReminder(
+            profileId: $businessProfile->id,
+            type: NotificationType::ReviewReminder,
+            entityId: $collaboration->id,
+            entityType: self::ENTITY_COLLABORATION,
+            eligible: $collaboration->status === CollaborationStatus::Completed,
+            anchorAt: $collaboration->completed_at,
+        );
+    }
+
+    public function cancelReviewReminder(Collaboration $collaboration, Profile $reviewer): void
+    {
+        $this->cancelReminder(
+            profileId: $reviewer->id,
+            type: NotificationType::ReviewReminder,
+            entityId: $collaboration->id,
+            entityType: self::ENTITY_COLLABORATION,
+        );
+    }
+
+    /**
+     * Sync the second-offer prompt after a business's first completed Kolab.
+     * Cancelled once the business publishes a second offer.
+     */
+    public function syncSecondOfferPromptReminder(Collaboration $collaboration): void
+    {
+        $businessProfile = $this->resolveBusinessProfile($collaboration);
+
+        if ($businessProfile === null) {
+            return;
+        }
+
+        $publishedOfferCount = $businessProfile->kolabs()
+            ->where('status', KolabStatus::Published)
+            ->count();
+
+        $this->syncReminder(
+            profileId: $businessProfile->id,
+            type: NotificationType::SecondOfferPrompt,
+            entityId: $collaboration->id,
+            entityType: self::ENTITY_COLLABORATION,
+            eligible: $publishedOfferCount < 2,
+            anchorAt: $collaboration->completed_at,
+        );
+    }
+
+    private function resolveBusinessProfile(Collaboration $collaboration): ?Profile
+    {
+        $collaboration->loadMissing(['creatorProfile', 'applicantProfile']);
+
+        return match (true) {
+            $collaboration->creatorProfile->isBusiness() => $collaboration->creatorProfile,
+            $collaboration->applicantProfile->isBusiness() => $collaboration->applicantProfile,
+            default => null,
+        };
     }
 
     public function syncUnreadMessageReminder(Application $application, Profile $recipient): void
@@ -171,11 +245,13 @@ class NotificationReminderService
             || $reminder->scheduled_for === null;
 
         if ($shouldReset) {
+            $cadenceHours = $this->cadenceHoursFor($type);
+
             $reminder->fill([
                 'anchor_at' => $anchorAt,
                 'next_sequence' => 0,
                 'last_sent_sequence' => null,
-                'scheduled_for' => $anchorAt->copy()->addHours(self::CADENCE_HOURS[0]),
+                'scheduled_for' => $anchorAt->copy()->addHours($cadenceHours[0]),
                 'sent_at' => null,
                 'cancelled_at' => null,
             ])->save();
@@ -222,7 +298,91 @@ class NotificationReminderService
             NotificationType::KolabCreateIncomplete => $this->refreshKolabDraftReminder($reminder),
             NotificationType::ApplicationPending => $this->refreshApplicationPendingReminder($reminder),
             NotificationType::UnreadMessage => $this->refreshUnreadMessageReminder($reminder),
+            NotificationType::ReviewReminder => $this->refreshReviewReminder($reminder),
+            NotificationType::SecondOfferPrompt => $this->refreshSecondOfferPromptReminder($reminder),
             default => false,
+        };
+    }
+
+    private function refreshReviewReminder(NotificationReminder $reminder): bool
+    {
+        $collaboration = Collaboration::query()->find($reminder->entity_id);
+
+        if ($collaboration === null || $collaboration->status !== CollaborationStatus::Completed) {
+            $this->cancelExistingReminder($reminder);
+
+            return false;
+        }
+
+        $alreadyReviewed = CollaborationReview::query()
+            ->where('collaboration_id', $collaboration->id)
+            ->where('reviewer_profile_id', $reminder->profile_id)
+            ->exists();
+
+        if ($alreadyReviewed) {
+            $this->cancelExistingReminder($reminder);
+
+            return false;
+        }
+
+        $this->syncReminder(
+            profileId: $reminder->profile_id,
+            type: NotificationType::ReviewReminder,
+            entityId: $collaboration->id,
+            entityType: self::ENTITY_COLLABORATION,
+            eligible: true,
+            anchorAt: $collaboration->completed_at,
+        );
+
+        $reminder->refresh();
+
+        return true;
+    }
+
+    private function refreshSecondOfferPromptReminder(NotificationReminder $reminder): bool
+    {
+        $collaboration = Collaboration::query()->find($reminder->entity_id);
+        $businessProfile = Profile::query()->find($reminder->profile_id);
+
+        if ($collaboration === null || $businessProfile === null) {
+            $this->cancelExistingReminder($reminder);
+
+            return false;
+        }
+
+        $publishedOfferCount = $businessProfile->kolabs()
+            ->where('status', KolabStatus::Published)
+            ->count();
+
+        if ($publishedOfferCount >= 2) {
+            $this->cancelExistingReminder($reminder);
+
+            return false;
+        }
+
+        $this->syncReminder(
+            profileId: $businessProfile->id,
+            type: NotificationType::SecondOfferPrompt,
+            entityId: $collaboration->id,
+            entityType: self::ENTITY_COLLABORATION,
+            eligible: true,
+            anchorAt: $collaboration->completed_at,
+        );
+
+        $reminder->refresh();
+
+        return true;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function cadenceHoursFor(NotificationType $type): array
+    {
+        return match ($type) {
+            NotificationType::ReviewReminder => config('gamification_business.review_reminder_cadence_hours'),
+            NotificationType::SecondOfferPrompt => config('gamification_business.second_offer_prompt_cadence_hours'),
+            default => self::CADENCE_HOURS,
         };
     }
 
@@ -339,26 +499,35 @@ class NotificationReminderService
                 'title' => 'You have an unread message',
                 'body' => 'Someone sent you a message about your Kolab. Open the chat to reply.',
             ],
+            NotificationType::ReviewReminder => [
+                'title' => 'Share your experience',
+                'body' => 'Your review helps future partners collaborate with confidence.',
+            ],
+            NotificationType::SecondOfferPrompt => [
+                'title' => 'Ready for your next Kolab?',
+                'body' => 'Build on the momentum and create your next offer.',
+            ],
             default => null,
         };
     }
 
     private function advanceReminder(NotificationReminder $reminder): void
     {
+        $cadenceHours = $this->cadenceHoursFor($reminder->type);
         $currentSequence = $reminder->next_sequence;
         $nextSequence = $currentSequence + 1;
         $now = now();
 
-        while ($nextSequence < count(self::CADENCE_HOURS)
-            && $reminder->anchor_at?->copy()->addHours(self::CADENCE_HOURS[$nextSequence])->lte($now)) {
+        while ($nextSequence < count($cadenceHours)
+            && $reminder->anchor_at?->copy()->addHours($cadenceHours[$nextSequence])->lte($now)) {
             $nextSequence++;
         }
 
         $reminder->update([
             'last_sent_sequence' => $currentSequence,
             'next_sequence' => $nextSequence,
-            'scheduled_for' => $nextSequence < count(self::CADENCE_HOURS)
-                ? $reminder->anchor_at?->copy()->addHours(self::CADENCE_HOURS[$nextSequence])
+            'scheduled_for' => $nextSequence < count($cadenceHours)
+                ? $reminder->anchor_at?->copy()->addHours($cadenceHours[$nextSequence])
                 : null,
             'sent_at' => $now,
         ]);
