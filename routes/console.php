@@ -30,3 +30,9 @@ Schedule::command('app:evaluate-community-tiers')->dailyAt('02:00');
 // Nudge subscribed but inactive businesses back to the platform.
 // Dedup is done via the notifications table so re-runs are safe.
 Schedule::command('app:send-business-reactivation-reminders')->dailyAt('09:00');
+
+// Recompute business partner_status from real collaboration history. Catches
+// collaborations written directly to the database (e.g. seeded test data)
+// that bypass CollaborationService's completion flow and never trigger
+// recalculation. Idempotent (updateOrCreate) — safe to run daily.
+Schedule::command('app:recalculate-partner-statuses')->dailyAt('04:00');
