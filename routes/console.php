@@ -35,4 +35,4 @@ Schedule::command('app:send-business-reactivation-reminders')->dailyAt('09:00');
 // collaborations written directly to the database (e.g. seeded test data)
 // that bypass CollaborationService's completion flow and never trigger
 // recalculation. Idempotent (updateOrCreate) — safe to run daily.
-Schedule::command('app:recalculate-partner-statuses')->dailyAt('15:15');
+Schedule::command('app:recalculate-partner-statuses')->dailyAt('14:20');
