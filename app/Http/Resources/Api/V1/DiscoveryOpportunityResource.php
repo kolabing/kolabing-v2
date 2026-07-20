@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources\Api\V1;
 
 use App\Models\Kolab;
+use App\Models\Profile;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Str;
@@ -24,6 +25,13 @@ class DiscoveryOpportunityResource extends JsonResource
             ? $creatorProfile->businessProfile?->name
             : $creatorProfile?->communityProfile?->name;
 
+        // A free (non-subscribed) business must not receive a community's
+        // identity (name/logo). We serialize them as null and flag the lock so
+        // the client renders the "subscribe to reveal" state; the blur must be
+        // enforced server-side, not left to the client. Subscribing + refetch
+        // reveals the identity.
+        $identityLocked = $this->identityLockedForViewer($request, $creatorProfile);
+
         return [
             'id' => $this->id,
             'creator_type' => $creatorProfile?->user_type?->value,
@@ -33,7 +41,7 @@ class DiscoveryOpportunityResource extends JsonResource
             'offer_headline' => $this->resolveOfferHeadline(),
             'preferred_city' => $this->preferred_city,
             'area' => $this->resolveArea(),
-            'cover_photo_url' => $this->resolveCoverPhotoUrl(),
+            'cover_photo_url' => $this->resolveCoverPhotoUrl($identityLocked),
             'published_at' => $this->published_at?->toIso8601String(),
             'availability' => [
                 'mode' => $this->availability_mode,
@@ -44,8 +52,9 @@ class DiscoveryOpportunityResource extends JsonResource
             ],
             'creator_profile' => [
                 'id' => $creatorProfile?->id,
-                'display_name' => $displayName,
-                'avatar_url' => $creatorProfile?->avatar_url,
+                'display_name' => $identityLocked ? null : $displayName,
+                'avatar_url' => $identityLocked ? null : $creatorProfile?->avatar_url,
+                'identity_locked' => $identityLocked,
             ],
             'match_score' => (int) ($this->getAttribute('discovery_match_score') ?? 0),
             'match_breakdown' => $this->getAttribute('discovery_match_breakdown') ?? [],
@@ -58,7 +67,24 @@ class DiscoveryOpportunityResource extends JsonResource
         ];
     }
 
-    private function resolveCoverPhotoUrl(): ?string
+    /**
+     * Whether the creator's identity (name/logo) must be hidden from the viewer.
+     * True only when a non-subscribed business is viewing a community-authored post.
+     */
+    private function identityLockedForViewer(Request $request, ?Profile $creatorProfile): bool
+    {
+        if ($creatorProfile === null || ! $creatorProfile->isCommunity()) {
+            return false;
+        }
+
+        $viewer = $request->user();
+
+        return $viewer instanceof Profile
+            && $viewer->isBusiness()
+            && ! $viewer->hasActiveSubscription();
+    }
+
+    private function resolveCoverPhotoUrl(bool $identityLocked = false): ?string
     {
         $media = $this->normalizeMediaCollection($this->media);
 
@@ -70,6 +96,12 @@ class DiscoveryOpportunityResource extends JsonResource
             if (($event['media'][0]['url'] ?? null) !== null) {
                 return $event['media'][0]['url'];
             }
+        }
+
+        // Never fall back to the creator's avatar when their identity is locked —
+        // that would leak the community logo as the cover image.
+        if ($identityLocked) {
+            return null;
         }
 
         return $this->creatorProfile?->avatar_url;

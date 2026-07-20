@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Api\V1;
 
 use App\Models\BusinessProfile;
+use App\Models\BusinessSubscription;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
 use App\Models\CommunityProfile;
@@ -35,6 +36,10 @@ class ProfileReputationTest extends TestCase
             'profile_id' => $business->id,
             'name' => 'Reviewer Business',
         ]);
+        // A business that has reviewed a community was necessarily subscribed
+        // (accepting a collaboration is paywalled), so it may view the community
+        // profile. A free business is 403'd on community profiles.
+        BusinessSubscription::factory()->active()->create(['profile_id' => $business->id]);
 
         return $business;
     }
@@ -363,6 +368,7 @@ class ProfileReputationTest extends TestCase
         $this->reviewedCollaboration($this->makeBusinessReviewer(), $community);
 
         $viewer = Profile::factory()->business()->create();
+        BusinessSubscription::factory()->active()->create(['profile_id' => $viewer->id]);
 
         $this->actingAs($viewer)
             ->getJson("/api/v1/profiles/{$community->id}")
@@ -377,6 +383,7 @@ class ProfileReputationTest extends TestCase
         $this->reviewedCollaboration($business, $community);
 
         $viewer = Profile::factory()->business()->create();
+        BusinessSubscription::factory()->active()->create(['profile_id' => $viewer->id]);
 
         $this->actingAs($viewer)
             ->getJson("/api/v1/profiles/{$community->id}")

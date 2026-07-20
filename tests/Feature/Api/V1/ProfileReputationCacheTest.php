@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Models\BusinessSubscription;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
 use App\Models\CommunityProfile;
@@ -130,6 +131,7 @@ class ProfileReputationCacheTest extends TestCase
     {
         $community = $this->makeReviewedCommunity();
         $viewer = Profile::factory()->business()->create();
+        BusinessSubscription::factory()->active()->create(['profile_id' => $viewer->id]);
 
         $completedCountQueries = 0;
         DB::listen(function ($query) use (&$completedCountQueries): void {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Api\V1;
 
 use App\Models\BusinessProfile;
+use App\Models\BusinessSubscription;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
 use App\Models\CommunityProfile;
@@ -67,6 +68,8 @@ class PublicProfileTest extends TestCase
     public function test_public_profile_returns_community_profile(): void
     {
         $viewer = Profile::factory()->business()->create();
+        // Subscribed business: may view community profiles (a free business is 403'd).
+        BusinessSubscription::factory()->active()->create(['profile_id' => $viewer->id]);
         $community = Profile::factory()->community()->create();
 
         $response = $this->actingAs($viewer)
@@ -96,6 +99,8 @@ class PublicProfileTest extends TestCase
     public function test_public_profile_does_not_expose_sensitive_data(): void
     {
         $viewer = Profile::factory()->business()->create();
+        // Subscribed business: may view community profiles (a free business is 403'd).
+        BusinessSubscription::factory()->active()->create(['profile_id' => $viewer->id]);
         $target = Profile::factory()->community()->create();
 
         $response = $this->actingAs($viewer)
@@ -114,6 +119,8 @@ class PublicProfileTest extends TestCase
     public function test_public_profile_returns_recent_reviews_preview(): void
     {
         $viewer = Profile::factory()->business()->create();
+        // Subscribed business: may view community profiles (a free business is 403'd).
+        BusinessSubscription::factory()->active()->create(['profile_id' => $viewer->id]);
         $target = Profile::factory()->community()->create();
         CommunityProfile::factory()->create([
             'profile_id' => $target->id,
@@ -164,6 +171,8 @@ class PublicProfileTest extends TestCase
     public function test_public_profile_returns_404_for_nonexistent(): void
     {
         $viewer = Profile::factory()->business()->create();
+        // Subscribed business: may view community profiles (a free business is 403'd).
+        BusinessSubscription::factory()->active()->create(['profile_id' => $viewer->id]);
 
         $response = $this->actingAs($viewer)
             ->getJson('/api/v1/profiles/00000000-0000-0000-0000-000000000000');
@@ -201,6 +210,8 @@ class PublicProfileTest extends TestCase
     public function test_community_public_profile_returns_safe_stats_and_past_events_portfolio(): void
     {
         $viewer = Profile::factory()->business()->create();
+        // Subscribed business: may view community profiles (a free business is 403'd).
+        BusinessSubscription::factory()->active()->create(['profile_id' => $viewer->id]);
         $community = Profile::factory()->community()->create();
         $partner = Profile::factory()->business()->create([
             'avatar_url' => 'https://example.com/partner-avatar.jpg',

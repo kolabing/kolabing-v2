@@ -188,8 +188,12 @@ class ProfileController extends Controller
      *
      * GET /api/v1/profiles/{profile}
      */
-    public function publicProfile(Profile $profile): JsonResponse
+    public function publicProfile(Request $request, Profile $profile): JsonResponse
     {
+        if ($blocked = $this->denyCommunityProfileToUnsubscribedBusiness($request, $profile)) {
+            return $blocked;
+        }
+
         $this->profileService->loadProfileRelationships($profile);
 
         return response()->json([
@@ -199,12 +203,46 @@ class ProfileController extends Controller
     }
 
     /**
+     * Gate: a non-subscribed business may not view a community's profile
+     * (rule — free businesses cannot see any community profile). Returns the
+     * 403 response to short-circuit with, or null when the view is allowed.
+     * Businesses viewing businesses, communities viewing anyone, and subscribed
+     * businesses are all unaffected.
+     */
+    private function denyCommunityProfileToUnsubscribedBusiness(Request $request, Profile $target): ?JsonResponse
+    {
+        if (! $target->isCommunity()) {
+            return null;
+        }
+
+        /** @var Profile|null $viewer */
+        $viewer = $request->user();
+
+        if ($viewer !== null
+            && $viewer->isBusiness()
+            && ! $viewer->hasActiveSubscription()) {
+            return response()->json([
+                'success' => false,
+                'message' => __('A subscription is required to view community profiles.'),
+                'requires_subscription' => true,
+                'code' => 'subscription_required',
+            ], 403);
+        }
+
+        return null;
+    }
+
+    /**
      * Get a safe public-facing community profile.
      *
      * GET /api/v1/communities/{community}/public-profile
      */
-    public function communityPublicProfile(Profile $community): JsonResponse
+    public function communityPublicProfile(Request $request, Profile $community): JsonResponse
     {
+        if ($blocked = $this->denyCommunityProfileToUnsubscribedBusiness($request, $community)) {
+            return $blocked;
+        }
+
         $community = $this->profileService->getCommunityPublicProfile($community);
 
         return response()->json([

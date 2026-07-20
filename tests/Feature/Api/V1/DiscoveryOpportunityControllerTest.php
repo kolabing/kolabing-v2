@@ -6,6 +6,7 @@ namespace Tests\Feature\Api\V1;
 
 use App\Models\Application;
 use App\Models\BusinessProfile;
+use App\Models\BusinessSubscription;
 use App\Models\City;
 use App\Models\CommunityProfile;
 use App\Models\Kolab;
@@ -27,6 +28,9 @@ class DiscoveryOpportunityControllerTest extends TestCase
     public function test_business_viewer_sees_only_active_published_community_requests_with_match_metadata(): void
     {
         $viewer = Profile::factory()->business()->create();
+        // Subscribed viewer: community identity is revealed (the masking of
+        // name/logo for a FREE business is covered by its own test below).
+        BusinessSubscription::factory()->active()->create(['profile_id' => $viewer->id]);
         BusinessProfile::factory()->create([
             'profile_id' => $viewer->id,
             'name' => 'Casa Sol',
@@ -137,6 +141,88 @@ class DiscoveryOpportunityControllerTest extends TestCase
         $this->assertGreaterThan(0, (int) $response->json('data.data.0.match.score'));
         $this->assertContains('city_match', $response->json('data.data.0.match.reasons'));
         $this->assertContains('need_type_match', $response->json('data.data.0.match.reasons'));
+    }
+
+    public function test_free_business_viewer_gets_community_identity_masked_in_the_feed(): void
+    {
+        // A non-subscribed business must NOT receive a community's name/logo.
+        $viewer = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $viewer->id,
+            'name' => 'Casa Sol',
+            'business_type' => 'restaurant',
+            'categories' => ['restaurant'],
+            'city_name' => 'Barcelona',
+        ]);
+
+        $community = Profile::factory()->community()->create([
+            'avatar_url' => 'https://example.com/secret-logo.jpg',
+        ]);
+        CommunityProfile::factory()->create([
+            'profile_id' => $community->id,
+            'name' => 'Wellness Collective',
+            'community_type' => 'wellness_community',
+        ]);
+
+        // No media on the kolab -> cover photo would otherwise fall back to the
+        // community avatar; the mask must prevent that leak too.
+        Kolab::factory()->published()->forCreator($community)->create([
+            'intent_type' => 'community_seeking',
+            'title' => 'Need a venue for a wellness morning',
+            'preferred_city' => 'Barcelona',
+            'media' => [],
+        ]);
+
+        $response = $this->actingAs($viewer)
+            ->getJson('/api/v1/discovery/opportunities?feed=all');
+
+        $response->assertOk()
+            ->assertJsonPath('data.meta.total', 1)
+            ->assertJsonPath('data.data.0.creator_type', 'community')
+            ->assertJsonPath('data.data.0.creator_profile.display_name', null)
+            ->assertJsonPath('data.data.0.creator_profile.avatar_url', null)
+            ->assertJsonPath('data.data.0.creator_profile.identity_locked', true)
+            ->assertJsonPath('data.data.0.cover_photo_url', null);
+
+        // The community's real name/logo must appear nowhere in the payload.
+        $raw = $response->getContent();
+        $this->assertStringNotContainsString('Wellness Collective', $raw);
+        $this->assertStringNotContainsString('secret-logo.jpg', $raw);
+    }
+
+    public function test_subscribed_business_viewer_sees_community_identity_in_the_feed(): void
+    {
+        $viewer = Profile::factory()->business()->create();
+        BusinessSubscription::factory()->active()->create(['profile_id' => $viewer->id]);
+        BusinessProfile::factory()->create([
+            'profile_id' => $viewer->id,
+            'name' => 'Casa Sol',
+            'business_type' => 'restaurant',
+            'categories' => ['restaurant'],
+            'city_name' => 'Barcelona',
+        ]);
+
+        $community = Profile::factory()->community()->create([
+            'avatar_url' => 'https://example.com/community-logo.jpg',
+        ]);
+        CommunityProfile::factory()->create([
+            'profile_id' => $community->id,
+            'name' => 'Wellness Collective',
+            'community_type' => 'wellness_community',
+        ]);
+
+        Kolab::factory()->published()->forCreator($community)->create([
+            'intent_type' => 'community_seeking',
+            'title' => 'Need a venue for a wellness morning',
+            'preferred_city' => 'Barcelona',
+        ]);
+
+        $this->actingAs($viewer)
+            ->getJson('/api/v1/discovery/opportunities?feed=all')
+            ->assertOk()
+            ->assertJsonPath('data.data.0.creator_profile.display_name', 'Wellness Collective')
+            ->assertJsonPath('data.data.0.creator_profile.avatar_url', 'https://example.com/community-logo.jpg')
+            ->assertJsonPath('data.data.0.creator_profile.identity_locked', false);
     }
 
     public function test_community_viewer_can_filter_business_offers_and_receives_normalized_offer_data(): void
