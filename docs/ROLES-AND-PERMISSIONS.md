@@ -1,6 +1,6 @@
 # Kolabing — Roles, Permissions & Features (Canonical Reference)
 
-**Last updated:** 2026-07-15 (company/legal details + agreement version now maintainer-editable at `/admin/company-settings` — legal pages render live values, bumping the version re-prompts app users; see the consent callout & backend map §0.12. Prior: legal consent gate — all registration requires `accepted_terms`; consent recorded on `profiles.terms_*` with re-consent via `GET /auth/me` + `POST /me/consent`; see the consent callout below and backend map §0 item 12. Prior: PR 5: reputation shape — removed `unique_partner_count` from public reputation block; added per-pair fairness cap (max 2 reviews per reviewer→reviewed pair count toward aggregate); `recent_reviews` items now carry `is_verified_kolab_review: true` — §4. Prior: PR 4: public reputation summary — updated reviews note to mention new aggregate `reputation` block on `PublicProfileResource` — §4. Prior: 2026-06-28 gamification mission system v1: curated `app_visible` mission set + event/general mission separation — #49. Prior: PR #59 review fixes — completion-confirmation gate hardening — terminal-state guard, resource/gate agreement on `no`/`not_yet`, auto-complete grace anchored on the `yes` timestamp, **legacy feedback fallback + backfill removed (`/complete` gates purely on real completion confirmations)** — §2.9, §4)
+**Last updated:** 2026-07-20 (business gating tightened to match this spec: **no free kolab** — every self-initiated business publish requires a subscription; the single onboarding auto-offer is the only free published business post (§2.5). **Community identity is now withheld server-side from a free business** — the discovery feed nulls name/logo + sets `identity_locked`, and `GET /profiles/{id}` + `GET /communities/{id}/public-profile` return 403 for a non-subscribed business viewing a community (golden rule 4, §2.5). Backend map §3/§4/§8. Prior: company/legal details + agreement version now maintainer-editable at `/admin/company-settings` — legal pages render live values, bumping the version re-prompts app users; see the consent callout & backend map §0.12. Prior: legal consent gate — all registration requires `accepted_terms`; consent recorded on `profiles.terms_*` with re-consent via `GET /auth/me` + `POST /me/consent`; see the consent callout below and backend map §0 item 12. Prior: PR 5: reputation shape — removed `unique_partner_count` from public reputation block; added per-pair fairness cap (max 2 reviews per reviewer→reviewed pair count toward aggregate); `recent_reviews` items now carry `is_verified_kolab_review: true` — §4. Prior: PR 4: public reputation summary — updated reviews note to mention new aggregate `reputation` block on `PublicProfileResource` — §4. Prior: 2026-06-28 gamification mission system v1: curated `app_visible` mission set + event/general mission separation — #49. Prior: PR #59 review fixes — completion-confirmation gate hardening — terminal-state guard, resource/gate agreement on `no`/`not_yet`, auto-complete grace anchored on the `yes` timestamp, **legacy feedback fallback + backfill removed (`/complete` gates purely on real completion confirmations)** — §2.9, §4)
 **Status:** Authoritative. This document overrides assumptions.
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical. When role behaviour changes, update both **and bump the Last updated date** in both.
 
@@ -29,7 +29,7 @@ Kolabing has three user types. Only two are in launch scope.
 1. **Communities are 100% free. They are NEVER paywalled, gated, or blocked from any feature.** If you see a community blocked from creating, applying, chatting, or anything else, that is a bug. The paywall belongs to the Business role only.
 2. **The paywall applies ONLY to the Business role, and ONLY on two actions:** creating a collaboration, and applying to a Kolab. Nothing else is paywalled. Registration, onboarding, profile creation, and browsing Explore are always free, including for businesses.
 3. **The marketplace is bidirectional. Both roles post, and both roles apply.** Communities post Kolabs and can apply to business offers. Businesses post offers and can apply to community Kolabs. Never remove either role's ability to post or to apply.
-4. **A free (non-subscribed) business sees Explore with the community name and logo BLURRED — not hidden, not hard-blocked.** They see the Kolab and all its details; only the community's identity is blurred. Subscribing reveals it.
+4. **A free (non-subscribed) business sees Explore with the community identity WITHHELD (name + logo), not hard-blocked.** They see the Kolab and all its details; only the community's identity is hidden — and it is withheld **server-side** (the feed nulls name/logo and sets `identity_locked`; the full community profile endpoints return 403), not merely blurred by the client. Subscribing + re-fetch reveals it. The Kolab card itself is never removed or overlaid.
 5. **Never hard-block or full-screen-overlay a screen the user is allowed to be on.** Gating means: blur the protected element, or disable the specific action button. It does not mean a full-screen block.
 6. **"Opportunity" and "collaboration" both exist and are both valid.** The app uses "opportunity" for community-created posts and "collaboration" for business-created posts ("Kolab" is used loosely for either). Do not delete, merge, or rename one into the other.
 
@@ -74,15 +74,18 @@ A free business CAN:
 - Browse the Explore feed
 - See every Kolab's details: type, community size, what is needed, what is offered, available dates, Fit %
 
-A free business CANNOT (the protected element is blurred, or the action is gated):
-- See the community NAME — blurred
-- See the community LOGO — blurred
-- Open a community's full profile or contact
+A free business CANNOT (the protected element is withheld, or the action is gated):
+- See the community NAME — **withheld server-side** (nulled in the discovery feed; `creator_profile.identity_locked = true`)
+- See the community LOGO — **withheld server-side** (avatar nulled; the cover photo never falls back to the community logo)
+- Open a community's full profile — `GET /profiles/{id}` and `GET /communities/{id}/public-profile` return **403** (`code: subscription_required`) for a non-subscribed business viewing a community
 - Create a collaboration (offer) — gated, shows the paywall
 - Apply to a Kolab — gated, shows the paywall
+- Publish a self-created Kolab — gated (see the auto-offer note below); there is **no free kolab**
 - Chat — not reachable (chat exists only after an accepted application)
 
-The free state is BLUR, not block. The business stays on Explore and sees the marketplace; only the community identity is blurred and the two actions are gated. Never replace this with a full-screen block or overlay.
+The free state hides the community IDENTITY, not the marketplace. The business still sees every Kolab and all its details — only the community's name/logo are withheld and the full profile is unreachable until it subscribes. Enforcement is **server-side** (the identity is not sent), so the client's blur is a presentation of an already-locked payload, not the security boundary. Never replace this with a full-screen block or overlay.
+
+**Auto-offer (the one free business post).** On business onboarding the backend auto-creates and publishes exactly one promotional Kolab from the profile (`OnboardingService::provisionBusinessAutoOffer`). This is the ONLY free published business post. Every *self-initiated* business publish (Venue/Product promotion) requires an active subscription — the auto-offer bypasses the paywall via an internal flag that no HTTP controller can set. CommunitySeeking publishes are free for everyone.
 
 ### 2.6 Subscribed business — exact capabilities
 Everything a free business can do, plus:
@@ -98,7 +101,7 @@ ONLY these two actions. Nothing else:
 - Creating a collaboration
 - Applying to a Kolab
 
-As a consequence of not subscribing, the community identity in Explore is blurred and chat is unreachable (because chat requires an accepted application). Those are downstream effects of the two gates, not separate paywalls. Do not add any other paywall, except the subscription-lapse re-gate in §2.8.
+As a consequence of not subscribing, the community identity in Explore is withheld server-side, the full community profile is unreachable (403), and chat is unreachable (because chat requires an accepted application). Those are downstream effects of the gates, not separate paywalls. Note the auto-offer exception in §2.5: the single onboarding auto-offer is the only free published business post; every self-initiated publish is gated. Do not add any other paywall, except the subscription-lapse re-gate in §2.8.
 
 ### 2.8 Subscription lapse (re-gating) — decided 2026-05-22
 If a business's subscription lapses (expires or is cancelled), the business is **re-gated**: it loses access to its ongoing collaborations and chats until it resubscribes — in addition to the two create/apply gates. This is the one and only case where access beyond create/apply is withdrawn from a business.

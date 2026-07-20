@@ -1,6 +1,6 @@
 # Kolabing — Pre-launch Backlog
 
-**Last updated:** 2026-07-15 (legal: company/legal details + agreement version now admin-editable at `/admin/company-settings` (`company_settings` table); legal pages render live values — §4. Prior: bilingual Terms/Privacy (EN + `/es`) + mobile consent tracking — §4. Prior: query-audit N+1 sweep — §12)
+**Last updated:** 2026-07-20 (business gating audit fixes — no free kolab (autopost is the only free business post) + community identity withheld server-side from free businesses (feed mask + profile-endpoint 403); §8. Prior: legal: company/legal details + agreement version now admin-editable at `/admin/company-settings` (`company_settings` table); legal pages render live values — §4. Prior: bilingual Terms/Privacy (EN + `/es`) + mobile consent tracking — §4. Prior: query-audit N+1 sweep — §12)
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical.
 
 A consolidated punch list of everything we've identified but haven't shipped. Items are tagged by **owner** (`backend` = kolabing-v2, `app` = kolabing-app, `cross` = both, `infra` = hosting) and **priority** (`P0` = blocker for launch, `P1` = needed soon after, `P2` = nice-to-have).
@@ -213,7 +213,8 @@ Cross-references to PRs and plans already on file — listed here so they don't 
 
 From [docs/ROLES-BACKEND-DB-MAP.md](ROLES-BACKEND-DB-MAP.md) §8 — still-open items. Repeated here so they're visible from the launch backlog too.
 
-- [ ] **Implement the Explore blur** for free businesses (golden rules 4 + 5). Server should emit an `identity_locked` flag; client renders an actual blur, not a hard block. Owner: **cross**.
+- [x] ~~**Implement the Explore blur** for free businesses (golden rules 4 + 5).~~ **DONE 2026-07-20 (backend):** identity is now withheld **server-side** for a non-subscribed business viewing a community — feed nulls name/logo + emits `identity_locked`, and `GET /profiles/{id}` + `GET /communities/{id}/public-profile` return 403. Client already blurs + gates navigation over the stripped payload. Owner: **backend** (done) / app (optional: trust the server `identity_locked` flag).
+- [x] ~~**Businesses get 1 free kolab (backend leak).**~~ **DONE 2026-07-20 (backend):** removed the free-kolab grant — every self-initiated business publish requires a subscription; the single onboarding auto-offer is the only free published business post. Brings the backend in line with §2.5 / the capability matrix. Owner: **backend**.
 - [ ] **Add `coliving` to `BusinessOnboardingRequest::BUSINESS_TYPES`** — it's in the spec but rejected at validation today. Owner: **backend**.
 - [ ] **Attendee role scope decision** — code is shipped (gamification, wallet, badges, checkin) but `ROLES-AND-PERMISSIONS.md §7` still marks it as `[VERIFY]`. Decide: in or out of launch; pricing; whether the attendee wallet redeems to cash. Owner: **product (Daniel)**, then **backend** / **app**.
 
