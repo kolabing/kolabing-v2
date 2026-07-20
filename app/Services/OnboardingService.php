@@ -349,7 +349,9 @@ class OnboardingService
             }
 
             $kolab = $this->kolabService->create($profile, $payload);
-            $this->kolabService->publish($kolab);
+            // The onboarding auto-offer is the ONE free business post; it bypasses
+            // the publish paywall. Every other business publish requires a sub.
+            $this->kolabService->publish($kolab, [], allowUnsubscribedAutoOffer: true);
         } catch (\Throwable $e) {
             // Never let auto-offer provisioning break onboarding.
             Log::error('Failed to auto-provision business kolab', [

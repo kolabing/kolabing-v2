@@ -9,11 +9,12 @@ use App\Models\Profile;
 class OpportunityService
 {
     /**
-     * Check if a business user has reached the freemium collaboration limit.
+     * Check if a business user is barred from creating opportunities by the paywall.
      *
-     * Unsubscribed business profiles may only accumulate 0 collaborations before
-     * being required to subscribe. Once they have >=1 collaboration, further
-     * paid collaboration creation/publishing is blocked until they subscribe.
+     * Businesses get NO free self-created opportunity: an unsubscribed business is
+     * always at the limit. The only free business post is the onboarding auto-offer,
+     * which is provisioned via KolabService and does not pass through this gate.
+     * Communities are never gated.
      */
     public function hasReachedFreemiumCollabLimit(Profile $profile): bool
     {
@@ -21,10 +22,6 @@ class OpportunityService
             return false;
         }
 
-        if ($profile->hasActiveSubscription()) {
-            return false;
-        }
-
-        return $profile->createdCollaborations()->count() >= 1;
+        return ! $profile->hasActiveSubscription();
     }
 }

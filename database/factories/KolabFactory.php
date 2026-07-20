@@ -9,6 +9,7 @@ use App\Enums\KolabStatus;
 use App\Models\Kolab;
 use App\Models\Profile;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
 /**
  * @extends Factory<Kolab>
@@ -94,7 +95,7 @@ class KolabFactory extends Factory
             'venue_type' => fake()->randomElement(['restaurant', 'cafe', 'bar_lounge', 'hotel', 'event_space']),
             'capacity' => fake()->numberBetween(20, 500),
             'venue_address' => fake()->address(),
-            'offer_headline' => fake()->sentence(6),
+            'offer_headline' => Str::limit(fake()->sentence(6), 50, ''),
             'base_offer' => fake()->sentence(18),
             'negotiation_triggers' => [],
             'offering' => [
@@ -122,7 +123,7 @@ class KolabFactory extends Factory
             'intent_type' => IntentType::ProductPromotion,
             'product_name' => fake()->words(3, true),
             'product_type' => fake()->randomElement(['food_product', 'beverage', 'health_beauty', 'fashion']),
-            'offer_headline' => fake()->sentence(6),
+            'offer_headline' => Str::limit(fake()->sentence(6), 50, ''),
             'base_offer' => fake()->sentence(18),
             'negotiation_triggers' => [],
             'offering' => [

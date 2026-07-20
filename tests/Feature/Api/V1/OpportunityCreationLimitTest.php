@@ -83,11 +83,13 @@ class OpportunityCreationLimitTest extends TestCase
         $this->assertTrue($service->hasReachedFreemiumCollabLimit($business));
     }
 
-    public function test_has_reached_freemium_collab_limit_returns_false_with_no_collabs(): void
+    public function test_has_reached_freemium_collab_limit_returns_true_for_unsubscribed_business_with_no_collabs(): void
     {
+        // Businesses get no free opportunity: an unsubscribed business is at the
+        // limit from the start, regardless of how many collaborations they have.
         $business = Profile::factory()->business()->create();
 
         $service = app(OpportunityService::class);
-        $this->assertFalse($service->hasReachedFreemiumCollabLimit($business));
+        $this->assertTrue($service->hasReachedFreemiumCollabLimit($business));
     }
 }

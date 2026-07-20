@@ -382,6 +382,43 @@ class OnboardingControllerTest extends TestCase
         $this->assertSame(['venue'], $kolab->offering);
     }
 
+    public function test_unsubscribed_business_gets_autoposted_offer_but_no_free_manual_kolab(): void
+    {
+        // The onboarding auto-offer is the ONLY free business post. An
+        // unsubscribed business must not be able to manually publish a second one.
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+        // Deliberately NO subscription.
+
+        $this->actingAs($profile)
+            ->putJson('/api/v1/onboarding/business', [
+                'name' => 'Bean Brand',
+                'about' => 'We roast single-origin beans.',
+                'business_type' => 'retail',
+                'has_venue' => false,
+                'city_id' => $this->city->id,
+                'offering' => 'Single-origin coffee beans',
+                'offer_photos' => [],
+            ])
+            ->assertStatus(200);
+
+        // The auto-offer published for an unsubscribed business (paywall bypassed).
+        $autoOffer = \App\Models\Kolab::query()
+            ->where('creator_profile_id', $profile->id)
+            ->firstOrFail();
+        $this->assertSame(\App\Enums\KolabStatus::Published, $autoOffer->status);
+        $this->assertFalse($profile->fresh()->hasActiveSubscription());
+
+        // A second, self-created kolab cannot be published without a subscription.
+        $second = \App\Models\Kolab::factory()->productPromotion()->forCreator($profile)->create();
+
+        $this->actingAs($profile)
+            ->postJson("/api/v1/kolabs/{$second->id}/publish")
+            ->assertStatus(402)
+            ->assertJsonPath('requires_subscription', true)
+            ->assertJsonPath('code', 'subscription_required');
+    }
+
     public function test_business_onboarding_auto_offer_is_idempotent(): void
     {
         $profile = Profile::factory()->business()->create();

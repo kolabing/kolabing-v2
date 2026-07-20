@@ -253,13 +253,19 @@ class KolabService
 
     /**
      * Publish a kolab. Only draft kolabs can be published.
-     * Community seeking intent is free; other intents require subscription.
+     *
+     * Community-seeking intent is always free. A business promotional intent
+     * (Venue/Product) requires an active subscription — businesses get NO free
+     * self-published kolab. The single exception is the onboarding auto-offer
+     * (the business profile auto-post), which is provisioned internally with
+     * $allowUnsubscribedAutoOffer = true; that flag is never set from any HTTP
+     * controller, so a user-initiated publish can never bypass the paywall.
      *
      * @param  array{recipient_community_id?: string|null}  $data
      *
      * @throws InvalidArgumentException
      */
-    public function publish(Kolab $kolab, array $data = []): Kolab
+    public function publish(Kolab $kolab, array $data = [], bool $allowUnsubscribedAutoOffer = false): Kolab
     {
         if (! $kolab->isDraft()) {
             throw new InvalidArgumentException(
@@ -269,10 +275,10 @@ class KolabService
 
         $creator = $kolab->creatorProfile;
 
-        if ($creator->isBusiness()
+        if (! $allowUnsubscribedAutoOffer
+            && $creator->isBusiness()
             && $kolab->intent_type !== IntentType::CommunitySeeking
-            && ! $creator->hasActiveSubscription()
-            && $creator->hasUsedFreeKolab()) {
+            && ! $creator->hasActiveSubscription()) {
             throw new SubscriptionRequiredException(
                 'A subscription is required to publish this type of kolab.'
             );
