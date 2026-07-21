@@ -28,6 +28,17 @@ return Application::configure(basePath: dirname(__DIR__))
         ['middleware' => ['auth:sanctum']],
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Trust Laravel Cloud's edge/compute network as a proxy so isSecure()/getScheme()
+        // (and everything downstream of it: the session/XSRF cookie Secure flag, CSRF checks,
+        // URL generation) correctly see the original client's HTTPS request instead of the
+        // plain-HTTP hop from Laravel Cloud's internal load balancer. `at: '*'` (not an IP
+        // allowlist) is safe here because the app is only ever reachable through Laravel
+        // Cloud's own edge + compute network, never directly from the public internet -- see
+        // https://laravel.com/cloud/docs/network ("Your applications run in private networks
+        // and are only made publicly accessible via the Cloud Edge Network"). Fixes
+        // intermittent 419 (Page Expired) on /admin/login, diagnosed in #104.
+        $middleware->trustProxies(at: '*');
+
         $middleware->append(AddSecurityHeaders::class);
 
         // Register middleware aliases
