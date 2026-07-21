@@ -312,4 +312,42 @@ return [
         ],
     ],
 
+    // ───────────────────────── Onboarding drip (new, 2026-07-21) ─────────────────────────
+    // Copy drafted by Jace (Serra CMO), vault deliverable
+    // _deliverables/to-review/jace/2026-07-20 - kolabing-launch-emails-and-onboarding.md.
+    // Content verbatim from that draft; not yet brand-voice-audited/approved by Daniel.
+
+    [
+        'alias' => 'first-collab-tips',
+        'name' => 'First collab tips',
+        'subject' => 'Three ways to land your first collab on Kolabing',
+        'sample' => ['first_name' => 'Daniel'],
+        'content' => [
+            ['type' => 'para', 'text' => 'Hi {{first_name}},'],
+            ['type' => 'para', 'text' => "You're in. Here's how the people who get picked fastest do it:"],
+            ['type' => 'list', 'ordered' => true, 'items' => [
+                'Complete your profile. A photo and one line on what you do doubles your reply rate.',
+                "Apply to two or three collabs that fit, not ten that don't. A short, specific note beats a copy-paste.",
+                'Reply fast when a business messages you. The first to answer usually gets the collab.',
+            ]],
+            ['type' => 'para', 'text' => 'Want to browse what\'s open now?'],
+            ['type' => 'button', 'label' => 'Open Kolabing', 'url' => $app],
+            ['type' => 'signature'],
+        ],
+    ],
+
+    [
+        'alias' => 'inactive-nudge',
+        'name' => 'Inactive nudge',
+        'subject' => 'Still worth a look, new collabs near you',
+        'sample' => ['first_name' => 'Daniel'],
+        'content' => [
+            ['type' => 'para', 'text' => 'Hi {{first_name}},'],
+            ['type' => 'para', 'text' => "You joined Kolabing but haven't started a collab yet. No pressure."],
+            ['type' => 'para', 'text' => 'There are new opportunities posted since you signed up that match what you\'re after. It takes two minutes to apply to the first one.'],
+            ['type' => 'button', 'label' => 'See what\'s open', 'url' => $app],
+            ['type' => 'signature'],
+        ],
+    ],
+
 ];

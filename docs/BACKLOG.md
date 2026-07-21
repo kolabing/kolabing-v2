@@ -1,6 +1,6 @@
 # Kolabing — Pre-launch Backlog
 
-**Last updated:** 2026-07-15 (legal: company/legal details + agreement version now admin-editable at `/admin/company-settings` (`company_settings` table); legal pages render live values — §4. Prior: bilingual Terms/Privacy (EN + `/es`) + mobile consent tracking — §4. Prior: query-audit N+1 sweep — §12)
+**Last updated:** 2026-07-21 (§1: corrected the stale "email not wired" note — the Postmark pipeline has existed since `b50c378` (2026-06-04); it's built and live-send verified but has no production caller yet. Added the onboarding drip command/service, built and not scheduled, pending Daniel's sign-off on the offsets. Prior: 2026-07-15 legal: company/legal details + agreement version now admin-editable at `/admin/company-settings` (`company_settings` table); legal pages render live values — §4. Prior: bilingual Terms/Privacy (EN + `/es`) + mobile consent tracking — §4. Prior: query-audit N+1 sweep — §12)
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical.
 
 A consolidated punch list of everything we've identified but haven't shipped. Items are tagged by **owner** (`backend` = kolabing-v2, `app` = kolabing-app, `cross` = both, `infra` = hosting) and **priority** (`P0` = blocker for launch, `P1` = needed soon after, `P2` = nice-to-have).
@@ -11,39 +11,63 @@ Each item lists what exists now, what's missing, and any open decisions. See ref
 
 ## 1. Email infrastructure (Postmark)
 
-**Status:** Not wired. Only password reset uses Laravel's Password broker default.
+**Status (corrected 2026-07-21 — the previous "not wired" note here was stale; the pipeline has
+existed since commit `b50c378`, 2026-06-04):** the transactional email **pipeline is built and
+live-send verified**, but has **no production caller** — `EmailService::send()` is only ever
+invoked from the manual `email:sync-templates --test=` / `email:test` CLI smoke-test commands. No
+app code path (registration, application lifecycle, gamification, etc.) calls it in the request
+flow yet. Password reset still uses Laravel's Password broker default, not the Postmark template.
 
 **What exists:**
-- `config/services.php:17-19` declares Postmark with `POSTMARK_API_KEY` env.
-- `config/mail.php:17` default mailer is `'log'` (not Postmark).
-- `AuthService:566` sends password reset via `Password::broker()->sendResetLink()`.
+- `app/Services/PostmarkClient.php` — Postmark HTTP client (`sendTemplate` + `sendRaw` + template CRUD).
+- `app/Services/EmailService.php` — preference-gated dispatch (`account`/`security` always send;
+  `application`/`collaboration` respect their dedicated flags; `gamification`/`nudge` respect only
+  the `email_notifications` master switch; `marketing` respects `marketing_tips`).
+- `app/Jobs/SendTransactionalEmail.php` — queued delivery, mirrors `SendPushNotification`.
+- `resources/postmark/templates.php` — 19 seeded template definitions (+ 2 pre-existing aliases,
+  `business-welcome-01`/`community-welcome-01`, live in Postmark only) + `app/Console/Commands/SyncPostmarkTemplates.php`
+  to push them. See `docs/TEMPLATE_COPY_EXPORT.md` for the full copy export.
+- `app/Console/Commands/SendOnboardingDrip.php` + `app/Models/OnboardingDripState.php` +
+  `app/Services/OnboardingDripService.php` (added 2026-07-21) — the T+0/T+2/T+5/T+10 onboarding
+  drip (welcome / complete-profile / activation / inactive-nudge), same per-recipient-state-row +
+  cadence-hours shape as `NotificationReminderService`. **Built, not scheduled** — see
+  `routes/console.php` (commented out) and `config/onboarding_drip.php`. Do not uncomment the
+  `Schedule::command('app:send-onboarding-drip')` line until Daniel approves the cadence.
+- `config/services.php:17-19` declares Postmark with `POSTMARK_API_KEY` env; `POSTMARK_API_KEY` /
+  `POSTMARK_MESSAGE_STREAM_ID` documented in `.env.example`.
+- `AuthService:566` sends password reset via `Password::broker()->sendResetLink()` (not yet swapped
+  to the `password-reset` Postmark template).
 
 **What's missing:**
-- No `app/Mail/` Mailables at all. No `app/Notifications/` mail-channel classes. No `resources/views/mail/` templates.
-- No `POSTMARK_API_KEY` in `.env.example`.
-- Default mailer never flipped to `postmark`.
-- No `MustVerifyEmail` on the `Profile` model — email confirmation on signup is not enforced. (Google OAuth manually sets `email_verified_at = now()` per `AuthService:168` so OAuth users skip verification anyway.)
+- No app code calls `EmailService::send()` from a real trigger seam yet (registration, application
+  accept/decline, collab confirmed, badge/reward/tier events, etc.) — see
+  `docs/plans/2026-06-04-transactional-email-system.md` Phase 2 for the full seam-by-seam map.
+- Default mailer (`config/mail.php:17`) is still `'log'`, not `postmark`, in local/default env.
+- No `MustVerifyEmail` on the `Profile` model — email confirmation on signup is not enforced.
+  (Google OAuth manually sets `email_verified_at = now()` per `AuthService:168` so OAuth users skip
+  verification anyway.) Verification stays OFF by design until Daniel approves the welcome template
+  (plan doc Phase 5).
 
 **P0 — must ship before launch:**
-- [ ] `Mail/EmailVerification` Mailable + send on registration (email/password path). Owner: **backend**.
-- [ ] `Mail/PasswordReset` Mailable to replace Laravel's default reset email (custom branding). Owner: **backend**.
-- [ ] `Mail/WelcomeBusiness`, `Mail/WelcomeCommunity` post-onboarding. Owner: **backend**.
-- [ ] Wire Postmark: `POSTMARK_API_KEY` to `.env.example`, `MAIL_MAILER=postmark` in production env. Owner: **infra**.
-- [ ] Email-style branding template (`emails/layouts/master.blade.php`) so all subsequent Mailables share a header/footer. Owner: **backend**.
+- [ ] Wire `EmailService::send()` into the real trigger seams (welcome on register, password
+  reset/changed, application lifecycle, collab-confirmed, feedback-request) per the plan doc's
+  Phase 2 table. Owner: **backend**.
+- [ ] Wire Postmark: `MAIL_MAILER=postmark` in production env (config already supports it). Owner: **infra**.
 
 **P1 — customer success flows:**
-- [ ] "Create your first kolab" nudge — business with no published kolab after N days. Trigger: scheduled command. Owner: **backend**.
-- [ ] "Your first application is in" — business gets an email when they receive their first community application. Owner: **backend**.
+- [x] Onboarding drip (welcome / complete-profile / activation / inactive-nudge) — command +
+  service built 2026-07-21, **awaiting Daniel's sign-off on the offsets before scheduling live**.
+  Owner: **backend**.
 - [ ] Collab-day + follow-up reminders also as email fallback (push exists already). Owner: **backend**.
 - [ ] Subscription receipts on activation / cancellation / past_due (gated on §3 Stripe ship). Owner: **backend**.
 
 **P2 — lifecycle marketing:**
-- [ ] Re-engagement after N days inactive — email path complementing push. Owner: **backend**.
 - [ ] Monthly "your Kolabing impact" summary for businesses (revenue from feedback, attendance, reviews). Owner: **backend**.
 
 **Open decisions:**
 - Single Postmark stream or one stream per type (transactional vs broadcast)?
 - Do we mirror every push as an email, or push for time-sensitive + email for value-add?
+- Onboarding drip cadence (T+0/T+2/T+5/T+10, `config/onboarding_drip.php`) — pending Daniel approval.
 
 ---
 

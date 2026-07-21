@@ -201,6 +201,16 @@ class Profile extends Authenticatable
     }
 
     /**
+     * Get the onboarding email drip state for this profile.
+     *
+     * @return HasOne<OnboardingDripState, $this>
+     */
+    public function onboardingDripState(): HasOne
+    {
+        return $this->hasOne(OnboardingDripState::class);
+    }
+
+    /**
      * Get applications submitted by this profile.
      *
      * @return HasMany<Application, $this>

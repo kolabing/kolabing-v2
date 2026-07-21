@@ -36,3 +36,10 @@ Schedule::command('app:send-business-reactivation-reminders')->dailyAt('09:00');
 // that bypass CollaborationService's completion flow and never trigger
 // recalculation. Idempotent (updateOrCreate) — safe to run daily.
 Schedule::command('app:recalculate-partner-statuses')->dailyAt('14:20');
+
+// Onboarding email drip (T+0 welcome / T+2 complete-profile / T+5 activation /
+// T+10 inactive-nudge, see config/onboarding_drip.php). Command is built and
+// tested (`php artisan app:send-onboarding-drip`) but INTENTIONALLY NOT
+// scheduled — Daniel has not signed off on the N-day offsets going live yet.
+// Uncomment only after that approval:
+// Schedule::command('app:send-onboarding-drip')->hourly();
