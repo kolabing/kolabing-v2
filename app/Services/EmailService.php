@@ -41,11 +41,13 @@ class EmailService
      * Send a Postmark template email to a profile, respecting preferences.
      *
      * @param  array<string, mixed>  $model
+     * @return bool Whether an email was actually queued (false = suppressed by
+     *              the recipient's preferences).
      */
-    public function send(Profile $recipient, string $templateAlias, array $model, string $category): void
+    public function send(Profile $recipient, string $templateAlias, array $model, string $category): bool
     {
         if (! $this->shouldSend($recipient, $category)) {
-            return;
+            return false;
         }
 
         dispatch(SendTransactionalEmail::template(
@@ -54,6 +56,8 @@ class EmailService
             model: $model,
             toName: $this->recipientName($recipient),
         ));
+
+        return true;
     }
 
     /**
