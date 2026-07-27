@@ -50,10 +50,10 @@ class SendOnboardingDrip extends Command
     }
 
     /**
-     * Backfill drip state for any profile that doesn't have one yet. In
-     * steady state this would run from the registration seam
-     * (AuthService::register*()); until that hook is added, --sync-new lets
-     * this command pick up existing/new profiles on its own.
+     * Backfill drip state for any profile that doesn't have one yet. In steady
+     * state new signups are enrolled at the registration seam
+     * (AuthService::startOnboardingDrip()); --sync-new is the one-off backfill
+     * for profiles created before that hook existed.
      */
     private function syncNewProfiles(OnboardingDripService $drip, bool $dryRun): void
     {

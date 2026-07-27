@@ -9,6 +9,7 @@ use App\Enums\KolabStatus;
 use App\Enums\UserType;
 use App\Models\OnboardingDripState;
 use App\Models\Profile;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Drives the T+0/T+2/T+5/T+10 onboarding email drip.
@@ -27,8 +28,9 @@ use App\Models\Profile;
  *   3. T+10 Inactive nudge              — only if still no first action taken
  *
  * Steps whose condition is no longer met when they come due are skipped (not
- * cancelled outright) so a later step can still fire; the whole drip is
- * cancelled once the profile is fully activated (see cancelIfActivated()).
+ * cancelled outright) so a later step can still fire. The welcome (step 0)
+ * always sends; from step 1 on, the whole drip is cancelled the moment the
+ * profile is fully activated (see sendDue()/processDueRow()).
  */
 class OnboardingDripService
 {
@@ -45,20 +47,26 @@ class OnboardingDripService
     ) {}
 
     /**
-     * Start (or resync) the drip for a freshly signed-up profile. Idempotent:
-     * calling this again for a profile that already has a state row is a no-op
-     * unless that row was previously cancelled and the profile re-qualifies.
+     * Enrol a profile into the drip. One-shot and idempotent: once a profile
+     * has a state row — running, completed, or cancelled — this is a no-op.
+     * Onboarding happens once; resurrecting a finished drip would re-send the
+     * welcome.
+     *
+     * The cadence is anchored on enrolment time (now()), not the profile's
+     * created_at, so a profile backfilled via --sync-new well after signup
+     * still receives the full T+0..T+10 sequence from the backfill moment
+     * rather than having every past-due step collapsed away by advance().
      */
     public function startForProfile(Profile $profile): void
     {
         $state = OnboardingDripState::query()->firstOrNew(['profile_id' => $profile->id]);
 
-        if ($state->exists && $state->cancelled_at === null) {
+        if ($state->exists) {
             return;
         }
 
         $cadenceHours = $this->cadenceHours();
-        $anchor = $profile->created_at ?? now();
+        $anchor = now();
 
         $state->fill([
             'anchor_at' => $anchor,
@@ -89,39 +97,69 @@ class OnboardingDripService
      */
     public function sendDue(int $limit = 200): int
     {
-        $sentCount = 0;
-
-        OnboardingDripState::query()
+        $dueIds = OnboardingDripState::query()
             ->whereNull('cancelled_at')
             ->whereNotNull('scheduled_for')
             ->where('scheduled_for', '<=', now())
             ->orderBy('scheduled_for')
             ->limit($limit)
-            ->with('profile.businessProfile', 'profile.communityProfile', 'profile.attendeeProfile')
-            ->get()
-            ->each(function (OnboardingDripState $state) use (&$sentCount): void {
-                $profile = $state->profile;
+            ->pluck('id');
 
-                if ($profile === null) {
-                    $this->cancel($state);
+        $sentCount = 0;
 
-                    return;
-                }
-
-                if ($this->isFullyActivated($profile)) {
-                    $this->cancel($state);
-
-                    return;
-                }
-
-                if ($this->dispatchStep($profile, $state->next_sequence)) {
-                    $sentCount++;
-                }
-
-                $this->advance($state);
-            });
+        foreach ($dueIds as $id) {
+            $sentCount += $this->processDueRow($id);
+        }
 
         return $sentCount;
+    }
+
+    /**
+     * Process a single due drip row under a row lock so two overlapping runs
+     * (or a retried job) can never dispatch the same step twice: the row is
+     * re-read + re-checked inside the transaction, and a concurrent pass that
+     * already advanced it sees a future/null scheduled_for and bails.
+     *
+     * @return int 1 if an email was dispatched, 0 otherwise.
+     */
+    private function processDueRow(string $id): int
+    {
+        return DB::transaction(function () use ($id): int {
+            $state = OnboardingDripState::query()
+                ->whereKey($id)
+                ->lockForUpdate()
+                ->with('profile.businessProfile', 'profile.communityProfile', 'profile.attendeeProfile')
+                ->first();
+
+            if ($state === null
+                || $state->cancelled_at !== null
+                || $state->scheduled_for === null
+                || $state->scheduled_for->gt(now())) {
+                return 0;
+            }
+
+            $profile = $state->profile;
+
+            if ($profile === null) {
+                $this->cancel($state);
+
+                return 0;
+            }
+
+            // Stop nudging a fully-activated user — but the T+0 welcome always
+            // sends; only the later nudge steps are short-circuited.
+            if ($state->next_sequence > self::STEP_WELCOME && $this->isFullyActivated($profile)) {
+                $this->cancel($state);
+
+                return 0;
+            }
+
+            $dispatched = $this->dispatchStep($profile, $state->next_sequence);
+
+            $this->advance($state, $dispatched);
+
+            return $dispatched ? 1 : 0;
+        });
     }
 
     /**
@@ -147,11 +185,9 @@ class OnboardingDripService
             UserType::Attendee => 'attendee-welcome-01',
         };
 
-        $this->emailService->send($profile, $alias, [
+        return $this->emailService->send($profile, $alias, [
             'first_name' => $this->displayName($profile),
         ], EmailService::CATEGORY_NUDGE);
-
-        return true;
     }
 
     private function sendCompleteProfileNudge(Profile $profile): bool
@@ -173,11 +209,9 @@ class OnboardingDripService
             return false;
         }
 
-        $this->emailService->send($profile, $alias, [
+        return $this->emailService->send($profile, $alias, [
             'first_name' => $this->displayName($profile),
         ], EmailService::CATEGORY_NUDGE);
-
-        return true;
     }
 
     private function sendActivationNudge(Profile $profile): bool
@@ -192,11 +226,9 @@ class OnboardingDripService
             UserType::Attendee => 'attendee-activation-01',
         };
 
-        $this->emailService->send($profile, $alias, [
+        return $this->emailService->send($profile, $alias, [
             'first_name' => $this->displayName($profile),
         ], EmailService::CATEGORY_NUDGE);
-
-        return true;
     }
 
     private function sendInactiveNudge(Profile $profile): bool
@@ -205,11 +237,9 @@ class OnboardingDripService
             return false;
         }
 
-        $this->emailService->send($profile, 'inactive-nudge', [
+        return $this->emailService->send($profile, 'inactive-nudge', [
             'first_name' => $this->displayName($profile),
         ], EmailService::CATEGORY_NUDGE);
-
-        return true;
     }
 
     /**
@@ -237,7 +267,15 @@ class OnboardingDripService
         $state->update(['scheduled_for' => null, 'cancelled_at' => now()]);
     }
 
-    private function advance(OnboardingDripState $state): void
+    /**
+     * Advance the state past the step just processed. sent_at and
+     * last_sent_sequence are only touched when an email was actually
+     * dispatched ($dispatched), so a skipped/ineligible step never records a
+     * phantom "sent". Steps whose scheduled time is already in the past (a
+     * scheduler outage / backfill catch-up) are skipped over so only the most
+     * relevant current step fires, not a burst of stale ones.
+     */
+    private function advance(OnboardingDripState $state, bool $dispatched): void
     {
         $cadenceHours = $this->cadenceHours();
         $currentSequence = $state->next_sequence;
@@ -250,12 +288,12 @@ class OnboardingDripService
         }
 
         $state->update([
-            'last_sent_sequence' => $currentSequence,
+            'last_sent_sequence' => $dispatched ? $currentSequence : $state->last_sent_sequence,
             'next_sequence' => $nextSequence,
             'scheduled_for' => $nextSequence < count($cadenceHours)
                 ? $state->anchor_at->copy()->addHours($cadenceHours[$nextSequence])
                 : null,
-            'sent_at' => $now,
+            'sent_at' => $dispatched ? $now : $state->sent_at,
             'cancelled_at' => $nextSequence < count($cadenceHours) ? null : $now,
         ]);
     }

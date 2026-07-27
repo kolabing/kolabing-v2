@@ -4,20 +4,17 @@
 brand-voice audit. This is an **extraction**, not a rewrite — nothing below has been reworded.
 
 **Source files:**
-- [`resources/postmark/templates.php`](../resources/postmark/templates.php) — 19 template
+- [`resources/postmark/templates.php`](../resources/postmark/templates.php) — 22 template
   definitions (structured content blocks; this is the seed `email:sync-templates` pushes to Postmark).
 - [`docs/plans/2026-06-04-transactional-email-system.md`](plans/2026-06-04-transactional-email-system.md)
   — the copy-slot catalog and gating rules for the full onboarding/lifecycle plan.
 
-**Count note:** the repo defines **19** template aliases in `templates.php`. Two more aliases
-(`business-welcome-01`, `community-welcome-01`) are referenced throughout the codebase and plan
-doc as already **live in Postmark** but are deliberately **excluded from this file** (see the
-file's own header comment: "Existing/approved templates are intentionally NOT redefined here so
-the sync never clobbers them"). Their copy is **not in the repo** — it lives only in the Postmark
-dashboard, so it cannot be exported from here; audit it directly in Postmark if needed.
-That's **21 total live/defined aliases** today. The wider plan doc catalogs up to ~30 email
-*concepts* across all phases (A–G), but the remaining ones (billing/digest, Phase 3–4) have no
-template file yet — they're design notes, not copy. This export covers the 19 that exist as copy.
+**Count note:** the repo now defines **22** template aliases in `templates.php`, all exported
+below. `business-welcome-01` / `community-welcome-01` (the onboarding drip's T+0 welcome) were
+previously authored only in the Postmark dashboard; they are now checked into `templates.php` so a
+fresh environment is self-sufficient, and their copy is exported here (see the *Onboarding drip*
+section). The wider plan doc catalogs up to ~30 email *concepts* across all phases (A–G), but the
+remaining ones (billing/digest, Phase 3–4) have no template file yet — they're design notes, not copy.
 
 **Rendering note:** every template shares one HTML scaffold (logo header, 600px content column,
 footer) built by `SyncPostmarkTemplates::renderHtml()`. The `content` blocks below are rendered in
@@ -331,20 +328,75 @@ Each template's dynamic variables are also listed in the index at the bottom of 
 
 ---
 
-## Referenced but NOT in this repo (live in Postmark dashboard only)
+## Onboarding drip
 
-These two aliases are used by the codebase (`AuthService::registerBusiness()` /
-`registerCommunity()`) and confirmed live in Postmark as of 2026-06-04, but their copy was
-authored directly in Postmark and was never checked into `templates.php` — this repo has no
-source text to export for them.
+The T+0/T+2/T+5/T+10 drip (`OnboardingDripService`). The welcome (T+0) fires for every new signup;
+`inactive-nudge` (T+10) only if no first action was taken. `business-welcome-01` /
+`community-welcome-01` were previously Postmark-only and are now checked into `templates.php`, so
+their copy is exported here for the first time. (The T+2 complete-profile and T+5 activation
+nudges are exported above under *Onboarding / activation nudges*.)
 
-| Alias | Subject (from plan doc) | Model |
-|---|---|---|
-| `business-welcome-01` | "Your first match is 10 minutes away" | `{ first_name }` (= business name) |
-| `community-welcome-01` | "Your first Kolab is 10 minutes away" | `{ first_name }` (= community name) |
+### `business-welcome-01` — Welcome (business)
+**Subject:** `Welcome to Kolabing`
+**Sample model:** `{ first_name: "Joe's Cafe" }` (= business name)
 
-Neither has a `verify_url` slot today (see plan doc — deferred to Phase 5, email verification is
-off).
+> Hi {{first_name}},
+>
+> Welcome to Kolabing. You're here to partner with local communities, run clubs, art collectives,
+> wellness groups, food crews, and get your venue in front of the people who'll fill it.
+>
+> **How it works:**
+> 1. Finish your profile so communities can find you.
+> 2. Post a Kolab: what you're offering (a venue, a discount, a private space) and what you'd like back.
+> 3. Review the applications and pick the communities that fit.
+>
+> You can post your first Kolab in about 3 minutes.
+>
+> **[Button: Open Kolabing → app]**
+>
+> *(signature)*
+
+---
+
+### `community-welcome-01` — Welcome (community)
+**Subject:** `Welcome to Kolabing`
+**Sample model:** `{ first_name: "Barcelona Run Club" }` (= community name)
+
+> Hi {{first_name}},
+>
+> Welcome to Kolabing. You're here to find local businesses to partner with, venues, discounts,
+> private spaces, and perks for your members.
+>
+> **How it works:**
+> 1. Finish your community profile so businesses can find you.
+> 2. Browse the open Kolabs and apply to the ones that fit your members.
+> 3. Team up, run the event, and build your reputation for the next one.
+>
+> You can apply to your first Kolab in about 2 minutes.
+>
+> **[Button: Browse Kolabs → app]**
+>
+> *(signature)*
+
+---
+
+### `inactive-nudge` — Inactive nudge
+**Subject:** `Still worth a look, new collabs near you`
+**Sample model:** `{ first_name: "Daniel" }`
+
+> Hi {{first_name}},
+>
+> You joined Kolabing but haven't started a collab yet. No pressure.
+>
+> There are new opportunities posted since you signed up that match what you're after. It takes
+> two minutes to apply to the first one.
+>
+> **[Button: See what's open → app]**
+>
+> *(signature)*
+
+Neither welcome has a `verify_url` slot today (see plan doc — deferred to Phase 5, email
+verification is off).
 
 ---
 
@@ -379,3 +431,7 @@ Postmark mustache placeholders (`{{name}}`) with the same variable names if rena
 *Generated by Clark from `resources/postmark/templates.php` (commit `b50c378`) and
 `docs/plans/2026-06-04-transactional-email-system.md`, 2026-07-21, for Jace's brand-voice audit
 (handoff `15450189-3f75-48e5-94f7-d338c94574be`). No copy has been altered in this export.*
+
+*Updated 2026-07-27: `business-welcome-01` / `community-welcome-01` were checked into
+`templates.php` (previously Postmark-only) and their copy exported; the unused `first-collab-tips`
+draft was removed. Counts and the onboarding-drip section reflect the 22 current aliases.*

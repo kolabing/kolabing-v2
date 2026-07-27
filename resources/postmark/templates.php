@@ -23,8 +23,10 @@ declare(strict_types=1);
  *
  * 'sample' supplies merge values for --test sends.
  *
- * Existing/approved templates (business-welcome-01, community-welcome-01) are
- * intentionally NOT redefined here so the sync never clobbers them.
+ * business-welcome-01 / community-welcome-01 are defined here so a fresh
+ * environment is self-sufficient (the onboarding drip's T+0 welcome depends on
+ * them). Sync without --force only creates missing aliases, so this never
+ * clobbers copy already edited in the Postmark dashboard.
  */
 $app = 'https://kolabing.com';
 
@@ -50,6 +52,46 @@ return [
             ['type' => 'para', 'text' => "Join one community and complete one challenge. That's it. The first one is the hardest; after that it's a habit."],
             ['type' => 'signature'],
             ['type' => 'ps', 'text' => "Not sure which community fits you? Reply with what you're into (running, art, food, wellness...) and I'll point you to the most active ones tonight."],
+        ],
+    ],
+
+    [
+        'alias' => 'business-welcome-01',
+        'name' => 'Welcome (business)',
+        'subject' => 'Welcome to Kolabing',
+        'sample' => ['first_name' => "Joe's Cafe"],
+        'content' => [
+            ['type' => 'para', 'text' => 'Hi {{first_name}},'],
+            ['type' => 'para', 'text' => "Welcome to Kolabing. You're here to partner with local communities, run clubs, art collectives, wellness groups, food crews, and get your venue in front of the people who'll fill it."],
+            ['type' => 'head', 'text' => 'How it works:'],
+            ['type' => 'list', 'ordered' => true, 'items' => [
+                'Finish your profile so communities can find you.',
+                "Post a Kolab: what you're offering (a venue, a discount, a private space) and what you'd like back.",
+                'Review the applications and pick the communities that fit.',
+            ]],
+            ['type' => 'para', 'text' => 'You can post your first Kolab in about 3 minutes.'],
+            ['type' => 'button', 'label' => 'Open Kolabing', 'url' => $app],
+            ['type' => 'signature'],
+        ],
+    ],
+
+    [
+        'alias' => 'community-welcome-01',
+        'name' => 'Welcome (community)',
+        'subject' => 'Welcome to Kolabing',
+        'sample' => ['first_name' => 'Barcelona Run Club'],
+        'content' => [
+            ['type' => 'para', 'text' => 'Hi {{first_name}},'],
+            ['type' => 'para', 'text' => "Welcome to Kolabing. You're here to find local businesses to partner with, venues, discounts, private spaces, and perks for your members."],
+            ['type' => 'head', 'text' => 'How it works:'],
+            ['type' => 'list', 'ordered' => true, 'items' => [
+                'Finish your community profile so businesses can find you.',
+                'Browse the open Kolabs and apply to the ones that fit your members.',
+                'Team up, run the event, and build your reputation for the next one.',
+            ]],
+            ['type' => 'para', 'text' => 'You can apply to your first Kolab in about 2 minutes.'],
+            ['type' => 'button', 'label' => 'Browse Kolabs', 'url' => $app],
+            ['type' => 'signature'],
         ],
     ],
 
@@ -316,25 +358,6 @@ return [
     // Copy drafted by Jace (Serra CMO), vault deliverable
     // _deliverables/to-review/jace/2026-07-20 - kolabing-launch-emails-and-onboarding.md.
     // Content verbatim from that draft; not yet brand-voice-audited/approved by Daniel.
-
-    [
-        'alias' => 'first-collab-tips',
-        'name' => 'First collab tips',
-        'subject' => 'Three ways to land your first collab on Kolabing',
-        'sample' => ['first_name' => 'Daniel'],
-        'content' => [
-            ['type' => 'para', 'text' => 'Hi {{first_name}},'],
-            ['type' => 'para', 'text' => "You're in. Here's how the people who get picked fastest do it:"],
-            ['type' => 'list', 'ordered' => true, 'items' => [
-                'Complete your profile. A photo and one line on what you do doubles your reply rate.',
-                "Apply to two or three collabs that fit, not ten that don't. A short, specific note beats a copy-paste.",
-                'Reply fast when a business messages you. The first to answer usually gets the collab.',
-            ]],
-            ['type' => 'para', 'text' => 'Want to browse what\'s open now?'],
-            ['type' => 'button', 'label' => 'Open Kolabing', 'url' => $app],
-            ['type' => 'signature'],
-        ],
-    ],
 
     [
         'alias' => 'inactive-nudge',

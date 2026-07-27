@@ -38,8 +38,10 @@ Schedule::command('app:send-business-reactivation-reminders')->dailyAt('09:00');
 Schedule::command('app:recalculate-partner-statuses')->dailyAt('14:20');
 
 // Onboarding email drip (T+0 welcome / T+2 complete-profile / T+5 activation /
-// T+10 inactive-nudge, see config/onboarding_drip.php). Command is built and
-// tested (`php artisan app:send-onboarding-drip`) but INTENTIONALLY NOT
-// scheduled — Daniel has not signed off on the N-day offsets going live yet.
-// Uncomment only after that approval:
-// Schedule::command('app:send-onboarding-drip')->hourly();
+// T+10 inactive-nudge, see config/onboarding_drip.php). Polls due drip-state
+// rows hourly; each step re-checks eligibility at send time. New signups are
+// enrolled at registration (AuthService::startOnboardingDrip); run the command
+// once with --sync-new to backfill profiles created before that hook existed.
+Schedule::command('app:send-onboarding-drip')
+    ->hourly()
+    ->withoutOverlapping();
