@@ -250,4 +250,76 @@ class Kolab extends Model
     {
         return $this->status === KolabStatus::Closed;
     }
+
+    /**
+     * Whether $date falls inside this kolab's availability window and, for a
+     * recurring kolab, matches one of its recurring weekdays (ISO 1..7).
+     *
+     * Single source of truth for date validity — mirrors the app's
+     * buildSelectableApplicationDates logic and the accept-time window check.
+     */
+    public function isDateWithinAvailability(\Carbon\CarbonInterface $date): bool
+    {
+        $day = $date->copy()->startOfDay();
+
+        $start = $this->availability_start?->copy()->startOfDay();
+        if ($start !== null && $day->lt($start)) {
+            return false;
+        }
+
+        $end = $this->availability_end?->copy()->startOfDay();
+        if ($end !== null && $day->gt($end)) {
+            return false;
+        }
+
+        if ($this->availability_mode !== 'recurring') {
+            return true;
+        }
+
+        $recurringDays = collect($this->recurring_days ?? [])
+            ->filter(fn (mixed $d): bool => is_numeric($d))
+            ->map(fn (mixed $d): int => (int) $d)
+            ->values()
+            ->all();
+
+        if ($recurringDays === []) {
+            return true;
+        }
+
+        return in_array($day->dayOfWeekIso, $recurringDays, true);
+    }
+
+    /**
+     * Whether at least one application date is still selectable from $from
+     * onward (today, in practice). Used to close applications on
+     * date-exhausted kolabs at apply time, matching accept-time validation.
+     */
+    public function hasSelectableDatesFrom(\Carbon\CarbonInterface $from): bool
+    {
+        $fromDay = $from->copy()->startOfDay();
+
+        $cursor = $this->availability_start?->copy()->startOfDay() ?? $fromDay;
+        if ($cursor->lt($fromDay)) {
+            $cursor = $fromDay;
+        }
+
+        $end = $this->availability_end?->copy()->startOfDay();
+        if ($end !== null && $cursor->gt($end)) {
+            return false;
+        }
+
+        // Scan day-by-day within the window (bounded by its length). For an
+        // open-ended window cap the look-ahead so this can never loop away.
+        $scanEnd = $end ?? $cursor->copy()->addDays(90);
+
+        $day = $cursor->copy();
+        while ($day->lte($scanEnd)) {
+            if ($this->isDateWithinAvailability($day)) {
+                return true;
+            }
+            $day = $day->addDay();
+        }
+
+        return false;
+    }
 }
