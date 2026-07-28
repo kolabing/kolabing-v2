@@ -1,6 +1,6 @@
 # Kolabing — Pre-launch Backlog
 
-**Last updated:** 2026-07-27 (§1: onboarding drip wired into registration (`AuthService::startOnboardingDrip`) + scheduled hourly; `business-welcome-01`/`community-welcome-01` moved into `templates.php` (22 aliases now); drip state machine hardened — welcome always sends, row-locked sends, honest sent-tracking, `now()` anchor, idempotent enrolment. Prior: 2026-07-21 §1: corrected the stale "email not wired" note — the Postmark pipeline has existed since `b50c378` (2026-06-04); it's built and live-send verified but has no production caller yet. Added the onboarding drip command/service, built and not scheduled, pending Daniel's sign-off on the offsets. Prior: 2026-07-15 legal: company/legal details + agreement version now admin-editable at `/admin/company-settings` (`company_settings` table); legal pages render live values — §4. Prior: bilingual Terms/Privacy (EN + `/es`) + mobile consent tracking — §4. Prior: query-audit N+1 sweep — §12)
+**Last updated:** 2026-07-28 (§1: lifecycle transactional emails wired as a notification-funnel side-effect (`NotificationService` EMAIL_MAP) — application received/accepted/declined, collab-confirmed, feedback-request, badge-earned, reward-won, tier-promotion (new `tier_promoted` type). Prior: 2026-07-27 §1: onboarding drip wired into registration (`AuthService::startOnboardingDrip`) + scheduled hourly; `business-welcome-01`/`community-welcome-01` moved into `templates.php` (22 aliases now); drip state machine hardened — welcome always sends, row-locked sends, honest sent-tracking, `now()` anchor, idempotent enrolment. Prior: 2026-07-21 §1: corrected the stale "email not wired" note — the Postmark pipeline has existed since `b50c378` (2026-06-04); it's built and live-send verified but has no production caller yet. Added the onboarding drip command/service, built and not scheduled, pending Daniel's sign-off on the offsets. Prior: 2026-07-15 legal: company/legal details + agreement version now admin-editable at `/admin/company-settings` (`company_settings` table); legal pages render live values — §4. Prior: bilingual Terms/Privacy (EN + `/es`) + mobile consent tracking — §4. Prior: query-audit N+1 sweep — §12)
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical.
 
 A consolidated punch list of everything we've identified but haven't shipped. Items are tagged by **owner** (`backend` = kolabing-v2, `app` = kolabing-app, `cross` = both, `infra` = hosting) and **priority** (`P0` = blocker for launch, `P1` = needed soon after, `P2` = nice-to-have).
@@ -42,10 +42,12 @@ flow yet. Password reset still uses Laravel's Password broker default, not the P
   to the `password-reset` Postmark template).
 
 **What's missing:**
-- Registration now triggers email via the onboarding drip (welcome at T+0), but the remaining
-  lifecycle seams still don't call `EmailService::send()`: application accept/decline, collab
-  confirmed, feedback-request, badge/reward/tier events — see
-  `docs/plans/2026-06-04-transactional-email-system.md` Phase 2 for the full seam-by-seam map.
+- Lifecycle emails are now wired as a side-effect of the notification funnel
+  (`NotificationService::createNotification` → `EMAIL_MAP`): application received/accepted/declined,
+  collab-confirmed, feedback-request (rides the follow-up reminder), badge-earned, reward-won,
+  tier-promotion (new `tier_promoted` notification). Still NOT wired: password reset/changed swap to
+  Postmark templates, first-message (#11), and withdrawal-processed (#21) — see
+  `docs/plans/2026-06-04-transactional-email-system.md` Phase 2 for the remaining seams.
 - Default mailer (`config/mail.php:17`) is still `'log'`, not `postmark`, in local/default env.
 - No `MustVerifyEmail` on the `Profile` model — email confirmation on signup is not enforced.
   (Google OAuth manually sets `email_verified_at = now()` per `AuthService:168` so OAuth users skip
@@ -53,9 +55,10 @@ flow yet. Password reset still uses Laravel's Password broker default, not the P
   (plan doc Phase 5).
 
 **P0 — must ship before launch:**
-- [ ] Wire `EmailService::send()` into the real trigger seams (welcome on register, password
-  reset/changed, application lifecycle, collab-confirmed, feedback-request) per the plan doc's
-  Phase 2 table. Owner: **backend**.
+- [x] Wire `EmailService::send()` into the real trigger seams — welcome on register (drip) +
+  application lifecycle / collab-confirmed / feedback-request / badge / reward / tier promotion
+  (notification-funnel side-effect). Remaining: password reset/changed template swap, first-message,
+  withdrawal-processed. Owner: **backend**.
 - [ ] Wire Postmark: `MAIL_MAILER=postmark` in production env (config already supports it). Owner: **infra**.
 
 **P1 — customer success flows:**

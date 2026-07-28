@@ -39,6 +39,7 @@ enum NotificationType: string
     case SecondOfferPrompt = 'second_offer_prompt';
     case PartnerStatusUpgraded = 'partner_status_upgraded';
     case ReactivationPrompt = 'reactivation_prompt';
+    case TierPromoted = 'tier_promoted';
 
     /**
      * @return array<string>

@@ -60,6 +60,7 @@ class BadgeService
                     replace: ['badge' => $badge->name],
                     targetId: $badge->id,
                     targetType: 'badge',
+                    emailModel: ['badge_name' => $badge->name],
                 );
             }
         }

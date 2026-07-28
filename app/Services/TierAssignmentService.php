@@ -21,6 +21,10 @@ use App\Models\PointLedger;
  */
 class TierAssignmentService
 {
+    public function __construct(
+        private readonly NotificationService $notificationService,
+    ) {}
+
     /**
      * Re-evaluate a single member and promote if a higher auto tier is earned.
      */
@@ -49,6 +53,8 @@ class TierAssignmentService
                 'tier_id' => $earned->id,
                 'tier_assigned_at' => now(),
             ])->save();
+
+            $this->notificationService->notifyTierPromoted($member, $earned);
         }
     }
 
