@@ -228,6 +228,23 @@ class Kolab extends Model
     }
 
     /**
+     * Limit to kolabs that still have at least one selectable application date
+     * from today onward — the SQL-expressible form of {@see hasSelectableDatesFrom()}:
+     * an open (null) or not-yet-passed availability_end. The one case this can't
+     * express in portable SQL is a recurring kolab whose remaining (< 7-day)
+     * window contains no matching weekday; the apply-time guard in
+     * ApplicationService still rejects that, so the feed never surfaces a Kolab
+     * you cannot actually apply to (dead-end date picker).
+     */
+    public function scopeWithSelectableDates(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q): void {
+            $q->whereNull('availability_end')
+                ->orWhereDate('availability_end', '>=', now()->toDateString());
+        });
+    }
+
+    /**
      * Check if the kolab is in draft status.
      */
     public function isDraft(): bool

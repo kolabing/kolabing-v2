@@ -83,6 +83,12 @@ class KolabService
             });
         } else {
             $this->excludeAlreadyAppliedKolabs($query, $viewer);
+            // Don't surface kolabs whose application dates are all in the past —
+            // the applicant would hit a dead-end date picker ("No available
+            // dates for this kolab"). Mirrors the apply-time guard in
+            // ApplicationService. The saved list is left untouched: a saved
+            // kolab that has since expired still shows so the user can see why.
+            $query->withSelectableDates();
         }
 
         $this->applyFilters($query, $filters);
