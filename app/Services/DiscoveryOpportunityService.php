@@ -527,8 +527,24 @@ class DiscoveryOpportunityService
         $this->applyRoleScope($query, $viewerRole);
         $this->applyActiveAvailabilityFilter($query);
         $this->excludeAlreadyAppliedKolabs($query, $viewer);
+        $this->excludeBlockedCreators($query, $viewer);
 
         return $query;
+    }
+
+    /**
+     * UGC moderation (App Review Guideline 1.2): drop kolabs whose creator the
+     * viewer has blocked, or who has blocked the viewer.
+     */
+    private function excludeBlockedCreators(Builder $query, Profile $viewer): void
+    {
+        $blockedIds = app(ModerationService::class)->blockedIds($viewer);
+
+        if ($blockedIds === []) {
+            return;
+        }
+
+        $query->whereNotIn('kolabs.creator_profile_id', $blockedIds);
     }
 
     private function excludeAlreadyAppliedKolabs(Builder $query, Profile $viewer): void
