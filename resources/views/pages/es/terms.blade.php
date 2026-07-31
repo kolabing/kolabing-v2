@@ -73,6 +73,7 @@
                 <li>Eludir cualquier medida de seguridad, muro de pago de suscripción o control de acceso.</li>
                 <li>Usar el Servicio con fines fraudulentos o engañosos.</li>
             </ul>
+            <p><strong>Tolerancia cero.</strong> Kolabing tiene tolerancia cero con el contenido objetable y los usuarios abusivos. No se permite el contenido ofensivo, amenazante, acosador, de odio, sexualmente explícito o de cualquier otro modo objetable, ni los usuarios que se comporten de forma abusiva. Puedes denunciar contenido objetable y bloquear a usuarios abusivos directamente en la aplicación; el contenido denunciado se revisa y podemos eliminarlo y suspender o cancelar las cuentas responsables (véase la Sección 10).</p>
 
             <h2>8. Propiedad intelectual</h2>
             <p>El Servicio, incluidos su software, diseño, textos, gráficos, logotipos y marcas (pero excluyendo el Contenido del Usuario), es propiedad de Kolabing o de sus licenciantes y está protegido por las leyes de propiedad intelectual. Te concedemos una licencia limitada, personal, intransferible y revocable para usar el Servicio según su finalidad prevista. No puedes copiar, modificar, distribuir, vender ni crear obras derivadas de ninguna parte del Servicio sin nuestro consentimiento previo por escrito.</p>
