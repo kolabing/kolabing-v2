@@ -9,7 +9,10 @@
 > the authoritative app backlog. The live cross-repo board is **Kolabing Engineering**
 > (GitHub Project 4, owner `kolabing`).
 >
-> Last updated: 2026-07-28 (added BE-FX-10 — Explore browse feed now hides date-exhausted
+> Last updated: 2026-08-02 (BE-FX-11 F1 host_profile_id on EventResource + BE-FX-8 chat
+> last_message preview + BE-FX-9 factory-avatar distinctness — fixed in code on branch
+> fix/qa-batch-host-profile-chat-preview-avatars; app half = kolabing-app PR 108. Prior:
+> added BE-FX-10 — Explore browse feed now hides date-exhausted
 > Kolabs, fixed + tested. Prior: bootstrapped — the file `CLAUDE.md` mandates did not exist;
 > seeded with the known backend-outstanding items from the mobile-audit analysis and
 > referenced tickets. Future sessions must keep it in sync.)
@@ -42,8 +45,9 @@ _Backend bugs / gaps. Add when detected; strike through with a date once confirm
 
 | # | Bug / gap | Status |
 |---|-----------|--------|
-| BE-FX-8 | **Chat inbox has no message preview** (app audit #8) — `GET /chats` / `ChatThread` expose only `last_message_at`, never message body text, so the app shows a "Tap to open" placeholder. Add a `last_message_preview` (truncated, permission-safe) field to the chat-thread list resource. | Open — app blocked on this |
-| BE-FX-9 | **Same stock avatar for multiple profiles** (app audit #9) — the backend returns the same waterfall stock photo URL for profiles that never uploaded one, so the app's initials fallback never triggers. Either stop seeding/defaulting real profiles to a shared stock image, or expose a `has_custom_avatar` flag so the app can force the initials fallback. | Open — app blocked on this |
+| BE-FX-11 | **Event host profile 404 (public-profile F1)** — the app opened an event's host-community public profile by pushing `events.community_id` (a `communities.id`) into `/profiles/{id}`, which binds `profiles.id` → 404 on profile/collaborations/gallery. `EventResource` now emits `host_profile_id` (the eager-loaded community owner's `profiles.id`, falling back to `events.profile_id` — always a valid `profiles.id`). Branch `fix/qa-batch-host-profile-chat-preview-avatars`; app half = kolabing-app PR #108. | Fixed in code 2026-08-02 — pending review + e2e |
+| BE-FX-8 | **Chat inbox has no message preview** (app audit #8) — `GET /chats` / `ChatThread` exposed only `last_message_at`, never body text, so the app showed a "Tap to open" placeholder. Added `ChatThread::latestMessage()` (`latestOfMany`), eager-loaded in all 3 `ChatService` list loaders (no N+1), and emit `last_message: {content, created_at}` on `ChatThreadResource`. +1 feature test (`ChatActiveListTest`). App reads `last_message.content` (kolabing-app PR #108). | Fixed in code 2026-08-02 — pending review + e2e |
+| BE-FX-9 | **Same stock avatar for multiple profiles** (app audit #9) — the QA read was "same waterfall stock photo everywhere". **Ground-truth:** `RealisticDataSeeder` already assigns DISTINCT per-name picsum photos (`.../seed/profile-<slug>/...`) — not the culprit. The real identical-image source was the **factories** (`Profile/Business/CommunityProfileFactory`), whose `fake()->imageUrl()` returns one shared `via.placeholder` image for every row → fixed to a distinct per-row picsum seed (or null → the app's initials placeholder). **Still open:** confirm prod isn't holding a shared stock URL (`SELECT avatar_url FROM profiles WHERE avatar_url LIKE 'https://picsum.photos/%'` + the two `profile_photo` columns) and the app-side avatar-source inconsistency Jace saw (stock in offer-detail vs initials in Explore card) needs a device re-check. | Factory source fixed in code 2026-08-02 — prod-data + app-consistency check still open |
 | BE-FX-10 | ~~**Explore feed returns date-exhausted Kolabs** — the browse feed (`GET /kolabs` + `/opportunities` shim → `KolabService::browse()`) surfaced Kolabs whose application dates had all passed, so applicants hit an empty date picker ("No available dates for this kolab"). Added `Kolab::scopeWithSelectableDates()` on the discovery path, mirroring the apply-time guard; saved list unaffected.~~ | Fixed 2026-07-28 (tested) |
 
 ---

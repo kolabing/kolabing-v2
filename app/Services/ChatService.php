@@ -231,6 +231,7 @@ class ChatService
             ->where('type', ChatThreadType::Collaboration->value)
             ->whereIn('application_id', $applicationIds)
             ->with([
+                'latestMessage', // chat-list preview (#8), avoids N+1
                 'application.collaboration',
                 'application.applicantProfile.businessProfile',
                 'application.applicantProfile.communityProfile',
@@ -507,6 +508,7 @@ class ChatService
                 ChatThreadType::CommunityMain->value,
                 ChatThreadType::CommunityCustom->value,
             ])
+            ->with('latestMessage') // chat-list preview (#8), avoids N+1
             ->get();
 
         $bannedThreadIds = $this->bannedThreadIds($profile, $threads);
@@ -616,6 +618,7 @@ class ChatService
                     $query->orWhereIn('community_id', $managedCommunityIds);
                 }
             })
+            ->with('latestMessage') // chat-list preview (#8), avoids N+1
             ->get();
 
         $bannedThreadIds = $this->bannedThreadIds($profile, $threads);
