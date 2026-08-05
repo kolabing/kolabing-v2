@@ -4,7 +4,7 @@ return [
     'business' => [
         'apple' => [
             'monthly' => [
-                'price' => 39.99,
+                'price' => 49,
                 'apple_product_id' => env('APPLE_IAP_MONTHLY_PRODUCT_ID', 'com.kolabing.kolabingApp.subscription.monthly'),
             ],
             'three_months' => [
