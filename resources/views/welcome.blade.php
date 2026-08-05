@@ -3,6 +3,7 @@
 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Kolabing — Local Business &amp; Community Collaboration</title>
   <link rel="icon" href="/favicon.ico?v=3" sizes="any">
   <link rel="icon" type="image/png" href="/favicon-512.png?v=3">
@@ -1632,6 +1633,184 @@ COMMUNITIES GET PERKS.</div>
   });
 </script>
 
+
+<!-- ============ NEWSLETTER + BOOK-A-CALL POP-UP ============ -->
+<style>
+  .kb-pop{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:20px}
+  .kb-pop.is-open{display:flex}
+  .kb-pop__backdrop{position:absolute;inset:0;background:rgba(13,17,20,.62);backdrop-filter:blur(3px)}
+  .kb-pop__card{position:relative;width:100%;max-width:440px;background:#fff;color:var(--dark,#0D1114);
+    border-radius:22px;padding:34px 30px 30px;box-shadow:0 30px 80px rgba(13,17,20,.35);
+    transform:translateY(14px) scale(.98);opacity:0;transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .28s}
+  .kb-pop.is-open .kb-pop__card{transform:none;opacity:1}
+  .kb-pop__x{position:absolute;top:12px;right:14px;border:0;background:transparent;font-size:28px;line-height:1;
+    color:#9aa0a6;cursor:pointer;padding:4px 8px;border-radius:8px}
+  .kb-pop__x:hover{color:var(--dark,#0D1114);background:#f2f2ef}
+  .kb-pop__kicker{font-family:'Anton',sans-serif;letter-spacing:.14em;text-transform:uppercase;font-size:12px;color:var(--purple,#ff6114);margin-bottom:8px}
+  .kb-pop__title{font-family:'Anton',sans-serif;font-weight:400;line-height:1.02;font-size:30px;text-transform:uppercase;margin-bottom:10px}
+  .kb-pop__sub{font-family:'Inter',sans-serif;font-size:15px;line-height:1.5;color:#4a4f54;margin-bottom:18px}
+  .kb-pop__seg{display:flex;gap:8px;margin-bottom:16px}
+  .kb-pop__seg-btn{flex:1;font-family:'Inter',sans-serif;font-weight:600;font-size:14px;padding:11px 8px;border-radius:12px;
+    border:1.5px solid #e4e4df;background:#fafaf7;color:#4a4f54;cursor:pointer;transition:.15s}
+  .kb-pop__seg-btn.is-on{border-color:var(--dark,#0D1114);background:var(--yellow,#FFE28C);color:var(--dark,#0D1114)}
+  .kb-pop__label{display:block;font-family:'Inter',sans-serif;font-weight:600;font-size:13px;margin-bottom:6px}
+  .kb-pop__input{width:100%;font-family:'Inter',sans-serif;font-size:15px;padding:13px 14px;border-radius:12px;
+    border:1.5px solid #e4e4df;background:#fff;outline:none;transition:border-color .15s}
+  .kb-pop__input:focus{border-color:var(--dark,#0D1114)}
+  .kb-pop__hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+  .kb-pop__err{font-family:'Inter',sans-serif;color:#BA1A1A;font-size:13px;margin-top:8px}
+  .kb-pop__submit{width:100%;margin-top:14px;font-family:'Inter',sans-serif;font-weight:700;font-size:15px;
+    padding:14px;border-radius:12px;border:0;background:var(--dark,#0D1114);color:#fff;cursor:pointer;transition:.15s}
+  .kb-pop__submit:hover{background:#000}
+  .kb-pop__submit:disabled{opacity:.55;cursor:not-allowed}
+  .kb-pop__or{display:flex;align-items:center;text-align:center;color:#9aa0a6;font-family:'Inter',sans-serif;font-size:12px;
+    text-transform:uppercase;letter-spacing:.1em;margin:18px 0 14px}
+  .kb-pop__or::before,.kb-pop__or::after{content:"";flex:1;height:1px;background:#e4e4df}
+  .kb-pop__or span{padding:0 12px}
+  .kb-pop__call{display:block;text-align:center;font-family:'Inter',sans-serif;font-weight:700;font-size:15px;
+    padding:13px;border-radius:12px;border:1.5px solid var(--dark,#0D1114);color:var(--dark,#0D1114);text-decoration:none;transition:.15s}
+  .kb-pop__call:hover{background:var(--dark,#0D1114);color:#fff}
+  .kb-pop__done{text-align:center}
+  .kb-pop__check{width:56px;height:56px;margin:0 auto 14px;border-radius:50%;background:var(--yellow,#FFE28C);
+    display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--dark,#0D1114)}
+  @media(max-width:480px){.kb-pop__card{padding:30px 22px 24px}.kb-pop__title{font-size:26px}}
+</style>
+
+<div class="kb-pop" id="kbPop" role="dialog" aria-modal="true" aria-labelledby="kbPopTitle" aria-hidden="true">
+  <div class="kb-pop__backdrop" data-kb-close></div>
+  <div class="kb-pop__card">
+    <button class="kb-pop__x" type="button" aria-label="Close" data-kb-close>&times;</button>
+
+    <div class="kb-pop__body" id="kbPopForm">
+      <p class="kb-pop__kicker">Kolabing</p>
+      <h2 class="kb-pop__title" id="kbPopTitle">Get local collabs in your inbox</h2>
+      <p class="kb-pop__sub">Join the list for communities &amp; businesses — early access, playbooks, and the best local partnerships near you.</p>
+
+      <div class="kb-pop__seg" role="group" aria-label="I am a">
+        <button type="button" class="kb-pop__seg-btn is-on" data-aud="community">A community</button>
+        <button type="button" class="kb-pop__seg-btn" data-aud="business">A business</button>
+      </div>
+
+      <form id="kbPopFormEl" novalidate>
+        <label class="kb-pop__label" for="kbPopEmail">Email</label>
+        <input class="kb-pop__input" type="email" id="kbPopEmail" name="email" placeholder="you@example.com" autocomplete="email" required>
+        <input type="text" name="website" tabindex="-1" autocomplete="off" class="kb-pop__hp" aria-hidden="true">
+        <p class="kb-pop__err" id="kbPopErr" hidden></p>
+        <button class="kb-pop__submit" type="submit" id="kbPopSubmit">Join the list</button>
+      </form>
+
+      <div class="kb-pop__or"><span>or</span></div>
+      <a class="kb-pop__call" href="{{ config('kolabing.book_a_call_url') }}" target="_blank" rel="noopener">Book a call with us →</a>
+    </div>
+
+    <div class="kb-pop__body kb-pop__done" id="kbPopDone" hidden>
+      <div class="kb-pop__check">✓</div>
+      <h2 class="kb-pop__title">You're on the list</h2>
+      <p class="kb-pop__sub">Thanks — we'll be in touch. Want to talk sooner?</p>
+      <a class="kb-pop__call" href="{{ config('kolabing.book_a_call_url') }}" target="_blank" rel="noopener">Book a call with us →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var pop = document.getElementById('kbPop');
+  if (!pop) return;
+  var SEEN_KEY = 'kbPopSeen';
+  var audience = 'community';
+  var opened = false;
+
+  function open(){
+    if (opened) return;
+    opened = true;
+    try { sessionStorage.setItem(SEEN_KEY, '1'); } catch(e){}
+    pop.classList.add('is-open');
+    pop.setAttribute('aria-hidden', 'false');
+    var email = document.getElementById('kbPopEmail');
+    if (email) setTimeout(function(){ email.focus(); }, 300);
+  }
+  function close(){
+    pop.classList.remove('is-open');
+    pop.setAttribute('aria-hidden', 'true');
+  }
+
+  // Audience toggle
+  pop.querySelectorAll('.kb-pop__seg-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      audience = btn.getAttribute('data-aud');
+      pop.querySelectorAll('.kb-pop__seg-btn').forEach(function(b){ b.classList.remove('is-on'); });
+      btn.classList.add('is-on');
+    });
+  });
+
+  // Close handlers
+  pop.querySelectorAll('[data-kb-close]').forEach(function(el){
+    el.addEventListener('click', close);
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && pop.classList.contains('is-open')) close();
+  });
+
+  // Submit
+  var form = document.getElementById('kbPopFormEl');
+  var submitBtn = document.getElementById('kbPopSubmit');
+  var errEl = document.getElementById('kbPopErr');
+  var token = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    errEl.hidden = true;
+    var email = document.getElementById('kbPopEmail').value.trim();
+    var hp = form.querySelector('input[name="website"]').value;
+    if (!email){ showErr('Please enter your email address.'); return; }
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Joining…';
+
+    fetch('{{ route('newsletter.store') }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-CSRF-TOKEN': token
+      },
+      body: JSON.stringify({ email: email, audience: audience, website: hp })
+    }).then(function(res){
+      if (res.ok){
+        document.getElementById('kbPopForm').hidden = true;
+        document.getElementById('kbPopDone').hidden = false;
+        return;
+      }
+      return res.json().then(function(data){
+        var msg = (data && data.errors && data.errors.email && data.errors.email[0])
+          || (data && data.message) || 'Something went wrong. Please try again.';
+        showErr(msg);
+      }).catch(function(){ showErr('Something went wrong. Please try again.'); });
+    }).catch(function(){
+      showErr('Network error. Please try again.');
+    }).finally(function(){
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Join the list';
+    });
+  });
+
+  function showErr(msg){ errEl.textContent = msg; errEl.hidden = false; }
+
+  // Triggers: once per session, whichever comes first —
+  // exit-intent, 18s dwell, or 45% scroll depth.
+  var already = false;
+  try { already = sessionStorage.getItem(SEEN_KEY) === '1'; } catch(e){}
+  if (!already){
+    var timer = setTimeout(open, 18000);
+    document.addEventListener('mouseout', function(e){
+      if (e.clientY <= 0 && !opened){ clearTimeout(timer); open(); }
+    });
+    window.addEventListener('scroll', function onScroll(){
+      var sc = (window.scrollY + window.innerHeight) / document.body.scrollHeight;
+      if (sc >= 0.45 && !opened){ clearTimeout(timer); open(); window.removeEventListener('scroll', onScroll); }
+    }, { passive: true });
+  }
+})();
+</script>
 
 
 </body></html>
