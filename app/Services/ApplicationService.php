@@ -366,6 +366,15 @@ class ApplicationService
             );
         }
 
+        // Applications close once no valid date remains in the availability
+        // window (mirrors the accept-time window/recurring-day check). Guards
+        // against a direct API apply to a date-exhausted opportunity.
+        if (! $opportunity->hasSelectableDatesFrom(now()->startOfDay())) {
+            throw new InvalidArgumentException(
+                'Applications for this opportunity are closed — no available dates remain.'
+            );
+        }
+
         if (is_string($opportunity->recipient_community_id)
             && $opportunity->recipient_community_id !== ''
             && $opportunity->recipient_community_id !== $applicant->id) {

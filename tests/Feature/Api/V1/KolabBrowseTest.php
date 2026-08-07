@@ -147,4 +147,56 @@ class KolabBrowseTest extends TestCase
 
         $response->assertStatus(401);
     }
+
+    public function test_browse_excludes_kolabs_whose_dates_have_all_passed(): void
+    {
+        $viewer = Profile::factory()->business()->create();
+
+        $live = Kolab::factory()->published()->create([
+            'availability_start' => now()->addDay(),
+            'availability_end' => now()->addMonth(),
+        ]);
+        Kolab::factory()->published()->create([
+            'availability_start' => now()->subDays(30),
+            'availability_end' => now()->subDay(), // window fully in the past
+        ]);
+
+        $response = $this->actingAs($viewer)->getJson('/api/v1/kolabs');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.data.0.id', $live->id);
+    }
+
+    public function test_browse_keeps_open_ended_kolabs(): void
+    {
+        $viewer = Profile::factory()->business()->create();
+
+        Kolab::factory()->published()->create([
+            'availability_start' => now(),
+            'availability_end' => null, // open-ended → always selectable
+        ]);
+
+        $response = $this->actingAs($viewer)->getJson('/api/v1/kolabs');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_saved_list_still_shows_date_exhausted_kolabs(): void
+    {
+        $viewer = Profile::factory()->business()->create();
+
+        $expired = Kolab::factory()->published()->create([
+            'availability_start' => now()->subDays(30),
+            'availability_end' => now()->subDay(),
+        ]);
+        $this->actingAs($viewer)->postJson(route('api.v1.kolabs.save', $expired))->assertOk();
+
+        $response = $this->actingAs($viewer)->getJson('/api/v1/kolabs?saved=1');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.data.0.id', $expired->id);
+    }
 }

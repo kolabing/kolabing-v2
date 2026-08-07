@@ -21,12 +21,17 @@ use App\Http\Controllers\Admin\TaskController as AdminTaskController;
 use App\Http\Controllers\Admin\TypeController as AdminTypeController;
 use App\Http\Controllers\Admin\XpEarnRuleController as AdminXpEarnRuleController;
 use App\Http\Controllers\Admin\XpLevelController as AdminXpLevelController;
+use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\PasswordResetPageController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 })->name('home');
+
+Route::post('/newsletter', [NewsletterController::class, 'store'])
+    ->middleware('throttle:10,1')
+    ->name('newsletter.store');
 
 Route::middleware('guest:admin')->group(function (): void {
     Route::get('/admin/login', [AdminAuthController::class, 'create'])->name('login');

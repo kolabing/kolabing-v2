@@ -73,6 +73,7 @@
                 <li>Circumvent any security, subscription paywall, or access control.</li>
                 <li>Use the Service for any fraudulent or misleading purpose.</li>
             </ul>
+            <p><strong>Zero tolerance.</strong> Kolabing has zero tolerance for objectionable content and abusive users. Content that is offensive, threatening, harassing, hateful, sexually explicit or otherwise objectionable — and users who behave abusively — are not permitted. You can flag objectionable content and block abusive users directly in the app; reported content is reviewed and we may remove it and suspend or terminate the responsible accounts (see Section 10).</p>
 
             <h2>8. Intellectual Property</h2>
             <p>The Service, including its software, design, text, graphics, logos and trademarks (but excluding User Content), is owned by Kolabing or its licensors and is protected by intellectual property laws. We grant you a limited, personal, non-transferable, revocable licence to use the Service for its intended purpose. You may not copy, modify, distribute, sell or create derivative works from any part of the Service without our prior written consent.</p>

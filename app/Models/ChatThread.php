@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * @property string $id
@@ -77,6 +78,17 @@ class ChatThread extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(ChatMessage::class, 'thread_id');
+    }
+
+    /**
+     * The most recent message, for the chat-list preview (#8). Eager-load this
+     * (`with('latestMessage')`) to avoid an N+1 across the thread list.
+     *
+     * @return HasOne<ChatMessage, $this>
+     */
+    public function latestMessage(): HasOne
+    {
+        return $this->hasOne(ChatMessage::class, 'thread_id')->latestOfMany();
     }
 
     /**

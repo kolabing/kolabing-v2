@@ -35,6 +35,14 @@ class EventResource extends JsonResource
             'address' => $this->address,
             'location' => $this->location,
             'community_id' => $this->community_id,
+            // The host's `profiles.id` (NOT community_id, which is a communities.id):
+            // lets the app open the host's public profile without 404ing on the
+            // /profiles/{id} route (which binds profiles.id). Prefers the eager-loaded
+            // community owner's profile; falls back to the event's own host profile_id,
+            // which is always a valid profiles.id. See kolabing-app F1.
+            'host_profile_id' => $this->relationLoaded('community') && $this->community
+                ? $this->community->owner_profile_id
+                : $this->profile_id,
             // Host community name + 17-slug type (eager-loaded to avoid N+1).
             // community_type is the host community's `type` (the unified vocabulary),
             // NOT the 5-value App\Enums\CommunityType placeholder.

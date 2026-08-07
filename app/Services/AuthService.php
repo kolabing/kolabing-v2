@@ -16,6 +16,7 @@ use App\Models\Profile;
 use App\Support\ApiDebugLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use InvalidArgumentException;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -88,6 +89,7 @@ class AuthService
         private readonly BusinessVenueService $businessVenueService,
         private readonly FileUploadService $fileUploadService,
         private readonly OnboardingService $onboardingService,
+        private readonly OnboardingDripService $onboardingDripService,
         private readonly \App\Services\Admin\CompanySettingService $companySettings,
     ) {}
 
@@ -199,6 +201,8 @@ class AuthService
         });
 
         $this->loadProfileRelationships($profile);
+
+        $this->startOnboardingDrip($profile);
 
         return [
             'profile' => $profile,
@@ -324,6 +328,8 @@ class AuthService
         // Load relationships
         $this->loadProfileRelationships($profile);
 
+        $this->startOnboardingDrip($profile);
+
         return [
             'profile' => $profile,
             'is_new_user' => true,
@@ -342,6 +348,27 @@ class AuthService
             $profile->load(['attendeeProfile']);
         } else {
             $profile->load(['communityProfile.city']);
+        }
+    }
+
+    /**
+     * Enrol a freshly-registered profile into the onboarding email drip.
+     *
+     * Runs after the registration transaction has committed and is fully
+     * isolated: the drip is a peripheral concern, so a failure to seed its
+     * state must never propagate into (and roll back) account creation. Mirrors
+     * the "email failures never break the triggering request" rule in
+     * {@see \App\Jobs\SendTransactionalEmail}.
+     */
+    private function startOnboardingDrip(Profile $profile): void
+    {
+        try {
+            $this->onboardingDripService->startForProfile($profile);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to start onboarding drip for new profile', [
+                'profile_id' => $profile->id,
+                'exception' => $e->getMessage(),
+            ]);
         }
     }
 
@@ -475,6 +502,8 @@ class AuthService
         // Load relationships
         $this->loadProfileRelationships($profile);
 
+        $this->startOnboardingDrip($profile);
+
         return [
             'profile' => $profile,
             'is_new_user' => true,
@@ -569,6 +598,8 @@ class AuthService
         // Load relationships
         $this->loadProfileRelationships($profile);
 
+        $this->startOnboardingDrip($profile);
+
         return [
             'profile' => $profile,
             'is_new_user' => true,
@@ -600,6 +631,8 @@ class AuthService
         });
 
         $this->loadProfileRelationships($profile);
+
+        $this->startOnboardingDrip($profile);
 
         return [
             'profile' => $profile,

@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\AppleWebhookController;
 use App\Http\Controllers\Api\V1\ApplicationController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BadgeController;
+use App\Http\Controllers\Api\V1\BlockController;
 use App\Http\Controllers\Api\V1\ChallengeCompletionController;
 use App\Http\Controllers\Api\V1\ChallengeController;
 use App\Http\Controllers\Api\V1\ChatController;
@@ -48,6 +49,7 @@ use App\Http\Controllers\Api\V1\OnboardingController;
 use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\ReferralController;
+use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\RewardWalletController;
 use App\Http\Controllers\Api\V1\SavedKolabController;
 use App\Http\Controllers\Api\V1\SpinWheelController;
@@ -220,6 +222,28 @@ Route::prefix('v1')->group(function (): void {
         // Delete account (soft delete)
         Route::delete('me/account', [ProfileController::class, 'destroy'])
             ->name('api.v1.me.account.destroy');
+
+        /*
+        |--------------------------------------------------------------------------
+        | UGC Moderation — blocks & reports (App Review Guideline 1.2)
+        |--------------------------------------------------------------------------
+        */
+
+        // Blocked profile IDs
+        Route::get('me/blocks', [BlockController::class, 'index'])
+            ->name('api.v1.me.blocks.index');
+
+        // Block a profile (idempotent)
+        Route::post('me/blocks/{profile}', [BlockController::class, 'store'])
+            ->name('api.v1.me.blocks.store');
+
+        // Unblock a profile
+        Route::delete('me/blocks/{profile}', [BlockController::class, 'destroy'])
+            ->name('api.v1.me.blocks.destroy');
+
+        // Report objectionable content
+        Route::post('reports', [ReportController::class, 'store'])
+            ->name('api.v1.reports.store');
 
         /*
         |--------------------------------------------------------------------------
