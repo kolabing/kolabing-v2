@@ -38,7 +38,11 @@ class CommunityProfileFactory extends Factory
             'instagram' => fake()->optional()->userName(),
             'tiktok' => fake()->optional()->userName(),
             'website' => fake()->optional()->url(),
-            'profile_photo' => fake()->optional()->imageUrl(400, 400, 'people'),
+            // Distinct per-row (or null). fake()->imageUrl() returns one identical
+            // via.placeholder image for every row → "same avatar everywhere" (#9).
+            'profile_photo' => fake()->boolean(70)
+                ? 'https://picsum.photos/seed/'.fake()->uuid().'/400/400'
+                : null,
             'is_featured' => false,
         ];
     }

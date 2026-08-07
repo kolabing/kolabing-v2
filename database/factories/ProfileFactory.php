@@ -33,7 +33,12 @@ class ProfileFactory extends Factory
             'phone_number' => fake()->optional()->e164PhoneNumber(),
             'user_type' => fake()->randomElement(UserType::cases()),
             'google_id' => Str::random(21),
-            'avatar_url' => fake()->optional()->imageUrl(200, 200, 'people'),
+            // Distinct per-row image (or null → the app renders a clean initials
+            // placeholder). fake()->imageUrl() returns the SAME via.placeholder image
+            // for every row, which reads as "every profile has the same avatar" (#9).
+            'avatar_url' => fake()->boolean(70)
+                ? 'https://picsum.photos/seed/'.fake()->uuid().'/200/200'
+                : null,
             'email_verified_at' => now(),
         ];
     }
