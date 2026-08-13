@@ -108,11 +108,17 @@ class MultiKolabEvent extends Model
     }
 
     /**
+     * Ordered oldest-first by `id` — UUIDv7 primary keys (see
+     * {@see \Illuminate\Database\Eloquent\Concerns\HasUuids}) are time-ordered,
+     * so this is a reliable, portable chronological order without depending
+     * on `created_at` precision (which can collide within the same second).
+     *
      * @return HasMany<MultiKolabEventStatusEvent, $this>
      */
     public function statusEvents(): HasMany
     {
-        return $this->hasMany(MultiKolabEventStatusEvent::class, 'multi_kolab_event_id');
+        return $this->hasMany(MultiKolabEventStatusEvent::class, 'multi_kolab_event_id')
+            ->orderBy('id');
     }
 
     /**

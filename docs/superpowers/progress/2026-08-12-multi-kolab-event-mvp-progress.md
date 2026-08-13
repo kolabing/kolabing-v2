@@ -190,7 +190,28 @@ Do not mark a task complete unless its focused tests + relevant regression tests
 - **Next task:** Task 4 (Implement Event Draft, Roles, Publish, and Lifecycle) — not started, awaiting approval.
 
 ## Task 4: Implement Event Draft, Roles, Publish, and Lifecycle
-- **Status:** Not started
+
+- **Status:** Completed
+- **Files created:**
+  - `app/Services/MultiKolabEventService.php` — `createDraft`, `update`, `addRole`, `updateRole`, `removeRole`, `publish`, `confirm`, `complete`, `cancel` (all nine interfaces from the plan).
+  - `app/Policies/MultiKolabEventPolicy.php` — `create` (unrestricted — drafting is never gated), `view`, `update`/`cancel`/`confirm`/`complete` (owner-only), `publish` (owner **and** `hasEventCreatorEntitlement()`).
+  - `app/Exceptions/EventCreatorEntitlementRequiredException.php`, `app/Exceptions/MultiKolabEventPublishValidationException.php` (carries a `field => messages` array for the controller to map to the contract's §5/§10 error shape in Task 7).
+  - `app/Http/Requests/Api/V1/MultiKolab/{CreateMultiKolabEventRequest,UpdateMultiKolabEventRequest,AddMultiKolabRoleRequest,UpdateMultiKolabRoleRequest}.php` — shapes match the frozen contract; not yet wired to a controller (Task 7), so not exercised over HTTP this task — business-rule enforcement (the checklist items below) lives in the service, which **is** fully tested.
+  - `tests/Feature/MultiKolab/MultiKolabEventLifecycleTest.php` (18 tests).
+- **Files modified:**
+  - `app/Models/MultiKolabEvent.php` — `statusEvents()` now `orderBy('id')`. UUIDv7 primary keys (`HasUuids::newUniqueId()` uses `Str::uuid7()`) are time-ordered, so this gives a reliable chronological read of the audit trail without depending on `created_at` second-level precision, which can collide across three same-test transitions.
+  - `app/Providers/AppServiceProvider.php` — registered `Gate::policy(MultiKolabEvent::class, MultiKolabEventPolicy::class)`.
+  - `app/Http/Requests/Api/V1/StoreReportRequest.php` — added `multi_kolab_event`, `multi_kolab_role`, `multi_kolab_role_application` to the `target_type` whitelist, per the founder's binding Task 4/5/7 moderation requirement (contract §12). `ReportController`/`ModerationService` are already generic over `target_type`, so this one-line whitelist change is sufficient to make events and roles reportable through the **existing** endpoint — no new controller/service code needed. Application-level report visibility restriction (organizer-only) is deferred to Task 7, where the resource that exposes an application's `pitch` to its organizer is actually built.
+- **Interpretation calls made (documented, not in the plan's literal text):**
+  - **"Venue-needed consistency"** (plan's exact phrase, not otherwise defined): implemented as — if `venue_needed = true`, `city` must be set, since a venue-seeking event needs to tell venue-role applicants where they'd be partnering. Tested by `test_publish_requires_venue_needed_consistency`.
+  - **Terminal-state edit lock**: extended beyond the plan's literal "Cancelled cannot return to Recruiting" to also block *any* mutation (`update`/`addRole`/`updateRole`/`removeRole`) once an event is `cancelled` or `completed`, consistent with "cancelled events remain recorded" (Global Constraints) reading as "immutable," not just "non-reactivatable." Low-risk, additive; flagging in case product intent differs.
+- **Moderation (per founder's decision, applied — not re-litigated this task):** no proactive filter added anywhere in the service; `test_free_text_fields_accept_arbitrary_content_with_no_proactive_filter` locks this in as a named regression test, and `test_multi_kolab_event_and_role_are_reportable_via_the_existing_report_endpoint` proves the reactive path works end-to-end over the real `/api/v1/reports` HTTP endpoint.
+- **Focused tests:** red (missing `MultiKolabEventService`) → **17 tests / 14 errors + 3 failures** (expected TDD-red). After implementation: **18 tests** (added the reportability test after implementing the whitelist change), **28 tests including `ModerationTest.php` run together, 70 assertions — OK.**
+- **Checklist coverage:** owner-only editing ✅ (policy test), draft creation without entitlement ✅, publish requires entitlement ✅ (both Business and Community entitled paths tested equally), HTTPS RSVP ✅, venue-needed consistency ✅, minimum one role ✅, required fields (description) ✅, moderation ✅ (reactive-only, per decision), transition-table (Cancelled terminal) ✅, one status-event per transition ✅ (publish/confirm/complete each write exactly one; cancel writes one with the reason), role removal blocked with an accepted application ✅, `positions_needed >= 1` enforced ✅.
+- **Regression:** `vendor/bin/pint --dirty` → pass. Full suite `php -d memory_limit=2048M vendor/bin/phpunit` → **1468/1468 OK** (1450 baseline + 18 new), 0 failures.
+- **Deviations from the frozen contract:** none in shape. The two interpretation calls above are additive business-rule choices the contract didn't pin down, not contradictions of it.
+- **Commit:** (recorded after this turn's commit — see chat report)
+- **Next task:** Task 5 (Implement Free Role Applications and Policies) — not started, awaiting approval.
 
 ## Task 5: Implement Free Role Applications and Policies
 - **Status:** Not started
