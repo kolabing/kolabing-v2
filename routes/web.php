@@ -51,6 +51,11 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::post('/users/{profile}/subscription/grant', [ManagedUserController::class, 'grantSubscription'])->name('users.subscription.grant');
     Route::post('/users/{profile}/subscription/revoke', [ManagedUserController::class, 'revokeSubscription'])->name('users.subscription.revoke');
 
+    // Multi-Kolab Event Creator entitlement — independent of the business
+    // subscription above; both Business and Community profiles are eligible.
+    Route::post('/users/{profile}/event-creator/grant', [ManagedUserController::class, 'grantEventCreatorEntitlement'])->name('users.event-creator.grant');
+    Route::post('/users/{profile}/event-creator/revoke', [ManagedUserController::class, 'revokeEventCreatorEntitlement'])->name('users.event-creator.revoke');
+
     // Community verification — submit proof channels (mobile), maintainer verifies
     // / rejects here. State lives on community_profiles.verification_*.
     Route::get('/community-verification', [AdminCommunityVerificationController::class, 'index'])->name('community-verification.index');

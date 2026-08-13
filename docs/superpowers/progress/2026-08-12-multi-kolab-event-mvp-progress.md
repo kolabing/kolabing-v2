@@ -174,7 +174,20 @@ Do not mark a task complete unless its focused tests + relevant regression tests
   started, awaiting approval.
 
 ## Task 3: Add Independent Event Creator Entitlement
-- **Status:** Not started
+
+- **Status:** Completed
+- **Files created:**
+  - `app/Services/OrganizerEntitlementService.php` — `grant(Profile, int $months = 12): OrganizerEntitlement`, `revoke(Profile): void`. Idempotent grant reuses the existing `(profile_id, capability)` row (mirrors `ManagedProfileService::grantSubscription()`'s `firstOrNew` pattern) rather than duplicating.
+  - `tests/Feature/MultiKolab/OrganizerEntitlementTest.php` (13 tests)
+- **Files modified:**
+  - `app/Models/Profile.php` — added `hasEventCreatorEntitlement(): bool` (live-read `whereNull('revoked_at')` + not-expired query against `organizerEntitlements()`; never touches `business_subscriptions` or `hasActiveSubscription()`).
+  - `app/Http/Controllers/Admin/ManagedUserController.php` — added `grantEventCreatorEntitlement()` / `revokeEventCreatorEntitlement()`, following the existing `grantSubscription()`/`revokeSubscription()` pattern exactly, but **without** the `abort_unless($profile->isBusiness())` guard — both Business and Community profiles are eligible for this capability.
+  - `routes/web.php` — `POST /admin/users/{profile}/event-creator/grant` and `/revoke`, inside the existing `auth:admin + maintainer` group.
+- **Focused tests:** red (missing `OrganizerEntitlementService` + routes) → **13 tests, 23 assertions, OK** after implementation. Covers: business/community default absence, business/community grant, revoke, expiry, idempotent re-grant (no duplicate row), the critical regression (community without entitlement can still `KolabService::create()` + `publish()` an ordinary `CommunitySeeking` Kolab end-to-end), maintainer grant/revoke for both profile types, non-maintainer 403, and unauthenticated redirect-to-login.
+- **Regression:** `--filter="Admin|Kolab|Subscription"` → 323/323 OK. Full suite → **1450/1450 OK** (1437 + 13 new), 0 failures. `vendor/bin/pint --dirty` → pass.
+- **Deviations:** none from the plan's interfaces. One test-authoring fix mid-task: the admin login route is named `login`, not `admin.login` (no `admin.` prefix on that specific route) — caught by the red run, not a source bug.
+- **Commit:** (recorded after this turn's commit — see chat report)
+- **Next task:** Task 4 (Implement Event Draft, Roles, Publish, and Lifecycle) — not started, awaiting approval.
 
 ## Task 4: Implement Event Draft, Roles, Publish, and Lifecycle
 - **Status:** Not started

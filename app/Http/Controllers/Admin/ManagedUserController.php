@@ -10,13 +10,15 @@ use App\Http\Requests\Admin\StoreManagedUserRequest;
 use App\Http\Requests\Admin\UpdateManagedUserRequest;
 use App\Models\Profile;
 use App\Services\Admin\ManagedProfileService;
+use App\Services\OrganizerEntitlementService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 
 class ManagedUserController extends Controller
 {
     public function __construct(
-        private readonly ManagedProfileService $managedProfileService
+        private readonly ManagedProfileService $managedProfileService,
+        private readonly OrganizerEntitlementService $organizerEntitlementService,
     ) {}
 
     public function index(): View
@@ -89,5 +91,26 @@ class ManagedUserController extends Controller
 
         return redirect()->back()
             ->with('status', __('Subscription revoked.'));
+    }
+
+    /**
+     * Grant the Multi-Kolab Event Creator capability. Unlike the subscription
+     * grant above, both Business and Community profiles are eligible — this
+     * is an independent capability, not the business paywall.
+     */
+    public function grantEventCreatorEntitlement(Profile $profile): RedirectResponse
+    {
+        $this->organizerEntitlementService->grant($profile);
+
+        return redirect()->back()
+            ->with('status', __('Event Creator access granted for 12 months.'));
+    }
+
+    public function revokeEventCreatorEntitlement(Profile $profile): RedirectResponse
+    {
+        $this->organizerEntitlementService->revoke($profile);
+
+        return redirect()->back()
+            ->with('status', __('Event Creator access revoked.'));
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\IntentType;
+use App\Enums\OrganizerCapability;
 use App\Enums\UserType;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -474,6 +475,24 @@ class Profile extends Authenticatable
         }
 
         return $this->subscription?->isActive() ?? false;
+    }
+
+    /**
+     * Live-read check for the maintainer-granted Multi-Kolab Event Creator
+     * capability. Deliberately independent of {@see hasActiveSubscription()}
+     * — a Business or a Community can hold this entitlement, and holding (or
+     * lacking) it must never affect the ordinary Kolab paywall or a
+     * community's free access (ROLES-AND-PERMISSIONS.md golden rule 1).
+     */
+    public function hasEventCreatorEntitlement(): bool
+    {
+        return $this->organizerEntitlements()
+            ->where('capability', OrganizerCapability::EventCreator)
+            ->whereNull('revoked_at')
+            ->where(function ($query): void {
+                $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->exists();
     }
 
     /**
