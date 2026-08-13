@@ -214,7 +214,26 @@ Do not mark a task complete unless its focused tests + relevant regression tests
 - **Next task:** Task 5 (Implement Free Role Applications and Policies) — not started, awaiting approval.
 
 ## Task 5: Implement Free Role Applications and Policies
-- **Status:** Not started
+
+- **Status:** Completed
+- **Files created:**
+  - `app/Services/MultiKolabRoleApplicationService.php` — `apply`, `shortlist`, `decline`, `withdraw` (all four plan interfaces).
+  - `app/Policies/MultiKolabRoleApplicationPolicy.php` — `create` (any eligible profile except the event's own creator), `view`, `shortlist`/`decline` (organizer-only), `withdraw` (applicant-only).
+  - `app/Exceptions/DuplicateRoleApplicationException.php` — deterministic pre-check for the unique `(role, applicant)` conflict, for the controller (Task 7) to map to HTTP 409 per contract §7. The DB unique constraint (Task 2) remains the concurrency backstop.
+  - `app/Http/Requests/Api/V1/MultiKolab/{CreateMultiKolabRoleApplicationRequest,WithdrawMultiKolabRoleApplicationRequest}.php`.
+  - `tests/Feature/MultiKolab/MultiKolabRoleApplicationTest.php` (19 tests).
+- **Files modified:**
+  - `app/Providers/AppServiceProvider.php` — registered `Gate::policy(MultiKolabRoleApplication::class, MultiKolabRoleApplicationPolicy::class)`.
+- **Interpretation calls made (flagged, not literal plan text):**
+  - Applications are only accepted while the parent event is `recruiting` (not `draft`/`confirmed`/`completed`/`cancelled`) and the role is `open` — the plan implies this ("Free Role Applications" against a published event with open roles) but doesn't spell out the exact status gate; tested explicitly (`test_cannot_apply_to_a_role_on_a_draft_event`, `test_cannot_apply_to_a_filled_role`).
+  - Added "cannot apply to your own event" — not explicit in Task 5's checklist, but a direct carry-over of the identical rule already enforced in `ApplicationService::validateCanApply()` for ordinary Kolabs; kept consistent rather than silently allowing a hole.
+- **Checklist coverage:** Business/Community/Either eligibility ✅ (all six combinations tested, including both directions of each restricted type). Applying never checks `hasActiveSubscription()` or `hasEventCreatorEntitlement()` ✅ — explicit test asserts both are `false` on the applicant and the apply still succeeds. Unique `(role, applicant)` ✅ — both the deterministic service-level exception and the DB-level `QueryException` backstop are tested. Owner-only shortlist/decline ✅, applicant-only withdrawal ✅ (both via `Profile::can()` against the registered policy, matching how `ApplicationPolicy` is tested elsewhere in the codebase). Pitch required ✅. Post-acceptance withdrawal reason required (pending/shortlisted withdrawal does not require one) ✅ — both branches tested. Transactional withdrawal decrements `positions_filled` and reopens the role to `open` ✅, with an explicit floor test (`test_positions_filled_never_drops_below_zero`) proving it never goes negative even from an already-inconsistent starting state.
+- **Moderation:** no proactive filter added (same founder decision as Task 4) — `pitch`/`availability`/`withdrawal_reason` are stored as free text with no filtering, consistent with `test_free_text_fields_accept_arbitrary_content_with_no_proactive_filter` established in Task 4.
+- **Focused tests:** red (missing `MultiKolabRoleApplicationService`) → 19 tests, 11 errors + 7 failures (expected). Green: **19/19, 31 assertions.** Run together with Tasks 3/4's Feature/MultiKolab tests: **50/50, 87 assertions — OK.**
+- **Regression:** `vendor/bin/pint --dirty` → auto-fixed one unused import in the new test file (accepted, re-verified green after). Full suite `php -d memory_limit=2048M vendor/bin/phpunit` → **1487/1487 OK** (1468 baseline + 19 new), 0 failures.
+- **Deviations from the frozen contract:** none in shape. The two interpretation calls above are additive.
+- **Commit:** (recorded after this turn's commit — see chat report)
+- **Next task:** Task 6 (Concurrency-Safe Acceptance and Child Kolab Creation) — **blocked on the outstanding PostgreSQL prerequisite** (see Task 2 entry); not started, awaiting both approval and a resolved Postgres environment.
 
 ## Task 6: Implement Concurrency-Safe Acceptance and Child Kolab Creation
 - **Status:** Not started
