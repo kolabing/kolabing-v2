@@ -29,7 +29,149 @@ Do not mark a task complete unless its focused tests + relevant regression tests
 ---
 
 ## Task 2: Add Domain Enums, Tables, Models, and Factories
-- **Status:** Not started
+
+- **Status:** Completed
+- **Start / completion:** 2026-08-13 (single session)
+- **Founder decisions applied:**
+  1. **Moderation:** reactive block/report model only, no proactive filter —
+     see contract doc §12 (updated this task). Task 2 itself adds no
+     moderation code; it only leaves `MultiKolabEvent`/`MultiKolabRole`/
+     `MultiKolabRoleApplication` as ordinary Eloquent models with UUID `id`s
+     so `ContentReport.target_id` can reference them later (Tasks 4/5/7).
+  2. **PostgreSQL:** not required for Task 2; all work done against SQLite
+     `:memory:` (`.env` → `APP_ENV=testing`), migrations written portably (no
+     raw SQL, no SQLite-only syntax). **Task 6 concurrency testing is blocked
+     until an isolated Postgres dev/test instance is provisioned — see
+     "PostgreSQL prerequisite" below.**
+  3. **Flutter branch:** created — see below.
+- **Flutter feature branch:** `feat/multi-kolab-event-mvp` in
+  `/Users/macbook/Documents/kolabing-app`, branched from `origin/master` at
+  `cf10f496` (NOT from local `fix/ux-audit-batch2`, which is 47 commits ahead
+  of `origin/master` with unrelated, unmerged UX-fix work and is unsuitable
+  as a feature base). Untracked `build/` preserved, not committed. No Flutter
+  source files touched this task.
+- **Files created:**
+  - Enums: `app/Enums/MultiKolabEventStatus.php`,
+    `app/Enums/MultiKolabRoleStatus.php`,
+    `app/Enums/MultiKolabRoleApplicationStatus.php`,
+    `app/Enums/MultiKolabEligibleAccountType.php`,
+    `app/Enums/MultiKolabCompensationType.php`,
+    `app/Enums/OrganizerCapability.php`
+  - Migrations (all `2026_08_13_*`):
+    `000001_create_multi_kolab_events_table`,
+    `000002_create_multi_kolab_roles_table`,
+    `000003_create_multi_kolab_role_applications_table`,
+    `000004_create_multi_kolab_event_status_events_table`,
+    `000005_create_organizer_entitlements_table`,
+    `000006_add_multi_kolab_parent_columns_to_kolabs_table`
+  - Models: `app/Models/MultiKolabEvent.php`, `MultiKolabRole.php`,
+    `MultiKolabRoleApplication.php`, `MultiKolabEventStatusEvent.php`,
+    `OrganizerEntitlement.php`
+  - Factories: `database/factories/MultiKolabEventFactory.php`,
+    `MultiKolabRoleFactory.php`, `MultiKolabRoleApplicationFactory.php`,
+    `MultiKolabEventStatusEventFactory.php`, `OrganizerEntitlementFactory.php`
+  - Test: `tests/Unit/MultiKolab/MultiKolabModelsTest.php` (24 tests)
+- **Files modified:**
+  - `app/Models/Kolab.php` — added nullable `multi_kolab_event_id`/
+    `multi_kolab_role_id` to `$fillable`, `multiKolabEvent()`/
+    `multiKolabRole()` `BelongsTo` relations, PHPDoc.
+  - `app/Models/Profile.php` — added `organizerEntitlements(): HasMany`
+    relation only (no `hasEventCreatorEntitlement()` logic — reserved for
+    Task 3 per this turn's instruction).
+  - `docs/superpowers/specs/2026-08-12-multi-kolab-event-api-contract.md` —
+    §12 updated with the founder's moderation decision and the binding
+    requirements for Tasks 4/5/7 (reportable surfaces, new
+    `ContentReport.target_type` values, private-field exclusions).
+- **Database constraints implemented:**
+  - UUID primary keys (`$table->uuid('id')->primary()`, `HasUuids` on every
+    model) — matches `kolabs`/`applications` convention.
+  - `foreignUuid(...)->constrained(...)->cascadeOnDelete()` for
+    event→creator, role→event, application→role, application→applicant,
+    status-event→event.
+  - `foreignUuid('actor_profile_id')->nullable()->nullOnDelete()` on the
+    status-history table (null = system/maintainer, mirrors
+    `collaborations.cancelled_by_profile_id`).
+  - **Restrictive FK exactly as specified in the plan's Task 2 snippet:**
+    `kolabs.multi_kolab_event_id` / `kolabs.multi_kolab_role_id` are
+    `nullable()->constrained()->restrictOnDelete()` — a parent event/role
+    cannot be hard-deleted while a child Kolab still references it.
+    `multi_kolab_role_applications.kolab_id` is also
+    `nullable()->constrained('kolabs')->restrictOnDelete()` for the same
+    reason in the other direction.
+  - `$table->unique(['multi_kolab_role_id', 'applicant_profile_id'])` on
+    `multi_kolab_role_applications` — verified by
+    `test_role_application_enforces_unique_role_and_applicant` (expects
+    `QueryException` on the second insert).
+  - `unsignedInteger('positions_needed')->default(1)` and
+    `unsignedInteger('positions_filled')->default(0)` — DB-level guarantee of
+    `>= 0` on both columns (SQLite/Postgres both support `UNSIGNED`-equivalent
+    via Laravel's unsigned integer type).
+- **Constraints deferred to transactional/service-layer enforcement (not DB
+  CHECK):**
+  - `positions_needed >= 1` — not enforced at the DB level. No existing
+    migration in this codebase uses a raw `CHECK` constraint (confirmed by
+    grep), so adding one here would be a first-of-its-kind, DB-engine-specific
+    addition without a proven-safe project convention to follow, which the
+    instructions for this task explicitly require justifying first. Deferred
+    to Form Request validation in Task 4 (`positions_needed: ['required',
+    'integer', 'min:1']`).
+  - `positions_filled <= positions_needed` — same reasoning; this is exactly
+    the invariant the plan's own Task 6 already assigns to a locked
+    `DB::transaction()` (`SELECT ... FOR UPDATE` equivalent), so a DB CHECK
+    would be redundant with, not a substitute for, that transactional
+    enforcement. Deferred to Task 6.
+  - Both are explicitly **not** claimed as validated by SQLite test runs —
+    SQLite's write-locking model does not exercise the same concurrency path
+    as Postgres `SELECT ... FOR UPDATE`, and no capacity-conflict test exists
+    yet (that's Task 6).
+- **Focused tests:** `php -d memory_limit=1024M vendor/bin/phpunit tests/Unit/MultiKolab/MultiKolabModelsTest.php`
+  - Before implementation: **24 tests, 23 errors** (missing classes — expected TDD-red state; 1 assertion-only test passed trivially before its own class dependency was hit).
+  - After implementation: **24 tests, 39 assertions — OK.**
+- **Regression tests:**
+  - `vendor/bin/phpunit --testsuite=Unit` → **104 tests, 182 assertions — OK.**
+  - `vendor/bin/phpunit --filter=Kolab` → **157 tests, 597 assertions — OK.**
+  - Full suite `php -d memory_limit=2048M vendor/bin/phpunit` → **1437 tests
+    (1413 baseline + 24 new), 6593 assertions — OK. 0 failures.**
+- **Migration cycle verification (SQLite in-memory test env only, target
+  proven before running — see below):**
+  - `php artisan migrate:fresh --env=testing --force` against `.env`'s
+    `DB_CONNECTION=sqlite` / `DB_DATABASE=:memory:` (confirmed via `grep` on
+    `.env` immediately before running) — all migrations including the 6 new
+    ones ran clean.
+  - Rollback: `:memory:` SQLite cannot be rolled back across separate
+    `artisan` process invocations (each process gets a fresh empty
+    in-memory DB), so rollback was verified against a throwaway persistent
+    SQLite file at `/tmp/mk_rollback_test.sqlite` (`DB_CONNECTION`/
+    `DB_DATABASE` overridden **only** via inline env vars on the command,
+    `.env` untouched, file deleted after). `migrate` → `migrate:rollback
+    --step=6` → `migrate` cycle: **first rollback attempt failed** —
+    `add_multi_kolab_parent_columns_to_kolabs_table::down()` tried
+    `dropConstrainedForeignId()` while a manually-added index on the same
+    column still existed, which SQLite's drop-column table-rebuild rejected
+    with "no such column" during index recreation. **Fixed** by explicitly
+    `dropIndex()`-ing both columns in a separate `Schema::table()` call
+    before `dropConstrainedForeignId()`. Re-ran the full cycle: clean
+    rollback of all 6 migrations, then clean re-migrate. This is a real bug
+    that TDD/rollback verification caught before commit.
+- **Deviations from the frozen API contract:** none in shape/naming — table
+  and column names match the contract's entity fields exactly (`title`,
+  `description`, `positions_needed`, `positions_filled`, `pitch`,
+  `availability`, `kolab_id`, etc.). The contract itself was amended (§12
+  only) to record the founder's moderation decision — a documentation
+  clarification, not a schema deviation.
+- **PostgreSQL prerequisite for Task 6 (blocking, not resolved):** this dev
+  environment has no local Postgres (`psql` not installed, no
+  docker-compose/Sail Postgres service configured). Task 6's row-locking
+  (`SELECT ... FOR UPDATE`) concurrency test **must** run against Postgres,
+  not SQLite — SQLite's locking semantics differ enough that a passing SQLite
+  result would not prove the production behavior. Before Task 6 starts, this
+  needs either (a) a local Postgres install/container the user approves, or
+  (b) a provisioned isolated Postgres dev/test instance. Not started; will
+  propose an approach and stop for approval before Task 6, per instruction.
+- **Commit:** `feat: add multi-kolab event domain model` (see chat report for
+  hash — recorded after commit).
+- **Next task:** Task 3 (Add Independent Event Creator Entitlement) — not
+  started, awaiting approval.
 
 ## Task 3: Add Independent Event Creator Entitlement
 - **Status:** Not started

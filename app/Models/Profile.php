@@ -221,6 +221,18 @@ class Profile extends Authenticatable
     }
 
     /**
+     * Maintainer-granted organizer capabilities (e.g. Multi-Kolab Event
+     * Creator). Independent of {@see hasActiveSubscription()} — see Task 3
+     * for the live-read helper.
+     *
+     * @return HasMany<OrganizerEntitlement, $this>
+     */
+    public function organizerEntitlements(): HasMany
+    {
+        return $this->hasMany(OrganizerEntitlement::class, 'profile_id');
+    }
+
+    /**
      * Get collaborations where this profile is the creator.
      *
      * @return HasMany<Collaboration, $this>

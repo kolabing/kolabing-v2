@@ -376,12 +376,34 @@ exists to call. The two real hooks available are:
 1. `ContentReport` — reactive, user-filed, post-publish (existing pattern).
 2. Nothing currently blocks a bad word from being saved.
 
-**Decision needed before Task 4** (flagged to the user, not resolved by Task 1):
-either (a) treat "moderation" for Multi-Kolab text fields as identical to how
-`kolabs.title`/`description` are handled today (no proactive filter, reactive
-report only — consistent with existing UGC), or (b) introduce a new proactive
-filter as net-new scope, which is not in the plan's file list and would need
-its own task. Recommendation: (a), for consistency and to avoid scope creep;
-`ContentReport` `target_type` gains `multi_kolab_event`, `multi_kolab_role`,
-`multi_kolab_role_application` values so existing reporting UI/flow covers the
-new UGC surfaces without new code paths.
+**Decided (founder, before Task 2):** option (a) — Multi-Kolab authored content
+behaves exactly like existing `kolabs.title`/`description`: **no proactive
+filter, no automatic text rejection, no external AI moderation provider, no new
+moderation pipeline.** Do not build any of those. The existing reactive
+block/report workflow is the only moderation mechanism, and it must be
+extended to cover the new UGC surfaces.
+
+**Binding on Tasks 4, 5, and 7** (not implemented in Task 2 — Task 2 only
+establishes model identities/relations that make this possible later):
+- `ContentReport.target_type` gains three new values, using the existing
+  convention (`target_type` + `target_id` + optional `reported_profile_id`):
+  `multi_kolab_event`, `multi_kolab_role`, `multi_kolab_role_application`.
+- **Reportable surfaces:**
+  - A published `MultiKolabEvent` — reportable by any viewer (mirrors how a
+    `Kolab` is reportable today).
+  - A `MultiKolabRole` — reportable by any viewer who can see the parent
+    event.
+  - A `MultiKolabRoleApplication` — reportable **only by the role's event
+    organizer** (the only party who can see a given application's `pitch`/
+    `availability`). An applicant is never shown another applicant's
+    application, so there is no other viewer who could report it.
+- **Never publicly expose:** `withdrawal_reason` (role application),
+  `cancellation_reason` (event). These stay organizer/applicant-private in
+  every public resource, matching how `collaborations.cancellation_reason`
+  is never serialized to the counterparty-facing public resource today.
+- The existing `ModerationService::notify()` → `ModerationAlertMail` →
+  `config('mail.moderation_address')` email workflow is reused unchanged —
+  no new notification channel for Multi-Kolab reports.
+- This is a documentation-only decision as of Task 2; the report endpoints/UI
+  wiring is implemented when Tasks 4/5/7 build the resources and controllers
+  that make these surfaces visible.
