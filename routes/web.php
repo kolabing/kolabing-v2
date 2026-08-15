@@ -44,8 +44,12 @@ Route::domain(config('webapp.host'))->name('webapp.')->group(function (): void {
     Route::view('/dashboard', 'webapp.dashboard')->name('dashboard');
     Route::view('/subscription', 'webapp.subscription')->name('subscription');
     Route::view('/welcome', 'webapp.welcome')->name('welcome');
-    Route::view('/kolabs', 'webapp.coming-soon')->name('kolabs');
-    Route::view('/feed', 'webapp.coming-soon')->name('feed');
+    Route::view('/feed', 'webapp.feed')->name('feed');
+    // Kolabs — order matters: literal + edit before the {kolab} catch-all.
+    Route::view('/kolabs', 'webapp.kolabs')->name('kolabs');
+    Route::view('/kolabs/create', 'webapp.kolab-form')->name('kolabs.create');
+    Route::view('/kolabs/{kolab}/edit', 'webapp.kolab-form')->name('kolabs.edit');
+    Route::view('/kolabs/{kolab}', 'webapp.kolab-detail')->name('kolabs.show');
 });
 
 Route::get('/', function () {
