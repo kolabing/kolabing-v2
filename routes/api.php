@@ -53,6 +53,7 @@ use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\RewardWalletController;
 use App\Http\Controllers\Api\V1\SavedKolabController;
 use App\Http\Controllers\Api\V1\SpinWheelController;
+use App\Http\Controllers\Api\V1\StripeWebhookController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\SystemChallengeController;
 use App\Http\Controllers\Api\V1\UploadController;
@@ -107,6 +108,9 @@ Route::prefix('v1')->group(function (): void {
     // Apple Server Notifications V2 Webhook (public — verified via JWS signature)
     Route::post('webhooks/apple', AppleWebhookController::class)
         ->name('api.v1.webhooks.apple');
+
+    Route::post('webhooks/stripe', StripeWebhookController::class)
+        ->name('api.v1.webhooks.stripe');
 
     // Lookups
     Route::get('cities', [LookupController::class, 'cities'])
@@ -275,6 +279,10 @@ Route::prefix('v1')->group(function (): void {
 
         Route::post('me/subscription/apple-restore', [AppleIAPController::class, 'restore'])
             ->name('api.v1.me.subscription.apple-restore');
+
+        // Web checkout (Stripe) for the sales-driven / Android subscription path.
+        Route::post('me/subscription/checkout', [SubscriptionController::class, 'createCheckoutSession'])
+            ->name('api.v1.me.subscription.checkout');
 
         Route::post('referrals/validate', [ReferralController::class, 'validateCode'])
             ->name('api.v1.referrals.validate');
