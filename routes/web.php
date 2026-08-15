@@ -28,6 +28,26 @@ use App\Http\Controllers\PasswordResetPageController;
 use App\Models\BlogPost;
 use Illuminate\Support\Facades\Route;
 
+/*
+|--------------------------------------------------------------------------
+| Kolabing Web App (app.kolabing.com)
+|--------------------------------------------------------------------------
+| Server-rendered Blade shells; Alpine + the inline API client (in the webapp
+| layout) drive auth + all data via the same-origin /api/v1. Registered BEFORE
+| the marketing routes so the app host wins at "/"; on any other host these do
+| not match and the marketing site below is served instead. Config: config/webapp.php.
+*/
+Route::domain(config('webapp.host'))->name('webapp.')->group(function (): void {
+    Route::view('/', 'webapp.index')->name('index');
+    Route::view('/login', 'webapp.login')->name('login');
+    Route::view('/register', 'webapp.register')->name('register');
+    Route::view('/dashboard', 'webapp.dashboard')->name('dashboard');
+    Route::view('/subscription', 'webapp.subscription')->name('subscription');
+    Route::view('/welcome', 'webapp.welcome')->name('welcome');
+    Route::view('/kolabs', 'webapp.coming-soon')->name('kolabs');
+    Route::view('/feed', 'webapp.coming-soon')->name('feed');
+});
+
 Route::get('/', function () {
     return view('welcome');
 })->name('home');
