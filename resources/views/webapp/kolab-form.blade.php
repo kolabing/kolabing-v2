@@ -36,6 +36,20 @@
                 <input x-model="form.preferred_city" required maxlength="100" class="mt-1 w-full rounded-xl border-off-black/15 px-4 py-3 focus:border-off-black focus:ring-0">
             </div>
 
+            <div>
+                <label class="text-sm font-semibold">Cover photo <span class="text-off-black/40 font-normal">(optional)</span></label>
+                <template x-if="form.cover">
+                    <div class="mt-2 relative">
+                        <img :src="form.cover" alt="" class="w-full h-40 object-cover rounded-xl">
+                        <button type="button" @click="form.cover = ''" class="absolute top-2 right-2 rounded-full bg-off-black/70 text-off-white text-xs font-semibold px-2 py-1">Remove</button>
+                    </div>
+                </template>
+                <template x-if="!form.cover">
+                    <input type="file" accept="image/*" @change="onCover($event)" class="mt-1 block w-full text-sm text-off-black/70">
+                </template>
+                <p class="text-xs text-off-black/50 mt-1" x-show="uploading">Uploading…</p>
+            </div>
+
             {{-- Community seeking --}}
             <template x-if="form.intent_type === 'community_seeking'">
                 <div class="space-y-4">
@@ -98,13 +112,23 @@
         const parts = location.pathname.split('/');
         const editId = (parts[3] === 'edit') ? parts[2] : null;
         return {
-            loading: true, busy: false, error: '', isEdit: !!editId, editId,
+            loading: true, busy: false, uploading: false, error: '', isEdit: !!editId, editId,
             canPickVenue: false,
             lookups: { needs: [], deliverables: [], offerings: [], product_types: [] },
             form: {
                 intent_type: 'community_seeking', title: '', offer_headline: '', description: '', preferred_city: '',
+                cover: '',
                 needs: [], typical_attendance: null, offers_in_return: [],
                 product_name: '', product_type: '', offering: [], expects: [],
+            },
+            async onCover(e) {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                this.error = ''; this.uploading = true;
+                const r = await window.kb.uploadFile(file, 'kolabs');
+                this.uploading = false;
+                if (r.ok && r.json?.data?.url) this.form.cover = r.json.data.url;
+                else this.error = r.json?.message || 'Could not upload the image. Try a smaller JPG or PNG.';
             },
             async init() {
                 if (!window.kb.requireAuth()) return;
@@ -135,6 +159,7 @@
                 for (const f of ['needs', 'offers_in_return', 'offering', 'expects']) {
                     if (Array.isArray(k[f])) this.form[f] = k[f];
                 }
+                this.form.cover = (Array.isArray(k.media) && k.media[0]?.url) || k.offer_photo || '';
             },
             // Renders selectable chips as HTML (Alpine @click via onclick delegation).
             chips(field, options) {
@@ -153,6 +178,7 @@
                 const f = this.form;
                 const base = { intent_type: f.intent_type, title: f.title, description: f.description, preferred_city: f.preferred_city };
                 if (f.offer_headline) base.offer_headline = f.offer_headline;
+                if (f.cover) base.media = [{ url: f.cover, type: 'image', sort_order: 0 }];
                 if (f.intent_type === 'community_seeking') {
                     return { ...base, needs: f.needs, typical_attendance: f.typical_attendance, offers_in_return: f.offers_in_return };
                 }

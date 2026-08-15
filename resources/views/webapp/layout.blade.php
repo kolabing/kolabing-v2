@@ -73,6 +73,20 @@
                     return true;
                 } catch (e) { return false; }
             },
+            // Multipart upload → POST /uploads (folder: kolabs|events|profiles). Returns {ok, status, json}.
+            async uploadFile(file, folder) {
+                const fd = new FormData();
+                fd.append('file', file);
+                fd.append('folder', folder);
+                const headers = {};
+                if (this.token) headers['Authorization'] = 'Bearer ' + this.token;
+                let res;
+                try { res = await fetch(KB_CONFIG.apiBase + '/uploads', { method: 'POST', headers, body: fd }); }
+                catch (e) { return { ok: false, status: 0, json: null }; }
+                let json = null;
+                try { json = await res.json(); } catch (e) { /* empty */ }
+                return { ok: res.ok, status: res.status, json };
+            },
         };
     </script>
     @stack('head')

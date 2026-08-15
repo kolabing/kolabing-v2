@@ -13,6 +13,14 @@
         <template x-if="saved"><div class="mt-4 rounded-xl bg-green-50 text-green-700 text-sm px-4 py-3">Saved.</div></template>
 
         <form x-show="!loading" @submit.prevent="save()" class="mt-5 space-y-4">
+            <div class="flex items-center gap-4">
+                <img :src="avatarUrl || fallbackAvatar" alt="" class="w-16 h-16 rounded-full object-cover bg-off-black/10">
+                <div>
+                    <label class="text-sm font-semibold block">Logo / photo</label>
+                    <input type="file" accept="image/*" @change="uploadPhoto($event)" class="mt-1 block text-sm text-off-black/70">
+                    <p class="text-xs text-off-black/50" x-show="uploadingPhoto">Uploading…</p>
+                </div>
+            </div>
             <div>
                 <label class="text-sm font-semibold" x-text="isBusiness ? 'Business name' : 'Community name'"></label>
                 <input x-model="form.name" maxlength="255" class="mt-1 w-full rounded-xl border-off-black/15 px-4 py-3 focus:border-off-black focus:ring-0">
@@ -92,7 +100,9 @@
 <script>
     function accountPage() {
         return {
-            loading: true, busy: false, error: '', saved: false, isBusiness: false,
+            loading: true, busy: false, uploadingPhoto: false, error: '', saved: false, isBusiness: false,
+            avatarUrl: '',
+            fallbackAvatar: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="%23e5e2da"/></svg>',
             businessTypes: [], communityTypes: [], cities: [],
             form: { name: '', about: '', business_type: '', categories: [], community_type: '', community_size: null, city_id: '', instagram: '', tiktok: '', website: '' },
             async init() {
@@ -117,6 +127,7 @@
             },
             prefill(u) {
                 const p = this.isBusiness ? (u.business_profile || {}) : (u.community_profile || {});
+                this.avatarUrl = p.logo_url || p.profile_photo || u.avatar_url || '';
                 this.form.name = p.name || '';
                 this.form.about = p.about || '';
                 this.form.city_id = p.city?.id || '';
@@ -152,6 +163,29 @@
                     return { ...base, business_type: f.business_type, categories: f.categories };
                 }
                 return { ...base, community_type: f.community_type, community_size: f.community_size, tiktok: f.tiktok };
+            },
+            async uploadPhoto(e) {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                this.error = ''; this.saved = false; this.uploadingPhoto = true;
+                // PUT /me/profile takes profile_photo as a file → multipart POST with method spoofing.
+                const fd = new FormData();
+                fd.append('_method', 'PUT');
+                fd.append('profile_photo', file);
+                const headers = {};
+                if (window.kb.token) headers['Authorization'] = 'Bearer ' + window.kb.token;
+                let res;
+                try { res = await fetch(window.KB_CONFIG.apiBase + '/me/profile', { method: 'POST', headers, body: fd }); }
+                catch (err) { this.uploadingPhoto = false; this.error = 'Could not upload photo.'; return; }
+                this.uploadingPhoto = false;
+                let j = null; try { j = await res.json(); } catch (err) { /* empty */ }
+                if (res.ok) {
+                    const p = this.isBusiness ? j?.data?.business_profile : j?.data?.community_profile;
+                    this.avatarUrl = p?.logo_url || p?.profile_photo || j?.data?.avatar_url || this.avatarUrl;
+                    this.saved = true;
+                } else {
+                    this.error = (j?.errors ? Object.values(j.errors).flat().join('\n') : j?.message) || 'Could not upload photo. Use a JPG/PNG under 5MB.';
+                }
             },
             async save() {
                 this.error = ''; this.saved = false; this.busy = true;
