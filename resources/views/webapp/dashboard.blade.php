@@ -1,5 +1,5 @@
 @extends('webapp.layout')
-@section('title', 'Home')
+@section('title', __('webapp.nav.home'))
 
 @section('body')
 <div x-data="dashboardPage()" x-init="init()">
@@ -14,33 +14,33 @@
             <div class="mt-5 rounded-2xl border border-off-black/10 p-5">
                 <div class="flex items-center justify-between gap-4">
                     <div>
-                        <p class="font-semibold">Subscription</p>
+                        <p class="font-semibold">{{ __('webapp.dashboard.subscription') }}</p>
                         <p class="text-sm text-off-black/60" x-text="subLabel"></p>
                     </div>
-                    <a href="/subscription"
+                    <a href="{{ $base }}/subscription"
                        class="rounded-xl bg-off-black text-off-white text-sm font-semibold px-4 py-2 whitespace-nowrap"
-                       x-text="subActive ? 'Manage' : 'Subscribe'"></a>
+                       x-text="subActive ? t('dashboard.manage') : t('dashboard.subscribe')"></a>
                 </div>
             </div>
         </template>
 
         <div class="mt-6 grid sm:grid-cols-2 gap-4">
-            <a href="/feed" class="rounded-2xl border border-off-black/10 p-5 hover:border-off-black/30">
-                <p class="font-semibold">Feed</p>
-                <p class="text-sm text-off-black/60 mt-1">Discover Kolabs from communities and businesses near you.</p>
+            <a href="{{ $base }}/feed" class="rounded-2xl border border-off-black/10 p-5 hover:border-off-black/30">
+                <p class="font-semibold">{{ __('webapp.dashboard.feed_title') }}</p>
+                <p class="text-sm text-off-black/60 mt-1">{{ __('webapp.dashboard.feed_desc') }}</p>
             </a>
-            <a href="/kolabs" class="rounded-2xl border border-off-black/10 p-5 hover:border-off-black/30">
-                <p class="font-semibold">Your Kolabs</p>
-                <p class="text-sm text-off-black/60 mt-1">Create and manage your collaborations.</p>
+            <a href="{{ $base }}/kolabs" class="rounded-2xl border border-off-black/10 p-5 hover:border-off-black/30">
+                <p class="font-semibold">{{ __('webapp.dashboard.kolabs_title') }}</p>
+                <p class="text-sm text-off-black/60 mt-1">{{ __('webapp.dashboard.kolabs_desc') }}</p>
             </a>
         </div>
 
         <div class="mt-8 rounded-2xl bg-off-black text-off-white p-5 flex items-center justify-between gap-4">
             <div>
-                <p class="font-semibold">Get the full experience</p>
-                <p class="text-sm text-off-white/70">Chat, notifications and check-ins live in the app.</p>
+                <p class="font-semibold">{{ __('webapp.dashboard.app_title') }}</p>
+                <p class="text-sm text-off-white/70">{{ __('webapp.dashboard.app_desc') }}</p>
             </div>
-            <a href="/welcome" class="rounded-xl bg-primary text-off-black text-sm font-semibold px-4 py-2 whitespace-nowrap">Open the app</a>
+            <a href="{{ $base }}/welcome" class="rounded-xl bg-primary text-off-black text-sm font-semibold px-4 py-2 whitespace-nowrap">{{ __('webapp.common.open_app') }}</a>
         </div>
     </main>
 </div>
@@ -49,14 +49,14 @@
 <script>
     function dashboardPage() {
         return {
-            greeting: 'Welcome', isBusiness: false, subActive: false, subLabel: 'No active subscription',
+            greeting: t('dashboard.welcome'), isBusiness: false, subActive: false, subLabel: t('dashboard.sub_none'),
             async init() {
                 if (!window.kb.requireAuth()) return;
                 const me = await window.kb.api('/auth/me');
                 if (!me.ok) { window.kb.logout(); return; }
                 const u = me.json?.data || {};
                 const name = u.display_name || u.name || u.email || '';
-                this.greeting = name ? ('Welcome, ' + name) : 'Welcome';
+                this.greeting = name ? t('dashboard.welcome_name', { name }) : t('dashboard.welcome');
                 this.isBusiness = (u.user_type === 'business');
                 if (this.isBusiness) await this.loadSubscription();
             },
@@ -66,9 +66,11 @@
                 const sub = res.json?.data;
                 if (sub && sub.is_active) {
                     this.subActive = true;
-                    this.subLabel = 'Active' + (sub.current_period_end ? ' · renews ' + new Date(sub.current_period_end).toLocaleDateString() : '');
+                    this.subLabel = sub.current_period_end
+                        ? t('dashboard.sub_renews', { date: new Date(sub.current_period_end).toLocaleDateString() })
+                        : t('dashboard.sub_active');
                 } else {
-                    this.subLabel = 'No active subscription — subscribe to publish Kolabs.';
+                    this.subLabel = t('dashboard.sub_none');
                 }
             },
         };

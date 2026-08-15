@@ -99,7 +99,7 @@
                 <button type="submit" :disabled="busy" class="rounded-xl bg-off-black text-off-white font-semibold px-5 py-3 disabled:opacity-50">
                     <span x-text="busy ? 'Saving…' : (isEdit ? 'Save changes' : 'Save draft')"></span>
                 </button>
-                <a href="/kolabs" class="rounded-xl bg-off-black/5 font-semibold px-5 py-3">Cancel</a>
+                <a href="{{ $base }}/kolabs" class="rounded-xl bg-off-black/5 font-semibold px-5 py-3">Cancel</a>
             </div>
             <p class="text-xs text-off-black/50" x-show="!isEdit">You'll publish it (and go live) from the Kolab page after saving.</p>
         </form>
@@ -109,7 +109,7 @@
 @push('scripts')
 <script>
     function kolabForm() {
-        const parts = location.pathname.split('/');
+        const parts = location.pathname.slice((window.KB_BASE || '').length).split('/');
         const editId = (parts[3] === 'edit') ? parts[2] : null;
         return {
             loading: true, busy: false, uploading: false, error: '', isEdit: !!editId, editId,
@@ -195,7 +195,7 @@
                 this.busy = false;
                 if (res.ok) {
                     const id = res.json?.data?.id || this.editId;
-                    location.href = '/kolabs/' + id;
+                    window.nav('/kolabs/' + id);
                     return;
                 }
                 if (res.status === 422 && res.json?.errors) {

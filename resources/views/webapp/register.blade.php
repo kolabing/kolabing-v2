@@ -1,46 +1,49 @@
 @extends('webapp.layout')
-@section('title', 'Create your account')
+@section('title', __('webapp.meta.register_title'))
+@section('description', __('webapp.meta.register_description'))
+@section('robots', 'index,follow')
 
 @section('body')
 <div class="min-h-screen flex flex-col items-center justify-center px-5 py-12" x-data="registerPage()" x-init="init()">
     <div class="w-full max-w-sm">
         <div class="text-center mb-8">
             <h1 class="font-montserrat font-black text-3xl tracking-tight">Kolabing</h1>
-            <p class="text-off-black/60 mt-1">Create your account</p>
+            <p class="text-off-black/60 mt-1">{{ __('webapp.register.subtitle') }}</p>
         </div>
 
         <template x-if="error">
             <div class="mb-4 rounded-xl bg-red-50 text-red-700 text-sm px-4 py-3" x-text="error"></div>
         </template>
 
-        <p class="text-sm font-medium text-off-black/70 mb-2">I'm signing up as a…</p>
+        <p class="text-sm font-medium text-off-black/70 mb-2">{{ __('webapp.register.signing_up_as') }}</p>
         <div class="flex gap-2 mb-5 text-sm">
             <button type="button" @click="userType = 'business'"
                     :class="userType === 'business' ? 'bg-off-black text-off-white' : 'bg-off-black/5'"
-                    class="flex-1 rounded-lg py-2.5 font-medium">Business</button>
+                    class="flex-1 rounded-lg py-2.5 font-medium">{{ __('webapp.register.business') }}</button>
             <button type="button" @click="userType = 'community'"
                     :class="userType === 'community' ? 'bg-off-black text-off-white' : 'bg-off-black/5'"
-                    class="flex-1 rounded-lg py-2.5 font-medium">Community</button>
+                    class="flex-1 rounded-lg py-2.5 font-medium">{{ __('webapp.register.community') }}</button>
         </div>
         <p class="text-xs text-off-black/50 mb-5"
-           x-text="userType === 'business' ? 'Businesses collaborate with communities and subscribe to publish Kolabs.' : 'Communities join and apply to Kolabs for free.'"></p>
+           x-text="userType === 'business' ? t('register.business_hint') : t('register.community_hint')"></p>
 
         <template x-if="hasGoogle">
             <div id="googleBtn" class="flex justify-center"></div>
         </template>
         <template x-if="!hasGoogle">
             <div class="rounded-xl bg-off-black/5 text-off-black/60 text-sm px-4 py-3 text-center">
-                Google sign-up is being switched on. In the meantime, download the app to create your account.
+                {{ __('webapp.register.google_soon') }}
             </div>
         </template>
 
         <p class="text-center text-sm text-off-black/60 mt-6">
-            Already have an account? <a href="/login" class="font-semibold text-off-black underline">Log in</a>
+            {{ __('webapp.register.have_account') }} <a href="{{ $base }}/login" class="font-semibold text-off-black underline">{{ __('webapp.register.login') }}</a>
         </p>
         <p class="text-center text-xs text-off-black/40 mt-4">
-            By continuing you agree to our
-            <a href="https://kolabing.com/terms" class="underline">Terms</a> and
-            <a href="https://kolabing.com/privacy" class="underline">Privacy Policy</a>.
+            {!! __('webapp.register.terms', [
+                'terms' => '<a href="https://kolabing.com/terms" class="underline">'.e(__('webapp.register.terms_word')).'</a>',
+                'privacy' => '<a href="https://kolabing.com/privacy" class="underline">'.e(__('webapp.register.privacy_word')).'</a>',
+            ]) !!}
         </p>
     </div>
 </div>
@@ -76,10 +79,9 @@
                 });
                 if (ok && json?.data?.token) {
                     window.kb.setSession(json.data);
-                    // New business → straight to the sales/subscription step; else the app.
-                    location.href = (this.userType === 'business') ? '/subscription' : '/dashboard';
+                    window.nav(this.userType === 'business' ? '/subscription' : '/dashboard');
                 } else {
-                    this.error = json?.message || 'Sign-up failed. Please try again.';
+                    this.error = json?.message || t('register.error');
                 }
             },
         };

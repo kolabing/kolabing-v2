@@ -19,6 +19,19 @@ return [
 
     'host' => env('WEBAPP_HOST', 'app.kolabing.com'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Locales (SEO-friendly, URL-prefixed)
+    |--------------------------------------------------------------------------
+    | `default` is served at the root ("/login"); the others under a path prefix
+    | ("/es/login", "/ca/login") with hreflang alternates. Barcelona-first: es + ca.
+    */
+    'default_locale' => 'en',
+    'locales' => ['en', 'es', 'ca'],
+    // Only these appear as a URL prefix (the default has none); used in the route
+    // where() constraint and the language switcher.
+    'prefixed_locales' => ['es', 'ca'],
+
     'deep_link' => env('WEBAPP_DEEP_LINK', 'kolabing://'),
 
     'app_store_url' => env('KOLABING_IOS_APP_URL'),

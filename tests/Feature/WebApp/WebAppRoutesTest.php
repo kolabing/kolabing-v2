@@ -65,6 +65,32 @@ class WebAppRoutesTest extends TestCase
         $this->get('http://'.$host.'/applications')->assertOk()->assertSee('Applications');
     }
 
+    public function test_localized_public_pages_render_with_lang_and_hreflang(): void
+    {
+        $host = $this->host();
+
+        $this->get('http://'.$host.'/es/login')
+            ->assertOk()
+            ->assertSee('lang="es"', false)
+            ->assertSee('Iniciar sesión')
+            ->assertSee('hreflang="ca"', false)
+            ->assertSee('hreflang="x-default"', false);
+
+        $this->get('http://'.$host.'/ca/login')
+            ->assertOk()
+            ->assertSee('lang="ca"', false)
+            ->assertSee('Inicia la sessió');
+
+        // The default (en) is served at the root.
+        $this->get('http://'.$host.'/login')->assertOk()->assertSee('lang="en"', false)->assertSee('Log in');
+
+        // "create" still resolves under a locale prefix (not swallowed by {kolab}).
+        $this->get('http://'.$host.'/es/kolabs/create')->assertOk();
+
+        // An unsupported locale is not a valid prefix.
+        $this->get('http://'.$host.'/de/login')->assertNotFound();
+    }
+
     public function test_web_app_routes_do_not_leak_onto_the_marketing_host(): void
     {
         // /login only exists on the app host — the marketing domain must not expose it.

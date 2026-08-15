@@ -29,7 +29,7 @@
         <div class="mt-5 grid sm:grid-cols-2 gap-4">
             <template x-for="k in items" :key="k.id">
                 <div class="rounded-2xl border border-off-black/10 overflow-hidden flex flex-col">
-                    <a :href="'/kolabs/' + k.id" class="block">
+                    <a :href="(window.KB_BASE || '') + '/kolabs/' + k.id" class="block">
                         <template x-if="k.offer_photo">
                             <img :src="k.offer_photo" alt="" class="w-full h-36 object-cover">
                         </template>
@@ -39,7 +39,7 @@
                     </a>
                     <div class="p-4 flex flex-col flex-1">
                         <span class="text-xs font-semibold text-off-black/50" x-text="intentLabel(k.intent_type) + (k.preferred_city ? ' · ' + k.preferred_city : '')"></span>
-                        <a :href="'/kolabs/' + k.id" class="font-semibold mt-1 leading-snug" x-text="k.title"></a>
+                        <a :href="(window.KB_BASE || '') + '/kolabs/' + k.id" class="font-semibold mt-1 leading-snug" x-text="k.title"></a>
                         <p class="text-sm text-off-black/60 mt-1 line-clamp-2 flex-1" x-text="k.offer_headline || k.description"></p>
                         <div class="flex items-center justify-between mt-3">
                             <div class="flex items-center gap-2 min-w-0">

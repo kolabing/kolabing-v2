@@ -35,24 +35,39 @@ use Illuminate\Support\Facades\Route;
 | Server-rendered Blade shells; Alpine + the inline API client (in the webapp
 | layout) drive auth + all data via the same-origin /api/v1. Registered BEFORE
 | the marketing routes so the app host wins at "/"; on any other host these do
-| not match and the marketing site below is served instead. Config: config/webapp.php.
+| not match and the marketing site below is served instead.
+|
+| Localised for SEO/GEO: the same page set is registered at the root (default
+| locale, en) AND under an /es and /ca prefix. `SetWebappLocale` reads the
+| {locale} prefix; the layout emits hreflang alternates. No route names (all
+| in-app links are literal, locale-prefixed client-side). Config: config/webapp.php.
 */
-Route::domain(config('webapp.host'))->name('webapp.')->group(function (): void {
-    Route::view('/', 'webapp.index')->name('index');
-    Route::view('/login', 'webapp.login')->name('login');
-    Route::view('/register', 'webapp.register')->name('register');
-    Route::view('/dashboard', 'webapp.dashboard')->name('dashboard');
-    Route::view('/subscription', 'webapp.subscription')->name('subscription');
-    Route::view('/welcome', 'webapp.welcome')->name('welcome');
-    Route::view('/feed', 'webapp.feed')->name('feed');
+$webappRoutes = function (): void {
+    Route::view('/', 'webapp.index');
+    Route::view('/login', 'webapp.login');
+    Route::view('/register', 'webapp.register');
+    Route::view('/dashboard', 'webapp.dashboard');
+    Route::view('/subscription', 'webapp.subscription');
+    Route::view('/welcome', 'webapp.welcome');
+    Route::view('/feed', 'webapp.feed');
     // Kolabs — order matters: literal + edit before the {kolab} catch-all.
-    Route::view('/kolabs', 'webapp.kolabs')->name('kolabs');
-    Route::view('/kolabs/create', 'webapp.kolab-form')->name('kolabs.create');
-    Route::view('/kolabs/{kolab}/edit', 'webapp.kolab-form')->name('kolabs.edit');
-    Route::view('/kolabs/{kolab}', 'webapp.kolab-detail')->name('kolabs.show');
-    Route::view('/applications', 'webapp.applications')->name('applications');
-    Route::view('/account', 'webapp.account')->name('account');
-});
+    Route::view('/kolabs', 'webapp.kolabs');
+    Route::view('/kolabs/create', 'webapp.kolab-form');
+    Route::view('/kolabs/{kolab}/edit', 'webapp.kolab-form');
+    Route::view('/kolabs/{kolab}', 'webapp.kolab-detail');
+    Route::view('/applications', 'webapp.applications');
+    Route::view('/account', 'webapp.account');
+};
+
+Route::domain(config('webapp.host'))
+    ->middleware(\App\Http\Middleware\SetWebappLocale::class)
+    ->group($webappRoutes);
+
+Route::domain(config('webapp.host'))
+    ->prefix('{locale}')
+    ->where(['locale' => 'es|ca'])
+    ->middleware(\App\Http\Middleware\SetWebappLocale::class)
+    ->group($webappRoutes);
 
 Route::get('/', function () {
     return view('welcome');

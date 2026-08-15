@@ -20,7 +20,7 @@
                 <div class="rounded-2xl border border-off-black/10 p-4">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
-                            <a :href="'/kolabs/' + a.kolab_id" class="font-semibold leading-snug" x-text="a.kolab?.title || 'Kolab'"></a>
+                            <a :href="(window.KB_BASE || '') + '/kolabs/' + a.kolab_id" class="font-semibold leading-snug" x-text="a.kolab?.title || 'Kolab'"></a>
                             <p class="text-sm text-off-black/60 mt-0.5"
                                x-text="isBusiness ? ('From ' + (a.applicant_profile?.name || a.applicant_profile?.handle || 'a community')) : ('Status: ' + a.status)"></p>
                         </div>
@@ -101,7 +101,7 @@
                 const res = await window.kb.api('/applications/' + a.id + '/accept', { method: 'POST', body: { scheduled_date: this.scheduledDate } });
                 this.busy = false;
                 if (res.ok) { a.status = 'accepted'; this.acceptingId = null; }
-                else if (res.status === 402) { location.href = '/subscription'; }
+                else if (res.status === 402) { window.nav('/subscription'); }
                 else if (res.status === 422 && res.json?.errors) this.error = Object.values(res.json.errors).flat().join('\n');
                 else this.error = res.json?.message || 'Could not accept. Pick a date within the Kolab window.';
             },

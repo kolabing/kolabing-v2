@@ -8,7 +8,7 @@
     <main class="max-w-3xl mx-auto px-5 py-8">
         <div class="flex items-center justify-between gap-4">
             <h1 class="font-montserrat font-black text-2xl tracking-tight">Your Kolabs</h1>
-            <a href="/kolabs/create" class="rounded-xl bg-off-black text-off-white text-sm font-semibold px-4 py-2">Create Kolab</a>
+            <a href="{{ $base }}/kolabs/create" class="rounded-xl bg-off-black text-off-white text-sm font-semibold px-4 py-2">Create Kolab</a>
         </div>
 
         <template x-if="error"><div class="mt-4 rounded-xl bg-red-50 text-red-700 text-sm px-4 py-3" x-text="error"></div></template>
@@ -25,7 +25,7 @@
         <template x-if="!loading && items.length === 0">
             <div class="mt-8 text-center text-off-black/50">
                 <p>No Kolabs here yet.</p>
-                <a href="/kolabs/create" class="inline-block mt-3 rounded-xl bg-off-black text-off-white text-sm font-semibold px-4 py-2">Create your first Kolab</a>
+                <a href="{{ $base }}/kolabs/create" class="inline-block mt-3 rounded-xl bg-off-black text-off-white text-sm font-semibold px-4 py-2">Create your first Kolab</a>
             </div>
         </template>
 
@@ -39,7 +39,7 @@
                                       :class="statusClass(k.status)" x-text="k.status"></span>
                                 <span class="text-xs text-off-black/50" x-text="intentLabel(k.intent_type)"></span>
                             </div>
-                            <a :href="'/kolabs/' + k.id" class="font-semibold mt-1 block leading-snug" x-text="k.title"></a>
+                            <a :href="(window.KB_BASE || '') + '/kolabs/' + k.id" class="font-semibold mt-1 block leading-snug" x-text="k.title"></a>
                             <p class="text-sm text-off-black/60 mt-0.5" x-text="(k.applications_count || 0) + ' application' + ((k.applications_count === 1) ? '' : 's')"></p>
                         </div>
                     </div>
@@ -50,7 +50,7 @@
                         <template x-if="k.status === 'published'">
                             <button @click="close(k)" :disabled="busy" class="rounded-lg bg-off-black/5 font-semibold px-3 py-1.5">Close</button>
                         </template>
-                        <a :href="'/kolabs/' + k.id + '/edit'" class="rounded-lg bg-off-black/5 font-semibold px-3 py-1.5">Edit</a>
+                        <a :href="(window.KB_BASE || '') + '/kolabs/' + k.id + '/edit'" class="rounded-lg bg-off-black/5 font-semibold px-3 py-1.5">Edit</a>
                         <button @click="destroy(k)" :disabled="busy" class="rounded-lg text-red-600 font-semibold px-3 py-1.5">Delete</button>
                     </div>
                 </div>
@@ -86,7 +86,7 @@
                 this.error = ''; this.busy = true;
                 const res = await window.kb.api('/kolabs/' + k.id + '/publish', { method: 'POST' });
                 this.busy = false;
-                if (res.status === 402) { location.href = '/subscription'; return; }
+                if (res.status === 402) { window.nav('/subscription'); return; }
                 if (res.ok) k.status = 'published';
                 else this.error = res.json?.message || 'Could not publish.';
             },

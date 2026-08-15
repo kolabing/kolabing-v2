@@ -1,18 +1,29 @@
+{{-- $loc, $base, $defaultLocale, $localeUrls, $localePaths come from the webapp View composer (AppServiceProvider). --}}
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="{{ $loc }}" class="scroll-smooth">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Kolabing') | Kolabing</title>
-    {{-- App screens are not marketing pages. --}}
-    <meta name="robots" content="noindex,nofollow">
+    <meta name="description" content="@yield('description', 'Kolabing — where local businesses and communities collaborate.')">
+    {{-- Public entry pages (login/register/welcome/home) opt into indexing; app screens stay noindex. --}}
+    <meta name="robots" content="@yield('robots', 'noindex,nofollow')">
+    <link rel="canonical" href="{{ $localeUrls[$loc] }}">
+    @foreach ($localeUrls as $l => $href)
+        <link rel="alternate" hreflang="{{ $l }}" href="{{ $href }}">
+    @endforeach
+    <link rel="alternate" hreflang="x-default" href="{{ $localeUrls[$defaultLocale] }}">
     <meta name="theme-color" content="#1B1F1C">
+    <meta property="og:site_name" content="Kolabing">
+    <meta property="og:title" content="@yield('title', 'Kolabing')">
+    <meta property="og:locale" content="{{ str_replace('-', '_', $loc) }}">
     <link rel="icon" href="/favicon.ico?v=3" sizes="any">
     <link rel="apple-touch-icon" href="/favicon-512.png?v=3">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=Montserrat:ital,wght@0,700;0,900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+    <style>[x-cloak]{display:none!important}</style>
     <script>
         tailwind.config = {
             theme: {
@@ -26,15 +37,26 @@
     <script>
         window.KB_CONFIG = {
             apiBase: '/api/v1',
-            origin: @json(rtrim(config('app.url', 'https://'.config('webapp.host')), '/')),
             googleClientId: @json(config('services.google.client_id_web')),
             iosUrl: @json(config('webapp.app_store_url')),
             androidUrl: @json(config('webapp.play_store_url')),
             deepLink: @json(config('webapp.deep_link')),
         };
+        window.KB_LOCALE = @json($loc);
+        window.KB_BASE = @json($base);
+        window.KB_I18N = @json(__('webapp'));
+        // Translation lookup (dotted key) with :param interpolation; falls back to the key.
+        window.t = function (key, params) {
+            let s = key.split('.').reduce((o, k) => (o == null ? o : o[k]), window.KB_I18N);
+            if (s == null) return key;
+            if (params) { for (const k in params) { s = s.split(':' + k).join(params[k]); } }
+            return s;
+        };
+        // Locale-aware navigation (prefixes /es or /ca).
+        window.nav = function (path) { location.href = (window.KB_BASE || '') + path; };
 
-        // Minimal same-origin API client: bearer token in localStorage (same flow as
-        // the mobile app), one transparent refresh on 401.
+        // Same-origin API client: bearer token in localStorage (same flow as mobile),
+        // one transparent refresh on 401. API paths are NOT locale-prefixed.
         window.kb = {
             tokenKey: 'kolabing_token',
             refreshKey: 'kolabing_refresh',
@@ -46,9 +68,9 @@
                 if (data.refresh_token) localStorage.setItem(this.refreshKey, data.refresh_token);
             },
             clear() { localStorage.removeItem(this.tokenKey); localStorage.removeItem(this.refreshKey); },
-            requireAuth() { if (!this.token) { location.href = '/login'; return false; } return true; },
-            requireGuest() { if (this.token) { location.href = '/dashboard'; } },
-            logout() { this.clear(); location.href = '/login'; },
+            requireAuth() { if (!this.token) { window.nav('/login'); return false; } return true; },
+            requireGuest() { if (this.token) { window.nav('/dashboard'); } },
+            logout() { this.clear(); window.nav('/login'); },
             async _fetch(path, method, body, auth) {
                 const headers = { 'Accept': 'application/json', 'Content-Type': 'application/json' };
                 if (auth && this.token) headers['Authorization'] = 'Bearer ' + this.token;
@@ -73,7 +95,6 @@
                     return true;
                 } catch (e) { return false; }
             },
-            // Multipart upload → POST /uploads (folder: kolabs|events|profiles). Returns {ok, status, json}.
             async uploadFile(file, folder) {
                 const fd = new FormData();
                 fd.append('file', file);

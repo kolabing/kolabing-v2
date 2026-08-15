@@ -62,13 +62,13 @@
                 {{-- Actions --}}
                 <div class="mt-6 flex flex-wrap gap-2">
                     <template x-if="k.is_own">
-                        <a :href="'/kolabs/' + k.id + '/edit'" class="rounded-xl bg-off-black/5 text-sm font-semibold px-4 py-2">Edit</a>
+                        <a :href="(window.KB_BASE || '') + '/kolabs/' + k.id + '/edit'" class="rounded-xl bg-off-black/5 text-sm font-semibold px-4 py-2">Edit</a>
                     </template>
                     <template x-if="k.is_own && k.status === 'draft'">
                         <button @click="publish()" :disabled="busy" class="rounded-xl bg-off-black text-off-white text-sm font-semibold px-4 py-2 disabled:opacity-50">Publish</button>
                     </template>
                     <template x-if="k.is_own">
-                        <a href="/applications" class="rounded-xl bg-off-black text-off-white text-sm font-semibold px-4 py-2">View applications</a>
+                        <a href="{{ $base }}/applications" class="rounded-xl bg-off-black text-off-white text-sm font-semibold px-4 py-2">View applications</a>
                     </template>
                     <template x-if="!k.is_own">
                         <button @click="toggleSave()" class="rounded-xl bg-off-black/5 text-sm font-semibold px-4 py-2">
@@ -80,7 +80,7 @@
                         <button @click="applyOpen = true" class="rounded-xl bg-off-black text-off-white text-sm font-semibold px-4 py-2">Apply</button>
                     </template>
                     <template x-if="!k.is_own && viewerType === 'business'">
-                        <a href="/welcome" class="rounded-xl bg-off-black text-off-white text-sm font-semibold px-4 py-2">Open in the app</a>
+                        <a href="{{ $base }}/welcome" class="rounded-xl bg-off-black text-off-white text-sm font-semibold px-4 py-2">Open in the app</a>
                     </template>
                 </div>
 
@@ -117,7 +117,7 @@
     function kolabDetail() {
         return {
             k: null, loading: true, busy: false, error: '',
-            id: location.pathname.split('/')[2],
+            id: location.pathname.slice((window.KB_BASE || '').length).split('/')[2],
             viewerType: '', applied: false, applyOpen: false, applyError: '',
             apply: { message: '', availability: '' },
             fallbackAvatar: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="%23e5e2da"/></svg>',
@@ -152,7 +152,7 @@
                 this.error = ''; this.busy = true;
                 const res = await window.kb.api('/kolabs/' + this.id + '/publish', { method: 'POST' });
                 this.busy = false;
-                if (res.status === 402) { location.href = '/subscription'; return; }
+                if (res.status === 402) { window.nav('/subscription'); return; }
                 if (res.ok) this.k = res.json?.data || this.k;
                 else this.error = res.json?.message || 'Could not publish.';
             },
