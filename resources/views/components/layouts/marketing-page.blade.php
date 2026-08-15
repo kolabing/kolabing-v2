@@ -4,7 +4,14 @@
     'canonical',
     'locale' => 'en',
     'alternates' => null,
+    'image' => null,
+    'ogType' => 'website',
 ])
+@php
+    $ogImage = $image
+        ? (str_starts_with($image, 'http') ? $image : url($image))
+        : url('/social-preview.svg');
+@endphp
 <!DOCTYPE html>
 <html lang="{{ $locale }}">
 <head>
@@ -19,17 +26,17 @@
             <link rel="alternate" hreflang="{{ $alternate['hreflang'] }}" href="{{ $alternate['href'] }}">
         @endforeach
     @endisset
-    <meta property="og:type" content="website">
+    <meta property="og:type" content="{{ $ogType }}">
     <meta property="og:site_name" content="Kolabing">
     <meta property="og:title" content="{{ $title }} | Kolabing">
     <meta property="og:description" content="{{ $description }}">
     <meta property="og:url" content="{{ $canonical }}">
-    <meta property="og:image" content="{{ url('/social-preview.svg') }}">
-    <meta property="og:image:alt" content="Kolabing local business and community collaboration platform">
+    <meta property="og:image" content="{{ $ogImage }}">
+    <meta property="og:image:alt" content="{{ $title }}">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ $title }} | Kolabing">
     <meta name="twitter:description" content="{{ $description }}">
-    <meta name="twitter:image" content="{{ url('/social-preview.svg') }}">
+    <meta name="twitter:image" content="{{ $ogImage }}">
     <meta name="theme-color" content="#0D1216">
     <link rel="icon" href="/favicon.ico?v=3" sizes="any">
     <link rel="icon" type="image/png" href="/favicon-512.png?v=3">
@@ -56,6 +63,18 @@
             },
         };
     </script>
+    <script type="application/ld+json">
+        {!! json_encode([
+            '@context' => 'https://schema.org',
+            '@type' => 'Organization',
+            'name' => 'Kolabing',
+            'url' => route('home'),
+            'logo' => url('/brand/kolabing-logo.png'),
+            'description' => 'Kolabing helps local businesses and communities plan partnerships that turn events into foot traffic, member value, and repeat visits.',
+            'email' => 'support@kolabing.com',
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+    </script>
+    {{ $head ?? '' }}
 </head>
 <body class="bg-off-white text-off-black font-sans">
     <header class="border-b border-off-black/10 bg-white/90 backdrop-blur">
@@ -66,6 +85,7 @@
             <nav class="flex flex-wrap items-center gap-4 text-sm font-medium text-off-black/70">
                 <a href="{{ route('for-businesses') }}" class="hover:text-off-black">Businesses</a>
                 <a href="{{ route('for-communities') }}" class="hover:text-off-black">Communities</a>
+                <a href="{{ route('blog.index') }}" class="hover:text-off-black">Blog</a>
                 <a href="{{ route('support') }}" class="hover:text-off-black">Support</a>
                 <a href="{{ route('privacy') }}" class="hover:text-off-black">Privacy</a>
                 <a href="{{ route('terms') }}" class="hover:text-off-black">Terms</a>
@@ -84,6 +104,7 @@
                 <p class="mt-2 max-w-xl text-sm text-white/70">Kolabing helps local businesses and communities plan partnerships that turn events into foot traffic, member value, and repeat visits.</p>
             </div>
             <div class="flex flex-wrap gap-4 text-sm text-white/70">
+                <a href="{{ route('blog.index') }}" class="hover:text-primary">Blog</a>
                 <a href="{{ route('support') }}" class="hover:text-primary">Support</a>
                 <a href="mailto:support@kolabing.com" class="hover:text-primary">support@kolabing.com</a>
                 <a href="{{ route('sitemap') }}" class="hover:text-primary">Sitemap</a>

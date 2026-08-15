@@ -5,6 +5,49 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Kolabing — Local Business &amp; Community Collaboration</title>
+  <meta name="description" content="Kolabing connects local businesses with nearby communities to plan real-world collaborations that drive foot traffic, members, and repeat visits. Live in Barcelona.">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <link rel="canonical" href="{{ route('home') }}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Kolabing">
+  <meta property="og:title" content="Kolabing — Local Business &amp; Community Collaboration">
+  <meta property="og:description" content="Connect with nearby communities to plan real-world collaborations that drive foot traffic, members, and repeat visits.">
+  <meta property="og:url" content="{{ route('home') }}">
+  <meta property="og:image" content="{{ url('/social-preview.svg') }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Kolabing — Local Business &amp; Community Collaboration">
+  <meta name="twitter:description" content="Connect with nearby communities to plan real-world collaborations that drive foot traffic, members, and repeat visits.">
+  <meta name="twitter:image" content="{{ url('/social-preview.svg') }}">
+  <script type="application/ld+json">
+  {!! json_encode([
+      '@context' => 'https://schema.org',
+      '@graph' => [
+          [
+              '@type' => 'Organization',
+              'name' => 'Kolabing',
+              'url' => route('home'),
+              'logo' => url('/brand/kolabing-logo.png'),
+              'description' => 'Kolabing helps local businesses and communities plan partnerships that turn events into foot traffic, member value, and repeat visits.',
+              'email' => 'support@kolabing.com',
+          ],
+          [
+              '@type' => 'WebSite',
+              'name' => 'Kolabing',
+              'url' => route('home'),
+          ],
+          [
+              '@type' => 'FAQPage',
+              'mainEntity' => [
+                  ['@type' => 'Question', 'name' => 'Is it free for communities?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'Yes, Kolabing is always free for community leaders and groups.']],
+                  ['@type' => 'Question', 'name' => 'How do businesses get matched?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'You post a Kolab and our system surfaces communities that match your location, audience, and goal.']],
+                  ['@type' => 'Question', 'name' => 'What kind of collaborations can I create?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'Events, venue partnerships, product trials, UGC sessions, weekly recurring meetups, anything involving real people in real places.']],
+                  ['@type' => 'Question', 'name' => 'Where is Kolabing available?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'Currently live in Barcelona, expanding to more cities soon.']],
+                  ['@type' => 'Question', 'name' => 'Can I cancel anytime?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'Yes, no long-term commitment. Paid plans for businesses can be cancelled at any time.']],
+              ],
+          ],
+      ],
+  ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+  </script>
   <link rel="icon" href="/favicon.ico?v=3" sizes="any">
   <link rel="icon" type="image/png" href="/favicon-512.png?v=3">
   <link rel="apple-touch-icon" href="/favicon-512.png?v=3">
