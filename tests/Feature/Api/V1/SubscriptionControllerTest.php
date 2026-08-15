@@ -91,11 +91,11 @@ class SubscriptionControllerTest extends TestCase
         $profile = Profile::factory()->business()->create();
         BusinessProfile::factory()->create(['profile_id' => $profile->id]);
 
-        // Checkout (POST /me/subscription/checkout) + webhook (POST /webhooks/stripe)
-        // now exist — see StripeCheckoutTest. The billing-portal, cancel and
-        // reactivate endpoints are intentionally NOT implemented (cancellation is
-        // handled in Stripe / the App Store, not via our API).
-        $this->actingAs($profile)->getJson('/api/v1/me/subscription/portal')->assertStatus(404);
+        // Checkout (POST /me/subscription/checkout), the webhook (POST /webhooks/stripe)
+        // and the billing portal (POST /me/subscription/portal) now exist — see
+        // StripeCheckoutTest / BillingPortalTest. The legacy cancel and reactivate
+        // endpoints are intentionally NOT implemented (cancellation is handled inside
+        // the Stripe Billing Portal / the App Store, not via a bespoke API route).
         $this->actingAs($profile)->postJson('/api/v1/me/subscription/cancel')->assertStatus(404);
         $this->actingAs($profile)->postJson('/api/v1/me/subscription/reactivate')->assertStatus(404);
     }

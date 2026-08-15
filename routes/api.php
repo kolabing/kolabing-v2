@@ -284,6 +284,10 @@ Route::prefix('v1')->group(function (): void {
         Route::post('me/subscription/checkout', [SubscriptionController::class, 'createCheckoutSession'])
             ->name('api.v1.me.subscription.checkout');
 
+        // Stripe Billing Portal so a business can manage / cancel its web subscription.
+        Route::post('me/subscription/portal', [SubscriptionController::class, 'billingPortal'])
+            ->name('api.v1.me.subscription.portal');
+
         Route::post('referrals/validate', [ReferralController::class, 'validateCode'])
             ->name('api.v1.referrals.validate');
 

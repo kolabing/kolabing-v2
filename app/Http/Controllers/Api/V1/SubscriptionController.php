@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Exceptions\InvalidReferralCodeException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\BillingPortalRequest;
 use App\Http\Requests\Api\V1\CreateCheckoutSessionRequest;
 use App\Http\Resources\Api\V1\SubscriptionResource;
 use App\Models\Profile;
@@ -105,6 +106,54 @@ class SubscriptionController extends Controller
 
         return response()->json([
             'data' => ['checkout_url' => $checkoutUrl],
+        ]);
+    }
+
+    /**
+     * Create a Stripe Billing Portal session so a business can manage or cancel
+     * its Stripe subscription on the web. Apple-IAP / maintainer subscriptions are
+     * not managed here (they carry no Stripe customer) — those return 409.
+     */
+    public function billingPortal(BillingPortalRequest $request): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        if (! $profile->isBusiness()) {
+            return response()->json([
+                'success' => false,
+                'message' => __('Only business users can manage subscriptions'),
+            ], 403);
+        }
+
+        $subscription = $this->subscriptionService->getSubscription($profile);
+
+        if ($subscription === null || blank($subscription->stripe_customer_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => __('No Stripe subscription to manage.'),
+            ], 409);
+        }
+
+        try {
+            $portalUrl = $this->stripeService->createBillingPortalSession(
+                (string) $subscription->stripe_customer_id,
+                (string) $request->input('return_url'),
+            );
+        } catch (ApiErrorException $e) {
+            Log::error('Stripe billing portal session creation failed', [
+                'profile_id' => $profile->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => __('Could not open the billing portal. Please try again.'),
+            ], 502);
+        }
+
+        return response()->json([
+            'data' => ['portal_url' => $portalUrl],
         ]);
     }
 }

@@ -79,6 +79,21 @@ class StripeService
     }
 
     /**
+     * Create a Stripe Billing Portal session so a paying customer can manage or
+     * cancel their subscription, then return its hosted URL. `return_url` is where
+     * Stripe sends them back (validated against the return-URL allowlist upstream).
+     */
+    public function createBillingPortalSession(string $customerId, string $returnUrl): string
+    {
+        $session = $this->client()->billingPortal->sessions->create([
+            'customer' => $customerId,
+            'return_url' => $returnUrl,
+        ]);
+
+        return (string) $session->url;
+    }
+
+    /**
      * Read the current-period end/start defensively: recent Stripe API versions
      * expose the period on the subscription item rather than the subscription.
      */
