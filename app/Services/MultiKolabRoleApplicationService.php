@@ -20,6 +20,7 @@ use App\Models\Kolab;
 use App\Models\MultiKolabRole;
 use App\Models\MultiKolabRoleApplication;
 use App\Models\Profile;
+use App\Services\PostHog\PostHogService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -32,6 +33,11 @@ use InvalidArgumentException;
  */
 class MultiKolabRoleApplicationService
 {
+    public function __construct(
+        private readonly NotificationService $notificationService,
+        private readonly PostHogService $postHog,
+    ) {}
+
     /**
      * @param  array{pitch?: string|null, availability?: string|null}  $data
      */
@@ -39,7 +45,7 @@ class MultiKolabRoleApplicationService
     {
         $this->validateCanApply($role, $applicant, $data);
 
-        return MultiKolabRoleApplication::query()->create([
+        $application = MultiKolabRoleApplication::query()->create([
             'multi_kolab_role_id' => $role->id,
             'applicant_profile_id' => $applicant->id,
             'applicant_profile_type' => $applicant->user_type->value,
@@ -47,6 +53,14 @@ class MultiKolabRoleApplicationService
             'pitch' => $data['pitch'],
             'availability' => $data['availability'] ?? null,
         ]);
+
+        $this->notificationService->notifyMultiKolabApplicationReceived($application);
+        $this->postHog->capture($applicant, 'role_application_submitted', [
+            'role_id' => $role->id,
+            'application_id' => $application->id,
+        ]);
+
+        return $application;
     }
 
     public function shortlist(MultiKolabRoleApplication $application, Profile $actor): MultiKolabRoleApplication
@@ -60,6 +74,10 @@ class MultiKolabRoleApplicationService
         }
 
         $application->update(['status' => MultiKolabRoleApplicationStatus::Shortlisted]);
+
+        $this->postHog->capture($actor, 'applicant_shortlisted', [
+            'application_id' => $application->id,
+        ]);
 
         return $application->fresh();
     }
@@ -81,6 +99,8 @@ class MultiKolabRoleApplicationService
             'status' => MultiKolabRoleApplicationStatus::Declined,
             'declined_at' => now(),
         ]);
+
+        $this->notificationService->notifyMultiKolabApplicantDeclined($application->fresh());
 
         return $application->fresh();
     }
@@ -194,6 +214,20 @@ class MultiKolabRoleApplicationService
                 'kolab_id' => $kolab->id,
             ]);
 
+            // Only reached on a genuine new acceptance (both early-return
+            // idempotency checks above skip this entire closure on retry),
+            // so these fire exactly once per real acceptance.
+            $this->notificationService->notifyMultiKolabApplicantAccepted($lockedApplication->fresh());
+            $this->postHog->capture($applicant, 'applicant_accepted', [
+                'application_id' => $lockedApplication->id,
+                'kolab_id' => $kolab->id,
+            ]);
+
+            if ($newPositionsFilled >= $role->positions_needed) {
+                $this->notificationService->notifyMultiKolabRoleFilled($role->fresh());
+                $this->postHog->capture($organizer, 'role_filled', ['role_id' => $role->id]);
+            }
+
             return $kolab->fresh();
         });
     }
@@ -251,6 +285,11 @@ class MultiKolabRoleApplicationService
                 $role->update([
                     'positions_filled' => max(0, $role->positions_filled - 1),
                     'status' => MultiKolabRoleStatus::Open,
+                ]);
+
+                $this->notificationService->notifyMultiKolabPartnerWithdrew($application->fresh());
+                $this->postHog->capture($application->applicantProfile, 'partner_withdrew', [
+                    'application_id' => $application->id,
                 ]);
             }
 

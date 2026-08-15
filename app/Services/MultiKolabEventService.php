@@ -12,6 +12,7 @@ use App\Models\MultiKolabEvent;
 use App\Models\MultiKolabEventStatusEvent;
 use App\Models\MultiKolabRole;
 use App\Models\Profile;
+use App\Services\PostHog\PostHogService;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -35,6 +36,12 @@ class MultiKolabEventService
         MultiKolabEventStatus::Cancelled,
     ];
 
+    public function __construct(
+        private readonly NotificationService $notificationService,
+        private readonly NotificationReminderService $notificationReminderService,
+        private readonly PostHogService $postHog,
+    ) {}
+
     /**
      * @param  array<string, mixed>  $data
      */
@@ -44,7 +51,7 @@ class MultiKolabEventService
             throw new InvalidArgumentException('A title is required to start a draft.');
         }
 
-        return MultiKolabEvent::query()->create([
+        $event = MultiKolabEvent::query()->create([
             'creator_profile_id' => $creator->id,
             'status' => MultiKolabEventStatus::Draft,
             // Explicit in-memory default (mirrors the DB column default) —
@@ -55,6 +62,11 @@ class MultiKolabEventService
             'venue_needed' => false,
             ...$this->onlyEventFields($data),
         ]);
+
+        $this->notificationReminderService->syncMultiKolabEventDraftReminder($event);
+        $this->postHog->capture($creator, 'draft_started', ['event_id' => $event->id]);
+
+        return $event;
     }
 
     /**
@@ -65,6 +77,7 @@ class MultiKolabEventService
         $this->assertNotTerminal($event);
 
         $event->update($this->onlyEventFields($data));
+        $this->notificationReminderService->syncMultiKolabEventDraftReminder($event);
 
         return $event->fresh();
     }
@@ -77,7 +90,7 @@ class MultiKolabEventService
         $this->assertNotTerminal($event);
         $this->assertValidPositionsNeeded($data);
 
-        return $event->roles()->create([
+        $role = $event->roles()->create([
             // Same in-memory-default reasoning as createDraft() above — the
             // DB column defaults (open / 1 / 0 / true) aren't reflected on
             // the freshly-created in-memory model without these.
@@ -87,6 +100,13 @@ class MultiKolabEventService
             'required' => true,
             ...$this->onlyRoleFields($data),
         ]);
+
+        $this->postHog->capture($event->creatorProfile, 'role_added', [
+            'event_id' => $event->id,
+            'role_id' => $role->id,
+        ]);
+
+        return $role;
     }
 
     /**
@@ -144,6 +164,8 @@ class MultiKolabEventService
         ]);
 
         $this->recordStatusEvent($event, MultiKolabEventStatus::Recruiting, $actor);
+        $this->notificationReminderService->cancelMultiKolabEventDraftReminder($event);
+        $this->postHog->capture($actor, 'event_published', ['event_id' => $event->id]);
 
         return $event->fresh();
     }
@@ -158,6 +180,8 @@ class MultiKolabEventService
         ]);
 
         $this->recordStatusEvent($event, MultiKolabEventStatus::Confirmed, $actor);
+        $this->notificationService->notifyMultiKolabEventConfirmed($event);
+        $this->postHog->capture($actor, 'event_confirmed', ['event_id' => $event->id]);
 
         return $event->fresh();
     }
@@ -191,6 +215,9 @@ class MultiKolabEventService
         ]);
 
         $this->recordStatusEvent($event, MultiKolabEventStatus::Cancelled, $actor, $reason);
+        $this->notificationReminderService->cancelMultiKolabEventDraftReminder($event);
+        $this->notificationService->notifyMultiKolabEventCancelled($event, $reason);
+        $this->postHog->capture($actor, 'event_cancelled', ['event_id' => $event->id]);
 
         return $event->fresh();
     }
