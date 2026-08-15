@@ -23,17 +23,30 @@ class GoogleAuthService
     {
         $this->client = new GoogleClient;
 
-        // Set all client IDs for token verification
-        $clientIds = array_filter([
-            config('services.google.client_id'),
-            config('services.google.client_id_ios'),
-            config('services.google.client_id_android'),
-        ]);
+        // Set the primary client ID for token verification.
+        $clientIds = $this->verificationClientIds();
 
         if (! empty($clientIds)) {
             // The first client ID is the primary one
             $this->client->setClientId($clientIds[0]);
         }
+    }
+
+    /**
+     * The Google OAuth client IDs a token audience may match, in priority order.
+     * A Google ID token's `aud` varies by platform (web / iOS / Android), so a
+     * token is accepted if it was issued for any of our configured clients.
+     *
+     * @return list<string>
+     */
+    public function verificationClientIds(): array
+    {
+        return array_values(array_filter([
+            config('services.google.client_id'),
+            config('services.google.client_id_ios'),
+            config('services.google.client_id_android'),
+            config('services.google.client_id_web'),
+        ]));
     }
 
     /**
@@ -44,11 +57,7 @@ class GoogleAuthService
     public function verifyIdToken(string $idToken): ?array
     {
         try {
-            $validClientIds = array_values(array_filter([
-                config('services.google.client_id'),
-                config('services.google.client_id_ios'),
-                config('services.google.client_id_android'),
-            ]));
+            $validClientIds = $this->verificationClientIds();
 
             // Try each client ID because the token audience varies by platform
             $payload = null;

@@ -9,7 +9,7 @@
 > the authoritative app backlog. The live cross-repo board is **Kolabing Engineering**
 > (GitHub Project 4, owner `kolabing`).
 >
-> Last updated: 2026-08-15 (BE-NF-16 blog engine + SEO/GEO built, branch feat/blog-engine-seo-geo: public /blog + admin /admin/blog CRUD + Article/Organization/WebSite/FAQPage JSON-LD + homepage meta/OG + sitemap/llms now include posts. Prior 2026-08-02: BE-FX-11 F1 host_profile_id on EventResource + BE-FX-8 chat
+> Last updated: 2026-08-15 (BE-NF-18 Kolabing Web App epic #128 opened + plan doc; enabler 1 = web Google login (GOOGLE_CLIENT_ID_WEB audience), branch feat/web-google-login. Prior same day: BE-NF-16 blog engine + SEO/GEO built, branch feat/blog-engine-seo-geo: public /blog + admin /admin/blog CRUD + Article/Organization/WebSite/FAQPage JSON-LD + homepage meta/OG + sitemap/llms now include posts. Prior 2026-08-02: BE-FX-11 F1 host_profile_id on EventResource + BE-FX-8 chat
 > last_message preview + BE-FX-9 factory-avatar distinctness — fixed in code on branch
 > fix/qa-batch-host-profile-chat-preview-avatars; app half = kolabing-app PR 108. Prior:
 > added BE-FX-10 — Explore browse feed now hides date-exhausted
@@ -27,6 +27,7 @@ _Planned backend work that does not exist yet._
 | BE-NF-5 | **Admin-managed gamification economy** | Server-owned reward economy so the app stops hardcoding XP/badges. `GET /gamification/config` + `xp_earn_rules` (drives `point_ledger` + display), badge requirements, referral/withdrawal economics. Prompts: `docs/tickets/2026-06-01-admin-challenges-prompt.md`, `docs/tickets/2026-06-01-admin-xp-economy-prompt.md`. | Not started |
 | BE-NF-10 | **SMS notification channel** | Transactional SMS (Twilio/Vonage) alongside push: application accepted, kolab scheduled/reminder, check-in. Needs provider integration + per-user phone capture/verify + channel preference. **[VERIFY with Daniel]:** provider, trigger events, opt-in, cost ceiling. | Not started |
 | BE-NF-15 | **Scale audit & query optimization** | List endpoints issue O(N) queries/page (`EventResource` ~3 counts/event; `ChatService::visibleThreads` per-thread unread count; unpaginated `GET /chats`; non-index-friendly `COALESCE` time filter). Instrument → seed at scale → k6 load-test → fix via `withCount`/eager/grouped counts, cursor pagination + caps, covering indexes, chunked fan-out. Ticket: `docs/tickets/2026-06-05-backend-scale-audit-optimization.md`. | Spec ready — not started |
+| BE-NF-18 | **Kolabing Web App** (epic #128, plan `docs/plans/2026-08-15-kolabing-web-app-plan.md`) | Web client on the existing `/api/v1` (same flow as mobile): community/business login+register, buy+manage subscription, Kolab CRUD, feed for paid users; acquire+sell on web then nudge to the app (slight nudge after purchase). Arch = Blade + Alpine + axios in kolabing-v2, same-origin `kolabing.com/app` (token auth, no CORS/session rewrite needed). Backend enablers: (1) **web Google login** — `GOOGLE_CLIENT_ID_WEB` audience in `GoogleAuthService`, branch `feat/web-google-login` ✅ built; (2) buy = PR #127; (3) `POST /me/subscription/portal` Billing Portal (after #127); (4) paid-feed blur (closes ROLES §4). | In progress — enabler 1 (PR), rest queued |
 
 ---
 
