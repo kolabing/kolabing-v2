@@ -102,7 +102,7 @@ return [
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
         'allowed_return_hosts' => array_values(array_filter(array_map(
             'trim',
-            explode(',', (string) env('STRIPE_ALLOWED_RETURN_HOSTS', 'kolabing.com,www.kolabing.com')),
+            explode(',', (string) env('STRIPE_ALLOWED_RETURN_HOSTS', 'kolabing.com,www.kolabing.com,app.kolabing.com')),
         ))),
     ],
 
