@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
+use App\Http\Controllers\Admin\BlogController as AdminBlogController;
 use App\Http\Controllers\Admin\ChallengeController as AdminChallengeController;
 use App\Http\Controllers\Admin\ChallengeDefaultsController as AdminChallengeDefaultsController;
 use App\Http\Controllers\Admin\CommunityVerificationController as AdminCommunityVerificationController;
@@ -21,8 +22,10 @@ use App\Http\Controllers\Admin\TaskController as AdminTaskController;
 use App\Http\Controllers\Admin\TypeController as AdminTypeController;
 use App\Http\Controllers\Admin\XpEarnRuleController as AdminXpEarnRuleController;
 use App\Http\Controllers\Admin\XpLevelController as AdminXpLevelController;
+use App\Http\Controllers\BlogController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\PasswordResetPageController;
+use App\Models\BlogPost;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -68,6 +71,14 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
 
     Route::get('/reviews', [AdminReviewController::class, 'index'])->name('reviews.index');
     Route::post('/reviews/{review}/toggle-comment', [AdminReviewController::class, 'toggleComment'])->name('reviews.toggle-comment');
+
+    // Marketing / SEO blog — maintainer-authored posts served publicly at /blog.
+    Route::get('/blog', [AdminBlogController::class, 'index'])->name('blog.index');
+    Route::get('/blog/create', [AdminBlogController::class, 'create'])->name('blog.create');
+    Route::post('/blog', [AdminBlogController::class, 'store'])->name('blog.store');
+    Route::get('/blog/{post}/edit', [AdminBlogController::class, 'edit'])->name('blog.edit');
+    Route::put('/blog/{post}', [AdminBlogController::class, 'update'])->name('blog.update');
+    Route::delete('/blog/{post}', [AdminBlogController::class, 'destroy'])->name('blog.destroy');
 
     // Company / legal details — populate the public Terms + Privacy pages and
     // the consent version that drives the mobile re-consent gate.
@@ -176,6 +187,9 @@ Route::view('/terms', 'pages.terms')->name('terms');
 Route::view('/es/privacy', 'pages.es.privacy')->name('privacy.es');
 Route::view('/es/terms', 'pages.es.terms')->name('terms.es');
 
+Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
+Route::get('/blog/{post}', [BlogController::class, 'show'])->name('blog.show');
+
 Route::get('/sitemap.xml', function () {
     $urls = [
         route('home'),
@@ -187,7 +201,12 @@ Route::get('/sitemap.xml', function () {
         route('terms'),
         route('privacy.es'),
         route('terms.es'),
+        route('blog.index'),
     ];
+
+    foreach (BlogPost::query()->published()->orderByDesc('published_at')->pluck('slug') as $slug) {
+        $urls[] = route('blog.show', $slug);
+    }
 
     return response()->view('sitemap', [
         'urls' => $urls,
@@ -196,7 +215,7 @@ Route::get('/sitemap.xml', function () {
 })->name('sitemap');
 
 Route::get('/llms.txt', function () {
-    $content = implode("\n", [
+    $lines = [
         '# Kolabing',
         '',
         'Kolabing is a collaboration platform that helps local businesses and community groups launch in-person partnerships, events, and repeatable growth campaigns.',
@@ -205,14 +224,25 @@ Route::get('/llms.txt', function () {
         '- Home: '.route('home'),
         '- For businesses: '.route('for-businesses'),
         '- For communities: '.route('for-communities'),
+        '- Blog: '.route('blog.index'),
         '- Support: '.route('support'),
         '- Privacy: '.route('privacy'),
         '- Terms: '.route('terms'),
-        '',
-        'Contact: support@kolabing.com',
-    ]);
+    ];
 
-    return response($content, 200)->header('Content-Type', 'text/plain; charset=UTF-8');
+    $posts = BlogPost::query()->published()->orderByDesc('published_at')->limit(20)->get(['slug', 'title']);
+    if ($posts->isNotEmpty()) {
+        $lines[] = '';
+        $lines[] = 'Recent articles:';
+        foreach ($posts as $post) {
+            $lines[] = '- '.$post->title.': '.route('blog.show', $post->slug);
+        }
+    }
+
+    $lines[] = '';
+    $lines[] = 'Contact: support@kolabing.com';
+
+    return response(implode("\n", $lines), 200)->header('Content-Type', 'text/plain; charset=UTF-8');
 })->name('llms');
 
 Route::get('/.well-known/security.txt', function () {
