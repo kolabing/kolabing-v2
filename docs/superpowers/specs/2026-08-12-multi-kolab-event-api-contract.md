@@ -222,6 +222,17 @@ applicants' pitches or private data (§7 note).
 
 ## 7. Role application
 
+`GET /api/v1/multi-kolab-roles/{role}/applications` — **added Task 7** (not in
+the original Task 1 freeze). Organizer-only, paginated list of a role's
+applications using the same resource shape as the single-application response
+below. Needed so the organizer dashboard/applicant-review UI (Task 10) has
+something to actually shortlist/decline/accept — the dashboard endpoint (§9)
+only returns counts, not the applications themselves. Mirrors the existing
+`GET /api/v1/kolabs/{kolab}/applications` (`ApplicationController::forOpportunity`)
+convention exactly: same envelope, same pagination `meta`, same ownership
+check shape (`403 not_owner`). No new resource, no schema change — reuses the
+role-application resource shape from below.
+
 `POST /api/v1/multi-kolab-roles/{role}/applications`
 
 Request:

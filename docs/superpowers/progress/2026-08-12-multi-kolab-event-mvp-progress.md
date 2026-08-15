@@ -260,7 +260,55 @@ Do not mark a task complete unless its focused tests + relevant regression tests
 - **Next task:** Task 7 (API Controllers, Resources, Dashboard, Explore Endpoint) — not started, awaiting approval. Per instruction, not begun this turn.
 
 ## Task 7: Add API Controllers, Resources, Dashboard, and Explore Endpoint
-- **Status:** Not started
+
+- **Status:** Completed
+- **Environment:** SQLite/testing only, per this turn's constraints. No further writes against the shared Laravel Cloud dev DB.
+- **Files created:**
+  - `app/Http/Controllers/Api/V1/MultiKolabEventController.php` — `entitlement`, `index` (Explore), `myEvents`, `store`, `show`, `update`, `storeRole`, `updateRole`, `destroyRole`, `publish`, `confirm`, `complete`, `cancel`, `dashboard`.
+  - `app/Http/Controllers/Api/V1/MultiKolabRoleApplicationController.php` — `forRole` (organizer review list), `store` (apply), `shortlist`, `decline`, `withdraw`, `accept`.
+  - `app/Http/Controllers/Api/V1/Concerns/MapsMultiKolabExceptions.php` — shared exception→HTTP mapping trait (403/409/422 per contract §10), keeping both controllers thin (delegate to services, translate outcomes only).
+  - `app/Http/Requests/Api/V1/MultiKolab/CancelMultiKolabEventRequest.php`.
+  - `app/Http/Resources/Api/V1/MultiKolab/{MultiKolabCreatorSummaryResource,MultiKolabRoleResource,MultiKolabRoleApplicationResource,MultiKolabEventSummaryResource,MultiKolabEventResource}.php` — every response is a `JsonResource`, never a raw model; contract-exact field lists only.
+  - `tests/Feature/MultiKolab/MultiKolabApiTest.php` (29 tests).
+- **Files modified:**
+  - `routes/api.php` — 20 new authenticated routes under `/api/v1/multi-kolab-events`, `/api/v1/multi-kolab-roles`, `/api/v1/multi-kolab-role-applications`, `/api/v1/me/organizer-entitlement` (full list below).
+  - `app/Policies/MultiKolabRoleApplicationPolicy.php` — added `accept()` (didn't exist when the policy was first written in Task 5, before `accept()` existed on the service) and `viewAnyForRole()` (for the organizer's application-review list).
+  - `app/Services/MultiKolabEventService.php` — **two real bugs fixed**, both caught by the failing-test-first API tests, neither visible in Task 4's own unit tests because those always passed explicit values or used the factory (which sets every column):
+    1. `createDraft()` didn't set an in-memory default for `eligible_account_type` when the caller omits it — the DB column default (`'either'`) applies at the SQL level, but the in-memory Eloquent model right after `create()` has no value for that attribute, so the enum cast resolved to `null` and the resource crashed on `->value`. Fixed by setting the default explicitly in the `create()` call (mirrors the DB default, doesn't change behavior — just makes the in-memory model consistent with what's actually in the row).
+    2. Same bug, `addRole()`: `status`/`positions_needed`/`positions_filled`/`required` weren't defaulted in-memory when omitted from the request.
+- **Endpoints added (20, all `auth:sanctum`):**
+  ```
+  GET    /api/v1/me/organizer-entitlement
+  GET    /api/v1/multi-kolab-events                (Explore — status=recruiting default; city/category/eligible_account_type filters)
+  GET    /api/v1/multi-kolab-events/me              (owner's own, any status)
+  POST   /api/v1/multi-kolab-events                 (createDraft)
+  GET    /api/v1/multi-kolab-events/{event}         (detail + viewer_application)
+  PATCH  /api/v1/multi-kolab-events/{event}
+  POST   /api/v1/multi-kolab-events/{event}/roles
+  POST   /api/v1/multi-kolab-events/{event}/publish
+  POST   /api/v1/multi-kolab-events/{event}/confirm
+  POST   /api/v1/multi-kolab-events/{event}/complete
+  POST   /api/v1/multi-kolab-events/{event}/cancel
+  GET    /api/v1/multi-kolab-events/{event}/dashboard
+  PATCH  /api/v1/multi-kolab-roles/{role}
+  DELETE /api/v1/multi-kolab-roles/{role}
+  GET    /api/v1/multi-kolab-roles/{role}/applications   (organizer review list — not in the original frozen contract, added this task; see below)
+  POST   /api/v1/multi-kolab-roles/{role}/applications   (apply)
+  POST   /api/v1/multi-kolab-role-applications/{application}/shortlist
+  POST   /api/v1/multi-kolab-role-applications/{application}/decline
+  POST   /api/v1/multi-kolab-role-applications/{application}/withdraw
+  POST   /api/v1/multi-kolab-role-applications/{application}/accept
+  ```
+- **One documented, minimal contract addition:** `GET /api/v1/multi-kolab-roles/{role}/applications` was not in the Task 1 frozen contract. Without it, the organizer dashboard (`/dashboard`) can show per-role application *counts* but there is no way to enumerate the actual applications to shortlist/decline/accept — a gap that would block the "applicant review" screen (Task 10) entirely. Added as an organizer-only paginated list using the existing `MultiKolabRoleApplicationResource` shape (no new resource, no schema change). Mirrors the existing `ApplicationController::forOpportunity` convention exactly. **Not yet reflected in the contract doc** — flagged here rather than silently expanding the frozen spec; will add to the contract doc in this same commit's diff review, or on request.
+- **Authorization:** every mutating/ownership-sensitive endpoint checks a registered Policy (`MultiKolabEventPolicy`, `MultiKolabRoleApplicationPolicy`) via `$profile->cannot(...)`/`$profile->can(...)` — no ad hoc inline ownership logic duplicated across controllers beyond the two cases where a policy doesn't naturally apply (role mutation authorizes against `role->event`, and the `dashboard`/`storeRole`/`updateRole`/`destroyRole` all reuse the `MultiKolabEventPolicy::update` check since a role is entirely owned by its parent event).
+- **N+1 prevention:** Explore/`me` listings use `withCount` (open/filled/total role counts) instead of loading every role per event; `creatorProfile.businessProfile`/`communityProfile` always eager-loaded before serialization; the dashboard's per-role `application_counts` come from **one** grouped `selectRaw`/`groupBy` query, not a query per role; the role-applications list never eager-loads the applicant's full profile since the frozen resource shape doesn't need it.
+- **Stable resources, never raw models:** every JSON response wraps a `JsonResource` (or, for the two genuinely composite/non-model shapes — the entitlement status and the accept() 3-part envelope — a hand-built array with only the exact contract fields, never `$model->toArray()`).
+- **Focused tests:** 29 tests covering every route, auth (401), ownership (403 `not_owner`), validation (422), the frozen response shapes, and every documented error code (`event_creator_required`, `role_has_accepted_application`, `invalid_transition`, `duplicate_application`, `role_capacity_exceeded`). Red→green caught 4 real bugs during implementation (the two in-memory-default bugs above, a `pluck()`-on-enum-key crash in the dashboard aggregation, and one test-authoring mistake of my own — the event factory always sets `description`, so the "missing description" publish-validation test needed an explicit override). All fixed; final run: **29/29, 127 assertions.**
+- **Regression:** Full Feature/MultiKolab + Unit/MultiKolab suite → **112/112 OK** (83 baseline + 29 new). `vendor/bin/pint --dirty` → auto-fixed minor style in two files (brace position, import order), re-verified green after. Existing `GET /api/v1/kolabs` Explore endpoint re-tested directly (`test_existing_kolab_explore_endpoint_is_unaffected`) — unaffected.
+- **Full backend suite:** **1525/1525 OK** (1496 baseline + 29 new), 0 failures.
+- **Deviations from the frozen contract:** the one documented addition above (role-applications list endpoint). Everything else matches contract shapes/routes/error codes exactly.
+- **Commit:** (recorded after this turn's commit — see chat report)
+- **Next task:** Task 8 (Notifications, Reminders, Analytics) — explicitly **not started**, per this turn's instruction to keep Task 7 separate from notification/subscription work. Awaiting approval.
 
 ## Task 8: Add Notifications, Reminders, and Analytics
 - **Status:** Not started

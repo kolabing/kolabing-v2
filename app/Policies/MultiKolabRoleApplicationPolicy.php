@@ -54,6 +54,26 @@ class MultiKolabRoleApplicationPolicy
         return $this->isApplicant($user, $application);
     }
 
+    /**
+     * Only the event's organizer may accept (added Task 7 — `accept()` did
+     * not exist on the service when this policy was first written in
+     * Task 5).
+     */
+    public function accept(Profile $user, MultiKolabRoleApplication $application): bool
+    {
+        return $this->isOrganizer($user, $application);
+    }
+
+    /**
+     * Only the event's organizer may list a role's applications for review.
+     */
+    public function viewAnyForRole(Profile $user, MultiKolabRole $role): bool
+    {
+        $role->loadMissing('event');
+
+        return $role->event !== null && $user->id === $role->event->creator_profile_id;
+    }
+
     private function isApplicant(Profile $user, MultiKolabRoleApplication $application): bool
     {
         return $user->id === $application->applicant_profile_id;

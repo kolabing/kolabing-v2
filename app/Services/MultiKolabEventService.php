@@ -47,6 +47,12 @@ class MultiKolabEventService
         return MultiKolabEvent::query()->create([
             'creator_profile_id' => $creator->id,
             'status' => MultiKolabEventStatus::Draft,
+            // Explicit in-memory default (mirrors the DB column default) —
+            // without this, an unset attribute + enum cast resolves to null
+            // on the freshly-created in-memory model (no refresh happens
+            // after create()), which crashes the resource's `->value` access.
+            'eligible_account_type' => \App\Enums\MultiKolabEligibleAccountType::Either,
+            'venue_needed' => false,
             ...$this->onlyEventFields($data),
         ]);
     }
@@ -71,7 +77,16 @@ class MultiKolabEventService
         $this->assertNotTerminal($event);
         $this->assertValidPositionsNeeded($data);
 
-        return $event->roles()->create($this->onlyRoleFields($data));
+        return $event->roles()->create([
+            // Same in-memory-default reasoning as createDraft() above — the
+            // DB column defaults (open / 1 / 0 / true) aren't reflected on
+            // the freshly-created in-memory model without these.
+            'status' => \App\Enums\MultiKolabRoleStatus::Open,
+            'positions_needed' => 1,
+            'positions_filled' => 0,
+            'required' => true,
+            ...$this->onlyRoleFields($data),
+        ]);
     }
 
     /**

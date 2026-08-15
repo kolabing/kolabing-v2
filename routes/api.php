@@ -43,6 +43,8 @@ use App\Http\Controllers\Api\V1\LeaderboardController;
 use App\Http\Controllers\Api\V1\LookupController;
 use App\Http\Controllers\Api\V1\MeRewardsOverviewController;
 use App\Http\Controllers\Api\V1\MissionController;
+use App\Http\Controllers\Api\V1\MultiKolabEventController;
+use App\Http\Controllers\Api\V1\MultiKolabRoleApplicationController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OnboardingController;
@@ -807,6 +809,77 @@ Route::prefix('v1')->group(function (): void {
         // Received applications
         Route::get('me/received-applications', [ApplicationController::class, 'receivedApplications'])
             ->name('api.v1.me.received-applications');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Multi-Kolab Events (MVP)
+        |--------------------------------------------------------------------------
+        | Separate parent domain beside the attendee Event/kolabs marketplace.
+        | See docs/superpowers/specs/2026-08-12-multi-kolab-event-api-contract.md.
+        */
+
+        Route::get('me/organizer-entitlement', [MultiKolabEventController::class, 'entitlement'])
+            ->name('api.v1.me.organizer-entitlement');
+
+        // Explore listing (published/recruiting events, filterable)
+        Route::get('multi-kolab-events', [MultiKolabEventController::class, 'index'])
+            ->name('api.v1.multi-kolab-events.index');
+
+        // My events (MUST be before {event})
+        Route::get('multi-kolab-events/me', [MultiKolabEventController::class, 'myEvents'])
+            ->name('api.v1.multi-kolab-events.me');
+
+        Route::post('multi-kolab-events', [MultiKolabEventController::class, 'store'])
+            ->name('api.v1.multi-kolab-events.store');
+
+        Route::get('multi-kolab-events/{event}', [MultiKolabEventController::class, 'show'])
+            ->name('api.v1.multi-kolab-events.show');
+
+        Route::patch('multi-kolab-events/{event}', [MultiKolabEventController::class, 'update'])
+            ->name('api.v1.multi-kolab-events.update');
+
+        Route::post('multi-kolab-events/{event}/roles', [MultiKolabEventController::class, 'storeRole'])
+            ->name('api.v1.multi-kolab-events.roles.store');
+
+        Route::post('multi-kolab-events/{event}/publish', [MultiKolabEventController::class, 'publish'])
+            ->name('api.v1.multi-kolab-events.publish');
+
+        Route::post('multi-kolab-events/{event}/confirm', [MultiKolabEventController::class, 'confirm'])
+            ->name('api.v1.multi-kolab-events.confirm');
+
+        Route::post('multi-kolab-events/{event}/complete', [MultiKolabEventController::class, 'complete'])
+            ->name('api.v1.multi-kolab-events.complete');
+
+        Route::post('multi-kolab-events/{event}/cancel', [MultiKolabEventController::class, 'cancel'])
+            ->name('api.v1.multi-kolab-events.cancel');
+
+        Route::get('multi-kolab-events/{event}/dashboard', [MultiKolabEventController::class, 'dashboard'])
+            ->name('api.v1.multi-kolab-events.dashboard');
+
+        Route::patch('multi-kolab-roles/{role}', [MultiKolabEventController::class, 'updateRole'])
+            ->name('api.v1.multi-kolab-roles.update');
+
+        Route::delete('multi-kolab-roles/{role}', [MultiKolabEventController::class, 'destroyRole'])
+            ->name('api.v1.multi-kolab-roles.destroy');
+
+        // Organizer review list for a role's applications (MUST be before the store route)
+        Route::get('multi-kolab-roles/{role}/applications', [MultiKolabRoleApplicationController::class, 'forRole'])
+            ->name('api.v1.multi-kolab-roles.applications.index');
+
+        Route::post('multi-kolab-roles/{role}/applications', [MultiKolabRoleApplicationController::class, 'store'])
+            ->name('api.v1.multi-kolab-roles.applications.store');
+
+        Route::post('multi-kolab-role-applications/{application}/shortlist', [MultiKolabRoleApplicationController::class, 'shortlist'])
+            ->name('api.v1.multi-kolab-role-applications.shortlist');
+
+        Route::post('multi-kolab-role-applications/{application}/decline', [MultiKolabRoleApplicationController::class, 'decline'])
+            ->name('api.v1.multi-kolab-role-applications.decline');
+
+        Route::post('multi-kolab-role-applications/{application}/withdraw', [MultiKolabRoleApplicationController::class, 'withdraw'])
+            ->name('api.v1.multi-kolab-role-applications.withdraw');
+
+        Route::post('multi-kolab-role-applications/{application}/accept', [MultiKolabRoleApplicationController::class, 'accept'])
+            ->name('api.v1.multi-kolab-role-applications.accept');
 
         /*
         |--------------------------------------------------------------------------
