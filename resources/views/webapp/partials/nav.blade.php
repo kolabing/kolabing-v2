@@ -6,7 +6,9 @@
             <a href="/dashboard" class="{{ ($active ?? '') === 'dashboard' ? 'font-semibold' : 'text-off-black/60' }}">Home</a>
             <a href="/feed" class="{{ ($active ?? '') === 'feed' ? 'font-semibold' : 'text-off-black/60' }}">Feed</a>
             <a href="/kolabs" class="{{ ($active ?? '') === 'kolabs' ? 'font-semibold' : 'text-off-black/60' }}">Kolabs</a>
+            <a href="/applications" class="{{ ($active ?? '') === 'applications' ? 'font-semibold' : 'text-off-black/60' }}">Applications</a>
             <a href="/subscription" class="{{ ($active ?? '') === 'subscription' ? 'font-semibold' : 'text-off-black/60' }}">Plan</a>
+            <a href="/account" class="{{ ($active ?? '') === 'account' ? 'font-semibold' : 'text-off-black/60' }}">Account</a>
             <button type="button" @click="window.kb.logout()" class="text-off-black/60 hover:text-off-black">Log out</button>
         </nav>
     </div>

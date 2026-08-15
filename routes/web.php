@@ -50,6 +50,8 @@ Route::domain(config('webapp.host'))->name('webapp.')->group(function (): void {
     Route::view('/kolabs/create', 'webapp.kolab-form')->name('kolabs.create');
     Route::view('/kolabs/{kolab}/edit', 'webapp.kolab-form')->name('kolabs.edit');
     Route::view('/kolabs/{kolab}', 'webapp.kolab-detail')->name('kolabs.show');
+    Route::view('/applications', 'webapp.applications')->name('applications');
+    Route::view('/account', 'webapp.account')->name('account');
 });
 
 Route::get('/', function () {

@@ -67,15 +67,46 @@
                     <template x-if="k.is_own && k.status === 'draft'">
                         <button @click="publish()" :disabled="busy" class="rounded-xl bg-off-black text-off-white text-sm font-semibold px-4 py-2 disabled:opacity-50">Publish</button>
                     </template>
+                    <template x-if="k.is_own">
+                        <a href="/applications" class="rounded-xl bg-off-black text-off-white text-sm font-semibold px-4 py-2">View applications</a>
+                    </template>
                     <template x-if="!k.is_own">
                         <button @click="toggleSave()" class="rounded-xl bg-off-black/5 text-sm font-semibold px-4 py-2">
                             <span x-text="k.is_saved ? '★ Saved' : '☆ Save'"></span>
                         </button>
                     </template>
-                    <template x-if="!k.is_own">
-                        <a href="/welcome" class="rounded-xl bg-off-black text-off-white text-sm font-semibold px-4 py-2">Apply in the app</a>
+                    {{-- Community can apply to a published Kolab that isn't theirs --}}
+                    <template x-if="!k.is_own && viewerType === 'community' && k.status === 'published' && !applied && !k.has_applied && !applyOpen">
+                        <button @click="applyOpen = true" class="rounded-xl bg-off-black text-off-white text-sm font-semibold px-4 py-2">Apply</button>
+                    </template>
+                    <template x-if="!k.is_own && viewerType === 'business'">
+                        <a href="/welcome" class="rounded-xl bg-off-black text-off-white text-sm font-semibold px-4 py-2">Open in the app</a>
                     </template>
                 </div>
+
+                <template x-if="!k.is_own && (applied || k.has_applied)">
+                    <p class="mt-3 text-sm text-green-700 font-semibold">✓ You've applied to this Kolab.</p>
+                </template>
+
+                {{-- Apply form (community) --}}
+                <template x-if="applyOpen && !applied">
+                    <div class="mt-4 rounded-2xl border border-off-black/10 p-5">
+                        <p class="font-semibold">Apply to this Kolab</p>
+                        <template x-if="applyError"><div class="mt-2 rounded-lg bg-red-50 text-red-700 text-sm px-3 py-2 whitespace-pre-line" x-text="applyError"></div></template>
+                        <label class="text-sm font-semibold block mt-3">Your message</label>
+                        <textarea x-model="apply.message" rows="3" maxlength="2000" placeholder="Introduce your community and why this is a fit."
+                                  class="mt-1 w-full rounded-xl border-off-black/15 px-4 py-3 focus:border-off-black focus:ring-0"></textarea>
+                        <label class="text-sm font-semibold block mt-3">Your availability <span class="text-off-black/40 font-normal">(min 20 characters)</span></label>
+                        <textarea x-model="apply.availability" rows="2" maxlength="500" placeholder="e.g. Weekends in March, or Tuesday and Thursday evenings from 18:00."
+                                  class="mt-1 w-full rounded-xl border-off-black/15 px-4 py-3 focus:border-off-black focus:ring-0"></textarea>
+                        <div class="mt-3 flex gap-2">
+                            <button @click="submitApply()" :disabled="busy" class="rounded-xl bg-off-black text-off-white text-sm font-semibold px-4 py-2 disabled:opacity-50">
+                                <span x-text="busy ? 'Sending…' : 'Send application'"></span>
+                            </button>
+                            <button @click="applyOpen = false" class="rounded-xl bg-off-black/5 text-sm font-semibold px-4 py-2">Cancel</button>
+                        </div>
+                    </div>
+                </template>
             </div>
         </template>
     </main>
@@ -87,14 +118,35 @@
         return {
             k: null, loading: true, busy: false, error: '',
             id: location.pathname.split('/')[2],
+            viewerType: '', applied: false, applyOpen: false, applyError: '',
+            apply: { message: '', availability: '' },
             fallbackAvatar: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="%23e5e2da"/></svg>',
             intentLabel(t) { return { community_seeking: 'Community seeking', venue_promotion: 'Venue', product_promotion: 'Product' }[t] || 'Kolab'; },
             async init() {
                 if (!window.kb.requireAuth()) return;
-                const res = await window.kb.api('/kolabs/' + this.id);
+                const [res, me] = await Promise.all([
+                    window.kb.api('/kolabs/' + this.id),
+                    window.kb.api('/auth/me'),
+                ]);
                 if (res.ok) this.k = res.json?.data;
                 else this.error = res.status === 404 ? 'Kolab not found.' : (res.json?.message || 'Could not load this Kolab.');
+                if (me.ok) this.viewerType = me.json?.data?.user_type || '';
                 this.loading = false;
+            },
+            async submitApply() {
+                this.applyError = '';
+                if ((this.apply.availability || '').trim().length < 20) {
+                    this.applyError = 'Please describe your availability in at least 20 characters.';
+                    return;
+                }
+                this.busy = true;
+                const res = await window.kb.api('/kolabs/' + this.id + '/applications', {
+                    method: 'POST', body: { message: this.apply.message, availability: this.apply.availability },
+                });
+                this.busy = false;
+                if (res.ok) { this.applied = true; this.applyOpen = false; }
+                else if (res.status === 422 && res.json?.errors) this.applyError = Object.values(res.json.errors).flat().join('\n');
+                else this.applyError = res.json?.message || 'Could not send your application.';
             },
             async publish() {
                 this.error = ''; this.busy = true;

@@ -58,6 +58,13 @@ class WebAppRoutesTest extends TestCase
         $this->get('http://'.$host.'/kolabs/some-uuid/edit')->assertOk();
     }
 
+    public function test_account_and_applications_pages_render(): void
+    {
+        $host = $this->host();
+        $this->get('http://'.$host.'/account')->assertOk()->assertSee('Your profile');
+        $this->get('http://'.$host.'/applications')->assertOk()->assertSee('Applications');
+    }
+
     public function test_web_app_routes_do_not_leak_onto_the_marketing_host(): void
     {
         // /login only exists on the app host — the marketing domain must not expose it.
