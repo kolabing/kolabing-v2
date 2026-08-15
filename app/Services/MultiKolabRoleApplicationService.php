@@ -4,11 +4,19 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\ApplicationStatus;
+use App\Enums\CollaborationStatus;
+use App\Enums\IntentType;
+use App\Enums\KolabStatus;
 use App\Enums\MultiKolabEligibleAccountType;
 use App\Enums\MultiKolabEventStatus;
 use App\Enums\MultiKolabRoleApplicationStatus;
 use App\Enums\MultiKolabRoleStatus;
 use App\Exceptions\DuplicateRoleApplicationException;
+use App\Exceptions\RoleCapacityExceededException;
+use App\Models\Application;
+use App\Models\Collaboration;
+use App\Models\Kolab;
 use App\Models\MultiKolabRole;
 use App\Models\MultiKolabRoleApplication;
 use App\Models\Profile;
@@ -75,6 +83,125 @@ class MultiKolabRoleApplicationService
         ]);
 
         return $application->fresh();
+    }
+
+    /**
+     * Accept a role application: create exactly one canonical child
+     * {@see Kolab}, an accepted canonical {@see Application}, and a
+     * {@see Collaboration} — inside one locked transaction that rechecks
+     * ownership, status, and role capacity after acquiring the lock, so two
+     * concurrent accept attempts on a one-position role can never both
+     * succeed (Task 6).
+     *
+     * Deliberately does NOT call {@see \App\Services\ApplicationService::accept()}
+     * — that path re-validates the business-subscription paywall via
+     * `validateCanAccept()`, which must never apply to a free Multi-Kolab
+     * role application (see the frozen API contract §11). Instead this
+     * mirrors the canonical field mapping directly via Eloquent `create()`,
+     * matching `ApplicationService::createCollaboration()`'s shape without
+     * going through any paywalled entry point.
+     *
+     * Idempotent: a repeated call on an application that is already accepted
+     * and already linked to a Kolab returns that same Kolab without creating
+     * duplicates or incrementing capacity again.
+     */
+    public function accept(MultiKolabRoleApplication $application, Profile $actor): Kolab
+    {
+        if ($this->isAlreadyAccepted($application)) {
+            return $application->kolab()->firstOrFail();
+        }
+
+        return DB::transaction(function () use ($application, $actor): Kolab {
+            $lockedApplication = MultiKolabRoleApplication::query()
+                ->lockForUpdate()
+                ->findOrFail($application->id);
+
+            if ($this->isAlreadyAccepted($lockedApplication)) {
+                return $lockedApplication->kolab()->firstOrFail();
+            }
+
+            if (! in_array($lockedApplication->status, [
+                MultiKolabRoleApplicationStatus::Pending,
+                MultiKolabRoleApplicationStatus::Shortlisted,
+            ], true)) {
+                throw new InvalidArgumentException(
+                    "Cannot accept an application with status \"{$lockedApplication->status->value}\"."
+                );
+            }
+
+            $role = MultiKolabRole::query()->lockForUpdate()->findOrFail($lockedApplication->multi_kolab_role_id);
+            $role->loadMissing('event.creatorProfile');
+            $event = $role->event;
+
+            if ($event === null || $actor->id !== $event->creator_profile_id) {
+                throw new InvalidArgumentException('Only the event organizer may accept this application.');
+            }
+
+            if ($role->positions_filled >= $role->positions_needed) {
+                throw new RoleCapacityExceededException('This role has no remaining positions.');
+            }
+
+            $organizer = $event->creatorProfile;
+            $applicant = $lockedApplication->applicantProfile;
+
+            $kolab = Kolab::query()->create([
+                'creator_profile_id' => $organizer->id,
+                'intent_type' => $organizer->isBusiness() ? IntentType::VenuePromotion : IntentType::CommunitySeeking,
+                'status' => KolabStatus::Published,
+                'title' => "{$event->title} — {$role->title}",
+                'description' => (string) ($role->need ?? $role->details ?? $event->description ?? ''),
+                'preferred_city' => (string) ($event->city ?? ''),
+                'published_at' => now(),
+                'multi_kolab_event_id' => $event->id,
+                'multi_kolab_role_id' => $role->id,
+            ]);
+
+            $canonicalApplication = Application::query()->create([
+                'kolab_id' => $kolab->id,
+                'applicant_profile_id' => $applicant->id,
+                'applicant_profile_type' => $applicant->user_type,
+                'message' => $lockedApplication->pitch,
+                'availability' => $lockedApplication->availability,
+                'status' => ApplicationStatus::Accepted,
+                'accepted_at' => now(),
+            ]);
+
+            Collaboration::query()->create([
+                'application_id' => $canonicalApplication->id,
+                'kolab_id' => $kolab->id,
+                'creator_profile_id' => $organizer->id,
+                'applicant_profile_id' => $applicant->id,
+                'business_profile_id' => $organizer->isBusiness()
+                    ? $organizer->businessProfile?->id
+                    : $applicant->businessProfile?->id,
+                'community_profile_id' => $organizer->isCommunity()
+                    ? $organizer->communityProfile?->id
+                    : $applicant->communityProfile?->id,
+                'status' => CollaborationStatus::Scheduled,
+            ]);
+
+            $newPositionsFilled = $role->positions_filled + 1;
+            $role->update([
+                'positions_filled' => $newPositionsFilled,
+                'status' => $newPositionsFilled >= $role->positions_needed
+                    ? MultiKolabRoleStatus::Filled
+                    : $role->status,
+            ]);
+
+            $lockedApplication->update([
+                'status' => MultiKolabRoleApplicationStatus::Accepted,
+                'accepted_at' => now(),
+                'kolab_id' => $kolab->id,
+            ]);
+
+            return $kolab->fresh();
+        });
+    }
+
+    private function isAlreadyAccepted(MultiKolabRoleApplication $application): bool
+    {
+        return $application->status === MultiKolabRoleApplicationStatus::Accepted
+            && $application->kolab_id !== null;
     }
 
     /**
