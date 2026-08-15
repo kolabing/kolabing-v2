@@ -1,46 +1,46 @@
 @extends('webapp.layout')
-@section('title', 'Account')
+@section('title', __('webapp.account.title'))
 
 @section('body')
 <div x-data="accountPage()" x-init="init()">
     @include('webapp.partials.nav', ['active' => 'account'])
 
     <main class="max-w-xl mx-auto px-5 py-8">
-        <h1 class="font-montserrat font-black text-2xl tracking-tight">Your profile</h1>
+        <h1 class="font-montserrat font-black text-2xl tracking-tight">{{ __('webapp.account.title') }}</h1>
 
-        <template x-if="loading"><p class="mt-6 text-off-black/50">Loading…</p></template>
+        <template x-if="loading"><p class="mt-6 text-off-black/50">{{ __('webapp.common.loading') }}</p></template>
         <template x-if="error"><div class="mt-4 rounded-xl bg-red-50 text-red-700 text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div></template>
-        <template x-if="saved"><div class="mt-4 rounded-xl bg-green-50 text-green-700 text-sm px-4 py-3">Saved.</div></template>
+        <template x-if="saved"><div class="mt-4 rounded-xl bg-green-50 text-green-700 text-sm px-4 py-3">{{ __('webapp.common.saved') }}</div></template>
 
         <form x-show="!loading" @submit.prevent="save()" class="mt-5 space-y-4">
             <div class="flex items-center gap-4">
                 <img :src="avatarUrl || fallbackAvatar" alt="" class="w-16 h-16 rounded-full object-cover bg-off-black/10">
                 <div>
-                    <label class="text-sm font-semibold block">Logo / photo</label>
+                    <label class="text-sm font-semibold block">{{ __('webapp.account.photo') }}</label>
                     <input type="file" accept="image/*" @change="uploadPhoto($event)" class="mt-1 block text-sm text-off-black/70">
-                    <p class="text-xs text-off-black/50" x-show="uploadingPhoto">Uploading…</p>
+                    <p class="text-xs text-off-black/50" x-show="uploadingPhoto">{{ __('webapp.common.uploading') }}</p>
                 </div>
             </div>
             <div>
-                <label class="text-sm font-semibold" x-text="isBusiness ? 'Business name' : 'Community name'"></label>
+                <label class="text-sm font-semibold" x-text="isBusiness ? t('account.business_name') : t('account.community_name')"></label>
                 <input x-model="form.name" maxlength="255" class="mt-1 w-full rounded-xl border-off-black/15 px-4 py-3 focus:border-off-black focus:ring-0">
             </div>
             <div>
-                <label class="text-sm font-semibold">About</label>
+                <label class="text-sm font-semibold">{{ __('webapp.account.about') }}</label>
                 <textarea x-model="form.about" maxlength="2000" rows="3" class="mt-1 w-full rounded-xl border-off-black/15 px-4 py-3 focus:border-off-black focus:ring-0"></textarea>
             </div>
 
             <template x-if="isBusiness">
                 <div class="space-y-4">
                     <div>
-                        <label class="text-sm font-semibold">Business type</label>
+                        <label class="text-sm font-semibold">{{ __('webapp.account.business_type') }}</label>
                         <select x-model="form.business_type" class="mt-1 w-full rounded-xl border-off-black/15 px-4 py-3 focus:border-off-black focus:ring-0">
-                            <option value="">Select…</option>
+                            <option value="">{{ __('webapp.common.select') }}</option>
                             <template x-for="o in businessTypes" :key="o.value"><option :value="o.value" x-text="o.label"></option></template>
                         </select>
                     </div>
                     <div>
-                        <label class="text-sm font-semibold">Categories <span class="text-off-black/40 font-normal">(1–3)</span></label>
+                        <label class="text-sm font-semibold">{{ __('webapp.account.categories') }} <span class="text-off-black/40 font-normal">{{ __('webapp.account.categories_hint') }}</span></label>
                         <div class="mt-2 flex flex-wrap gap-2" x-html="chips('categories', businessTypes)"></div>
                     </div>
                 </div>
@@ -49,49 +49,49 @@
             <template x-if="!isBusiness">
                 <div class="space-y-4">
                     <div>
-                        <label class="text-sm font-semibold">Community type</label>
+                        <label class="text-sm font-semibold">{{ __('webapp.account.community_type') }}</label>
                         <select x-model="form.community_type" class="mt-1 w-full rounded-xl border-off-black/15 px-4 py-3 focus:border-off-black focus:ring-0">
-                            <option value="">Select…</option>
+                            <option value="">{{ __('webapp.common.select') }}</option>
                             <template x-for="o in communityTypes" :key="o.value"><option :value="o.value" x-text="o.label"></option></template>
                         </select>
                     </div>
                     <div>
-                        <label class="text-sm font-semibold">Community size</label>
+                        <label class="text-sm font-semibold">{{ __('webapp.account.community_size') }}</label>
                         <input x-model.number="form.community_size" type="number" min="1" class="mt-1 w-full rounded-xl border-off-black/15 px-4 py-3 focus:border-off-black focus:ring-0">
                     </div>
                 </div>
             </template>
 
             <div>
-                <label class="text-sm font-semibold">City</label>
+                <label class="text-sm font-semibold">{{ __('webapp.account.city') }}</label>
                 <select x-model="form.city_id" class="mt-1 w-full rounded-xl border-off-black/15 px-4 py-3 focus:border-off-black focus:ring-0">
-                    <option value="">Select…</option>
+                    <option value="">{{ __('webapp.common.select') }}</option>
                     <template x-for="c in cities" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
                 </select>
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="text-sm font-semibold">Instagram</label>
+                    <label class="text-sm font-semibold">{{ __('webapp.account.instagram') }}</label>
                     <input x-model="form.instagram" maxlength="255" placeholder="@handle" class="mt-1 w-full rounded-xl border-off-black/15 px-4 py-3 focus:border-off-black focus:ring-0">
                 </div>
                 <div>
-                    <label class="text-sm font-semibold">Website</label>
+                    <label class="text-sm font-semibold">{{ __('webapp.account.website') }}</label>
                     <input x-model="form.website" type="url" placeholder="https://" class="mt-1 w-full rounded-xl border-off-black/15 px-4 py-3 focus:border-off-black focus:ring-0">
                 </div>
             </div>
             <template x-if="!isBusiness">
                 <div>
-                    <label class="text-sm font-semibold">TikTok</label>
+                    <label class="text-sm font-semibold">{{ __('webapp.account.tiktok') }}</label>
                     <input x-model="form.tiktok" maxlength="255" placeholder="@handle" class="mt-1 w-full rounded-xl border-off-black/15 px-4 py-3 focus:border-off-black focus:ring-0">
                 </div>
             </template>
 
             <div class="pt-2">
                 <button type="submit" :disabled="busy" class="rounded-xl bg-off-black text-off-white font-semibold px-5 py-3 disabled:opacity-50">
-                    <span x-text="busy ? 'Saving…' : 'Save profile'"></span>
+                    <span x-text="busy ? t('common.uploading') : t('account.submit')"></span>
                 </button>
             </div>
-            <p class="text-xs text-off-black/50">To change your logo/photo, use the Kolabing app.</p>
+            <p class="text-xs text-off-black/50">{{ __('webapp.account.photo_note') }}</p>
         </form>
     </main>
 </div>
@@ -168,7 +168,6 @@
                 const file = e.target.files?.[0];
                 if (!file) return;
                 this.error = ''; this.saved = false; this.uploadingPhoto = true;
-                // PUT /me/profile takes profile_photo as a file → multipart POST with method spoofing.
                 const fd = new FormData();
                 fd.append('_method', 'PUT');
                 fd.append('profile_photo', file);
@@ -176,7 +175,7 @@
                 if (window.kb.token) headers['Authorization'] = 'Bearer ' + window.kb.token;
                 let res;
                 try { res = await fetch(window.KB_CONFIG.apiBase + '/me/profile', { method: 'POST', headers, body: fd }); }
-                catch (err) { this.uploadingPhoto = false; this.error = 'Could not upload photo.'; return; }
+                catch (err) { this.uploadingPhoto = false; this.error = t('account.photo_error'); return; }
                 this.uploadingPhoto = false;
                 let j = null; try { j = await res.json(); } catch (err) { /* empty */ }
                 if (res.ok) {
@@ -184,7 +183,7 @@
                     this.avatarUrl = p?.logo_url || p?.profile_photo || j?.data?.avatar_url || this.avatarUrl;
                     this.saved = true;
                 } else {
-                    this.error = (j?.errors ? Object.values(j.errors).flat().join('\n') : j?.message) || 'Could not upload photo. Use a JPG/PNG under 5MB.';
+                    this.error = (j?.errors ? Object.values(j.errors).flat().join('\n') : j?.message) || t('account.photo_error');
                 }
             },
             async save() {
@@ -193,7 +192,7 @@
                 this.busy = false;
                 if (res.ok) { this.saved = true; window.scrollTo({ top: 0, behavior: 'smooth' }); }
                 else if (res.status === 422 && res.json?.errors) this.error = Object.values(res.json.errors).flat().join('\n');
-                else this.error = res.json?.message || 'Could not save your profile.';
+                else this.error = res.json?.message || t('account.save_error');
             },
         };
     }

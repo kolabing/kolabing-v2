@@ -1,30 +1,30 @@
 @extends('webapp.layout')
-@section('title', 'Feed')
+@section('title', __('webapp.feed.title'))
 
 @section('body')
 <div x-data="feedPage()" x-init="init()">
     @include('webapp.partials.nav', ['active' => 'feed'])
 
     <main class="max-w-4xl mx-auto px-5 py-8">
-        <h1 class="font-montserrat font-black text-2xl tracking-tight">Discover Kolabs</h1>
+        <h1 class="font-montserrat font-black text-2xl tracking-tight">{{ __('webapp.feed.title') }}</h1>
 
         <div class="mt-4 flex flex-wrap gap-2">
-            <input x-model="filters.search" @keydown.enter="reload()" type="search" placeholder="Search…"
+            <input x-model="filters.search" @keydown.enter="reload()" type="search" placeholder="{{ __('webapp.feed.search_placeholder') }}"
                    class="rounded-xl border-off-black/15 px-3 py-2 text-sm flex-1 min-w-[8rem] focus:border-off-black focus:ring-0">
-            <input x-model="filters.city" @keydown.enter="reload()" type="text" placeholder="City"
+            <input x-model="filters.city" @keydown.enter="reload()" type="text" placeholder="{{ __('webapp.feed.city') }}"
                    class="rounded-xl border-off-black/15 px-3 py-2 text-sm w-32 focus:border-off-black focus:ring-0">
             <select x-model="filters.intent_type" @change="reload()"
                     class="rounded-xl border-off-black/15 px-3 py-2 text-sm focus:border-off-black focus:ring-0">
-                <option value="">All types</option>
-                <option value="community_seeking">Community seeking</option>
-                <option value="venue_promotion">Venue</option>
-                <option value="product_promotion">Product</option>
+                <option value="">{{ __('webapp.feed.all_types') }}</option>
+                <option value="community_seeking">{{ __('webapp.intent.community_seeking') }}</option>
+                <option value="venue_promotion">{{ __('webapp.intent.venue_promotion') }}</option>
+                <option value="product_promotion">{{ __('webapp.intent.product_promotion') }}</option>
             </select>
-            <button @click="reload()" class="rounded-xl bg-off-black text-off-white text-sm font-semibold px-4">Search</button>
+            <button @click="reload()" class="rounded-xl bg-off-black text-off-white text-sm font-semibold px-4">{{ __('webapp.common.search') }}</button>
         </div>
 
-        <template x-if="loading"><p class="mt-8 text-off-black/50">Loading…</p></template>
-        <template x-if="!loading && items.length === 0"><p class="mt-8 text-off-black/50">No Kolabs found. Try a wider search.</p></template>
+        <template x-if="loading"><p class="mt-8 text-off-black/50">{{ __('webapp.common.loading') }}</p></template>
+        <template x-if="!loading && items.length === 0"><p class="mt-8 text-off-black/50">{{ __('webapp.feed.empty') }}</p></template>
 
         <div class="mt-5 grid sm:grid-cols-2 gap-4">
             <template x-for="k in items" :key="k.id">
@@ -46,7 +46,7 @@
                                 <img :src="k.creator_profile?.avatar_url || fallbackAvatar" alt="" class="w-6 h-6 rounded-full object-cover bg-off-black/10">
                                 <span class="text-xs text-off-black/60 truncate" x-text="k.creator_profile?.display_name"></span>
                             </div>
-                            <button @click="toggleSave(k)" class="text-off-black/50 hover:text-off-black" :title="k.is_saved ? 'Unsave' : 'Save'">
+                            <button @click="toggleSave(k)" class="text-off-black/50 hover:text-off-black" :title="k.is_saved ? t('feed.unsave') : t('feed.save')">
                                 <span x-text="k.is_saved ? '★' : '☆'" class="text-lg"></span>
                             </button>
                         </div>
@@ -56,7 +56,7 @@
         </div>
 
         <div class="mt-6 text-center" x-show="!loading && page < lastPage">
-            <button @click="loadMore()" class="rounded-xl border border-off-black/20 text-sm font-semibold px-5 py-2">Load more</button>
+            <button @click="loadMore()" class="rounded-xl border border-off-black/20 text-sm font-semibold px-5 py-2">{{ __('webapp.feed.load_more') }}</button>
         </div>
     </main>
 </div>
@@ -68,8 +68,9 @@
             items: [], loading: true, page: 1, lastPage: 1,
             filters: { search: '', city: '', intent_type: '' },
             fallbackAvatar: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><rect width="24" height="24" fill="%23e5e2da"/></svg>',
-            intentLabel(t) {
-                return { community_seeking: 'Community seeking', venue_promotion: 'Venue', product_promotion: 'Product' }[t] || 'Kolab';
+            intentLabel(type) {
+                const map = { community_seeking: 'intent.community_seeking', venue_promotion: 'intent.venue_promotion', product_promotion: 'intent.product_promotion' };
+                return window.t(map[type] || 'intent.kolab');
             },
             async init() {
                 if (!window.kb.requireAuth()) return;

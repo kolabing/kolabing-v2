@@ -87,6 +87,10 @@ class WebAppRoutesTest extends TestCase
         // "create" still resolves under a locale prefix (not swallowed by {kolab}).
         $this->get('http://'.$host.'/es/kolabs/create')->assertOk();
 
+        // Deep authed pages localise too (server-rendered copy).
+        $this->get('http://'.$host.'/es/feed')->assertOk()->assertSee('Descubre Kolabs');
+        $this->get('http://'.$host.'/ca/account')->assertOk()->assertSee('El teu perfil');
+
         // An unsupported locale is not a valid prefix.
         $this->get('http://'.$host.'/de/login')->assertNotFound();
     }
