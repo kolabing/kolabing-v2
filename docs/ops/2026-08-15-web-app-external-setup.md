@@ -1,123 +1,193 @@
-# Web App — external / browser setup runbook (for an aside agent)
+# Web App external setup — runbook for an operator with no prior context
 
-**Context:** stand up the Kolabing Web App at **`app.kolabing.com`** (epic #128). The **code** is
-shipped in PRs #127 (buy), #129 (web Google login), #130 (manage/cancel portal), #103 (paid-feed
-blur). This runbook is the **browser-only / portal work** that Clark cannot do headless — hand it to
-an agent (or person) with browser access **and** access to Daniel's Laravel Cloud, Google Cloud,
-Stripe, and DNS accounts.
-
-**Grounded facts (verified 2026-08-15):**
-- Hosting: **Laravel Cloud**, app `kolabing-v2` (`app-a0ea8467-4a5b-4a8e-a513-7635aed3575a`),
-  region `us-east-2`. Production environment = **`master`** (`env-a0ea8468-a467-4e9c-af33-25ea48957add`),
-  vanity `kolabing-v2-master-tgxggi.laravel.cloud`, auto-deploys on push to `master`, deploy runs
-  `php artisan migrate --force`.
-- The `master` environment currently has **no `STRIPE_*` vars and no `GOOGLE_CLIENT_ID_WEB`** — those
-  are added below.
-- The web app is the **same Laravel app** on a second hostname, so `app.kolabing.com/api/v1` is
-  same-origin — no CORS work.
-
-> ⚠️ **Secrets discipline:** paste secrets **only** into the Laravel Cloud env var UI (or Stripe/Google
-> consoles). Never paste a live secret into chat, a commit, a ticket, or a log. Do these in **Stripe
-> test mode first**, verify a full round-trip, then repeat for live mode.
+You've been asked to do the **browser/console setup** to launch the **Kolabing Web App**. This document
+assumes you know nothing about Kolabing. Read "Background" once, then do the tasks in order. You will be
+clicking around four services (Stripe, Google Cloud, Laravel Cloud, and a DNS provider) and copying a
+handful of values between them. **No coding.**
 
 ---
 
-## Prerequisites / order
-Do the merges first (Clark/Volkan), then this runbook. Merge order: **#127 → #130** (stacked), plus
-#129 and #103. The `master` deploy runs migrations automatically; no manual migrate needed.
+## Background — what you're setting up and why
+
+**Kolabing** is a marketplace that connects **local businesses** (cafés, restaurants, gyms) with
+**community organizers** (run clubs, social groups). A collaboration between them is called a **"Kolab."**
+Businesses pay a **subscription** to publish Kolabs; communities use it for free. Today Kolabing is a
+**mobile app** backed by a web API. The marketing website is **kolabing.com**.
+
+**What we're launching:** a **web version** of the app at a new address, **`app.kolabing.com`**, so people
+can **sign up and pay by credit card in a browser** (not only in the mobile app), and then get nudged into
+the mobile app. The programming is already done and under review; what remains is **external account
+setup that can only be done by clicking in web consoles** — which is this runbook.
+
+**How the pieces fit:**
+- **Stripe** is the payment processor. It holds the subscription **products/prices** (€49/month and
+  €129/3-months), processes card payments in a hosted **Checkout** page, and provides a hosted **Billing
+  Portal** where a customer can cancel. When a payment succeeds, Stripe calls our server at a **webhook**
+  URL to tell it to switch the subscription on.
+- **Google Cloud** issues the credential ("Web OAuth client") that makes the **"Sign in with Google"**
+  button work on the website.
+- **Laravel Cloud** is where the Kolabing server runs. You'll (a) paste the secret values from Stripe and
+  Google into its **Environment variables**, and (b) attach the **`app.kolabing.com`** domain.
+- **DNS** (wherever `kolabing.com` is managed — likely Cloudflare or a registrar) is where you point
+  `app.kolabing.com` at Laravel Cloud so the address resolves.
+
+**The values you'll create and where each goes** (you'll collect these into a scratch note as you go):
+
+| Value | Created in | Looks like | Pasted into (Laravel Cloud env) |
+|---|---|---|---|
+| Secret API key | Stripe | `sk_test_…` / `sk_live_…` | `STRIPE_SECRET_KEY` |
+| Webhook signing secret | Stripe (webhook) | `whsec_…` | `STRIPE_WEBHOOK_SECRET` |
+| Monthly price id | Stripe (product) | `price_…` | `STRIPE_MONTHLY_PRICE_ID` |
+| 3-month price id | Stripe (product) | `price_…` | `STRIPE_THREE_MONTHS_PRICE_ID` |
+| Web OAuth client id | Google Cloud | `…apps.googleusercontent.com` | `GOOGLE_CLIENT_ID_WEB` |
+
+> ⚠️ **Security — read before you start.**
+> - Do **everything in Stripe TEST mode first** (there's a Test/Live toggle top-right in Stripe). Verify
+>   it works end-to-end, *then* repeat in Live mode. Test mode uses fake cards and cannot charge anyone.
+> - The `sk_…` and `whsec_…` values are **secrets**. Paste them **only** into the Stripe/Google consoles
+>   and the Laravel Cloud env-var screen. **Never** put them in chat, email, a doc, a screenshot, or a
+>   commit. If a secret is ever exposed, roll it (regenerate) in the provider.
+> - You need access to Kolabing's Stripe, Google Cloud, Laravel Cloud, and DNS accounts. If you don't have
+>   one, stop and ask the owner (Daniel) rather than creating new accounts.
+
+**Prerequisite:** the code must be merged first (the engineer/Volkan handles that). The Laravel Cloud
+production environment is named **`master`** and it **auto-deploys and runs database migrations** whenever
+code is merged — you don't run any migrations yourself.
 
 ---
 
-## Task 1 — Stripe: products, prices, webhook, billing portal (test mode first)
-Console: https://dashboard.stripe.com/ (toggle **Test mode** ON, top-right).
+## Task 1 — Stripe: products, prices, webhook, billing portal
 
-1. **Products & prices** → https://dashboard.stripe.com/test/products
-   - Create product **"Kolabing Business — Monthly"**, recurring price **€49.00 / month**. After save,
-     open the price and **copy the Price ID** (`price_…`). → this is `STRIPE_MONTHLY_PRICE_ID`.
-   - Create product **"Kolabing Business — 3 Months"**, recurring price **€129.00 every 3 months**
-     (billing period = 3 months). Copy its Price ID. → `STRIPE_THREE_MONTHS_PRICE_ID`.
-2. **API key** → https://dashboard.stripe.com/test/apikeys → reveal the **Secret key** (`sk_test_…`).
-   → `STRIPE_SECRET_KEY`.
-3. **Webhook endpoint** → https://dashboard.stripe.com/test/webhooks → **Add endpoint**:
-   - Endpoint URL: **`https://app.kolabing.com/api/v1/webhooks/stripe`**
-     *(the API is reachable on `kolabing.com` too; either host works — keep it consistent).*
-   - **Select events:** `checkout.session.completed`, `customer.subscription.updated`,
-     `customer.subscription.deleted`.
-   - Save, then **reveal the Signing secret** (`whsec_…`). → `STRIPE_WEBHOOK_SECRET`.
-4. **Customer Billing Portal** → https://dashboard.stripe.com/test/settings/billing/portal → **Activate**,
-   and under *Subscriptions* enable **Cancel subscription** (and plan switch if desired). Save.
+Go to **https://dashboard.stripe.com/** and make sure the **"Test mode"** toggle (top-right) is **ON**.
 
-**Capture (into a secure note for Task 3, not chat):** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+### 1a. Create the two subscription products/prices
+1. Left sidebar → **Product catalog** (or go to https://dashboard.stripe.com/test/products) → **+ Add product**.
+2. Product 1: Name = **`Kolabing Business — Monthly`**. Under *Pricing*: **Recurring**, Amount **`49.00`**,
+   Currency **EUR**, Billing period **Monthly**. Save.
+   - Open the product, find the **Price** you just made, and **copy its API ID** (starts with `price_`).
+     Save it as **`STRIPE_MONTHLY_PRICE_ID`**. *(The `price_…` ID, not the `prod_…` product ID.)*
+3. Product 2: Name = **`Kolabing Business — 3 Months`**. Pricing: **Recurring**, Amount **`129.00`** EUR,
+   Billing period = **Custom / every 3 months** (set the interval to 3 months). Save.
+   - Copy its **Price ID** → **`STRIPE_THREE_MONTHS_PRICE_ID`**.
+
+### 1b. Copy the secret API key
+1. Go to **https://dashboard.stripe.com/test/apikeys** (Developers → API keys).
+2. Under *Standard keys*, reveal the **Secret key** (`sk_test_…`) → save as **`STRIPE_SECRET_KEY`**.
+   *(Ignore the Publishable key — not needed.)*
+
+### 1c. Create the webhook endpoint
+This is how Stripe tells our server a payment happened.
+1. Go to **https://dashboard.stripe.com/test/webhooks** (Developers → Webhooks) → **+ Add endpoint**.
+2. **Endpoint URL:** `https://app.kolabing.com/api/v1/webhooks/stripe`
+3. **Select events to send** → add exactly these three:
+   - `checkout.session.completed`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+4. Add endpoint. Then open it and **reveal the "Signing secret"** (`whsec_…`) →
+   save as **`STRIPE_WEBHOOK_SECRET`**.
+
+### 1d. Turn on the Billing Portal (so customers can cancel)
+1. Go to **https://dashboard.stripe.com/test/settings/billing/portal**.
+2. Click **Activate** (or "Save"). Under *Subscriptions*, enable **Cancel subscriptions** (and optionally
+   "Switch plans"). Save.
+
+At the end of Task 1 your scratch note should have: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
 `STRIPE_MONTHLY_PRICE_ID`, `STRIPE_THREE_MONTHS_PRICE_ID`.
 
 ---
 
-## Task 2 — Google Cloud: Web OAuth 2.0 client
-Console: https://console.cloud.google.com/apis/credentials (select the existing Kolabing project —
-the one that already holds the iOS/Android OAuth clients).
+## Task 2 — Google Cloud: the "Sign in with Google" web credential
 
-1. **Create credentials → OAuth client ID → Application type: Web application.** Name it
-   "Kolabing Web".
-2. **Authorized JavaScript origins:** add `https://app.kolabing.com` (and `http://localhost:5173` or the
-   dev origin if the team wants local web dev).
-3. **Authorized redirect URIs:** only needed if the redirect (code) flow is used. The plan uses Google
-   **Identity Services** (id_token → posted to `POST /api/v1/auth/google`), which needs only the JS
-   origin. Add a redirect URI only if the frontend later uses the redirect flow.
-4. Create, then **copy the Client ID** (`…apps.googleusercontent.com`). → `GOOGLE_CLIENT_ID_WEB`.
-
----
-
-## Task 3 — Laravel Cloud: env vars (production `master` env)
-Console: https://cloud.laravel.com/ → app **kolabing-v2** → environment **master** → **Environment
-variables**. Add/set the following, then **Deploy** (or redeploy) so they take effect:
-
-| Key | Value |
-|---|---|
-| `STRIPE_SECRET_KEY` | from Task 1.2 |
-| `STRIPE_WEBHOOK_SECRET` | from Task 1.3 |
-| `STRIPE_MONTHLY_PRICE_ID` | from Task 1.1 |
-| `STRIPE_THREE_MONTHS_PRICE_ID` | from Task 1.1 |
-| `GOOGLE_CLIENT_ID_WEB` | from Task 2.4 |
-
-Notes:
-- `STRIPE_ALLOWED_RETURN_HOSTS` does **not** need setting — the code default already includes
-  `kolabing.com,www.kolabing.com,app.kolabing.com`. Only set it if you want to restrict/extend that list.
-- `APPLE_IAP_THREE_MONTHS_PRICE` should be `129` (matches the Stripe 3-month price); set if unset.
-- Leave the iOS/Android/primary Google client ids untouched.
+1. Go to **https://console.cloud.google.com/apis/credentials**. In the project picker (top bar), select the
+   **existing Kolabing project** — the one that already contains the iOS/Android OAuth clients. *(Don't
+   create a new project.)*
+2. **+ Create credentials → OAuth client ID.**
+3. **Application type: Web application.** Name it **`Kolabing Web`**.
+4. Under **Authorized JavaScript origins**, click **+ Add URI** and enter: **`https://app.kolabing.com`**.
+   *(Optionally also add `http://localhost:5173` if the dev team wants local web testing.)*
+5. Leave **Authorized redirect URIs** empty (the website uses Google's token flow, which only needs the
+   origin above).
+6. **Create**, then **copy the Client ID** (ends in `…apps.googleusercontent.com`) →
+   save as **`GOOGLE_CLIENT_ID_WEB`**. *(You do NOT need the client secret.)*
 
 ---
 
-## Task 4 — DNS + domain for `app.kolabing.com`
-1. **Laravel Cloud** → app **kolabing-v2** → env **master** → **Domains** → **Add domain**
-   `app.kolabing.com`. Laravel Cloud will show the **DNS target** to point at (a `CNAME` target, e.g.
-   `…laravel.cloud`) and will provision TLS automatically once DNS resolves. **Copy that target.**
-2. **DNS provider** (registrar / Cloudflare for `kolabing.com`) → add a record:
-   - Type `CNAME`, name `app`, value = the target from step 1.
-   - If Cloudflare: set it **DNS-only (grey cloud)** initially so Laravel Cloud can issue the cert;
-     you can enable proxying afterward.
-3. Wait for propagation, then confirm Laravel Cloud shows the domain **Active** with a valid cert.
+## Task 3 — Laravel Cloud: paste the values as environment variables
+
+1. Go to **https://cloud.laravel.com/** and open the app **`kolabing-v2`**.
+2. Select the environment named **`master`** (this is production).
+3. Open **Environment variables**. **Add or update** each of these keys with the values from Tasks 1–2:
+
+   | Key | Value |
+   |---|---|
+   | `STRIPE_SECRET_KEY` | the `sk_test_…` from Task 1b |
+   | `STRIPE_WEBHOOK_SECRET` | the `whsec_…` from Task 1c |
+   | `STRIPE_MONTHLY_PRICE_ID` | the `price_…` from Task 1a (monthly) |
+   | `STRIPE_THREE_MONTHS_PRICE_ID` | the `price_…` from Task 1a (3-month) |
+   | `GOOGLE_CLIENT_ID_WEB` | the `…apps.googleusercontent.com` from Task 2 |
+
+4. Save, then **Deploy / redeploy** the `master` environment so the new variables take effect (there's a
+   Deploy button; a redeploy of the current version is fine).
+
+Notes / don't-touch:
+- Do **not** change the existing iOS/Android Google keys or any other variable.
+- You do **not** need to set `STRIPE_ALLOWED_RETURN_HOSTS` — the app already allows `app.kolabing.com`.
 
 ---
 
-## Task 5 — Verify the round-trip (test mode)
-1. `https://app.kolabing.com` loads over HTTPS (valid cert).
-2. `https://app.kolabing.com/api/v1/cities` returns JSON (API reachable on the subdomain).
-3. Google web sign-in: from the web login page, "Sign in with Google" returns a token and
-   `POST /api/v1/auth/google` logs in (no "invalid client" — confirms `GOOGLE_CLIENT_ID_WEB`).
-4. Checkout: as a business user, start checkout → pay with Stripe test card `4242 4242 4242 4242` →
-   Stripe fires `checkout.session.completed` → the webhook activates the subscription
-   (`business_subscriptions` row `source=stripe`, `status=active`). Confirm in-app the paywall is lifted.
-5. Manage: `POST /api/v1/me/subscription/portal` returns a `portal_url`; opening it shows the Stripe
-   portal; cancelling there fires `customer.subscription.updated/deleted` and the sub reflects it.
+## Task 4 — Point `app.kolabing.com` at Laravel Cloud
 
-## Task 6 — Go live
-Repeat Tasks 1–3 in **Stripe live mode** (new `sk_live_…`, `whsec_…`, live Price IDs, live webhook
-endpoint + activate the live billing portal), update the Laravel Cloud `master` env vars to the live
-values, and redeploy. The Google OAuth client and DNS are the same for test/live.
+1. In **Laravel Cloud** → app `kolabing-v2` → environment **`master`** → **Domains** → **Add domain**:
+   enter **`app.kolabing.com`**. Laravel Cloud will display a **DNS target** to point at (usually a
+   `CNAME` target ending in `.laravel.cloud`) and will issue an HTTPS certificate automatically once DNS
+   resolves. **Copy that target value.**
+2. Go to the **DNS provider that manages `kolabing.com`** (likely **Cloudflare**, or the domain registrar).
+   Add a record:
+   - **Type:** `CNAME`  ·  **Name/Host:** `app`  ·  **Value/Target:** the target from step 1.
+   - **If Cloudflare:** set the record to **DNS only (grey cloud, not orange/proxied)** at first, so
+     Laravel Cloud can validate and issue the certificate. You can switch it to proxied afterward.
+3. Wait for DNS to propagate (minutes to ~an hour). Return to Laravel Cloud and confirm the domain shows
+   **Active** with a valid **TLS/SSL** certificate.
 
 ---
 
-### Values the aside agent must report back (names only — NOT the secret values)
-Confirm each was set: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_MONTHLY_PRICE_ID`,
-`STRIPE_THREE_MONTHS_PRICE_ID`, `GOOGLE_CLIENT_ID_WEB`; the webhook endpoint URL; the billing portal
-= activated; `app.kolabing.com` = Active + TLS; and the Task 5 checks = pass/fail.
+## Task 5 — Verify it works (still in Stripe test mode)
+
+1. Open **`https://app.kolabing.com`** in a browser — it should load over HTTPS with no certificate warning.
+2. Open **`https://app.kolabing.com/api/v1/cities`** — it should return **JSON** (proves the API is reachable
+   on the subdomain).
+3. On **`https://app.kolabing.com/login`**, the **"Sign in with Google"** button should appear and let you
+   sign in (this proves `GOOGLE_CLIENT_ID_WEB` is correct). *If the button is absent, the Google env var
+   isn't set/deployed yet.*
+4. **Payment round-trip:** sign up / log in as a **business** account, go to the subscription page, click
+   **Subscribe**. On Stripe's checkout page use the **test card `4242 4242 4242 4242`**, any future expiry,
+   any CVC and postal code. After paying you should land back on the app's "you're subscribed" page, and the
+   account should now show an **active** subscription. *(Behind the scenes Stripe called the webhook from
+   Task 1c to switch it on.)*
+5. On the subscription page, **Manage** should open the Stripe **Billing Portal**; cancelling there should
+   flip the subscription off in the app shortly after.
+
+If step 4 doesn't activate the subscription, re-check the webhook (Task 1c): the URL is exactly
+`https://app.kolabing.com/api/v1/webhooks/stripe`, the three events are selected, and
+`STRIPE_WEBHOOK_SECRET` in Laravel Cloud matches that endpoint's signing secret.
+
+---
+
+## Task 6 — Go live (real payments)
+
+Once test mode passes end-to-end, switch **Stripe to Live mode** (toggle top-right) and **repeat Tasks 1a–1c**
+there: the live products/prices give **new** `price_…` IDs, the live secret key is `sk_live_…`, and you must
+create the **live** webhook endpoint (same URL + same 3 events) for a new `whsec_…`. Also **activate the
+Billing Portal in live mode** (Task 1d). Then update the same five Laravel Cloud env vars (Task 3) with the
+**live** values and redeploy. Google (Task 2) and DNS (Task 4) are the same for test and live — no change.
+
+---
+
+## What to report back (names only — never the secret values)
+- ✅/❌ each set in Laravel Cloud: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_MONTHLY_PRICE_ID`,
+  `STRIPE_THREE_MONTHS_PRICE_ID`, `GOOGLE_CLIENT_ID_WEB`.
+- The webhook endpoint URL you created, and that the 3 events are attached.
+- Billing Portal = activated (test / live).
+- `app.kolabing.com` = Active with valid TLS in Laravel Cloud.
+- Task 5 checks 1–5 = pass/fail (note which failed).
+- Whether you completed **test mode only**, or **also went live** (Task 6).
