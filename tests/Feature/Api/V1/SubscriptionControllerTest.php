@@ -86,31 +86,17 @@ class SubscriptionControllerTest extends TestCase
             ]);
     }
 
-    public function test_legacy_stripe_subscription_endpoints_are_removed(): void
+    public function test_unbuilt_stripe_management_endpoints_are_absent(): void
     {
         $profile = Profile::factory()->business()->create();
         BusinessProfile::factory()->create(['profile_id' => $profile->id]);
 
-        $this->actingAs($profile)
-            ->postJson('/api/v1/me/subscription/checkout', [
-                'success_url' => 'https://example.com/success',
-                'cancel_url' => 'https://example.com/cancel',
-            ])
-            ->assertStatus(404);
-
-        $this->actingAs($profile)
-            ->getJson('/api/v1/me/subscription/portal')
-            ->assertStatus(404);
-
-        $this->actingAs($profile)
-            ->postJson('/api/v1/me/subscription/cancel')
-            ->assertStatus(404);
-
-        $this->actingAs($profile)
-            ->postJson('/api/v1/me/subscription/reactivate')
-            ->assertStatus(404);
-
-        $this->postJson('/api/v1/webhooks/stripe')
-            ->assertStatus(404);
+        // Checkout (POST /me/subscription/checkout), the webhook (POST /webhooks/stripe)
+        // and the billing portal (POST /me/subscription/portal) now exist — see
+        // StripeCheckoutTest / BillingPortalTest. The legacy cancel and reactivate
+        // endpoints are intentionally NOT implemented (cancellation is handled inside
+        // the Stripe Billing Portal / the App Store, not via a bespoke API route).
+        $this->actingAs($profile)->postJson('/api/v1/me/subscription/cancel')->assertStatus(404);
+        $this->actingAs($profile)->postJson('/api/v1/me/subscription/reactivate')->assertStatus(404);
     }
 }
