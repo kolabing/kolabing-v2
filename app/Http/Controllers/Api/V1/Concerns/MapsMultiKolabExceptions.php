@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1\Concerns;
 
 use App\Exceptions\DuplicateRoleApplicationException;
 use App\Exceptions\EventCreatorEntitlementRequiredException;
+use App\Exceptions\MultiKolabApplicationRejectedException;
 use App\Exceptions\MultiKolabEventPublishValidationException;
 use App\Exceptions\RoleCapacityExceededException;
 use Illuminate\Http\JsonResponse;
@@ -54,6 +55,21 @@ trait MapsMultiKolabExceptions
             'message' => $e->getMessage(),
             'errors' => ['role' => ['role_capacity_exceeded']],
         ], 409);
+    }
+
+    /**
+     * Stable, machine-readable codes for the reachable role-application
+     * rejection paths (ineligibility, event/role not accepting applications,
+     * applying to your own event) — added in the Phase 5 hardening pass so
+     * Flutter never has to match on the localized message.
+     */
+    protected function applicationRejectedResponse(MultiKolabApplicationRejectedException $e): JsonResponse
+    {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+            'errors' => [$e->field() => [$e->code()]],
+        ], 422);
     }
 
     /**

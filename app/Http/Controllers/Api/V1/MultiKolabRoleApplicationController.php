@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Exceptions\DuplicateRoleApplicationException;
+use App\Exceptions\MultiKolabApplicationRejectedException;
 use App\Exceptions\RoleCapacityExceededException;
 use App\Http\Controllers\Api\V1\Concerns\MapsMultiKolabExceptions;
 use App\Http\Controllers\Controller;
@@ -82,6 +83,8 @@ class MultiKolabRoleApplicationController extends Controller
             $application = $this->applicationService->apply($role, $profile, $request->validated());
         } catch (DuplicateRoleApplicationException $e) {
             return $this->duplicateApplicationResponse($e);
+        } catch (MultiKolabApplicationRejectedException $e) {
+            return $this->applicationRejectedResponse($e);
         } catch (InvalidArgumentException $e) {
             return $this->invalidArgumentResponse($e);
         }

@@ -12,6 +12,7 @@ use App\Models\MultiKolabEvent;
 use App\Models\MultiKolabEventStatusEvent;
 use App\Models\MultiKolabRole;
 use App\Models\Profile;
+use App\Services\Concerns\RunsSideEffects;
 use App\Services\PostHog\PostHogService;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -26,6 +27,8 @@ use InvalidArgumentException;
  */
 class MultiKolabEventService
 {
+    use RunsSideEffects;
+
     /**
      * Terminal statuses no further mutation may leave.
      *
@@ -180,10 +183,15 @@ class MultiKolabEventService
         ]);
 
         $this->recordStatusEvent($event, MultiKolabEventStatus::Confirmed, $actor);
-        $this->notificationService->notifyMultiKolabEventConfirmed($event);
-        $this->postHog->capture($actor, 'event_confirmed', ['event_id' => $event->id]);
 
-        return $event->fresh();
+        $fresh = $event->fresh();
+        // Best-effort, post-commit — a notification/analytics failure must
+        // never turn this already-successful confirmation into an uncaught
+        // 500 (see RunsSideEffects).
+        $this->runSideEffect(fn () => $this->notificationService->notifyMultiKolabEventConfirmed($fresh));
+        $this->runSideEffect(fn () => $this->postHog->capture($actor, 'event_confirmed', ['event_id' => $event->id]));
+
+        return $fresh;
     }
 
     public function complete(MultiKolabEvent $event, Profile $actor): MultiKolabEvent
@@ -216,10 +224,12 @@ class MultiKolabEventService
 
         $this->recordStatusEvent($event, MultiKolabEventStatus::Cancelled, $actor, $reason);
         $this->notificationReminderService->cancelMultiKolabEventDraftReminder($event);
-        $this->notificationService->notifyMultiKolabEventCancelled($event, $reason);
-        $this->postHog->capture($actor, 'event_cancelled', ['event_id' => $event->id]);
 
-        return $event->fresh();
+        $fresh = $event->fresh();
+        $this->runSideEffect(fn () => $this->notificationService->notifyMultiKolabEventCancelled($fresh, $reason));
+        $this->runSideEffect(fn () => $this->postHog->capture($actor, 'event_cancelled', ['event_id' => $event->id]));
+
+        return $fresh;
     }
 
     /**

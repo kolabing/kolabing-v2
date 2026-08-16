@@ -351,6 +351,12 @@ Capacity conflict (role already filled by a concurrent accept):
 | Role capacity exceeded | 409 | `role` → `["role_capacity_exceeded"]` |
 | Invalid lifecycle transition | 422 | `status` → `["invalid_transition"]` |
 | Role removal with accepted application | 422 | `role` → `["role_has_accepted_application"]` |
+| Applicant account type ineligible for the role | 422 | `role` → `["role_ineligible"]` |
+| Event not accepting applications (not `recruiting`) | 422 | `event` → `["event_not_recruiting"]` |
+| Role not accepting applications (not `open`) | 422 | `role` → `["role_not_open"]` |
+| Applying to your own event | 422 | `application` → `["cannot_apply_to_own_event"]` (defense-in-depth only — the `create` policy already returns `403 not_owner` for this case before the service is reached; see §10 above) |
+
+**Added in the Phase 5 hardening pass (2026-08 backend hardening turn):** these four codes were genuinely missing — `POST /multi-kolab-roles/{role}/applications` could already reach `role_ineligible`, `event_not_recruiting`, and `role_not_open` in production, but the response fell back to a generic `errors: {base: ["<message>"]}` shape with no stable code, forcing a client to match on the localized message. Thrown as a typed `App\Exceptions\MultiKolabApplicationRejectedException` (carries both `code()` and `field()`), mapped by `MapsMultiKolabExceptions::applicationRejectedResponse()`.
 
 ## 11. Canonical acceptance path this feature reuses (traced, Task 1)
 

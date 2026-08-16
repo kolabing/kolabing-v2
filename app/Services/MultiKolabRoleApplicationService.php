@@ -13,6 +13,7 @@ use App\Enums\MultiKolabEventStatus;
 use App\Enums\MultiKolabRoleApplicationStatus;
 use App\Enums\MultiKolabRoleStatus;
 use App\Exceptions\DuplicateRoleApplicationException;
+use App\Exceptions\MultiKolabApplicationRejectedException;
 use App\Exceptions\RoleCapacityExceededException;
 use App\Models\Application;
 use App\Models\Collaboration;
@@ -20,6 +21,7 @@ use App\Models\Kolab;
 use App\Models\MultiKolabRole;
 use App\Models\MultiKolabRoleApplication;
 use App\Models\Profile;
+use App\Services\Concerns\RunsSideEffects;
 use App\Services\PostHog\PostHogService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -33,6 +35,8 @@ use InvalidArgumentException;
  */
 class MultiKolabRoleApplicationService
 {
+    use RunsSideEffects;
+
     public function __construct(
         private readonly NotificationService $notificationService,
         private readonly PostHogService $postHog,
@@ -54,11 +58,11 @@ class MultiKolabRoleApplicationService
             'availability' => $data['availability'] ?? null,
         ]);
 
-        $this->notificationService->notifyMultiKolabApplicationReceived($application);
-        $this->postHog->capture($applicant, 'role_application_submitted', [
+        $this->runSideEffect(fn () => $this->notificationService->notifyMultiKolabApplicationReceived($application));
+        $this->runSideEffect(fn () => $this->postHog->capture($applicant, 'role_application_submitted', [
             'role_id' => $role->id,
             'application_id' => $application->id,
-        ]);
+        ]));
 
         return $application;
     }
@@ -74,12 +78,13 @@ class MultiKolabRoleApplicationService
         }
 
         $application->update(['status' => MultiKolabRoleApplicationStatus::Shortlisted]);
+        $application = $application->fresh();
 
-        $this->postHog->capture($actor, 'applicant_shortlisted', [
+        $this->runSideEffect(fn () => $this->postHog->capture($actor, 'applicant_shortlisted', [
             'application_id' => $application->id,
-        ]);
+        ]));
 
-        return $application->fresh();
+        return $application;
     }
 
     public function decline(MultiKolabRoleApplication $application, Profile $actor): MultiKolabRoleApplication
@@ -99,10 +104,11 @@ class MultiKolabRoleApplicationService
             'status' => MultiKolabRoleApplicationStatus::Declined,
             'declined_at' => now(),
         ]);
+        $application = $application->fresh();
 
-        $this->notificationService->notifyMultiKolabApplicantDeclined($application->fresh());
+        $this->runSideEffect(fn () => $this->notificationService->notifyMultiKolabApplicantDeclined($application));
 
-        return $application->fresh();
+        return $application;
     }
 
     /**
@@ -131,13 +137,19 @@ class MultiKolabRoleApplicationService
             return $application->kolab()->firstOrFail();
         }
 
-        return DB::transaction(function () use ($application, $actor): Kolab {
+        // The transaction contains ONLY critical, atomic domain/database
+        // work, and returns enough information for the caller to determine
+        // the resulting entity, whether a real state transition occurred,
+        // and which side effects (if any) to attempt. Notifications/analytics
+        // are deliberately NOT called in here — see the post-commit block
+        // below and RunsSideEffects.
+        $outcome = DB::transaction(function () use ($application, $actor): array {
             $lockedApplication = MultiKolabRoleApplication::query()
                 ->lockForUpdate()
                 ->findOrFail($application->id);
 
             if ($this->isAlreadyAccepted($lockedApplication)) {
-                return $lockedApplication->kolab()->firstOrFail();
+                return ['newly_accepted' => false, 'kolab' => $lockedApplication->kolab()->firstOrFail()];
             }
 
             if (! in_array($lockedApplication->status, [
@@ -214,22 +226,40 @@ class MultiKolabRoleApplicationService
                 'kolab_id' => $kolab->id,
             ]);
 
-            // Only reached on a genuine new acceptance (both early-return
-            // idempotency checks above skip this entire closure on retry),
-            // so these fire exactly once per real acceptance.
-            $this->notificationService->notifyMultiKolabApplicantAccepted($lockedApplication->fresh());
-            $this->postHog->capture($applicant, 'applicant_accepted', [
-                'application_id' => $lockedApplication->id,
-                'kolab_id' => $kolab->id,
-            ]);
-
-            if ($newPositionsFilled >= $role->positions_needed) {
-                $this->notificationService->notifyMultiKolabRoleFilled($role->fresh());
-                $this->postHog->capture($organizer, 'role_filled', ['role_id' => $role->id]);
-            }
-
-            return $kolab->fresh();
+            return [
+                'newly_accepted' => true,
+                'kolab' => $kolab->fresh(),
+                'application' => $lockedApplication->fresh(),
+                'role' => $role->fresh(),
+                'organizer' => $organizer,
+                'applicant' => $applicant,
+                'role_became_filled' => $newPositionsFilled >= $role->positions_needed,
+            ];
         });
+
+        if (! $outcome['newly_accepted']) {
+            // Idempotent replay (lost the race to a concurrent accept, or a
+            // retry of an already-accepted application) — no new state was
+            // committed, so no side effect fires again.
+            return $outcome['kolab'];
+        }
+
+        // Post-commit, best-effort side effects. Each is isolated in its own
+        // try/catch (via runSideEffect) so one failure never prevents the
+        // others from being attempted, and none of them can roll back or
+        // invalidate the domain state already committed above.
+        $this->runSideEffect(fn () => $this->notificationService->notifyMultiKolabApplicantAccepted($outcome['application']));
+        $this->runSideEffect(fn () => $this->postHog->capture($outcome['applicant'], 'applicant_accepted', [
+            'application_id' => $outcome['application']->id,
+            'kolab_id' => $outcome['kolab']->id,
+        ]));
+
+        if ($outcome['role_became_filled']) {
+            $this->runSideEffect(fn () => $this->notificationService->notifyMultiKolabRoleFilled($outcome['role']));
+            $this->runSideEffect(fn () => $this->postHog->capture($outcome['organizer'], 'role_filled', ['role_id' => $outcome['role']->id]));
+        }
+
+        return $outcome['kolab'];
     }
 
     private function isAlreadyAccepted(MultiKolabRoleApplication $application): bool
@@ -273,7 +303,7 @@ class MultiKolabRoleApplicationService
             );
         }
 
-        return DB::transaction(function () use ($application, $reason, $wasAccepted): MultiKolabRoleApplication {
+        $outcome = DB::transaction(function () use ($application, $reason, $wasAccepted): array {
             $application->update([
                 'status' => MultiKolabRoleApplicationStatus::Withdrawn,
                 'withdrawn_at' => now(),
@@ -286,15 +316,20 @@ class MultiKolabRoleApplicationService
                     'positions_filled' => max(0, $role->positions_filled - 1),
                     'status' => MultiKolabRoleStatus::Open,
                 ]);
-
-                $this->notificationService->notifyMultiKolabPartnerWithdrew($application->fresh());
-                $this->postHog->capture($application->applicantProfile, 'partner_withdrew', [
-                    'application_id' => $application->id,
-                ]);
             }
 
-            return $application->fresh();
+            return ['application' => $application->fresh(['applicantProfile']), 'was_accepted' => $wasAccepted];
         });
+
+        if ($outcome['was_accepted']) {
+            $freshApplication = $outcome['application'];
+            $this->runSideEffect(fn () => $this->notificationService->notifyMultiKolabPartnerWithdrew($freshApplication));
+            $this->runSideEffect(fn () => $this->postHog->capture($freshApplication->applicantProfile, 'partner_withdrew', [
+                'application_id' => $freshApplication->id,
+            ]));
+        }
+
+        return $outcome['application'];
     }
 
     /**
@@ -312,24 +347,33 @@ class MultiKolabRoleApplicationService
         }
 
         if ($applicant->id === $event->creator_profile_id) {
-            throw new InvalidArgumentException('You cannot apply to your own event.');
+            throw new MultiKolabApplicationRejectedException(
+                'You cannot apply to your own event.',
+                'cannot_apply_to_own_event',
+            );
         }
 
         if ($event->status !== MultiKolabEventStatus::Recruiting) {
-            throw new InvalidArgumentException(
-                "This event is not accepting applications. Status: {$event->status->value}."
+            throw new MultiKolabApplicationRejectedException(
+                "This event is not accepting applications. Status: {$event->status->value}.",
+                'event_not_recruiting',
+                'event',
             );
         }
 
         if ($role->status !== MultiKolabRoleStatus::Open) {
-            throw new InvalidArgumentException(
-                "This role is not accepting applications. Status: {$role->status->value}."
+            throw new MultiKolabApplicationRejectedException(
+                "This role is not accepting applications. Status: {$role->status->value}.",
+                'role_not_open',
+                'role',
             );
         }
 
         if (! $this->isEligible($role, $applicant)) {
-            throw new InvalidArgumentException(
-                'Your account type is not eligible to apply to this role.'
+            throw new MultiKolabApplicationRejectedException(
+                'Your account type is not eligible to apply to this role.',
+                'role_ineligible',
+                'role',
             );
         }
 

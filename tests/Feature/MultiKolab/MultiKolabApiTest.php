@@ -363,6 +363,50 @@ class MultiKolabApiTest extends TestCase
             ->assertJsonPath('errors.application.0', 'duplicate_application');
     }
 
+    public function test_ineligible_applicant_returns_stable_error_code(): void
+    {
+        $creator = Profile::factory()->business()->create();
+        $event = MultiKolabEvent::factory()->recruiting()->for($creator, 'creatorProfile')->create();
+        $role = MultiKolabRole::factory()->for($event, 'event')->create(['eligible_account_type' => 'business']);
+        $applicant = Profile::factory()->community()->create();
+
+        $this->actingAs($applicant)
+            ->postJson("/api/v1/multi-kolab-roles/{$role->id}/applications", ['pitch' => 'Pitch'])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('errors.role.0', 'role_ineligible');
+    }
+
+    public function test_applying_to_a_non_recruiting_event_returns_stable_error_code(): void
+    {
+        $creator = Profile::factory()->business()->create();
+        $event = MultiKolabEvent::factory()->for($creator, 'creatorProfile')->create(); // draft
+        $role = MultiKolabRole::factory()->for($event, 'event')->create(['eligible_account_type' => 'either']);
+        $applicant = Profile::factory()->community()->create();
+
+        $this->actingAs($applicant)
+            ->postJson("/api/v1/multi-kolab-roles/{$role->id}/applications", ['pitch' => 'Pitch'])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('errors.event.0', 'event_not_recruiting');
+    }
+
+    public function test_applying_to_a_closed_role_returns_stable_error_code(): void
+    {
+        $creator = Profile::factory()->business()->create();
+        $event = MultiKolabEvent::factory()->recruiting()->for($creator, 'creatorProfile')->create();
+        $role = MultiKolabRole::factory()->for($event, 'event')->create([
+            'eligible_account_type' => 'either', 'status' => 'closed',
+        ]);
+        $applicant = Profile::factory()->community()->create();
+
+        $this->actingAs($applicant)
+            ->postJson("/api/v1/multi-kolab-roles/{$role->id}/applications", ['pitch' => 'Pitch'])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('errors.role.0', 'role_not_open');
+    }
+
     public function test_only_organizer_can_list_a_roles_applications(): void
     {
         $creator = Profile::factory()->business()->create();
