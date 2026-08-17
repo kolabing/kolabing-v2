@@ -36,6 +36,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Marketing site
+    |--------------------------------------------------------------------------
+    | Where a logged-out visitor belongs. Signing out is leaving the product, so
+    | it returns people to the public site rather than the app host's own hero.
+    | Defaults to APP_URL, which already points at the marketing domain.
+    */
+    'marketing_url' => env('MARKETING_URL', env('APP_URL', 'https://kolabing.com')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Locales (SEO-friendly, URL-prefixed)
     |--------------------------------------------------------------------------
     | `default` is served at the root ("/login"); the others under a path prefix

@@ -4,8 +4,7 @@
 
 {{-- ── Detail modal ──────────────────────────────────────────────────── --}}
 <div x-show="dk || detailLoading" x-cloak @click="closeDetail()"
-     class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8"
-     style="background: rgba(13,17,20,.62); backdrop-filter: blur(3px);">
+     class="kb-overlay fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8">
     <div @click.stop
          class="bg-white rounded-[22px] w-full max-w-[560px] max-h-[86vh] flex flex-col overflow-hidden kb-fade-up-fast">
 
@@ -24,8 +23,8 @@
                         <p class="text-xl font-bold text-ink" x-text="dkName"></p>
                         <span class="inline-block mt-1.5 px-2.5 py-[3px] rounded-pill bg-cream-input text-[11px] font-semibold text-body" x-text="dkTypeLabel"></span>
                     </div>
-                    <button type="button" @click="closeDetail()" class="w-9 h-9 rounded-full bg-cream-low hover:bg-[#ECE8DF] transition flex items-center justify-center shrink-0" aria-label="{{ __('webapp.common.close') }}">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3F3A32" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    <button type="button" @click="closeDetail()" class="w-9 h-9 rounded-full bg-cream-low hover:bg-cream-low-hover transition flex items-center justify-center shrink-0" aria-label="{{ __('webapp.common.close') }}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                     </button>
                 </div>
 
@@ -38,7 +37,7 @@
                     <div class="mt-5 bg-primary-tint border border-primary rounded-2xl p-4">
                         <p class="text-[11px] font-bold tracking-[1px] uppercase text-amber" x-text="dkOfferHead"></p>
                         <div class="flex gap-2 items-start mt-2">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 mt-0.5"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><path d="M7 7h.01"/></svg>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 mt-0.5"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><path d="M7 7h.01"/></svg>
                             <p class="text-sm font-semibold text-ink leading-snug" x-text="dkOffer"></p>
                         </div>
                     </div>
@@ -47,19 +46,19 @@
                 <div class="mt-5 flex flex-col gap-3">
                     <template x-if="dkCityLine">
                         <div class="flex items-center gap-2.5 text-[13.5px] text-body">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" class="shrink-0"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                             <span x-text="dkCityLine"></span>
                         </div>
                     </template>
                     <template x-if="dkWindow">
                         <div class="flex items-center gap-2.5 text-[13.5px] text-body">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
                             <span x-text="dkWindow"></span>
                         </div>
                     </template>
                     <template x-if="dkGroup">
                         <div class="flex items-center gap-2.5 text-[13.5px] text-body">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                             <span x-text="dkGroup"></span>
                         </div>
                     </template>
@@ -71,7 +70,7 @@
                         <div class="flex gap-[7px] mt-2.5 flex-wrap">
                             <template x-for="dd in dkDayCells" :key="dd.l">
                                 <div class="w-[38px] h-[38px] rounded-full flex items-center justify-center text-[11.5px] font-bold border"
-                                     :class="dd.on ? 'bg-ink text-white border-ink' : 'bg-white text-[#C9C2B4] border-ink/[.12]'"
+                                     :class="dd.on ? 'bg-ink text-white border-ink' : 'bg-white text-faint border-ink/[.12]'"
                                      x-text="dd.l"></div>
                             </template>
                         </div>
@@ -90,7 +89,7 @@
                 </template>
 
                 <template x-if="detailError">
-                    <div class="mt-4 rounded-2xl bg-[#F8D7DA] text-[#721C24] text-sm px-4 py-3 whitespace-pre-line" x-text="detailError"></div>
+                    <div class="mt-4 rounded-2xl bg-bad-surface text-bad-ink text-sm px-4 py-3 whitespace-pre-line" x-text="detailError"></div>
                 </template>
             </div>
         </template>
@@ -125,7 +124,7 @@
                        x-text="dkCta.label"></a>
                 </template>
                 <template x-if="dkCta.kind === 'done'">
-                    <div class="flex-1 h-[50px] rounded-pill bg-[#D4EDDA] text-[#155724] text-[15px] font-bold flex items-center justify-center" x-text="dkCta.label"></div>
+                    <div class="flex-1 h-[50px] rounded-pill bg-ok-surface text-ok-ink text-[15px] font-bold flex items-center justify-center" x-text="dkCta.label"></div>
                 </template>
             </div>
         </template>
@@ -134,8 +133,7 @@
 
 {{-- ── Apply modal ───────────────────────────────────────────────────── --}}
 <div x-show="applyOpen" x-cloak @click="applyOpen = false"
-     class="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-8"
-     style="background: rgba(13,17,20,.62); backdrop-filter: blur(3px);">
+     class="kb-overlay fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-8">
     <div @click.stop class="bg-white rounded-[22px] w-full max-w-[520px] max-h-[88vh] flex flex-col overflow-hidden kb-fade-up-fast">
         <div class="flex-1 overflow-y-auto kb-scroll px-7 pt-[26px] pb-[18px]">
             <div class="flex items-start justify-between gap-3">
@@ -143,13 +141,13 @@
                     <p class="text-[19px] font-bold text-ink" x-text="applyCtaTitle"></p>
                     <p class="text-[13px] text-muted mt-[3px] truncate" x-text="dkName + ' · ' + (dk?.title || '')"></p>
                 </div>
-                <button type="button" @click="applyOpen = false" class="w-9 h-9 rounded-full bg-cream-low hover:bg-[#ECE8DF] transition flex items-center justify-center shrink-0" aria-label="{{ __('webapp.common.close') }}">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3F3A32" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                <button type="button" @click="applyOpen = false" class="w-9 h-9 rounded-full bg-cream-low hover:bg-cream-low-hover transition flex items-center justify-center shrink-0" aria-label="{{ __('webapp.common.close') }}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                 </button>
             </div>
 
             <template x-if="applyErr">
-                <div class="mt-4 rounded-2xl bg-[#F8D7DA] text-[#721C24] text-sm px-4 py-3 whitespace-pre-line" x-text="applyErr"></div>
+                <div class="mt-4 rounded-2xl bg-bad-surface text-bad-ink text-sm px-4 py-3 whitespace-pre-line" x-text="applyErr"></div>
             </template>
 
             <div style="margin-top:22px;">
@@ -205,10 +203,9 @@
 
 {{-- ── Success sheet ─────────────────────────────────────────────────── --}}
 <div x-show="applySuccess" x-cloak
-     class="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-8"
-     style="background: rgba(13,17,20,.62); backdrop-filter: blur(3px);">
+     class="kb-overlay fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-8">
     <div class="bg-white rounded-[22px] w-full max-w-[400px] px-8 py-9 text-center kb-fade-up-fast">
-        <div class="w-16 h-16 rounded-full bg-[#56624D] mx-auto flex items-center justify-center">
+        <div class="w-16 h-16 rounded-full bg-success-solid mx-auto flex items-center justify-center">
             <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
         </div>
         <p class="text-xl font-bold text-ink mt-[18px]">{{ __('webapp.detail.sent_title') }}</p>

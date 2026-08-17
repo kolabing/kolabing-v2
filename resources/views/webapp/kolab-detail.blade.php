@@ -11,7 +11,7 @@
     <div class="max-w-[880px] mx-auto px-5 md:px-10 py-8 md:py-10">
         <h1 class="font-anton text-[28px] tracking-[1px] text-ink">{{ __('webapp.intent.kolab') }}</h1>
         <template x-if="pageError">
-            <div class="mt-5 rounded-2xl bg-[#F8D7DA] text-[#721C24] text-sm px-4 py-3 whitespace-pre-line" x-text="pageError"></div>
+            <div class="mt-5 rounded-2xl bg-bad-surface text-bad-ink text-sm px-4 py-3 whitespace-pre-line" x-text="pageError"></div>
         </template>
         <template x-if="!pageError">
             <p class="mt-4 text-sm text-muted">{{ __('webapp.common.loading') }}</p>

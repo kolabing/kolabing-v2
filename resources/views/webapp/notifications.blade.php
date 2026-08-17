@@ -15,7 +15,7 @@
         </div>
 
         <template x-if="error">
-            <div class="mt-5 rounded-2xl bg-[#F8D7DA] text-[#721C24] text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
+            <div class="mt-5 rounded-2xl bg-bad-surface text-bad-ink text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
         </template>
         <template x-if="loading">
             <p class="mt-8 text-muted">{{ __('webapp.common.loading') }}</p>
@@ -39,7 +39,7 @@
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
                         <span class="text-[11px] text-muted" x-text="ago(nt.created_at)"></span>
-                        <span x-show="!nt.is_read" x-cloak class="w-2 h-2 rounded-full bg-[#FF6114]"></span>
+                        <span x-show="!nt.is_read" x-cloak class="w-2 h-2 rounded-full bg-accent"></span>
                     </div>
                 </div>
             </template>

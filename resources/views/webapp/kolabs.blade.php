@@ -25,7 +25,7 @@
         </div>
 
         <template x-if="error">
-            <div class="mt-5 rounded-2xl bg-[#F8D7DA] text-[#721C24] text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
+            <div class="mt-5 rounded-2xl bg-bad-surface text-bad-ink text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
         </template>
         <template x-if="loading">
             <p class="mt-8 text-muted">{{ __('webapp.common.loading') }}</p>
@@ -58,7 +58,7 @@
                                 <a :href="kbPath('/kolabs/' + of.id + '/edit')"
                                    class="h-[38px] px-[18px] rounded-pill bg-white border border-line text-ink text-[13px] font-bold hover:border-ink transition flex items-center">{{ __('webapp.common.edit') }}</a>
                                 <button type="button" @click="destroy(of)" :disabled="busy"
-                                        class="h-[38px] px-3 rounded-pill text-danger text-[13px] font-bold hover:bg-[#F8D7DA] transition">{{ __('webapp.common.delete') }}</button>
+                                        class="h-[38px] px-3 rounded-pill text-danger text-[13px] font-bold hover:bg-bad-surface transition">{{ __('webapp.common.delete') }}</button>
                             </div>
                         </div>
                     </div>
@@ -155,7 +155,7 @@
                             </template>
 
                             <template x-if="rq.status === 'accepted'">
-                                <p class="mt-2 text-[12px] text-[#155724]">{{ __('webapp.applications.accepted_note') }}</p>
+                                <p class="mt-2 text-[12px] text-ok-ink">{{ __('webapp.applications.accepted_note') }}</p>
                             </template>
                         </div>
                     </template>

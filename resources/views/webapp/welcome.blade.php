@@ -4,7 +4,7 @@
 @section('body')
 <div x-data="welcomePage()" x-init="init()" class="min-h-screen bg-cream-alt flex flex-col items-center justify-center px-6 py-12 text-center">
     <div class="w-full max-w-[440px]">
-        <div class="w-16 h-16 rounded-full bg-[#56624D] mx-auto flex items-center justify-center">
+        <div class="w-16 h-16 rounded-full bg-success-solid mx-auto flex items-center justify-center">
             <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
         </div>
         <h1 class="font-anton text-[30px] text-ink mt-5" x-text="heading">{{ __('webapp.welcome.default_heading') }}</h1>

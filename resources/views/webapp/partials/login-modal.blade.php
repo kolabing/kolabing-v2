@@ -5,8 +5,7 @@
        x-data="kbMerge(kbLoginModal(), somePage())" --}}
 
 <div x-show="loginOpen" x-cloak @click="closeLogin()" @keydown.escape.window="closeLogin()"
-     class="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-8"
-     style="background: rgba(13,17,20,.62); backdrop-filter: blur(3px);"
+     class="kb-overlay fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-8"
      role="dialog" aria-modal="true" aria-label="{{ __('webapp.login.heading') }}">
     <div @click.stop
          class="bg-white rounded-[22px] w-full max-w-[420px] max-h-[92vh] overflow-y-auto kb-scroll px-7 py-8 kb-fade-up-fast">
@@ -14,9 +13,9 @@
         <div class="flex items-start justify-between gap-3">
             <img src="/webapp-assets/wordmark-light.png" alt="Kolabing" class="w-[124px]">
             <button type="button" @click="closeLogin()"
-                    class="w-9 h-9 rounded-full bg-cream-low hover:bg-[#ECE8DF] transition flex items-center justify-center shrink-0"
+                    class="w-9 h-9 rounded-full bg-cream-low hover:bg-cream-low-hover transition flex items-center justify-center shrink-0"
                     aria-label="{{ __('webapp.common.close') }}">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3F3A32" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
         </div>
 
@@ -24,7 +23,7 @@
         <p class="text-sm text-body mt-1">{{ __('webapp.login.subtitle') }}</p>
 
         <template x-if="loginError">
-            <div class="mt-4 rounded-2xl bg-[#F8D7DA] text-[#721C24] text-sm px-4 py-3 whitespace-pre-line" x-text="loginError"></div>
+            <div class="mt-4 rounded-2xl bg-bad-surface text-bad-ink text-sm px-4 py-3 whitespace-pre-line" x-text="loginError"></div>
         </template>
 
         <form @submit.prevent="submitLogin()" class="flex flex-col gap-3.5 mt-5">
