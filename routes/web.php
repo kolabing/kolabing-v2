@@ -28,6 +28,53 @@ use App\Http\Controllers\PasswordResetPageController;
 use App\Models\BlogPost;
 use Illuminate\Support\Facades\Route;
 
+/*
+|--------------------------------------------------------------------------
+| Kolabing Web App (app.kolabing.com)
+|--------------------------------------------------------------------------
+| Server-rendered Blade shells; Alpine + the inline API client (in the webapp
+| layout) drive auth + all data via the same-origin /api/v1. Registered BEFORE
+| the marketing routes so the app host wins at "/"; on any other host these do
+| not match and the marketing site below is served instead.
+|
+| Localised for SEO/GEO: the same page set is registered at the root (default
+| locale, en) AND under an /es and /ca prefix. `SetWebappLocale` reads the
+| {locale} prefix; the layout emits hreflang alternates. No route names (all
+| in-app links are literal, locale-prefixed client-side). Config: config/webapp.php.
+*/
+$webappRoutes = function (): void {
+    Route::view('/', 'webapp.index');
+    Route::view('/login', 'webapp.login');
+    Route::view('/register', 'webapp.register');
+    Route::view('/dashboard', 'webapp.dashboard');
+    Route::view('/subscription', 'webapp.subscription');
+    // Stripe sends the buyer back here with ?session_id=…; the page confirms the
+    // purchase against the API instead of trusting the redirect.
+    Route::view('/subscription/success', 'webapp.subscription-success');
+    Route::view('/welcome', 'webapp.welcome');
+    Route::view('/feed', 'webapp.feed');
+    Route::view('/notifications', 'webapp.notifications');
+    // Kolabs — order matters: literal + edit before the {kolab} catch-all.
+    Route::view('/kolabs', 'webapp.kolabs');
+    Route::view('/kolabs/create', 'webapp.kolab-form');
+    Route::view('/kolabs/{kolab}/edit', 'webapp.kolab-form');
+    Route::view('/kolabs/{kolab}', 'webapp.kolab-detail');
+    // The design folds applications into My Kolabs → Requests; this route keeps
+    // the standalone URL working by opening that same tab.
+    Route::view('/applications', 'webapp.kolabs', ['initialTab' => 'requests']);
+    Route::view('/account', 'webapp.account');
+};
+
+Route::domain(config('webapp.host'))
+    ->middleware(\App\Http\Middleware\SetWebappLocale::class)
+    ->group($webappRoutes);
+
+Route::domain(config('webapp.host'))
+    ->prefix('{locale}')
+    ->where(['locale' => 'es|ca'])
+    ->middleware(\App\Http\Middleware\SetWebappLocale::class)
+    ->group($webappRoutes);
+
 Route::get('/', function () {
     return view('welcome');
 })->name('home');
@@ -180,6 +227,8 @@ Route::post('/reset-password', [PasswordResetPageController::class, 'update'])->
 
 Route::view('/for-businesses', 'pages.for-businesses')->name('for-businesses');
 Route::view('/for-communities', 'pages.for-communities')->name('for-communities');
+Route::view('/pricing', 'pages.pricing')->name('pricing');
+Route::view('/es/pricing', 'pages.es.pricing')->name('pricing.es');
 Route::view('/support', 'pages.support')->name('support');
 Route::view('/careers', 'pages.careers')->name('careers');
 Route::view('/privacy', 'pages.privacy')->name('privacy');
@@ -195,6 +244,8 @@ Route::get('/sitemap.xml', function () {
         route('home'),
         route('for-businesses'),
         route('for-communities'),
+        route('pricing'),
+        route('pricing.es'),
         route('support'),
         route('careers'),
         route('privacy'),
@@ -224,6 +275,7 @@ Route::get('/llms.txt', function () {
         '- Home: '.route('home'),
         '- For businesses: '.route('for-businesses'),
         '- For communities: '.route('for-communities'),
+        '- Pricing: '.route('pricing'),
         '- Blog: '.route('blog.index'),
         '- Support: '.route('support'),
         '- Privacy: '.route('privacy'),

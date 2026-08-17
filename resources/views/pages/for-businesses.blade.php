@@ -27,5 +27,18 @@
             <h2 class="text-2xl font-bold">What businesses launch on Kolabing</h2>
             <p class="mt-4 max-w-3xl text-off-black/75">Coffee shops host running groups, studios partner with wellness communities, venues test new formats, and local brands create events that generate both user-generated content and real-world conversion. The best partnerships feel relevant to the neighborhood, easy to join, and valuable to both sides.</p>
         </div>
+
+        {{-- The visitor's role is already known here, so ?type=business skips the
+             register form's role-picker step. --}}
+        <div class="mt-12 rounded-[2rem] bg-off-black p-8 text-white md:flex md:items-center md:justify-between md:gap-10">
+            <div>
+                <h2 class="font-montserrat text-2xl font-black uppercase leading-tight md:text-3xl">Launch your first kolab this week</h2>
+                <p class="mt-3 max-w-xl text-white/70">Create your business account in the browser — no app needed. Post a kolab, read the applications that come in, and pick the communities you want to work with.</p>
+            </div>
+            <div class="mt-6 flex shrink-0 flex-col gap-3 md:mt-0">
+                <a href="{{ rtrim(config('webapp.url'), '/') }}/register?type=business" class="rounded-full bg-primary px-7 py-3 text-center font-bold text-off-black transition hover:bg-primary/90">Create your business account</a>
+                <a href="{{ rtrim(config('webapp.url'), '/') }}/login" class="text-center text-sm font-medium text-white/60 hover:text-white">Already have an account? Log in</a>
+            </div>
+        </div>
     </section>
 </x-layouts.marketing-page>

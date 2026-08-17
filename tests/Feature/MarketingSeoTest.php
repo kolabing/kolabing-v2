@@ -24,7 +24,9 @@ class MarketingSeoTest extends TestCase
         $response->assertSee('what&rsquo;s your business goal?', false);
         $response->assertSee('href="#how-it-works"', false);
         $response->assertSee('href="#faq"', false);
-        $response->assertSee('href="#cta"', false);
+        // The nav's third slot used to be a "download" anchor to #cta; it now sends
+        // visitors to the web app instead (see WebAppFunnelTest).
+        $response->assertSee('id="cta"', false);
         $response->assertSee('/brand/kolabing-logo.png', false);
         $response->assertSee('uploads/Screenshot 2026-05-16 at 22.47.19.png', false);
         $response->assertSee('uploads/Gemini_Generated_Image_j3ohygj3ohygj3oh.png', false);

@@ -11,6 +11,14 @@
     $ogImage = $image
         ? (str_starts_with($image, 'http') ? $image : url($image))
         : url('/social-preview.svg');
+
+    /**
+     * The web app is on another host, so its links are absolute rather than route()
+     * calls. Shared here so every page using this layout gets the same CTAs.
+     */
+    $webapp = rtrim(config('webapp.url'), '/');
+    $webappLogin = $webapp.'/login';
+    $webappRegister = $webapp.'/register';
 @endphp
 <!DOCTYPE html>
 <html lang="{{ $locale }}">
@@ -82,13 +90,19 @@
             <a href="{{ route('home') }}" class="flex items-center gap-3 text-off-black">
                 <img src="/brand/kolabing-logo.png" alt="Kolabing" width="2000" height="894" class="h-9 w-auto">
             </a>
-            <nav class="flex flex-wrap items-center gap-4 text-sm font-medium text-off-black/70">
+            {{-- Every marketing page funnels into the web app from here; the legal
+                 links stay in the DOM for crawlers but collapse on small screens so
+                 the two CTAs keep their weight. --}}
+            <nav class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium text-off-black/70">
                 <a href="{{ route('for-businesses') }}" class="hover:text-off-black">Businesses</a>
                 <a href="{{ route('for-communities') }}" class="hover:text-off-black">Communities</a>
+                <a href="{{ route('pricing') }}" class="hover:text-off-black">Pricing</a>
                 <a href="{{ route('blog.index') }}" class="hover:text-off-black">Blog</a>
-                <a href="{{ route('support') }}" class="hover:text-off-black">Support</a>
-                <a href="{{ route('privacy') }}" class="hover:text-off-black">Privacy</a>
-                <a href="{{ route('terms') }}" class="hover:text-off-black">Terms</a>
+                <a href="{{ route('support') }}" class="hidden hover:text-off-black md:inline">Support</a>
+                <a href="{{ route('privacy') }}" class="hidden hover:text-off-black md:inline">Privacy</a>
+                <a href="{{ route('terms') }}" class="hidden hover:text-off-black md:inline">Terms</a>
+                <a href="{{ $webappLogin }}" class="font-bold text-off-black hover:text-off-black/60">Log in</a>
+                <a href="{{ $webappRegister }}" class="rounded-full bg-off-black px-5 py-2 font-bold text-primary transition hover:bg-off-black/90">Get started</a>
             </nav>
         </div>
     </header>
@@ -104,6 +118,9 @@
                 <p class="mt-2 max-w-xl text-sm text-white/70">Kolabing helps local businesses and communities plan partnerships that turn events into foot traffic, member value, and repeat visits.</p>
             </div>
             <div class="flex flex-wrap gap-4 text-sm text-white/70">
+                <a href="{{ $webappRegister }}" class="font-bold text-primary hover:text-primary/80">Get started</a>
+                <a href="{{ $webappLogin }}" class="hover:text-primary">Log in</a>
+                <a href="{{ route('pricing') }}" class="hover:text-primary">Pricing</a>
                 <a href="{{ route('blog.index') }}" class="hover:text-primary">Blog</a>
                 <a href="{{ route('support') }}" class="hover:text-primary">Support</a>
                 <a href="mailto:support@kolabing.com" class="hover:text-primary">support@kolabing.com</a>

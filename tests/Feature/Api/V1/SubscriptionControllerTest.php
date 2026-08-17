@@ -86,31 +86,47 @@ class SubscriptionControllerTest extends TestCase
             ]);
     }
 
-    public function test_legacy_stripe_subscription_endpoints_are_removed(): void
+    public function test_unbuilt_stripe_management_endpoints_are_absent(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+
+        // Checkout (POST /me/subscription/checkout), the webhook (POST /webhooks/stripe)
+        // and the billing portal (POST /me/subscription/portal) now exist — see
+        // StripeCheckoutTest / BillingPortalTest. The legacy cancel and reactivate
+        // endpoints are intentionally NOT implemented (cancellation is handled inside
+        // the Stripe Billing Portal / the App Store, not via a bespoke API route).
+        $this->actingAs($profile)->postJson('/api/v1/me/subscription/cancel')->assertStatus(404);
+        $this->actingAs($profile)->postJson('/api/v1/me/subscription/reactivate')->assertStatus(404);
+    }
+
+    public function test_me_exposes_the_subscription_lifecycle_so_clients_can_warn_about_a_failed_payment(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->pastDue()->create([
+            'profile_id' => $profile->id,
+            'cancel_at_period_end' => true,
+        ]);
+
+        $this->actingAs($profile)
+            ->getJson('/api/v1/auth/me')
+            ->assertOk()
+            ->assertJsonPath('data.subscription_status', 'past_due')
+            ->assertJsonPath('data.subscription_cancel_at_period_end', true)
+            // past_due is not an active plan — the paywall must still bite.
+            ->assertJsonPath('data.has_active_subscription', false);
+    }
+
+    public function test_me_reports_a_null_subscription_status_for_a_business_that_never_subscribed(): void
     {
         $profile = Profile::factory()->business()->create();
         BusinessProfile::factory()->create(['profile_id' => $profile->id]);
 
         $this->actingAs($profile)
-            ->postJson('/api/v1/me/subscription/checkout', [
-                'success_url' => 'https://example.com/success',
-                'cancel_url' => 'https://example.com/cancel',
-            ])
-            ->assertStatus(404);
-
-        $this->actingAs($profile)
-            ->getJson('/api/v1/me/subscription/portal')
-            ->assertStatus(404);
-
-        $this->actingAs($profile)
-            ->postJson('/api/v1/me/subscription/cancel')
-            ->assertStatus(404);
-
-        $this->actingAs($profile)
-            ->postJson('/api/v1/me/subscription/reactivate')
-            ->assertStatus(404);
-
-        $this->postJson('/api/v1/webhooks/stripe')
-            ->assertStatus(404);
+            ->getJson('/api/v1/auth/me')
+            ->assertOk()
+            ->assertJsonPath('data.subscription_status', null)
+            ->assertJsonPath('data.subscription_cancel_at_period_end', false);
     }
 }

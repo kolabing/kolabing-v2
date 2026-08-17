@@ -1,3 +1,15 @@
+@php
+    /**
+     * Absolute web-app URLs. The app lives on another host (app.kolabing.com), so
+     * these cannot be route() calls. `?type=` lands straight on the register form
+     * with the role already picked — one step fewer than the generic /register.
+     */
+    $app = rtrim(config('webapp.url'), '/');
+    $appRegister = $app.'/register';
+    $appLogin = $app.'/login';
+    $appRegisterBusiness = $appRegister.'?type=business';
+    $appRegisterCommunity = $appRegister.'?type=community';
+@endphp
 <!DOCTYPE html><html lang="en" class="scroll-smooth"><head>
 
 
@@ -93,6 +105,10 @@
     nav { display: flex; align-items: center; gap: 32px; }
     nav a { text-decoration: none; color: var(--dark); font-size: 13px; font-weight: 600; opacity: 0.75; transition: opacity .2s, color .2s; }
     nav a:hover { opacity: 1; color: var(--dark); }
+    /* In-page section anchors — these drop away on mobile so the two web-app
+       CTAs are the only things left in the header. */
+    .nav-links { display: flex; align-items: center; gap: 32px; }
+    .nav-login { font-weight: 700; opacity: 0.9; }
     .btn-nav {
       background: var(--dark); color: var(--yellow); padding: 11px 26px;
       border-radius: 999px; font-weight: 700; font-size: 13px; text-decoration: none; opacity: 1 !important;
@@ -194,18 +210,25 @@
 
     .social-proof { color: rgba(255,255,255,0.25); font-size: 11px; margin-bottom: 24px; }
 
-    .download-btns { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
-    .dl-btn {
-      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.13);
-      color: #fff; display: flex; align-items: center;
-      gap: 9px; padding: 9px 14px; border-radius: 11px; text-decoration: none;
-      backdrop-filter: blur(10px); transition: background .2s; min-width: 130px;
+    /* ── HERO WEB-APP CTA ──
+       The mobile apps are not published yet, so the browser app is the only live
+       acquisition path: one primary pill to /register plus a quiet log-in link. */
+    .hero-cta { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; margin-bottom: 10px; }
+    .hero-cta-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--yellow); color: var(--dark);
+      padding: 16px 32px; border-radius: 999px;
+      font-size: 15px; font-weight: 800; letter-spacing: 0.01em;
+      text-decoration: none; white-space: nowrap;
+      box-shadow: 0 10px 30px rgba(255,226,140,0.26);
+      transition: transform .2s, box-shadow .2s;
     }
-    .dl-btn:hover { background: rgba(255,255,255,0.15); }
-    .dl-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
-    .dl-btn-label { text-align: left; }
-    .dl-btn-label small { display: block; font-size: 9px; text-transform: uppercase; font-weight: 600; opacity: 0.5; line-height: 1; }
-    .dl-btn-label span { display: block; font-size: 13px; font-weight: 600; line-height: 1.2; }
+    .hero-cta-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 38px rgba(255,226,140,0.42); }
+    .hero-cta-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .hero-cta-login { color: rgba(255,255,255,0.5); font-size: 12px; font-weight: 500; text-decoration: none; }
+    .hero-cta-login span { color: #fff; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+    .hero-cta-login:hover span { color: var(--yellow); }
+
     .hero-fine { color: rgba(255,255,255,0.2); font-size: 10px; }
 
     /* ── Right: vertical cloud matcher ── */
@@ -1022,11 +1045,40 @@
     .fade.in { opacity: 1; transform: translateY(0); }
 
     /* ── MOBILE ── */
+    /* ── STICKY MOBILE CTA ──
+       The header nav collapses on mobile, so this is the persistent way back to
+       the web app. It slides in only once the hero CTA has scrolled out of view
+       (see the kbSticky script) so the two never compete. */
+    .kb-sticky { display: none; }
+
     @media (max-width: 900px) {
       header { padding: 12px 20px; }
-      nav { display: none; }
-      .menu-icon { display: block; }
+      /* Keep the header's log-in + get-started CTAs on mobile; only the in-page
+         section anchors collapse. The old hamburger opened nothing, so it goes. */
+      nav { display: flex; gap: 16px; }
+      .nav-links { display: none; }
+      .btn-nav { padding: 10px 18px; font-size: 12px; }
+      .menu-icon { display: none; }
       .logo-mark { height: 32px; }
+
+      .kb-sticky {
+        display: flex; align-items: center; justify-content: space-between; gap: 14px;
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 120;
+        padding: 12px 18px; padding-bottom: calc(12px + env(safe-area-inset-bottom));
+        background: rgba(13,17,20,0.96);
+        backdrop-filter: blur(10px);
+        border-top: 1px solid rgba(255,226,140,0.22);
+        transform: translateY(120%); opacity: 0; visibility: hidden;
+        transition: transform .3s ease, opacity .3s ease, visibility .3s;
+      }
+      .kb-sticky.is-visible { transform: translateY(0); opacity: 1; visibility: visible; }
+      .kb-sticky__login { color: rgba(255,255,255,0.7); font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+      .kb-sticky__cta {
+        flex: 1; text-align: center; background: var(--yellow); color: var(--dark);
+        padding: 13px 18px; border-radius: 999px; font-size: 14px; font-weight: 800; text-decoration: none;
+      }
+      .hero-cta { gap: 16px; }
+      .hero-cta-btn { width: 100%; justify-content: center; }
 
       .hero { min-height: 100svh; padding: 96px 8px 40px; overflow: hidden; }
       .hero-inner { grid-template-columns: 1fr; gap: 32px; }
@@ -1065,7 +1117,8 @@
       .cta-btns { flex-direction: row; flex-wrap: wrap; }
       .cta-polaroid { display: none; }
 
-      footer { padding: 48px 24px 36px; }
+      /* Extra bottom padding clears the sticky CTA bar. */
+      footer { padding: 48px 24px 104px; }
     }
     @media (max-width: 540px) {
       .how-steps { grid-template-columns: 1fr; }
@@ -1081,17 +1134,13 @@
     <img class="logo-mark" src="/brand/kolabing-logo.png" alt="Kolabing"/>
   </div>
   <nav>
-    <a href="#how-it-works">how it works</a>
-    <a href="#faq">questions</a>
-    <a class="btn-nav" href="#cta">download</a>
+    <span class="nav-links">
+      <a href="#how-it-works">how it works</a>
+      <a href="#faq">questions</a>
+    </span>
+    <a class="nav-login" href="{{ $appLogin }}">log in</a>
+    <a class="btn-nav" href="{{ $appRegister }}">get started — free</a>
   </nav>
-  <button class="menu-icon" aria-label="Menu">
-    <svg viewBox="0 0 28 22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
-      <path d="M3 5 L 26 4"/>
-      <path d="M4 11 L 24 11"/>
-      <path d="M3 17 L 23 18"/>
-    </svg>
-  </button>
 </header>
 
 <!-- HERO -->
@@ -1100,7 +1149,7 @@
 
   <!-- Left: text panel -->
   <div class="hero-left">
-    <div class="hero-badge">iOS + Android</div>
+    <div class="hero-badge">free · works in your browser</div>
     <h1>
       <span class="line">MAKE <span class="accent">KOLABS.</span></span>
       <span class="line">FILL YOUR BUSINESS.</span>
@@ -1116,17 +1165,14 @@
       </svg>
       made with ☀ in barcelona
     </div>
-    <div class="download-btns" style="gap: 0px">
-      <a href="#" class="dl-btn">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.1 2.48-1.34.03-1.77-.79-3.31-.79-1.54 0-2.02.77-3.31.82-1.34.05-2.33-1.32-3.17-2.54-1.72-2.5-3.04-7.07-1.27-10.13 1.13-1.95 3.12-2.73 4.61-2.73 1.3 0 2.21.72 2.91.72.69 0 1.83-.87 3.37-.87 1.26 0 2.39.54 3.13 1.48-1.07.65-1.58 1.94-1.58 3.39 0 1.82 1.48 3.15 2.92 3.15.11 0 .22 0 .33-.01-.2 1.63-.82 3.03-1.73 4.41M15.97 3.38c.63-.77 1.05-1.83.94-2.88-.91.04-2 .61-2.65 1.37-.58.67-1.09 1.76-.95 2.79.99.08 2.03-.51 2.66-1.28z"></path></svg>
-        <div class="dl-btn-label"><small>Download on the</small><span>App Store</span></div>
+    <div class="hero-cta">
+      <a href="{{ $appRegister }}" class="hero-cta-btn">
+        start free
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13"/><path d="M13 6l6 6-6 6"/></svg>
       </a>
-      <a href="#" class="dl-btn">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 20.5v-17c0-.83.94-1.3 1.6-.8l14 8.5c.6.36.6 1.24 0 1.6l-14 8.5c-.66.5-1.6.03-1.6-.8z"></path></svg>
-        <div class="dl-btn-label"><small>Get it on</small><span>Google Play</span></div>
-      </a>
+      <a href="{{ $appLogin }}" class="hero-cta-login">already on kolabing? <span>log in</span></a>
     </div>
-    <p class="hero-fine">free to download · cancel anytime</p>
+    <p class="hero-fine">free for communities · no app needed · cancel anytime</p>
   </div>
 
   <!-- Right: vertical cloud matcher (community + business) -->
@@ -1610,10 +1656,10 @@ COMMUNITIES GET PERKS.</div>
             <path d="M16 18 L 22 18 L 22 12" />
           </svg>
         </div>
-        <a href="#" class="cta-btn dark">join as a business</a>
-        <a href="#" class="cta-btn white">join as a community</a>
+        <a href="{{ $appRegisterBusiness }}" class="cta-btn dark">join as a business</a>
+        <a href="{{ $appRegisterCommunity }}" class="cta-btn white">join as a community</a>
       </div>
-      <p class="cta-fine">free to download · cancel anytime</p>
+      <p class="cta-fine">free for communities · cancel anytime · <a href="{{ $appLogin }}" style="color:inherit;text-decoration:underline;text-underline-offset:3px">already have an account?</a></p>
     </div>
   </div>
 </section>
@@ -1636,6 +1682,26 @@ COMMUNITIES GET PERKS.</div>
     © <span id="yr">2026</span> kolabing. built for real people, in real places.
   </p>
 </footer>
+
+<!-- STICKY MOBILE CTA — mobile only; slides in once the hero scrolls away. -->
+<div class="kb-sticky" id="kbSticky">
+  <a class="kb-sticky__login" href="{{ $appLogin }}">log in</a>
+  <a class="kb-sticky__cta" href="{{ $appRegister }}">start free →</a>
+</div>
+
+<script>
+(function(){
+  var bar = document.getElementById('kbSticky');
+  var hero = document.querySelector('.hero');
+  if (!bar || !hero) return;
+  function sync(){
+    bar.classList.toggle('is-visible', hero.getBoundingClientRect().bottom < 80);
+  }
+  sync();
+  window.addEventListener('scroll', sync, { passive: true });
+  window.addEventListener('resize', sync);
+})();
+</script>
 
 <script>
   // Subtle parallax on phone mockup
@@ -1713,6 +1779,10 @@ COMMUNITIES GET PERKS.</div>
   .kb-pop__call{display:block;text-align:center;font-family:'Inter',sans-serif;font-weight:700;font-size:15px;
     padding:13px;border-radius:12px;border:1.5px solid var(--dark,#0D1114);color:var(--dark,#0D1114);text-decoration:none;transition:.15s}
   .kb-pop__call:hover{background:var(--dark,#0D1114);color:#fff}
+  .kb-pop__call+.kb-pop__call{margin-top:10px}
+  /* The web-app sign-up is the stronger action of the two, so it reads as filled. */
+  .kb-pop__call--primary{background:var(--dark,#0D1114);color:#fff}
+  .kb-pop__call--primary:hover{background:#1c2025}
   .kb-pop__done{text-align:center}
   .kb-pop__check{width:56px;height:56px;margin:0 auto 14px;border-radius:50%;background:var(--yellow,#FFE28C);
     display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--dark,#0D1114)}
@@ -1743,13 +1813,15 @@ COMMUNITIES GET PERKS.</div>
       </form>
 
       <div class="kb-pop__or"><span>or</span></div>
+      <a class="kb-pop__call kb-pop__call--primary" href="{{ $appRegister }}">Create your free account →</a>
       <a class="kb-pop__call" href="{{ config('kolabing.book_a_call_url') }}" target="_blank" rel="noopener">Book a call with us →</a>
     </div>
 
     <div class="kb-pop__body kb-pop__done" id="kbPopDone" hidden>
       <div class="kb-pop__check">✓</div>
       <h2 class="kb-pop__title">You're on the list</h2>
-      <p class="kb-pop__sub">Thanks — we'll be in touch. Want to talk sooner?</p>
+      <p class="kb-pop__sub">Thanks — we'll be in touch. Want to start now?</p>
+      <a class="kb-pop__call kb-pop__call--primary" href="{{ $appRegister }}">Create your free account →</a>
       <a class="kb-pop__call" href="{{ config('kolabing.book_a_call_url') }}" target="_blank" rel="noopener">Book a call with us →</a>
     </div>
   </div>

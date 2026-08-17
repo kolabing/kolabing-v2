@@ -1,0 +1,406 @@
+{{-- Kolab detail modal + apply modal + success sheet.
+     Behaviour lives in window.kbModalMixin(); merge it into the page component:
+     x-data="kbMerge(kbShell(), kbModalMixin(), somePage())" --}}
+
+{{-- ── Detail modal ──────────────────────────────────────────────────── --}}
+<div x-show="dk || detailLoading" x-cloak @click="closeDetail()"
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8"
+     style="background: rgba(13,17,20,.62); backdrop-filter: blur(3px);">
+    <div @click.stop
+         class="bg-white rounded-[22px] w-full max-w-[560px] max-h-[86vh] flex flex-col overflow-hidden kb-fade-up-fast">
+
+        <template x-if="detailLoading && !dk">
+            <div class="p-8 text-center text-muted">{{ __('webapp.common.loading') }}</div>
+        </template>
+
+        <template x-if="dk">
+            <div class="flex-1 overflow-y-auto kb-scroll px-7 pt-[26px] pb-[18px]">
+                <div class="flex items-start gap-3.5">
+                    <div class="w-16 h-16 rounded-full bg-primary/35 flex items-center justify-center overflow-hidden shrink-0 text-2xl font-semibold text-ink">
+                        <template x-if="dkAvatar"><img :src="dkAvatar" :alt="dkName" class="w-full h-full object-cover"></template>
+                        <template x-if="!dkAvatar"><span x-text="initialOf(dkName)"></span></template>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xl font-bold text-ink" x-text="dkName"></p>
+                        <span class="inline-block mt-1.5 px-2.5 py-[3px] rounded-pill bg-cream-input text-[11px] font-semibold text-body" x-text="dkTypeLabel"></span>
+                    </div>
+                    <button type="button" @click="closeDetail()" class="w-9 h-9 rounded-full bg-cream-low hover:bg-[#ECE8DF] transition flex items-center justify-center shrink-0" aria-label="{{ __('webapp.common.close') }}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3F3A32" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                </div>
+
+                <div style="margin-top:22px;">
+                    <p class="text-[17px] font-bold text-ink" x-text="dk.title"></p>
+                    <p class="text-sm text-body leading-relaxed mt-2 whitespace-pre-line" x-text="dk.description"></p>
+                </div>
+
+                <template x-if="dkOffer">
+                    <div class="mt-5 bg-primary-tint border border-primary rounded-2xl p-4">
+                        <p class="text-[11px] font-bold tracking-[1px] uppercase text-amber" x-text="dkOfferHead"></p>
+                        <div class="flex gap-2 items-start mt-2">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 mt-0.5"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><path d="M7 7h.01"/></svg>
+                            <p class="text-sm font-semibold text-ink leading-snug" x-text="dkOffer"></p>
+                        </div>
+                    </div>
+                </template>
+
+                <div class="mt-5 flex flex-col gap-3">
+                    <template x-if="dkCityLine">
+                        <div class="flex items-center gap-2.5 text-[13.5px] text-body">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" class="shrink-0"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                            <span x-text="dkCityLine"></span>
+                        </div>
+                    </template>
+                    <template x-if="dkWindow">
+                        <div class="flex items-center gap-2.5 text-[13.5px] text-body">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
+                            <span x-text="dkWindow"></span>
+                        </div>
+                    </template>
+                    <template x-if="dkGroup">
+                        <div class="flex items-center gap-2.5 text-[13.5px] text-body">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <span x-text="dkGroup"></span>
+                        </div>
+                    </template>
+                </div>
+
+                <template x-if="dkDayCells.length">
+                    <div class="mt-5">
+                        <p class="text-[11px] font-bold tracking-[1px] uppercase text-muted">{{ __('webapp.detail.available_days') }}</p>
+                        <div class="flex gap-[7px] mt-2.5 flex-wrap">
+                            <template x-for="dd in dkDayCells" :key="dd.l">
+                                <div class="w-[38px] h-[38px] rounded-full flex items-center justify-center text-[11.5px] font-bold border"
+                                     :class="dd.on ? 'bg-ink text-white border-ink' : 'bg-white text-[#C9C2B4] border-ink/[.12]'"
+                                     x-text="dd.l"></div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
+                <template x-if="dkChips.length">
+                    <div class="mt-5">
+                        <p class="text-[11px] font-bold tracking-[1px] uppercase text-muted">{{ __('webapp.detail.categories') }}</p>
+                        <div class="flex gap-1.5 flex-wrap mt-2.5">
+                            <template x-for="ch in dkChips" :key="ch">
+                                <span class="px-3 py-[5px] rounded-pill bg-peach text-peach-ink text-xs font-semibold" x-text="ch"></span>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
+                <template x-if="detailError">
+                    <div class="mt-4 rounded-2xl bg-[#F8D7DA] text-[#721C24] text-sm px-4 py-3 whitespace-pre-line" x-text="detailError"></div>
+                </template>
+            </div>
+        </template>
+
+        <template x-if="dk">
+            <div class="px-7 pt-4 pb-5 border-t border-ink/[.08] flex gap-2.5 flex-wrap">
+                <button type="button" @click="closeDetail()"
+                        class="h-[50px] px-[22px] rounded-pill bg-white border border-line text-sm font-bold hover:border-ink transition">{{ __('webapp.common.close') }}</button>
+
+                {{-- Owner-only controls: edit always, publish while it is still a draft. --}}
+                <template x-if="dk.is_own">
+                    <a :href="kbPath('/kolabs/' + dk.id + '/edit')"
+                       class="h-[50px] px-[22px] rounded-pill bg-white border border-line text-sm font-bold hover:border-ink transition flex items-center">{{ __('webapp.common.edit') }}</a>
+                </template>
+                <template x-if="dk.is_own && dk.status === 'draft'">
+                    <button type="button" @click="publishKolab()" :disabled="applyBusy"
+                            class="h-[50px] px-[22px] rounded-pill bg-ink text-primary text-sm font-bold hover:-translate-y-px transition disabled:opacity-50">{{ __('webapp.kolabs.publish') }}</button>
+                </template>
+                <template x-if="!dk.is_own">
+                    <button type="button" @click="toggleDetailSave()"
+                            class="h-[50px] px-[22px] rounded-pill bg-white border border-line text-sm font-bold hover:border-ink transition"
+                            x-text="dk.is_saved ? t('detail.saved') : t('detail.save')"></button>
+                </template>
+                <template x-if="dkCta.kind === 'apply'">
+                    <button type="button" @click="openApply()"
+                            class="flex-1 h-[50px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition"
+                            x-text="dkCta.label"></button>
+                </template>
+                <template x-if="dkCta.kind === 'link'">
+                    <a :href="dkCta.href"
+                       class="flex-1 h-[50px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition flex items-center justify-center"
+                       x-text="dkCta.label"></a>
+                </template>
+                <template x-if="dkCta.kind === 'done'">
+                    <div class="flex-1 h-[50px] rounded-pill bg-[#D4EDDA] text-[#155724] text-[15px] font-bold flex items-center justify-center" x-text="dkCta.label"></div>
+                </template>
+            </div>
+        </template>
+    </div>
+</div>
+
+{{-- ── Apply modal ───────────────────────────────────────────────────── --}}
+<div x-show="applyOpen" x-cloak @click="applyOpen = false"
+     class="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-8"
+     style="background: rgba(13,17,20,.62); backdrop-filter: blur(3px);">
+    <div @click.stop class="bg-white rounded-[22px] w-full max-w-[520px] max-h-[88vh] flex flex-col overflow-hidden kb-fade-up-fast">
+        <div class="flex-1 overflow-y-auto kb-scroll px-7 pt-[26px] pb-[18px]">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-[19px] font-bold text-ink" x-text="applyCtaTitle"></p>
+                    <p class="text-[13px] text-muted mt-[3px] truncate" x-text="dkName + ' · ' + (dk?.title || '')"></p>
+                </div>
+                <button type="button" @click="applyOpen = false" class="w-9 h-9 rounded-full bg-cream-low hover:bg-[#ECE8DF] transition flex items-center justify-center shrink-0" aria-label="{{ __('webapp.common.close') }}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3F3A32" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+
+            <template x-if="applyErr">
+                <div class="mt-4 rounded-2xl bg-[#F8D7DA] text-[#721C24] text-sm px-4 py-3 whitespace-pre-line" x-text="applyErr"></div>
+            </template>
+
+            <div style="margin-top:22px;">
+                <p class="text-xs font-bold tracking-[.8px] uppercase text-body">{{ __('webapp.detail.when_available') }}</p>
+                <p class="text-[12.5px] text-muted mt-[3px]">{{ __('webapp.detail.when_available_hint') }}</p>
+                <div class="flex gap-2 flex-wrap mt-3">
+                    <template x-for="dt in dateChips" :key="dt.value">
+                        <button type="button" @click="toggleDate(dt.value)"
+                                class="w-16 py-2.5 rounded-[14px] text-center border transition"
+                                :class="applyDates.includes(dt.value) ? 'bg-primary-tint border-primary' : 'bg-white border-ink/[.12]'">
+                            <span class="block text-[10.5px] font-semibold tracking-[.4px] text-muted" x-text="dt.top"></span>
+                            <span class="block text-[13px] font-bold text-ink mt-px" x-text="dt.bot"></span>
+                        </button>
+                    </template>
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-5">
+                <div class="flex-1 flex flex-col gap-1.5">
+                    <label class="text-xs font-semibold text-body">{{ __('webapp.detail.from') }}</label>
+                    <select x-model="applyStart" class="h-12 rounded-2xl border border-transparent bg-cream-input px-3 text-sm text-ink cursor-pointer">
+                        <template x-for="o in timeOptions" :key="'s' + o"><option :value="o" x-text="o"></option></template>
+                    </select>
+                </div>
+                <div class="flex-1 flex flex-col gap-1.5">
+                    <label class="text-xs font-semibold text-body">{{ __('webapp.detail.until') }}</label>
+                    <select x-model="applyEnd" class="h-12 rounded-2xl border border-transparent bg-cream-input px-3 text-sm text-ink cursor-pointer">
+                        <template x-for="o in timeOptions" :key="'e' + o"><option :value="o" x-text="o"></option></template>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-1.5 mt-[18px]">
+                <label class="text-xs font-semibold text-body" x-text="t('detail.message_to', { name: dkName })"></label>
+                <textarea x-model="applyMsg" rows="4" maxlength="2000" placeholder="{{ __('webapp.detail.message_placeholder') }}"
+                          class="rounded-2xl border border-transparent bg-cream-input px-4 py-3.5 text-sm text-ink leading-relaxed resize-y"></textarea>
+            </div>
+
+            <div class="flex flex-col gap-1.5 mt-3.5">
+                <label class="text-xs font-semibold text-body">{{ __('webapp.detail.availability_notes') }} <span class="font-normal text-muted">({{ __('webapp.common.optional') }})</span></label>
+                <input x-model="applyNotes" type="text" maxlength="200" placeholder="{{ __('webapp.detail.availability_notes_placeholder') }}"
+                       class="h-12 rounded-2xl border border-transparent bg-cream-input px-4 text-sm text-ink">
+            </div>
+        </div>
+        <div class="px-7 pt-4 pb-5 border-t border-ink/[.08]">
+            <button type="button" @click="submitApply()" :disabled="applyBusy"
+                    class="w-full h-[52px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition disabled:opacity-50">
+                <span x-text="applyBusy ? t('detail.sending') : t('detail.send')">{{ __('webapp.detail.send') }}</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+{{-- ── Success sheet ─────────────────────────────────────────────────── --}}
+<div x-show="applySuccess" x-cloak
+     class="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-8"
+     style="background: rgba(13,17,20,.62); backdrop-filter: blur(3px);">
+    <div class="bg-white rounded-[22px] w-full max-w-[400px] px-8 py-9 text-center kb-fade-up-fast">
+        <div class="w-16 h-16 rounded-full bg-[#56624D] mx-auto flex items-center justify-center">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        </div>
+        <p class="text-xl font-bold text-ink mt-[18px]">{{ __('webapp.detail.sent_title') }}</p>
+        <p class="text-sm text-body leading-relaxed mt-2" x-text="t('detail.sent_body', { name: dkName })"></p>
+        <a href="{{ $base }}/kolabs?tab=requests"
+           class="w-full h-[50px] rounded-pill bg-primary text-ink text-sm font-bold shadow-btn hover:bg-primary-dark transition flex items-center justify-center" style="margin-top:22px;">{{ __('webapp.detail.view_my_applications') }}</a>
+        <button type="button" @click="closeSuccess()"
+                class="w-full h-11 mt-2 rounded-pill bg-transparent text-muted hover:text-ink text-[13px] font-semibold transition">{{ __('webapp.detail.keep_exploring') }}</button>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+    /**
+     * Detail + apply behaviour shared by Explore and the Kolab detail page.
+     * Requires the host component to also carry kbShell() (for isBusiness/me).
+     */
+    window.kbModalMixin = function () {
+        return {
+            initialOf(name) { return window.kbInitial(name); },
+            kbPath(p) { return window.kbPath(p); },
+
+            // ── Derived detail fields ───────────────────────────────────
+            get dkName() { return this.dk?.creator_profile?.display_name || t('feed.a_partner'); },
+            get dkAvatar() { return this.dk?.offer_photo || this.dk?.creator_profile?.avatar_url || ''; },
+            get dkTypeLabel() {
+                const k = this.dk; if (!k) return '';
+                const c = k.creator_profile || {};
+                const role = c.user_type === 'business' ? t('nav.role_business') : t('nav.role_community');
+                const sub = window.kbHumanize(c.business_type || c.community_type) || window.kbIntentLabel(k.intent_type);
+                return role + ' · ' + sub;
+            },
+            get dkOfferHead() {
+                return this.dk?.intent_type === 'community_seeking' ? t('detail.what_they_bring') : t('detail.whats_on_offer');
+            },
+            get dkOffer() {
+                const k = this.dk; if (!k) return '';
+                if (k.intent_type === 'community_seeking') {
+                    return (k.offers_in_return || []).map(window.kbHumanize).join(' · ');
+                }
+                return k.offer_headline || k.base_offer || '';
+            },
+            get dkCityLine() {
+                const k = this.dk; if (!k) return '';
+                return [k.area, k.preferred_city || k.venue_address].filter(Boolean).join(', ');
+            },
+            get dkWindow() {
+                const k = this.dk; if (!k) return '';
+                const from = window.kbDateShort(k.availability_start);
+                const to = window.kbDateShort(k.availability_end);
+                const range = from && to ? `${from} – ${to}` : (from || '');
+                return [range, k.selected_time].filter(Boolean).join(' · ');
+            },
+            get dkGroup() {
+                const k = this.dk; if (!k) return '';
+                if (k.typical_attendance) return t('detail.group_people', { count: k.typical_attendance });
+                if (k.min_community_size) return t('detail.group_min', { count: k.min_community_size });
+                if (k.capacity) return t('detail.group_capacity', { count: k.capacity });
+                return '';
+            },
+            get dkDayCells() {
+                const k = this.dk;
+                const days = Array.isArray(k?.recurring_days) ? k.recurring_days : [];
+                if (!days.length) return [];
+                const labels = t('detail.day_initials').split(',');
+                return labels.map((l, i) => ({ l, on: days.includes(i + 1) }));
+            },
+            get dkChips() {
+                const k = this.dk; if (!k) return [];
+                const raw = [...(k.needs || []), ...(k.community_types || []), ...(k.offering || []), ...(k.seeking_communities || [])];
+                return [...new Set(raw.filter(Boolean).map(window.kbHumanize))].slice(0, 6);
+            },
+            get dkCta() {
+                const k = this.dk;
+                if (!k) return { kind: 'none' };
+                if (k.is_own) return { kind: 'link', label: t('detail.view_applications'), href: window.kbPath('/kolabs?tab=requests') };
+                if (this.hasApplied) return { kind: 'done', label: t('detail.applied_short') };
+                if (k.status !== 'published') return { kind: 'none' };
+                return { kind: 'apply', label: this.isBusiness ? t('detail.send_proposal') : t('detail.apply') };
+            },
+            get applyCtaTitle() { return this.isBusiness ? t('detail.send_proposal') : t('detail.apply_title'); },
+            get hasApplied() { return !!(this.appliedIds || []).includes(this.dk?.id); },
+
+            // ── Detail lifecycle ────────────────────────────────────────
+            async openDetail(id) {
+                this.detailLoading = true; this.detailError = '';
+                const res = await window.kb.api('/kolabs/' + id);
+                this.detailLoading = false;
+                if (!res.ok) { this.detailError = window.kb.errorText(res, t('detail.load_error')); return; }
+                this.dk = res.json?.data || null;
+            },
+            closeDetail() { this.dk = null; this.detailError = ''; },
+
+            /**
+             * Seed the already-applied set. Without this the detail sheet shows the
+             * primary "Apply" CTA for a Kolab the viewer applied to days ago, and the
+             * one-application-per-Kolab constraint only rejects it after they have
+             * picked dates and written a message.
+             */
+            async loadAppliedIds() {
+                const res = await window.kb.api('/me/applications?per_page=100');
+                if (res.ok) {
+                    this.appliedIds = window.kb.rows(res)
+                        .map(a => a.kolab_id || a.collab_opportunity_id)
+                        .filter(Boolean);
+                }
+            },
+
+            async publishKolab() {
+                this.detailError = ''; this.applyBusy = true;
+                const res = await window.kb.api('/kolabs/' + this.dk.id + '/publish', { method: 'POST' });
+                this.applyBusy = false;
+                if (res.status === 402) { window.nav('/subscription?reason=publish'); return; }
+                if (res.ok) { this.dk = res.json?.data || { ...this.dk, status: 'published' }; return; }
+                this.detailError = window.kb.errorText(res, t('kolabs.publish_error'));
+            },
+            async toggleDetailSave() {
+                const saved = !!this.dk.is_saved;
+                const res = await window.kb.api('/kolabs/' + this.dk.id + '/save', { method: saved ? 'DELETE' : 'POST' });
+                if (res.ok || res.status === 204) this.dk.is_saved = !saved;
+            },
+
+            // ── Apply lifecycle ─────────────────────────────────────────
+            get dateChips() {
+                const k = this.dk; if (!k) return [];
+                const pad = (n) => String(n).padStart(2, '0');
+                const key = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+                const today = new Date(); today.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(today.getTime() + 86400000);
+
+                let cur = k.availability_start ? new Date(k.availability_start + 'T00:00:00') : tomorrow;
+                if (isNaN(cur) || cur < tomorrow) cur = tomorrow;
+                const end = k.availability_end ? new Date(k.availability_end + 'T00:00:00') : null;
+                const days = Array.isArray(k.recurring_days) && k.recurring_days.length ? k.recurring_days : null;
+
+                const out = [];
+                for (let guard = 0; guard < 200 && out.length < 8; guard++) {
+                    if (end && cur > end) break;
+                    const dow = cur.getDay() === 0 ? 7 : cur.getDay(); // 1 = Mon … 7 = Sun
+                    if (!days || days.includes(dow)) {
+                        out.push({
+                            value: key(cur),
+                            top: cur.toLocaleDateString(window.KB_LOCALE || 'en', { weekday: 'short' }),
+                            bot: cur.toLocaleDateString(window.KB_LOCALE || 'en', { day: 'numeric', month: 'short' }),
+                        });
+                    }
+                    cur = new Date(cur.getTime() + 86400000);
+                }
+                return out;
+            },
+            openApply() {
+                this.applyOpen = true; this.applyErr = '';
+                this.applyDates = []; this.applyMsg = ''; this.applyNotes = '';
+            },
+            toggleDate(v) {
+                this.applyErr = '';
+                this.applyDates = this.applyDates.includes(v)
+                    ? this.applyDates.filter(d => d !== v)
+                    : [...this.applyDates, v];
+            },
+            /** The API stores availability as one free-text string (min 20 chars). */
+            buildAvailability() {
+                const labels = this.dateChips.filter(d => this.applyDates.includes(d.value)).map(d => `${d.top} ${d.bot}`);
+                const parts = [t('detail.available_on', { dates: labels.join(', ') }), `${this.applyStart}–${this.applyEnd}`];
+                if (this.applyNotes.trim()) parts.push(this.applyNotes.trim());
+                return parts.join(' · ').slice(0, 500);
+            },
+            async submitApply() {
+                this.applyErr = '';
+                if (this.applyDates.length === 0) { this.applyErr = t('detail.pick_a_date'); return; }
+                if (!this.applyMsg.trim()) { this.applyErr = t('detail.message_required'); return; }
+
+                this.applyBusy = true;
+                const res = await window.kb.api('/kolabs/' + this.dk.id + '/applications', {
+                    method: 'POST',
+                    body: { message: this.applyMsg.trim(), availability: this.buildAvailability() },
+                });
+                this.applyBusy = false;
+
+                if (res.ok) {
+                    this.appliedIds = [...(this.appliedIds || []), this.dk.id];
+                    this.applyOpen = false;
+                    this.applySuccess = true;
+                    return;
+                }
+                // Applying is subscription-gated for businesses (402 from the service,
+                // 403 when the policy denies it) — send them to the plan either way.
+                if (res.status === 402 || (res.status === 403 && this.needsPlan)) { window.nav('/subscription?reason=apply'); return; }
+                this.applyErr = window.kb.errorText(res, t('detail.apply_error'));
+            },
+            closeSuccess() { this.applySuccess = false; this.dk = null; },
+        };
+    };
+</script>
+@endpush
