@@ -12,7 +12,7 @@
         <div class="flex items-center gap-3.5">
             <button type="button" @click="back()"
                     class="w-10 h-10 rounded-full bg-white border border-ink/10 hover:border-ink/30 transition flex items-center justify-center shrink-0" aria-label="{{ __('webapp.common.back') }}">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
             </button>
             <p class="flex-1 text-center text-[13px] font-semibold tracking-[1.2px] uppercase text-ink" x-text="wizardTitle">{{ __('webapp.form.create_title') }}</p>
             <span class="w-10 shrink-0"></span>
@@ -22,7 +22,7 @@
             <p class="mt-8 text-muted">{{ __('webapp.common.loading') }}</p>
         </template>
         <template x-if="error">
-            <div class="mt-5 rounded-2xl bg-[#F8D7DA] text-[#721C24] text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
+            <div class="mt-5 rounded-2xl bg-bad-surface text-bad-ink text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
         </template>
 
         {{-- ══ Intent picker ═══════════════════════════════════════════ --}}
@@ -38,11 +38,11 @@
                             <span class="flex-1 min-w-0">
                                 <span class="flex items-center gap-2">
                                     <span class="text-[15px] font-bold text-ink" x-text="io.title"></span>
-                                    <span x-show="io.free" x-cloak class="px-2 py-[3px] rounded-pill bg-[#D4EDDA] text-[#155724] text-[10px] font-bold tracking-[.5px]">{{ __('webapp.form.free') }}</span>
+                                    <span x-show="io.free" x-cloak class="px-2 py-[3px] rounded-pill bg-ok-surface text-ok-ink text-[10px] font-bold tracking-[.5px]">{{ __('webapp.form.free') }}</span>
                                 </span>
                                 <span class="block text-[13px] text-muted mt-[3px]" x-text="io.sub"></span>
                             </span>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="m9 18 6-6-6-6"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="m9 18 6-6-6-6"/></svg>
                         </button>
                     </template>
                 </div>
@@ -73,7 +73,7 @@
                                     <span class="w-6 h-6 rounded-full shrink-0 flex items-center justify-center border-[1.5px]"
                                           :class="form[step.field] === op.value ? 'bg-primary border-primary' : 'border-ink/20'">
                                         <template x-if="form[step.field] === op.value">
-                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                                         </template>
                                     </span>
                                     <span>
@@ -141,7 +141,7 @@
                         <div class="mt-[18px]">
                             <label class="block border-[1.5px] border-dashed border-ink/20 rounded-[18px] px-5 py-11 text-center cursor-pointer hover:border-ink transition">
                                 <input type="file" accept="image/*" multiple class="hidden" @change="onMedia($event)">
-                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="mx-auto"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="mx-auto"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
                                 <p class="text-sm font-semibold text-ink mt-2.5">{{ __('webapp.form.drop_photos') }}</p>
                                 <p class="text-[12.5px] text-muted mt-1" x-text="step.mediaHint"></p>
                                 <p class="text-[12.5px] text-muted mt-1" x-show="uploading" x-cloak>{{ __('webapp.common.uploading') }}</p>
@@ -220,10 +220,9 @@
     </main>
 
     {{-- ── Published sheet ─────────────────────────────────────────────── --}}
-    <div x-show="doneOpen" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-8"
-         style="background: rgba(13,17,20,.62); backdrop-filter: blur(3px);">
+    <div x-show="doneOpen" x-cloak class="kb-overlay fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-8">
         <div class="bg-white rounded-[22px] w-full max-w-[400px] px-8 py-9 text-center kb-fade-up-fast">
-            <div class="w-16 h-16 rounded-full bg-[#56624D] mx-auto flex items-center justify-center">
+            <div class="w-16 h-16 rounded-full bg-success-solid mx-auto flex items-center justify-center">
                 <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
             </div>
             <p class="text-xl font-bold text-ink mt-[18px]" x-text="doneTitle"></p>

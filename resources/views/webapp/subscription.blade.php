@@ -53,13 +53,13 @@
         {{-- Why the user landed here, when a paywalled action sent them. --}}
         <template x-if="reasonText">
             <div class="mt-5 rounded-2xl bg-primary-tint border border-primary px-4 py-3 flex items-start gap-2.5">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9A7C28" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 mt-px"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 mt-px"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
                 <p class="text-[13px] font-semibold text-ink leading-relaxed" x-text="reasonText"></p>
             </div>
         </template>
 
         <template x-if="error">
-            <div class="mt-5 rounded-2xl bg-[#F8D7DA] text-[#721C24] text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
+            <div class="mt-5 rounded-2xl bg-bad-surface text-bad-ink text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
         </template>
         <template x-if="loading">
             <p class="mt-8 text-muted">{{ __('webapp.common.loading') }}</p>
@@ -108,7 +108,7 @@
                     <div class="flex flex-col gap-2.5 mt-4">
                         @foreach (__('webapp.subscription.benefits') as $benefit)
                             <div class="flex items-center gap-2.5 text-sm font-medium text-ink">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M20 6 9 17l-5-5"/></svg>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M20 6 9 17l-5-5"/></svg>
                                 {{ $benefit }}
                             </div>
                         @endforeach
@@ -117,7 +117,7 @@
                     <div class="flex flex-col gap-2 mt-5">
                         <input x-model="referralCode" type="text" maxlength="64" placeholder="{{ __('webapp.subscription.referral_placeholder') }}"
                                class="h-12 rounded-2xl border border-ink/15 bg-cream-input px-4 text-sm text-ink uppercase">
-                        <p x-show="referralNote" x-cloak class="text-xs font-semibold px-1" :class="referralOk ? 'text-[#155724]' : 'text-[#721C24]'" x-text="referralNote"></p>
+                        <p x-show="referralNote" x-cloak class="text-xs font-semibold px-1" :class="referralOk ? 'text-ok-ink' : 'text-bad-ink'" x-text="referralNote"></p>
                         <button type="button" @click="checkout()" :disabled="busy"
                                 class="h-[52px] rounded-pill bg-ink text-primary text-[15px] font-bold hover:-translate-y-px transition disabled:opacity-50">
                             <span x-text="busy ? t('subscription.opening') : t('subscription.subscribe')">{{ __('webapp.subscription.subscribe') }}</span>
@@ -159,7 +159,7 @@
                         <span x-text="busy ? t('subscription.opening') : t('subscription.manage_billing')">{{ __('webapp.subscription.manage_billing') }}</span>
                     </button>
                     <button type="button" @click="portal()" :disabled="busy"
-                            class="flex-1 h-11 rounded-pill bg-[#F8D7DA] text-[#721C24] text-[13px] font-bold hover:-translate-y-px transition disabled:opacity-50">{{ __('webapp.subscription.cancel_plan') }}</button>
+                            class="flex-1 h-11 rounded-pill bg-bad-surface text-bad-ink text-[13px] font-bold hover:-translate-y-px transition disabled:opacity-50">{{ __('webapp.subscription.cancel_plan') }}</button>
                 </div>
                 <p class="text-[11px] text-muted mt-3">{{ __('webapp.subscription.portal_note') }}</p>
             </div>

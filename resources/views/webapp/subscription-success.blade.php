@@ -13,7 +13,7 @@
         <template x-if="state === 'confirming'">
             <div>
                 <div class="w-16 h-16 rounded-full bg-primary mx-auto flex items-center justify-center">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2.4" stroke-linecap="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                 </div>
                 <h1 class="font-anton text-[28px] text-ink mt-5">{{ __('webapp.subscription.success.confirming') }}</h1>
                 <p class="text-sm text-body mt-2 leading-relaxed">{{ __('webapp.subscription.success.confirming_desc') }}</p>
@@ -23,7 +23,7 @@
         {{-- ── Active ──────────────────────────────────────────────────── --}}
         <template x-if="state === 'active'">
             <div>
-                <div class="w-16 h-16 rounded-full bg-[#56624D] mx-auto flex items-center justify-center">
+                <div class="w-16 h-16 rounded-full bg-success-solid mx-auto flex items-center justify-center">
                     <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                 </div>
                 <h1 class="font-anton text-[30px] text-ink mt-5">{{ __('webapp.subscription.success.active_title') }}</h1>
@@ -45,7 +45,7 @@
         <template x-if="state === 'pending'">
             <div>
                 <div class="w-16 h-16 rounded-full bg-primary mx-auto flex items-center justify-center">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
                 </div>
                 <h1 class="font-anton text-[28px] text-ink mt-5">{{ __('webapp.subscription.success.pending_title') }}</h1>
                 <p class="text-sm text-body mt-2 leading-relaxed">{{ __('webapp.subscription.success.pending_desc') }}</p>
@@ -61,8 +61,8 @@
         {{-- ── Could not confirm ───────────────────────────────────────── --}}
         <template x-if="state === 'failed'">
             <div>
-                <div class="w-16 h-16 rounded-full bg-[#F8D7DA] mx-auto flex items-center justify-center">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#721C24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5"/><path d="M12 16h.01"/></svg>
+                <div class="w-16 h-16 rounded-full bg-bad-surface mx-auto flex items-center justify-center">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5"/><path d="M12 16h.01"/></svg>
                 </div>
                 <h1 class="font-anton text-[28px] text-ink mt-5">{{ __('webapp.subscription.success.failed_title') }}</h1>
                 <p class="text-sm text-body mt-2 leading-relaxed" x-text="error || t('subscription.success.failed_desc')"></p>

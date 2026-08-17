@@ -46,7 +46,7 @@
         </div>
 
         <template x-if="error">
-            <div class="mt-5 rounded-2xl bg-[#F8D7DA] text-[#721C24] text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
+            <div class="mt-5 rounded-2xl bg-bad-surface text-bad-ink text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
         </template>
         <template x-if="loading">
             <p class="mt-8 text-muted">{{ __('webapp.common.loading') }}</p>
@@ -73,7 +73,7 @@
                               x-text="t('feed.match', { pct: cd.match })"></span>
                         <button type="button" @click.stop="toggleSave(cd)" :title="isSaved(cd.id) ? t('feed.unsave') : t('feed.save')"
                                 class="absolute top-2 left-2 w-8 h-8 rounded-full bg-white/90 hover:bg-white transition flex items-center justify-center text-base leading-none"
-                                :style="`color:${isSaved(cd.id) ? '#D8910B' : '#8C8474'}`"
+                                :style="`color:${isSaved(cd.id) ? "rgb(var(--kb-warn-ink))" : "rgb(var(--kb-muted))"}`"
                                 x-text="isSaved(cd.id) ? '★' : '☆'"></button>
                     </div>
                     <div class="p-3.5">
@@ -89,7 +89,7 @@
                             </template>
                         </div>
                         <div class="flex gap-1.5 items-start mt-2.5">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 mt-0.5"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><path d="M7 7h.01"/></svg>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 mt-0.5"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><path d="M7 7h.01"/></svg>
                             <p class="text-[13px] font-semibold leading-tight text-ink line-clamp-2" x-text="cd.offer"></p>
                         </div>
                         <div class="flex gap-1.5 flex-wrap mt-2.5" x-show="cd.chips.length" x-cloak>
@@ -99,7 +99,7 @@
                         </div>
                         <div class="border-t border-ink/[.08] mt-3 pt-2.5 flex items-center justify-between">
                             <span class="text-[12.5px] font-semibold text-body">{{ __('webapp.feed.view_details') }}</span>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
                         </div>
                     </div>
                 </div>

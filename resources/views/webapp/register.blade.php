@@ -9,7 +9,7 @@
     {{-- ── Step 1 · pick a role ─────────────────────────────────────────── --}}
     <div x-show="step === 'type'" class="w-full max-w-[480px] flex flex-col gap-4">
         <a href="{{ $base }}/" class="w-10 h-10 rounded-full bg-white border border-ink/10 hover:border-ink/30 transition flex items-center justify-center shrink-0" aria-label="{{ __('webapp.common.back') }}">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
         </a>
         <h1 class="font-anton text-[32px] text-ink mt-2">{{ __('webapp.register.heading') }}</h1>
         <p class="text-sm text-body">{{ __('webapp.register.subheading') }}</p>
@@ -17,7 +17,7 @@
         <button type="button" @click="pickRole('business')"
                 class="mt-3 text-left p-5 rounded-[20px] bg-white border border-ink/10 hover:border-primary hover:bg-primary-tint transition flex items-center gap-3.5">
             <span class="w-11 h-11 rounded-[14px] bg-cream-low flex items-center justify-center shrink-0">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
             </span>
             <span>
                 <span class="block text-[15px] font-bold text-ink">{{ __('webapp.register.business_title') }}</span>
@@ -28,7 +28,7 @@
         <button type="button" @click="pickRole('community')"
                 class="text-left p-5 rounded-[20px] bg-white border border-ink/10 hover:border-primary hover:bg-primary-tint transition flex items-center gap-3.5">
             <span class="w-11 h-11 rounded-[14px] bg-cream-low flex items-center justify-center shrink-0">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </span>
             <span>
                 <span class="block text-[15px] font-bold text-ink">{{ __('webapp.register.community_title') }}</span>
@@ -45,7 +45,7 @@
     {{-- ── Step 2 · account details ─────────────────────────────────────── --}}
     <div x-show="step === 'account'" class="w-full max-w-[460px] flex flex-col gap-[13px]" x-cloak>
         <button type="button" @click="step = 'type'" class="w-10 h-10 rounded-full bg-white border border-ink/10 hover:border-ink/30 transition flex items-center justify-center shrink-0" aria-label="{{ __('webapp.common.back') }}">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
         </button>
         <h1 class="font-anton text-[30px] text-ink">{{ __('webapp.register.account_heading') }}</h1>
         <p class="text-sm text-body -mt-1.5">
@@ -55,7 +55,7 @@
         </p>
 
         <template x-if="error">
-            <div class="rounded-2xl bg-[#F8D7DA] text-[#721C24] text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
+            <div class="rounded-2xl bg-bad-surface text-bad-ink text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
         </template>
 
         <div class="flex flex-col gap-1.5">
@@ -125,13 +125,13 @@
     {{-- ── Step 3 · profile the API needs ───────────────────────────────── --}}
     <div x-show="step === 'details'" class="w-full max-w-[460px] flex flex-col gap-[13px]" x-cloak>
         <button type="button" @click="step = 'account'" class="w-10 h-10 rounded-full bg-white border border-ink/10 hover:border-ink/30 transition flex items-center justify-center shrink-0" aria-label="{{ __('webapp.common.back') }}">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
         </button>
         <h1 class="font-anton text-[30px] text-ink" x-text="detailsHeading"></h1>
         <p class="text-sm text-body -mt-1.5">{{ __('webapp.register.details_sub') }}</p>
 
         <template x-if="error">
-            <div class="rounded-2xl bg-[#F8D7DA] text-[#721C24] text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
+            <div class="rounded-2xl bg-bad-surface text-bad-ink text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
         </template>
 
         {{-- Business: categories --}}
@@ -192,7 +192,7 @@
                             <span class="w-6 h-6 rounded-full shrink-0 flex items-center justify-center border-[1.5px]"
                                   :class="form.has_venue === opt.value ? 'bg-primary border-primary' : 'border-ink/20'">
                                 <template x-if="form.has_venue === opt.value">
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                                 </template>
                             </span>
                             <span>

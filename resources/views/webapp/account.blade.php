@@ -11,10 +11,10 @@
         <h1 class="font-anton text-[28px] tracking-[1px] text-ink">{{ __('webapp.account.title') }}</h1>
 
         <template x-if="error">
-            <div class="mt-5 rounded-2xl bg-[#F8D7DA] text-[#721C24] text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
+            <div class="mt-5 rounded-2xl bg-bad-surface text-bad-ink text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
         </template>
         <template x-if="saved">
-            <div class="mt-5 rounded-2xl bg-[#D4EDDA] text-[#155724] text-sm px-4 py-3">{{ __('webapp.common.saved') }}</div>
+            <div class="mt-5 rounded-2xl bg-ok-surface text-ok-ink text-sm px-4 py-3">{{ __('webapp.common.saved') }}</div>
         </template>
         <template x-if="loading">
             <p class="mt-8 text-muted">{{ __('webapp.common.loading') }}</p>
@@ -146,13 +146,13 @@
                 <button type="button" @click="toggleEdit()"
                         class="w-full flex items-center justify-between px-6 py-[15px] border-b border-ink/[.06] hover:bg-cream-low transition text-sm font-medium text-ink text-left">
                     {{ __('webapp.account.edit_profile') }}
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
                 </button>
 
                 <button type="button" @click="toggleNotifPrefs()"
                         class="w-full flex items-center justify-between px-6 py-[15px] border-b border-ink/[.06] hover:bg-cream-low transition text-sm font-medium text-ink text-left">
                     {{ __('webapp.account.notification_settings') }}
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :class="showNotifPrefs ? 'rotate-90' : ''" class="transition"><path d="m9 18 6-6-6-6"/></svg>
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :class="showNotifPrefs ? 'rotate-90' : ''" class="transition"><path d="m9 18 6-6-6-6"/></svg>
                 </button>
                 <div x-show="showNotifPrefs" x-cloak class="px-6 py-4 border-b border-ink/[.06] bg-cream-low/60 flex flex-col gap-3">
                     <template x-for="p in notifRows" :key="p.key">
@@ -168,7 +168,7 @@
                 <button type="button" @click="showLanguages = !showLanguages"
                         class="w-full flex items-center justify-between px-6 py-[15px] border-b border-ink/[.06] hover:bg-cream-low transition text-sm font-medium text-ink text-left">
                     {{ __('webapp.account.language') }}
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :class="showLanguages ? 'rotate-90' : ''" class="transition"><path d="m9 18 6-6-6-6"/></svg>
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :class="showLanguages ? 'rotate-90' : ''" class="transition"><path d="m9 18 6-6-6-6"/></svg>
                 </button>
                 <div x-show="showLanguages" x-cloak class="px-6 py-4 border-b border-ink/[.06] bg-cream-low/60 flex gap-2">
                     @foreach ($localePaths as $l => $href)
@@ -180,11 +180,11 @@
                 <a href="https://kolabing.com/contact" target="_blank" rel="noopener"
                    class="flex items-center justify-between px-6 py-[15px] border-b border-ink/[.06] hover:bg-cream-low transition text-sm font-medium text-ink">
                     {{ __('webapp.account.support') }}
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
                 </a>
 
                 <button type="button" @click="window.kb.logout()"
-                        class="w-full text-left px-6 py-[15px] text-sm font-semibold text-danger hover:bg-[#F8D7DA] transition">{{ __('webapp.nav.logout') }}</button>
+                        class="w-full text-left px-6 py-[15px] text-sm font-semibold text-danger hover:bg-bad-surface transition">{{ __('webapp.nav.logout') }}</button>
             </div>
         </template>
     </div>
