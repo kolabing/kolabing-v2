@@ -110,9 +110,11 @@
     .nav-links { display: flex; align-items: center; gap: 32px; }
     .nav-login { font-weight: 700; opacity: 0.9; }
     .btn-nav {
-      background: var(--dark); color: var(--yellow); padding: 11px 26px;
-      border-radius: 999px; font-weight: 700; font-size: 13px; text-decoration: none; opacity: 1 !important;
-      letter-spacing: 0.02em;
+      /* White, not the brand yellow: the header itself is yellow, so pale-yellow
+         text on the dark pill washed out against the surrounding field. */
+      background: var(--dark); color: #fff; padding: 12px 28px;
+      border-radius: 999px; font-weight: 800; font-size: 14px; text-decoration: none; opacity: 1 !important;
+      letter-spacing: 0.01em;
       transition: background .2s, transform .2s;
     }
     .btn-nav:hover { background: #1c2025; transform: translateY(-1px); }
@@ -540,13 +542,66 @@
       margin: 12px 0;
     }
 
-    /* RIGHT column — phone mockup */
+    /* RIGHT column — the two surfaces Kolabing ships on: the web panel
+       (browser frame, the larger of the two) with the mobile app overlapping it.
+       The panel is drawn in CSS rather than screenshotted so it never goes stale
+       against the real app. */
     .manifesto-phone {
       position: relative;
-      display: flex; align-items: center; justify-content: center;
-      min-height: 520px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 480px;
     }
     .manifesto-phone .phone-wrap { transform: rotate(-4deg); }
+
+    .surface-stack { position: relative; width: 100%; max-width: 500px; }
+
+    .browser-frame {
+      position: relative; z-index: 1;
+      border-radius: 14px; overflow: hidden; background: #fff;
+      transform: rotate(-1.5deg);
+      box-shadow: 0 26px 64px rgba(13,17,20,0.20), 0 2px 8px rgba(13,17,20,0.08);
+    }
+    .browser-bar {
+      display: flex; align-items: center; gap: 6px;
+      padding: 9px 12px; background: #ECE9E2; border-bottom: 1px solid rgba(13,17,20,0.07);
+    }
+    .browser-dot { width: 9px; height: 9px; border-radius: 50%; background: #C6C2BA; flex-shrink: 0; }
+    .browser-url {
+      margin-left: 8px; flex: 1; background: #fff; border-radius: 999px;
+      padding: 4px 12px; font-size: 10px; font-weight: 600; color: #7A7770; letter-spacing: 0.02em;
+    }
+    .browser-body { display: grid; grid-template-columns: 78px 1fr; background: #FBF7EF; height: 252px; }
+    .wp-side {
+      background: #fff; border-right: 1px solid rgba(13,17,20,0.07);
+      padding: 12px 10px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .wp-logo { width: 24px; height: 24px; border-radius: 8px; background: var(--yellow); margin-bottom: 4px; }
+    .wp-nav { height: 9px; border-radius: 999px; background: rgba(13,17,20,0.09); }
+    .wp-nav.is-on { background: var(--yellow); }
+    .wp-main { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+    .wp-search { height: 22px; border-radius: 999px; background: #fff; border: 1px solid rgba(13,17,20,0.08); }
+    .wp-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .wp-card { background: #fff; border: 1px solid rgba(13,17,20,0.07); border-radius: 10px; overflow: hidden; }
+    .wp-card-img { height: 44px; background: linear-gradient(135deg, rgba(255,226,140,0.95), rgba(255,97,20,0.35)); }
+    .wp-card-img.alt { background: linear-gradient(135deg, rgba(13,17,20,0.82), rgba(13,17,20,0.42)); }
+    .wp-card-body { padding: 7px 8px; display: flex; flex-direction: column; gap: 5px; }
+    .wp-line { height: 6px; border-radius: 999px; background: rgba(13,17,20,0.14); }
+    .wp-line.short { width: 55%; background: rgba(13,17,20,0.09); }
+    .wp-tag { width: 34px; height: 8px; border-radius: 999px; background: var(--yellow); }
+
+    /* The phone rides on top of the panel. Scaling lives on this wrapper because
+       the tilt script writes directly to #phoneWrap's transform. */
+    .phone-mini {
+      position: absolute; right: -10px; bottom: -54px; z-index: 3;
+      transform: scale(0.56); transform-origin: bottom right;
+    }
+
+    .surface-caption {
+      margin-top: 84px; text-align: center;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+      color: rgba(13,17,20,0.45);
+    }
+    .surface-caption strong { color: var(--dark); font-weight: 800; }
     .manifesto-phone .phone-glow {
       position: absolute; width: 300px; height: 300px; border-radius: 50%;
       background: radial-gradient(circle, rgba(255,226,140,0.5) 0%, transparent 70%);
@@ -1086,8 +1141,13 @@
       .hero-right { justify-content: center; padding: 0 16px 24px; height: auto; min-height: 440px; }
       .hero h1 { font-size: clamp(2.2rem, 10vw, 56px); width: auto; max-width: 100%; }
       .phone-wrap { transform: rotate(2deg) translateY(0); }
-      .chip-runners { left: 16px; bottom: 20px; }
-      .chip-notification { right: 16px; top: 20px; }
+      .chip-runners { left: 8px; bottom: 4px; }
+      .chip-notification { right: 8px; top: 16px; }
+      .manifesto-phone { min-height: 380px; }
+      .surface-stack { max-width: 400px; }
+      .browser-body { height: 208px; grid-template-columns: 64px 1fr; }
+      .phone-mini { transform: scale(0.46); right: -18px; bottom: -48px; }
+      .surface-caption { margin-top: 58px; }
 
       .manifesto-track { padding: 0 24px; grid-template-columns: 1fr; gap: 40px; }
       .manifesto-headline { font-size: clamp(2.4rem, 10vw, 56px); }
@@ -1139,7 +1199,7 @@
       <a href="#faq">questions</a>
     </span>
     <a class="nav-login" href="{{ $appLogin }}">log in</a>
-    <a class="btn-nav" href="{{ $appRegister }}">get started — free</a>
+    <a class="btn-nav" href="{{ $appRegister }}">get started free</a>
   </nav>
 </header>
 
@@ -1336,9 +1396,9 @@
       </div>
     </div>
 
-    <!-- RIGHT: phone mockup -->
+    <!-- RIGHT: both surfaces — web panel + mobile app -->
     <div class="manifesto-phone fade in" style="transition-delay:.15s">
-      <div class="phone-wrap" id="phoneWrap">
+      <div class="surface-stack">
 
         <!-- Floating chip: runners -->
         <div class="chip chip-runners">
@@ -1358,22 +1418,68 @@
           </div>
         </div>
 
-        <!-- Phone frame -->
-        <div class="phone-frame">
-          <div class="phone-screen">
-            <video autoplay muted loop playsinline onerror="this.parentElement.style.background='#1a1a2e'">
-              <source src="assets/hero2.mp4" type="video/mp4"/>
-              <source src="assets/hero.mp4" type="video/mp4"/>
-            </video>
+        <!-- Web panel -->
+        <div class="browser-frame" role="img" aria-label="The Kolabing web panel at app.kolabing.com">
+          <div class="browser-bar" aria-hidden="true">
+            <span class="browser-dot"></span>
+            <span class="browser-dot"></span>
+            <span class="browser-dot"></span>
+            <div class="browser-url">app.kolabing.com</div>
           </div>
-          <div class="phone-notch" aria-hidden="true"></div>
-          <div class="phone-btn-right" aria-hidden="true"></div>
-          <div class="phone-btn-left-1" aria-hidden="true"></div>
-          <div class="phone-btn-left-2" aria-hidden="true"></div>
+          <div class="browser-body" aria-hidden="true">
+            <aside class="wp-side">
+              <div class="wp-logo"></div>
+              <div class="wp-nav is-on"></div>
+              <div class="wp-nav"></div>
+              <div class="wp-nav"></div>
+              <div class="wp-nav"></div>
+            </aside>
+            <div class="wp-main">
+              <div class="wp-search"></div>
+              <div class="wp-cards">
+                <div class="wp-card">
+                  <div class="wp-card-img"></div>
+                  <div class="wp-card-body"><div class="wp-line"></div><div class="wp-line short"></div></div>
+                </div>
+                <div class="wp-card">
+                  <div class="wp-card-img alt"></div>
+                  <div class="wp-card-body"><div class="wp-line"></div><div class="wp-tag"></div></div>
+                </div>
+                <div class="wp-card">
+                  <div class="wp-card-img alt"></div>
+                  <div class="wp-card-body"><div class="wp-line"></div><div class="wp-line short"></div></div>
+                </div>
+                <div class="wp-card">
+                  <div class="wp-card-img"></div>
+                  <div class="wp-card-body"><div class="wp-line"></div><div class="wp-tag"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="phone-glow" aria-hidden="true"></div>
+        <!-- Mobile app, riding on top of the panel -->
+        <div class="phone-mini">
+          <div class="phone-wrap" id="phoneWrap">
+            <div class="phone-frame">
+              <div class="phone-screen">
+                <video autoplay muted loop playsinline onerror="this.parentElement.style.background='#1a1a2e'">
+                  <source src="assets/hero2.mp4" type="video/mp4"/>
+                  <source src="assets/hero.mp4" type="video/mp4"/>
+                </video>
+              </div>
+              <div class="phone-notch" aria-hidden="true"></div>
+              <div class="phone-btn-right" aria-hidden="true"></div>
+              <div class="phone-btn-left-1" aria-hidden="true"></div>
+              <div class="phone-btn-left-2" aria-hidden="true"></div>
+            </div>
+            <div class="phone-glow" aria-hidden="true"></div>
+          </div>
+        </div>
+
       </div>
+
+      <p class="surface-caption">one account · <strong>web panel</strong> + <strong>mobile app</strong></p>
     </div>
 
   </div>

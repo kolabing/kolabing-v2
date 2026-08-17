@@ -31,7 +31,7 @@ class WebAppFunnelTest extends TestCase
         $response->assertOk();
         $response->assertSee('href="'.$this->app_url().'/login"', false);
         $response->assertSee('href="'.$this->app_url().'/register"', false);
-        $response->assertSee('get started — free', false);
+        $response->assertSee('get started free', false);
         // The old nav CTA scrolled to #cta and the hamburger opened nothing.
         $response->assertDontSee('href="#cta"', false);
         $response->assertDontSee('class="menu-icon"', false);
@@ -49,6 +49,19 @@ class WebAppFunnelTest extends TestCase
         $response->assertDontSee('Get it on', false);
         $response->assertDontSee('class="dl-btn"', false);
         $response->assertDontSee('iOS + Android', false);
+    }
+
+    public function test_homepage_journey_section_shows_both_the_web_panel_and_the_app(): void
+    {
+        $response = $this->get('/');
+
+        // The section used to show a phone alone, which sold the mobile app the
+        // site cannot yet link to. It now leads with the web panel.
+        $response->assertSee('class="browser-frame"', false);
+        $response->assertSee('class="browser-url">app.kolabing.com<', false);
+        $response->assertSee('class="phone-mini"', false);
+        $response->assertSee('<strong>web panel</strong>', false);
+        $response->assertSee('<strong>mobile app</strong>', false);
     }
 
     public function test_homepage_final_cta_deep_links_each_role_to_a_prefilled_register(): void
