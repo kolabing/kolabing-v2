@@ -392,3 +392,93 @@ Do not mark a task complete unless its focused tests + relevant regression tests
 - **P2 items intentionally deferred (not addressed this turn):** `positions_needed`/`positions_filled` DB-level CHECK constraint; organizer visibility into `withdrawal_reason`; the stale local `master` git ref; the `restrictOnDelete()` FK cycle between `kolabs` and `multi_kolab_role_applications`; and — newly identified during this checkpoint — `createDraft()`/`addRole()`/`publish()` in `MultiKolabEventService` still call `postHog->capture()` unwrapped (not inside a transaction, so no rollback risk, but the same "uncaught exception on an already-successful write" class of issue as the P2 fixed here for `apply`/`shortlist`/`decline`/`confirm`/`cancel` — out of this checkpoint's explicit scope, flagged for a future pass).
 - **Commit:** (recorded after this turn's commit — see chat report)
 - **Push:** `origin/feat/multi-kolab-event-mvp`, normal push (no force).
+
+---
+
+## Task 9 correction (backend half): integrate Multi-Kolab roles into the ordinary Explore feed
+
+- **Status:** Completed
+- **Trigger:** Task 9's Flutter delivery kept Multi-Kolab as an additive
+  standalone Explore banner/screen rather than interleaving it into the
+  ordinary feed (documented deviation in the Task 9 entry above). Product
+  correction: Multi-Kolab roles must be ordinary Explore feed items,
+  server-side filtered/paginated, not a separate section. This entry covers
+  the **backend** half only; the Flutter correction is a parallel task.
+- **Environment:** SQLite/testing only. No Postgres, no writes to the shared
+  dev DB.
+- **Design decision (full rationale in contract §13):** integrated directly
+  into the existing `GET /api/v1/discovery/opportunities`
+  (`DiscoveryOpportunityService`/`DiscoveryOpportunityController`) rather
+  than building a parallel endpoint — safe because that service already
+  paginates in-memory over a fully materialized, scored
+  `Illuminate\Support\Collection` (never SQL `LIMIT`/`OFFSET`), so merging a
+  second item type before the existing sort/paginate step needed no SQL
+  `UNION` and preserves the exact ordering/pagination guarantees already in
+  place.
+- **Files created:**
+  - `app/Http/Resources/Api/V1/MultiKolab/MultiKolabRoleExploreResource.php`
+    — the `item_type: "multi_kolab_role"` feed-item shape (contract §13).
+  - `tests/Feature/MultiKolab/MultiKolabExploreFeedTest.php` (14 tests).
+- **Files modified:**
+  - `app/Services/DiscoveryOpportunityService.php` — added
+    `makeMultiKolabRoleBaseQuery()`, `applyMultiKolabRoleFilters()`,
+    `buildMultiKolabRoleItems()`, `buildMultiKolabRoleScore()`,
+    `resolveMultiKolabRoleTargetDate()`, `sortCombinedItems()`,
+    `itemModelId()`; `discover()` now wraps both Kolabs and eligible
+    Multi-Kolab roles as `{item_type, model, score, timestamp, sort_date}`
+    tuples, concatenates them, and sorts/paginates the combined collection.
+    Removed the now-superseded Kolab-only `sortScoredResults()` (replaced by
+    `sortCombinedItems()`, which both item types use).
+  - `app/Http/Resources/Api/V1/DiscoveryOpportunityResource.php` — added
+    `item_type: "kolab"` (the only new field; additive, backward
+    compatible).
+  - `app/Http/Resources/Api/V1/DiscoveryOpportunityCollection.php` —
+    changed base class from `ResourceCollection` to `JsonResource` (see
+    contract §13 for why: `ResourceCollection`'s auto-guessed `collects`
+    class would force every item through `DiscoveryOpportunityResource`
+    before `toArray()` runs); `toArray()` now routes each wrapped item to
+    the resource matching its `item_type`.
+- **Eligibility/exclusion enforced server-side (all in the SQL query, not
+  post-filtered in PHP):** `status = open`, `positions_filled <
+  positions_needed`, `eligible_account_type` matches the viewer
+  (business/either or community/either), parent event `status =
+  recruiting` (excludes draft/confirmed/completed/cancelled), and
+  `event.creator_profile_id != viewer.id` (organizer self-exclusion).
+- **N+1 prevention:** one query for eligible roles with
+  `event.creatorProfile.businessProfile`/`communityProfile` eager-loaded —
+  verified by `test_mixed_feed_does_not_trigger_n_plus_1_queries` (bounded
+  query count via `DB::listen`, not per-role growth).
+- **No subscription/entitlement gate on browsing:** unchanged — the
+  existing `DiscoveryOpportunityService` never called
+  `hasActiveSubscription()`/`hasEventCreatorEntitlement()` and this task
+  added no such check; verified explicitly by
+  `test_browsing_multi_kolab_roles_never_requires_subscription_or_entitlement`.
+- **Bookmarks:** no bookmark/save model exists anywhere in this codebase
+  (`rg -li bookmark app/` → no hits) — the spec's "typed target if the
+  bookmark model can't safely reference a role id" is moot; nothing to
+  build. Documented in contract §13 for whoever adds bookmarks later.
+- **Deviations from the spec:** the Multi-Kolab `match_score` is a
+  simplified freshness+city heuristic, not the Kolab feed's full weighted
+  `match_breakdown` (out of scope — see contract §13); `image_url` falls
+  back to the organizer's avatar only, since `MultiKolabEvent` has no
+  cover-photo column to fall back from in the first place (schema change
+  out of scope). Both documented, not silent.
+- **Focused tests:** red (new `MultiKolabExploreFeedTest.php` against
+  pre-integration code) not separately re-run as a formal red baseline
+  beyond writing the tests before the merge logic existed in a callable
+  form — TDD discipline followed by building `sortCombinedItems()`/the
+  query methods incrementally against the failing suite; final green run:
+  **14/14, 62 assertions**, first attempt after mechanical `actingAs()` fix
+  (Profile is directly `Authenticatable`, not `Profile->user`).
+- **Regression:** `tests/Feature/MultiKolab` + `tests/Unit/MultiKolab` +
+  `tests/Feature/Api/V1/DiscoveryOpportunityControllerTest.php` →
+  **178/178 OK** (164 baseline + 14 new), 0 failures — the pre-existing
+  Kolab-only Explore tests are byte-for-byte unmodified and still pass,
+  confirming backward compatibility. `vendor/bin/pint --dirty` → pass.
+- **Full backend suite:** run before finalizing — see chat report for the
+  exact count.
+- **Commit:** two commits — `feat: include multi-kolab roles in explore
+  feed`, `test: cover multi-kolab explore filtering and pagination` (hashes
+  in chat report), plus this doc update.
+- **Push:** `origin/feat/multi-kolab-event-mvp`, normal push (no force) —
+  see chat report for confirmation.

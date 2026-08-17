@@ -424,3 +424,134 @@ establishes model identities/relations that make this possible later):
 - This is a documentation-only decision as of Task 2; the report endpoints/UI
   wiring is implemented when Tasks 4/5/7 build the resources and controllers
   that make these surfaces visible.
+
+## 13. Explore feed integration (Task 9 correction, backend)
+
+**Decided:** Multi-Kolab roles are returned **inside the existing**
+`GET /api/v1/discovery/opportunities` feed (`DiscoveryOpportunityController` /
+`DiscoveryOpportunityService`), not a separate endpoint. This supersedes the
+earlier Task 9 Flutter decision to add a standalone
+`GET /api/v1/multi-kolab-events` Explore banner/screen — that endpoint (§6)
+still exists for the organizer-facing "my events"/detail flows, but is no
+longer the applicant discovery surface.
+
+**Why server-side integration was safe here (not a parallel-endpoint
+composition):** `DiscoveryOpportunityService::discover()` does not paginate
+via SQL `LIMIT`/`OFFSET`. It already executes its full Kolab query with
+`->get()`, computes an in-memory match score per row, sorts the resulting
+`Illuminate\Support\Collection` in PHP, and only then slices a page with
+`->forPage()` before wrapping the slice in a `LengthAwarePaginator`. Because
+pagination and sorting already happen in application memory over a fully
+materialized collection, merging a second, differently-typed collection
+(open Multi-Kolab roles) into that same collection *before* the existing
+sort/paginate step requires no SQL-level `UNION` and preserves the exact
+same ordering/pagination guarantees the Kolab-only feed already had —
+there was no parallel-endpoint-plus-client-composition path to justify
+choosing over this.
+
+**Mechanics:**
+- Every Kolab row and every eligible open Multi-Kolab role is wrapped as
+  `{item_type, model, score, timestamp, sort_date}` before merging; a new
+  `DiscoveryOpportunityService::sortCombinedItems()` replaces the old
+  Kolab-only `sortScoredResults()` and sorts on those four scalar keys only
+  (never on model-specific columns), with the underlying model's UUID as
+  the final tie-break for full determinism.
+- `DiscoveryOpportunityService::makeMultiKolabRoleBaseQuery()` /
+  `applyMultiKolabRoleFilters()` mirror the existing
+  `makeBaseQuery()`/`applyCommonFilters()` split — a "before city/search
+  filters" existence check feeds the same `empty_reason` logic the Kolab
+  feed already had (`no_published_results` vs `no_results_after_filters`).
+- Eligibility: `MultiKolabRole.status = open`, `positions_filled <
+  positions_needed`, `eligible_account_type` matches the viewer
+  (`business`/`either` for a Business viewer, `community`/`either` for a
+  Community viewer), the role's event is `status = recruiting`, and the
+  event's `creator_profile_id != viewer.id` (organizer exclusion) — all
+  enforced in the query, not in PHP after the fact.
+- N+1 prevention: one `MultiKolabRole::with(['event.creatorProfile.businessProfile',
+  'event.creatorProfile.communityProfile'])->get()` call regardless of role
+  count — no per-role query.
+- `DiscoveryOpportunityCollection` was changed from a `ResourceCollection`
+  (which auto-guesses a single `collects` resource class from its own class
+  name and would force every item through `DiscoveryOpportunityResource`)
+  to a plain `JsonResource` that inspects each wrapped item's `item_type`
+  and routes it to `DiscoveryOpportunityResource` (ordinary Kolab) or the
+  new `MultiKolabRoleExploreResource` (Multi-Kolab role).
+- `DiscoveryOpportunityResource` gained one additive field,
+  `item_type: "kolab"` — the discriminator required by the spec. No
+  existing field was renamed, removed, or reshaped; existing clients that
+  ignore unknown JSON keys are unaffected (verified by
+  `test_ordinary_kolab_items_remain_backward_compatible` and the full
+  pre-existing `DiscoveryOpportunityControllerTest` suite, unmodified and
+  still green).
+
+**`multi_kolab_role` feed item shape** (`MultiKolabRoleExploreResource`):
+
+```json
+{
+  "item_type": "multi_kolab_role",
+  "id": "role-uuid",
+  "multi_kolab_event_id": "event-uuid",
+  "role_title": "Run Club Partner",
+  "looking_for": {
+    "eligible_account_type": "community",
+    "required": true
+  },
+  "event_title": "Kolabing Launch Weekend",
+  "city": "Barcelona",
+  "target_date": {
+    "mode": "exact",
+    "date": "2026-09-12",
+    "range_start": null,
+    "range_end": null
+  },
+  "compensation": {
+    "type": "value_exchange",
+    "need": "A running route + 20-30 participants",
+    "receive": "Free venue, post-run brunch, social tagging",
+    "value_summary": "Free entry, venue + brand partners wanted"
+  },
+  "positions_needed": 1,
+  "positions_filled": 0,
+  "positions_remaining": 1,
+  "match_score": 40,
+  "image_url": "https://example.com/organizer-avatar.jpg",
+  "creator_profile": {
+    "id": "profile-uuid",
+    "display_name": "Kolabing",
+    "avatar_url": "https://example.com/organizer-avatar.jpg"
+  },
+  "rsvp": {"url": "https://lu.ma/kolabing-launch"},
+  "published_at": "2026-08-12T09:00:00Z"
+}
+```
+
+Next to an ordinary item in the same page (`DiscoveryOpportunityResource`,
+now carrying `item_type: "kolab"` as its only new field — every other field
+is exactly as documented pre-Task-9).
+
+**Deviations from the ideal spec, documented:**
+- **Match %:** `match_score` for a Multi-Kolab role is a much simpler
+  freshness (+10/+5 within 7/30 days) + city-match (+40) heuristic than the
+  Kolab feed's full multi-signal breakdown (category/value/location/past-
+  activity weighted `match_breakdown`). Building an equivalent
+  role-vs-viewer affinity model was out of scope for this correction; there
+  is no `match_breakdown` on Multi-Kolab items, only the scalar
+  `match_score`. Flagged as a reasonable scope boundary, not an oversight.
+- **Image:** `MultiKolabEvent` has no media/cover-photo column at all (the
+  Task 2 migration never added one). `image_url` falls back to the
+  organizer's `avatar_url` only — the same *ultimate* fallback
+  `DiscoveryOpportunityResource::resolveCoverPhotoUrl()` uses for a Kolab
+  with no media, but Multi-Kolab items never get the "actual uploaded
+  photo" tier a Kolab can have. Adding an event cover-photo column was a
+  schema change outside this correction's scope — flagged, not implemented.
+- **Bookmarks:** `rg -li bookmark app/` returns no hits — this codebase has
+  no bookmark/save model at all for either Kolabs or Multi-Kolab roles, so
+  "provide a typed target if the current bookmark model can't safely
+  reference a role id" is moot; there is nothing to extend. If a bookmark
+  feature is added later, `(target_type, target_id)` should follow the same
+  polymorphic convention already used by `ContentReport` (§12).
+- **`ending_soon` sort for Multi-Kolab roles:** there is no per-role
+  deadline field, so `sort_date` for a role reuses its parent event's
+  target date (`event_date` for `date_mode = exact`, else
+  `date_range_end ?? date_range_start`) — the closest existing analogue to
+  a Kolab's `availability_end ?? availability_start`.
