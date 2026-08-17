@@ -2,30 +2,33 @@
 @section('title', __('webapp.welcome.default_heading'))
 
 @section('body')
-<div x-data="welcomePage()" x-init="init()" class="min-h-screen flex flex-col items-center justify-center px-5 py-12 text-center">
-    <div class="w-full max-w-md">
-        <div class="mx-auto w-14 h-14 rounded-full bg-primary flex items-center justify-center text-2xl">🎉</div>
-        <h1 class="font-montserrat font-black text-2xl tracking-tight mt-5" x-text="heading"></h1>
-        <p class="text-off-black/60 mt-2" x-text="subheading"></p>
+<div x-data="welcomePage()" x-init="init()" class="min-h-screen bg-cream-alt flex flex-col items-center justify-center px-6 py-12 text-center">
+    <div class="w-full max-w-[440px]">
+        <div class="w-16 h-16 rounded-full bg-[#56624D] mx-auto flex items-center justify-center">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        </div>
+        <h1 class="font-anton text-[30px] text-ink mt-5" x-text="heading">{{ __('webapp.welcome.default_heading') }}</h1>
+        <p class="text-sm text-body mt-2 leading-relaxed" x-text="subheading">{{ __('webapp.welcome.default_subheading') }}</p>
 
-        <div class="mt-7 rounded-2xl border border-off-black/10 p-5">
-            <p class="font-semibold">{{ __('webapp.welcome.continue_title') }}</p>
-            <p class="text-sm text-off-black/60 mt-1">{{ __('webapp.welcome.continue_desc') }}</p>
+        <div class="mt-7 bg-white border border-ink/[.08] rounded-3xl p-6 text-left shadow-card">
+            <p class="text-[15px] font-bold text-ink">{{ __('webapp.welcome.continue_title') }}</p>
+            <p class="text-[13px] text-muted mt-1.5 leading-relaxed">{{ __('webapp.welcome.continue_desc') }}</p>
 
-            <a :href="deepLink" class="mt-4 inline-block w-full rounded-xl bg-off-black text-off-white font-semibold py-3">{{ __('webapp.welcome.open_app') }}</a>
+            <a :href="deepLink"
+               class="mt-4 w-full h-[52px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark transition flex items-center justify-center">{{ __('webapp.welcome.open_app') }}</a>
 
-            <div class="mt-3 flex items-center justify-center gap-3">
+            <div class="mt-3 flex items-center justify-center gap-3 text-[13px]">
                 <template x-if="iosUrl">
-                    <a :href="iosUrl" class="text-sm font-semibold underline">{{ __('webapp.welcome.app_store') }}</a>
+                    <a :href="iosUrl" class="font-semibold text-ink underline">{{ __('webapp.welcome.app_store') }}</a>
                 </template>
-                <template x-if="iosUrl && androidUrl"><span class="text-off-black/30">·</span></template>
+                <template x-if="iosUrl && androidUrl"><span class="text-muted">·</span></template>
                 <template x-if="androidUrl">
-                    <a :href="androidUrl" class="text-sm font-semibold underline">{{ __('webapp.welcome.google_play') }}</a>
+                    <a :href="androidUrl" class="font-semibold text-ink underline">{{ __('webapp.welcome.google_play') }}</a>
                 </template>
             </div>
         </div>
 
-        <a href="{{ $base }}/dashboard" class="inline-block mt-6 text-sm text-off-black/60 underline">{{ __('webapp.welcome.keep_web') }}</a>
+        <a href="{{ $base }}/dashboard" class="inline-block mt-6 text-[13px] font-semibold text-muted hover:text-ink underline">{{ __('webapp.welcome.keep_web') }}</a>
     </div>
 </div>
 
@@ -39,8 +42,7 @@
             heading: t('welcome.default_heading'),
             subheading: t('welcome.default_subheading'),
             init() {
-                const paid = new URLSearchParams(location.search).get('paid') === '1';
-                if (paid) {
+                if (new URLSearchParams(location.search).get('paid') === '1') {
                     this.heading = t('welcome.paid_heading');
                     this.subheading = t('welcome.paid_subheading');
                 }
