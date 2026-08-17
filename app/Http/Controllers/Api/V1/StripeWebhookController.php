@@ -39,13 +39,19 @@ class StripeWebhookController extends Controller
                 default => null,
             };
         } catch (\Throwable $e) {
-            // Log and still return 200 so Stripe does not retry-storm on an internal
-            // error; reconciliation happens out of band.
             Log::error('Stripe webhook processing error', [
                 'event_type' => $event->type,
                 'event_id' => $event->id ?? null,
                 'error' => $e->getMessage(),
             ]);
+
+            // Fail loudly so Stripe redelivers. Swallowing this with a 200 marks the
+            // event delivered forever: a transient Stripe/DB blip would leave a
+            // customer charged with no `business_subscriptions` row and no way back
+            // in — and there is no reconciliation job. Both handlers key off
+            // `profile_id` via updateOrCreate, so a redelivery is idempotent.
+            // Stripe backs its retries off over ~3 days; this is not a retry storm.
+            return response()->json(['success' => false, 'message' => 'Processing error'], 500);
         }
 
         return response()->json(['success' => true]);

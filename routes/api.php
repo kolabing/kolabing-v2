@@ -284,6 +284,11 @@ Route::prefix('v1')->group(function (): void {
         Route::post('me/subscription/checkout', [SubscriptionController::class, 'createCheckoutSession'])
             ->name('api.v1.me.subscription.checkout');
 
+        // Return-from-Stripe confirmation: activates the subscription without waiting
+        // on the webhook, so a paid buyer is never left on the paywall.
+        Route::post('me/subscription/checkout/confirm', [SubscriptionController::class, 'confirmCheckout'])
+            ->name('api.v1.me.subscription.checkout.confirm');
+
         // Stripe Billing Portal so a business can manage / cancel its web subscription.
         Route::post('me/subscription/portal', [SubscriptionController::class, 'billingPortal'])
             ->name('api.v1.me.subscription.portal');

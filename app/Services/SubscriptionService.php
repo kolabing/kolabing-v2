@@ -38,35 +38,37 @@ class SubscriptionService
      * Activate (upsert) a business subscription from a completed Checkout Session.
      * Idempotent: one row per profile (unique `profile_id`). Rewards the referral
      * on the first paid subscription when a valid code rode on the session metadata.
+     *
+     * Returns the upserted row so the synchronous return-from-Stripe confirmation
+     * can answer with it; the webhook ignores the return value.
      */
-    public function activateFromStripeSession(Session $session): void
+    public function activateFromStripeSession(Session $session): ?BusinessSubscription
     {
-        $profileId = $session->client_reference_id
-            ?: ($session->metadata['profile_id'] ?? null);
+        $profileId = StripeService::sessionProfileId($session);
 
-        if (blank($profileId)) {
+        if ($profileId === null) {
             Log::warning('Stripe checkout.session.completed without a profile reference', [
                 'session_id' => $session->id ?? null,
             ]);
 
-            return;
+            return null;
         }
 
         $profile = Profile::find($profileId);
 
         if ($profile === null || ! $profile->isBusiness()) {
-            return;
+            return null;
         }
 
         $stripeSubscriptionId = StripeService::sessionSubscriptionId($session);
 
         if (blank($stripeSubscriptionId)) {
-            return;
+            return null;
         }
 
         $stripeSubscription = $this->stripeService->retrieveSubscription($stripeSubscriptionId);
 
-        DB::transaction(function () use ($profile, $session, $stripeSubscription): void {
+        return DB::transaction(function () use ($profile, $session, $stripeSubscription): BusinessSubscription {
             $subscription = BusinessSubscription::query()->updateOrCreate(
                 ['profile_id' => $profile->id],
                 [
@@ -93,6 +95,8 @@ class SubscriptionService
                     ]);
                 }
             }
+
+            return $subscription;
         });
     }
 

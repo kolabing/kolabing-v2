@@ -13,7 +13,6 @@
     <div class="max-w-[880px] mx-auto px-5 md:px-10 py-8 md:py-10 pb-20 kb-fade-up">
 
         <h1 class="font-anton text-[28px] tracking-[1px] text-ink">{{ __('webapp.kolabs.title') }}</h1>
-        <p class="sr-only">{{ __('webapp.applications.title') }}</p>
 
         {{-- ── Primary tabs ────────────────────────────────────────────── --}}
         <div class="flex p-1 bg-white border border-ink/[.12] rounded-pill shadow-card mt-[18px] overflow-x-auto">

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Api\V1;
 
 use App\Models\BusinessProfile;
+use App\Models\BusinessSubscription;
 use App\Models\CommunityProfile;
 use App\Models\Profile;
 use App\Services\StripeService;
@@ -173,5 +174,18 @@ class StripeCheckoutTest extends TestCase
             'status' => 'active',
             'source' => 'stripe',
         ]);
+    }
+
+    public function test_checkout_is_refused_when_the_business_already_has_an_active_subscription(): void
+    {
+        // Stripe would create a *second* live subscription against the same customer
+        // while the local row only tracks one id — the first would bill on forever
+        // with nothing pointing at it.
+        $profile = $this->business();
+        BusinessSubscription::factory()->active()->create(['profile_id' => $profile->id]);
+
+        $this->actingAs($profile)
+            ->postJson('/api/v1/me/subscription/checkout', $this->validPayload())
+            ->assertStatus(409);
     }
 }

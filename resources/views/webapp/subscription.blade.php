@@ -49,7 +49,6 @@
     <div class="max-w-[640px] mx-auto px-5 md:px-10 py-8 md:py-10 pb-20 kb-fade-up">
 
         <h1 class="font-anton text-[28px] tracking-[1px] text-ink">{{ __('webapp.subscription.title') }}</h1>
-        <p class="sr-only">{{ __('webapp.subscription.legacy_title') }}</p>
 
         {{-- Why the user landed here, when a paywalled action sent them. --}}
         <template x-if="reasonText">

@@ -48,6 +48,18 @@
             {!! $post->body !!}
         </div>
 
+        {{-- End-of-article funnel: readers who got this far are the warmest
+             traffic the blog produces, so the sign-up sits before "keep reading". --}}
+        <aside class="mt-14 rounded-[2rem] bg-off-black p-8 text-white">
+            <p class="text-xs font-bold uppercase tracking-[0.24em] text-primary">Start your first kolab</p>
+            <h2 class="mt-3 font-montserrat text-2xl font-black uppercase leading-tight">Businesses get customers. Communities get perks.</h2>
+            <p class="mt-3 text-white/70">Kolabing runs in your browser — free for communities, cancel anytime for businesses.</p>
+            <div class="mt-6 flex flex-wrap items-center gap-4">
+                <a href="{{ rtrim(config('webapp.url'), '/') }}/register" class="rounded-full bg-primary px-7 py-3 font-bold text-off-black transition hover:bg-primary/90">Get started free</a>
+                <a href="{{ rtrim(config('webapp.url'), '/') }}/login" class="text-sm font-medium text-white/60 hover:text-white">Already have an account? Log in</a>
+            </div>
+        </aside>
+
         @if ($related->isNotEmpty())
             <aside class="mt-16 border-t border-off-black/10 pt-10">
                 <h2 class="font-montserrat text-lg font-bold uppercase tracking-wide">Keep reading</h2>

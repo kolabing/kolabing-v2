@@ -246,14 +246,14 @@
             isEdit: !!editId, editId,
             intent: null, stepIndex: 0, doneOpen: false, doneTitle: '', doneBody: '',
             cities: [],
-            lookups: { needs: [], deliverables: [], offerings: [], goals: [], product_types: [], venue_types: [], community_types: [] },
+            lookups: { needs: [], deliverables: [], offerings: [], goals: [], product_types: [], community_types: [] },
             dayLabels: [],
             minDate: window.kbDayOffset(1),
             form: {
                 title: '', description: '', offer_headline: '', preferred_city: '',
                 needs: [], typical_attendance: null, offers_in_return: [],
-                goal: '', offering: [], seeking_communities: [], expects: [],
-                venue_name: '', capacity: null, venue_address: '',
+                goal: '', offering: [], seeking_communities: [],
+                venue_name: '', capacity: null,
                 product_name: '', product_type: '',
                 media: [], recurring_days: [], availability_start: '', availability_end: '', selected_time: '',
             },
@@ -283,12 +283,12 @@
             // ── Steps ───────────────────────────────────────────────────
             get steps() {
                 const media = (required) => ({
-                    key: 'media', kind: 'media', eyebrow: t('form.eyebrow_media'), q: t('form.q_media'),
+                    key: 'media', kind: 'media', required, eyebrow: t('form.eyebrow_media'), q: t('form.q_media'),
                     sub: required ? t('form.sub_media_required') : t('form.sub_media'),
                     mediaHint: required ? t('form.media_hint_required') : t('form.media_hint'),
                 });
                 const avail = (required) => ({
-                    key: 'avail', kind: 'avail', eyebrow: t('form.eyebrow_avail'), q: t('form.q_avail'),
+                    key: 'avail', kind: 'avail', required, eyebrow: t('form.eyebrow_avail'), q: t('form.q_avail'),
                     sub: required ? t('form.sub_avail_required') : t('form.sub_avail'),
                 });
                 const review = { key: 'review', kind: 'review', eyebrow: t('form.eyebrow_review'), q: t('form.q_review'), sub: t('form.sub_review') };
@@ -301,7 +301,7 @@
                     eyebrow: t('form.eyebrow_offer'), q: t('form.q_offer'), sub: t('form.sub_offer'),
                 };
                 const ideal = {
-                    key: 'ideal', kind: 'chips', field: 'seeking_communities', source: 'community_types',
+                    key: 'ideal', kind: 'chips', field: 'seeking_communities', source: 'community_types', optional: true,
                     eyebrow: t('form.eyebrow_ideal'), q: t('form.q_ideal'), sub: t('form.sub_ideal'),
                 };
 
@@ -327,8 +327,8 @@
                           fields: [
                             { field: 'title', label: t('form.headline'), ph: t('form.ph_headline_venue') },
                             { field: 'description', label: t('form.about_kolab'), ph: t('form.ph_about_venue'), type: 'textarea' },
-                            { field: 'venue_name', label: t('register.venue_name'), ph: '' },
-                            { field: 'capacity', label: t('register.capacity'), ph: '40', type: 'number' },
+                            { field: 'venue_name', label: t('register.venue_name'), ph: '', optional: true },
+                            { field: 'capacity', label: t('register.capacity'), ph: '40', type: 'number', optional: true },
                           ] },
                         goal, media(true), offering, ideal, avail(true), review,
                     ];
@@ -410,7 +410,7 @@
             async loadLookups() {
                 const map = {
                     needs: '/lookup/needs', deliverables: '/lookup/deliverables', offerings: '/lookup/offerings',
-                    goals: '/lookup/goals', product_types: '/lookup/product-types', venue_types: '/lookup/venue-types',
+                    goals: '/lookup/goals', product_types: '/lookup/product-types',
                     community_types: '/lookup/community-types',
                 };
                 const jobs = Object.entries(map).map(async ([k, path]) => {
@@ -428,12 +428,12 @@
                 if (!res.ok) { this.error = window.kb.errorText(res, t('form.load_error')); return; }
                 const k = res.json?.data || {};
                 this.intent = { community_seeking: 'community', venue_promotion: 'venue', product_promotion: 'product' }[k.intent_type] || 'product';
-                for (const f of ['title', 'description', 'offer_headline', 'preferred_city', 'venue_name', 'venue_address',
+                for (const f of ['title', 'description', 'offer_headline', 'preferred_city', 'venue_name',
                                  'product_name', 'product_type', 'goal', 'typical_attendance', 'capacity',
                                  'availability_start', 'availability_end', 'selected_time']) {
                     if (k[f] != null) this.form[f] = k[f];
                 }
-                for (const f of ['needs', 'offers_in_return', 'offering', 'seeking_communities', 'expects', 'recurring_days']) {
+                for (const f of ['needs', 'offers_in_return', 'offering', 'seeking_communities', 'recurring_days']) {
                     if (Array.isArray(k[f])) this.form[f] = [...k[f]];
                 }
                 if (Array.isArray(k.media)) this.form.media = k.media.map((m, i) => ({ url: m.url, type: m.type || 'image', sort_order: i }));
@@ -464,22 +464,27 @@
                 if (!this.isReview) { this.stepIndex += 1; window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
                 await this.submit();
             },
+            /**
+             * Generic over the step definitions: what is optional and what is required
+             * is declared on the step/field itself (`optional`, `required`), so adding
+             * or renaming a step never means editing this function.
+             */
             validateStep() {
                 const s = this.step, f = this.form;
                 if (s.kind === 'text') {
                     for (const fld of s.fields) {
+                        if (fld.optional) { continue; }
                         const v = f[fld.field];
-                        const optional = fld.field === 'venue_name' || fld.field === 'capacity';
-                        if (!optional && (v === '' || v === null || v === undefined)) return t('form.err_required', { field: fld.label });
+                        if (v === '' || v === null || v === undefined) return t('form.err_required', { field: fld.label });
                     }
                     return null;
                 }
-                if (s.kind === 'chips' && s.field !== 'seeking_communities' && (f[s.field] || []).length === 0) {
-                    return t('form.err_pick_one');
+                if ((s.kind === 'chips' || s.kind === 'options') && !s.optional) {
+                    const picked = s.kind === 'chips' ? (f[s.field] || []).length > 0 : !!f[s.field];
+                    if (!picked) return t('form.err_pick_one');
                 }
-                if (s.kind === 'options' && !f[s.field]) return t('form.err_pick_one');
-                if (s.kind === 'media' && this.intent === 'venue' && f.media.length === 0) return t('form.err_photo_required');
-                if (s.kind === 'avail' && this.intent === 'venue' && !f.availability_start) return t('form.err_start_required');
+                if (s.kind === 'media' && s.required && f.media.length === 0) return t('form.err_photo_required');
+                if (s.kind === 'avail' && s.required && !f.availability_start) return t('form.err_start_required');
                 return null;
             },
 
@@ -534,7 +539,6 @@
                 if (this.intent === 'venue') {
                     if (f.venue_name) body.venue_name = f.venue_name;
                     if (f.capacity) body.capacity = f.capacity;
-                    if (f.venue_address) body.venue_address = f.venue_address;
                     // venue_promotion is location-bound: the API does not want preferred_city.
                     return body;
                 }

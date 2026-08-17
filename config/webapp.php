@@ -21,6 +21,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Absolute web-app URL (marketing → app funnel)
+    |--------------------------------------------------------------------------
+    |
+    | The marketing site (kolabing.com) is served on a different host, so its
+    | CTAs cannot use route() — they need an absolute cross-host URL. Every
+    | "log in" / "get started" link on the marketing side is built from this
+    | value, e.g. `config('webapp.url').'/register?type=business'` (the register
+    | page reads ?type= and skips its role-picker step).
+    |
+    */
+
+    'url' => env('WEBAPP_URL', 'https://app.kolabing.com'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Locales (SEO-friendly, URL-prefixed)
     |--------------------------------------------------------------------------
     | `default` is served at the root ("/login"); the others under a path prefix

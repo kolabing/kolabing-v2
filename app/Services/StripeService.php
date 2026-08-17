@@ -35,6 +35,27 @@ class StripeService
         string $cancelUrl,
         ?string $referralCode,
     ): string {
+        $session = $this->client()->checkout->sessions->create(
+            $this->checkoutSessionParams($profile, $plan, $successUrl, $cancelUrl, $referralCode),
+        );
+
+        return (string) $session->url;
+    }
+
+    /**
+     * Build the Checkout Session payload. Split out from the SDK call so the
+     * commercial details (which price, promo codes, customer reuse) are testable
+     * without mocking the Stripe client.
+     *
+     * @return array<string, mixed>
+     */
+    public function checkoutSessionParams(
+        Profile $profile,
+        string $plan,
+        string $successUrl,
+        string $cancelUrl,
+        ?string $referralCode,
+    ): array {
         $priceId = config("subscriptions.business.stripe.{$plan}.stripe_price_id");
 
         if (blank($priceId)) {
@@ -46,7 +67,7 @@ class StripeService
             'referral_code' => $referralCode,
         ], static fn ($value): bool => $value !== null);
 
-        $session = $this->client()->checkout->sessions->create([
+        return [
             'mode' => 'subscription',
             'line_items' => [['price' => (string) $priceId, 'quantity' => 1]],
             'success_url' => $successUrl,
@@ -54,9 +75,75 @@ class StripeService
             'client_reference_id' => $profile->id,
             'metadata' => $metadata,
             'subscription_data' => ['metadata' => $metadata],
-        ]);
+            // Lets sales run discount campaigns from the Stripe dashboard. This is
+            // NOT the referral code (which rewards the referrer, not the buyer).
+            'allow_promotion_codes' => true,
+            'locale' => self::checkoutLocale(),
+            ...$this->customerIdentity($profile),
+        ];
+    }
 
-        return (string) $session->url;
+    /**
+     * Reuse the profile's Stripe customer when it has one, otherwise pre-fill the
+     * email. Sending both is rejected by Stripe. Without this a repeat buyer gets a
+     * second customer record, which orphans the Billing Portal lookup.
+     *
+     * @return array{customer?: string, customer_email?: string}
+     */
+    private function customerIdentity(Profile $profile): array
+    {
+        $customerId = $profile->subscription?->stripe_customer_id;
+
+        if (filled($customerId)) {
+            return ['customer' => (string) $customerId];
+        }
+
+        return filled($profile->email) ? ['customer_email' => (string) $profile->email] : [];
+    }
+
+    /**
+     * Map the app locale onto a Stripe Checkout locale. Stripe has no Catalan
+     * locale, so `ca` falls back to Spanish — the nearest supported language for
+     * that audience. Anything else lets Stripe negotiate from the browser.
+     */
+    private static function checkoutLocale(): string
+    {
+        return match (app()->getLocale()) {
+            'en' => 'en',
+            'es', 'ca' => 'es',
+            default => 'auto',
+        };
+    }
+
+    /**
+     * Retrieve a Checkout Session so the return-from-Stripe page can confirm the
+     * purchase synchronously instead of waiting on the webhook.
+     */
+    public function retrieveCheckoutSession(string $sessionId): Session
+    {
+        return $this->client()->checkout->sessions->retrieve($sessionId);
+    }
+
+    /**
+     * A Checkout Session counts as paid once Stripe has collected payment. Both
+     * flags are checked because a zero-amount (100%-off coupon) session completes
+     * with `payment_status = no_payment_required`.
+     */
+    public static function sessionIsPaid(Session $session): bool
+    {
+        return in_array($session->payment_status, ['paid', 'no_payment_required'], true)
+            || $session->status === 'complete';
+    }
+
+    /**
+     * The profile the session was created for. `client_reference_id` is set at
+     * creation; metadata is the fallback for sessions created before it was.
+     */
+    public static function sessionProfileId(Session $session): ?string
+    {
+        $profileId = $session->client_reference_id ?: ($session->metadata['profile_id'] ?? null);
+
+        return blank($profileId) ? null : (string) $profileId;
     }
 
     /**

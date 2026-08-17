@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Exceptions\InvalidReferralCodeException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\BillingPortalRequest;
+use App\Http\Requests\Api\V1\ConfirmCheckoutSessionRequest;
 use App\Http\Requests\Api\V1\CreateCheckoutSessionRequest;
 use App\Http\Resources\Api\V1\SubscriptionResource;
 use App\Models\Profile;
@@ -71,6 +72,18 @@ class SubscriptionController extends Controller
             ], 403);
         }
 
+        // Never open a second checkout for someone who is already paying. Stripe would
+        // happily create a second subscription against the same customer and bill it
+        // in parallel; the local row only tracks one `stripe_subscription_id`, so the
+        // older one would keep charging with nothing pointing at it. Managing or
+        // cancelling an existing plan belongs in the Billing Portal.
+        if ($profile->hasActiveSubscription()) {
+            return response()->json([
+                'success' => false,
+                'message' => __('You already have an active subscription. Manage it from the billing portal.'),
+            ], 409);
+        }
+
         if ($request->referralCode() !== null) {
             try {
                 $this->referralService->validateCodeForProfile($profile, $request->referralCode());
@@ -106,6 +119,76 @@ class SubscriptionController extends Controller
 
         return response()->json([
             'data' => ['checkout_url' => $checkoutUrl],
+        ]);
+    }
+
+    /**
+     * Confirm a Checkout Session on return from Stripe and activate the subscription
+     * synchronously. The webhook remains the source of truth for the lifecycle
+     * (renewal / cancellation / dunning), but the *first* activation must not depend
+     * on it: a buyer who has paid must never be left staring at the paywall because
+     * a webhook lagged — or, on a fresh environment, was never registered.
+     *
+     * Both paths run the same idempotent upsert, so confirm-then-webhook and
+     * webhook-then-confirm converge on one row.
+     */
+    public function confirmCheckout(ConfirmCheckoutSessionRequest $request): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        if (! $profile->isBusiness()) {
+            return response()->json([
+                'success' => false,
+                'message' => __('Only business users can subscribe'),
+            ], 403);
+        }
+
+        try {
+            $session = $this->stripeService->retrieveCheckoutSession($request->sessionId());
+        } catch (ApiErrorException $e) {
+            Log::warning('Stripe checkout session retrieval failed', [
+                'profile_id' => $profile->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => __('Could not confirm the payment. Please try again.'),
+            ], 502);
+        }
+
+        // A session id is not a bearer token: only the profile the session was
+        // created for may confirm it.
+        if (StripeService::sessionProfileId($session) !== $profile->id) {
+            return response()->json([
+                'success' => false,
+                'message' => __('This checkout session does not belong to you.'),
+            ], 403);
+        }
+
+        if (! StripeService::sessionIsPaid($session)) {
+            return response()->json([
+                'success' => false,
+                'status' => 'pending',
+                'message' => __('Payment is still being processed.'),
+            ], 409);
+        }
+
+        $subscription = $this->subscriptionService->activateFromStripeSession($session)
+            ?? $this->subscriptionService->getSubscription($profile);
+
+        if ($subscription === null) {
+            return response()->json([
+                'success' => false,
+                'status' => 'pending',
+                'message' => __('Payment received. Your plan is being activated.'),
+            ], 409);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => new SubscriptionResource($subscription),
         ]);
     }
 

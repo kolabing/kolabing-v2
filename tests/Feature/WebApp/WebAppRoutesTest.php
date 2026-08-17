@@ -163,7 +163,16 @@ class WebAppRoutesTest extends TestCase
         $host = $this->host();
         $this->get('http://'.$host.'/account')->assertOk()->assertSee('Profile');
         // /applications reuses the My Kolabs view, opened on the Requests tab.
-        $this->get('http://'.$host.'/applications')->assertOk()->assertSee('Applications');
+        // /applications reuses the My Kolabs view — assert it actually boots on the
+        // Requests tab, not merely that the word appears somewhere on the page.
+        $this->get('http://'.$host.'/applications')
+            ->assertOk()
+            ->assertSee("myKolabsPage('requests')", false)
+            ->assertSee('<title>Applications | Kolabing</title>', false);
+
+        $this->get('http://'.$host.'/kolabs')
+            ->assertOk()
+            ->assertSee("myKolabsPage('offers')", false);
     }
 
     public function test_localized_public_pages_render_with_lang_and_hreflang(): void

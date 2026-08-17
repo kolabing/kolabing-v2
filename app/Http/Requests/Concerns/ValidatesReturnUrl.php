@@ -31,9 +31,18 @@ trait ValidatesReturnUrl
                 // legitimate mixed-case host is not rejected, while the exact-match
                 // compare still blocks userinfo/subdomain open-redirect tricks.
                 $host = rtrim(strtolower($host), '.');
+
+                // The web app builds its return URLs from the host it is served on,
+                // so that host is always legitimate — include it by construction
+                // rather than relying on STRIPE_ALLOWED_RETURN_HOSTS being edited in
+                // step with WEBAPP_HOST (drift there fails every checkout with a 422
+                // the buyer sees only as "could not start checkout").
                 $allowed = array_map(
                     static fn ($allowedHost): string => rtrim(strtolower((string) $allowedHost), '.'),
-                    (array) config('services.stripe.allowed_return_hosts', []),
+                    array_filter([
+                        ...(array) config('services.stripe.allowed_return_hosts', []),
+                        config('webapp.host'),
+                    ]),
                 );
 
                 if (in_array($host, $allowed, true)) {

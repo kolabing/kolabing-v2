@@ -53,6 +53,12 @@ class UserResource extends JsonResource
             });
 
             $data['has_active_subscription'] = $this->hasActiveSubscription();
+
+            // Additive lifecycle hints so a client can warn about a failed payment
+            // (`past_due`) or a plan that is winding down, without a second request.
+            // Null when the business has never subscribed.
+            $data['subscription_status'] = $this->subscription?->status->value;
+            $data['subscription_cancel_at_period_end'] = (bool) ($this->subscription?->cancel_at_period_end ?? false);
         } elseif ($this->user_type === UserType::Attendee) {
             // Attendee identity (name, avatar, city) lives on the base profile.
             $data['name'] = $this->name;

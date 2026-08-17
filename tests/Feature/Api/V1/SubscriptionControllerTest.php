@@ -99,4 +99,34 @@ class SubscriptionControllerTest extends TestCase
         $this->actingAs($profile)->postJson('/api/v1/me/subscription/cancel')->assertStatus(404);
         $this->actingAs($profile)->postJson('/api/v1/me/subscription/reactivate')->assertStatus(404);
     }
+
+    public function test_me_exposes_the_subscription_lifecycle_so_clients_can_warn_about_a_failed_payment(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+        BusinessSubscription::factory()->pastDue()->create([
+            'profile_id' => $profile->id,
+            'cancel_at_period_end' => true,
+        ]);
+
+        $this->actingAs($profile)
+            ->getJson('/api/v1/auth/me')
+            ->assertOk()
+            ->assertJsonPath('data.subscription_status', 'past_due')
+            ->assertJsonPath('data.subscription_cancel_at_period_end', true)
+            // past_due is not an active plan — the paywall must still bite.
+            ->assertJsonPath('data.has_active_subscription', false);
+    }
+
+    public function test_me_reports_a_null_subscription_status_for_a_business_that_never_subscribed(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $profile->id]);
+
+        $this->actingAs($profile)
+            ->getJson('/api/v1/auth/me')
+            ->assertOk()
+            ->assertJsonPath('data.subscription_status', null)
+            ->assertJsonPath('data.subscription_cancel_at_period_end', false);
+    }
 }
