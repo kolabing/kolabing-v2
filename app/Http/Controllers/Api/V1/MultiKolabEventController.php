@@ -246,6 +246,8 @@ class MultiKolabEventController extends Controller
 
         try {
             $role = $this->eventService->updateRole($role, $request->validated());
+        } catch (\App\Exceptions\RoleCapacityExceededException $e) {
+            return $this->roleCapacityExceededResponse($e);
         } catch (InvalidArgumentException $e) {
             return $this->invalidArgumentResponse($e);
         }

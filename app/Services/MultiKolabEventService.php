@@ -8,6 +8,7 @@ use App\Enums\MultiKolabEventStatus;
 use App\Enums\MultiKolabRoleApplicationStatus;
 use App\Exceptions\EventCreatorEntitlementRequiredException;
 use App\Exceptions\MultiKolabEventPublishValidationException;
+use App\Exceptions\RoleCapacityExceededException;
 use App\Models\MultiKolabEvent;
 use App\Models\MultiKolabEventStatusEvent;
 use App\Models\MultiKolabRole;
@@ -122,6 +123,8 @@ class MultiKolabEventService
         if (array_key_exists('positions_needed', $data)) {
             $this->assertValidPositionsNeeded($data);
         }
+
+        $this->assertValidRoleStatusChange($role, $data);
 
         $role->update($this->onlyRoleFields($data));
 
@@ -356,6 +359,39 @@ class MultiKolabEventService
             'compensation_type',
             'requirements',
             'details',
+            'status',
         ]));
+    }
+
+    /**
+     * Task 10 — the organizer may close a role to stop recruiting and reopen
+     * it later, but may never reopen one that has no remaining positions
+     * (that would put an over-subscribed role back into the Explore feed).
+     * `filled` is rejected earlier by the Form Request, so only the
+     * `closed → open` direction needs a capacity guard here.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function assertValidRoleStatusChange(MultiKolabRole $role, array $data): void
+    {
+        if (! array_key_exists('status', $data)) {
+            return;
+        }
+
+        $target = $data['status'] instanceof \App\Enums\MultiKolabRoleStatus
+            ? $data['status']
+            : \App\Enums\MultiKolabRoleStatus::from((string) $data['status']);
+
+        if ($target !== \App\Enums\MultiKolabRoleStatus::Open) {
+            return;
+        }
+
+        $positionsNeeded = (int) ($data['positions_needed'] ?? $role->positions_needed);
+
+        if ($role->positions_filled >= $positionsNeeded) {
+            throw new RoleCapacityExceededException(
+                'This role has no remaining positions.'
+            );
+        }
     }
 }

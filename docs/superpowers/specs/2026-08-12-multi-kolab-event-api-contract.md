@@ -166,6 +166,18 @@ Response `201`:
 — owner-only. `DELETE` on a role with an accepted application returns `422
 role_has_accepted_application`.
 
+**Added Task 10:** `PATCH /api/v1/multi-kolab-roles/{role}` additionally accepts
+`status`, restricted to `open | closed`. This is how an organizer stops and
+resumes recruiting for a single role without hard-deleting it (deletion is
+refused once an application has been accepted, and would destroy applicant
+history). `filled` is **never** client-settable — it is derived by the
+acceptance service. Reopening (`closed → open`) a role with
+`positions_filled >= positions_needed` returns `409` with
+`errors.role = ["role_capacity_exceeded"]` (the existing code, reused — no new
+error code, no new route, no migration). A `closed` role is excluded from the
+Explore feed by the §13 eligibility query that already requires
+`status = open`.
+
 ## 5. Publish / lifecycle
 
 `POST /api/v1/multi-kolab-events/{event}/publish` → requires
