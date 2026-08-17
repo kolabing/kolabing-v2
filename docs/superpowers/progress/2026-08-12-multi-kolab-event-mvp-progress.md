@@ -482,3 +482,83 @@ Do not mark a task complete unless its focused tests + relevant regression tests
   in chat report), plus this doc update.
 - **Push:** `origin/feat/multi-kolab-event-mvp`, normal push (no force) —
   see chat report for confirmation.
+
+## Task 10 — Flutter Multi-Kolab Organizer Experience (complete)
+
+**Flutter branch:** `feat/multi-kolab-event-mvp` (kolabing-app)
+**Backend branch:** `feat/multi-kolab-event-mvp` (kolabing-v2)
+**Spec:** `kolabing-app/docs/superpowers/specs/2026-08-17-multi-kolab-organizer-experience-design.md`
+
+Spec-first: the design document was written, self-reviewed and committed
+(`docs: define multi-kolab organizer experience`) before any implementation.
+
+### Delivered
+- Organizer dashboard (`GET /multi-kolab-events/me`) with client-side status
+  grouping, loading / refresh / empty / error / entitlement-gate states.
+- Event editor (create + edit draft), every field mapped to the frozen
+  contract, HTTPS-only RSVP, exact-vs-range date modes, unsaved-changes guard.
+- Role editor: title + eligibility + capacity + value exchange, stepper
+  clamped at `positions_filled`, per-eligibility Explore-visibility copy.
+- Pre-publish review with an advisory "still needed" list; the backend
+  publish response stays the authority.
+- Event management: overview / roles / applicants, aggregated application
+  counts, child Kolabs, and only the lifecycle actions the current status
+  permits (publish / confirm / complete / cancel, open / close role).
+- Applicant review per role: sections by status, shortlist, decline with
+  confirmation, accept with a capacity + value-exchange + child-Kolab
+  confirmation sheet, capacity-conflict handling.
+- Acceptance hands off to the EXISTING `/collaboration/:id` and
+  `/opportunity/:id` screens. No second collaboration system.
+- 155 new message keys in en/es/ca with identical key sets.
+
+### Backend addition (the only one)
+`PATCH /api/v1/multi-kolab-roles/{role}` now accepts `status` limited to
+`open|closed`, so an organizer can stop and resume recruiting for one role
+without hard-deleting it. `filled` stays derived by the acceptance service;
+reopening a full role reuses the existing `role_capacity_exceeded` 409. No
+migration, no new route, no new resource, no new error code. API contract §4
+updated in the same commit.
+
+### Verification
+- Backend: `tests/Feature/MultiKolab` + `tests/Unit/MultiKolab` — 170 tests,
+  463 assertions, green. `vendor/bin/pint --dirty` clean.
+- Flutter focused (`test/features/multi_kolab`) — 106 tests, green.
+- Flutter full suite — 484 passing, 10 failing; those 10 are the pre-existing
+  baseline failures recorded before Task 10 began (welcome screen, selection
+  card, referral banner, community offer detail, kolab form provider, intent
+  selection, create-opportunity dialogs, my-opportunities). No regressions.
+- `flutter analyze` — 0 errors.
+- Visual QA: 15 screens rendered to PNG under
+  `test/features/multi_kolab/goldens/` by
+  `test/features/multi_kolab/multi_kolab_organizer_capture.dart` and visually
+  inspected. This found and fixed a real defect (the extended FAB overflowed
+  a 320dp phone). No simulator-tap automation was used anywhere.
+
+### Deviations, documented
+1. The C/D/E/F commit split collapsed into one feature commit: the organizer
+   screens are mutually referential through their GoRouter registrations, so
+   a finer split would have shipped a revision navigating to an unregistered
+   route.
+2. The organizer LIST shows no per-event application counts — the `me`
+   summary resource has none and the only source is one dashboard request per
+   event. Counts appear on the event-management screen instead.
+3. The Event Creator gate renders no CTA: the entitlement is maintainer-
+   granted with no self-serve flow, and routing it at the Business paywall
+   would conflate subscription with entitlement.
+4. Applicant identity is shown as account type + a deep link into the
+   existing public profile screen; the role-application resource deliberately
+   does not nest the applicant profile.
+5. `withdrawal_reason` is verified as never serialized and is not displayed.
+6. Roles have no partner-type/category column in the contract; open-ended
+   roles are expressed through title + `eligible_account_type`.
+7. No event cover image: `MultiKolabEvent` has no media column.
+
+### Follow-ups (not implemented)
+- `application_counts` on `MultiKolabEventSummaryResource` (removes the N+1
+  that currently keeps counts off the organizer list).
+- A contract decision on exposing `withdrawal_reason` organizer-only.
+- An event cover-photo column + upload.
+- `status` / pagination query parameters on `GET /multi-kolab-events/me`.
+- Golden assertions cannot run in this environment because `google_fonts`
+  fetches typefaces over the network; bundling the fonts as assets would
+  turn the capture script into a real regression suite.
