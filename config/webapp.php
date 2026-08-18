@@ -64,9 +64,11 @@ return [
     | The chat page opens a WebSocket to Reverb and falls back to polling when it
     | cannot. These are the four public values a Pusher-protocol client needs;
     | the app *secret* stays server-side (config/reverb.php) and must never be
-    | exposed here. `key` empty (the default until the Reverb daemon is deployed
-    | — BE-IF-18) disables the socket entirely and the page polls instead, so
-    | shipping this ahead of the ops work is safe.
+    | exposed here. These are already populated in production — Laravel Cloud runs
+    | the managed Reverb instance (`REVERB_HOST=ws-….laravel.cloud`, TLS on 443),
+    | and its allowed-origins list already covers app.kolabing.com. `key` empty
+    | disables the socket entirely and the page polls instead, so a fresh
+    | environment with no Reverb still has working chat.
     */
     'realtime' => [
         'key' => env('REVERB_APP_KEY'),

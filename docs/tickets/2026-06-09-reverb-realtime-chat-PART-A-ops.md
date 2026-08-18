@@ -8,6 +8,39 @@
 > **Status:** the broadcast CODE already exists. This is an **env + daemons + TLS**
 > job — almost no new PHP.
 
+> ## ⚠️ Status update — 2026-08-18: most of this ticket is already DONE
+>
+> Re-verified while wiring chat into the web panel (BE-NF-28). **Production runs
+> Laravel Cloud's *managed* Reverb**, so the self-hosting steps below (§1 install,
+> §3 `reverb:start` as a Forge daemon, §5 nginx/TLS) **do not apply** — Laravel Cloud
+> terminates TLS on 443 for you.
+>
+> Already in place:
+> - `.env`: `BROADCAST_CONNECTION=reverb`, `QUEUE_CONNECTION=database`,
+>   `REVERB_APP_ID/KEY/SECRET`, `REVERB_HOST=ws-a0f4ad70-…-reverb.laravel.cloud`,
+>   `REVERB_PORT=443`, `REVERB_SCHEME=https`. (`REVERB_SERVER_PORT=6001` is the
+>   *self-hosted bind* port and is unused with managed Reverb — do not confuse it
+>   with `REVERB_PORT`, which is what clients dial.)
+> - The endpoint is live and its allowed-origins list already covers the clients: a
+>   handshake with `Origin: https://app.kolabing.com` (and `https://kolabing.com`)
+>   returns `pusher:connection_established` with `activity_timeout: 30`. A connection
+>   with **no** Origin is rejected `4009 Origin not allowed` — expected; browsers
+>   always send one.
+> - The whole path works: handshake → `POST /broadcasting/auth` (Sanctum bearer, 200
+>   + `key:signature`) → `pusher:subscribe` → `POST /applications/{id}/messages` →
+>   `message.sent` delivered on `private-chat.chat.thread.{id}`. Exercised against a
+>   local `reverb:start` + `queue:work` on a throwaway SQLite database.
+>
+> **What is actually left:**
+> 1. **Confirm a queue worker daemon runs in production.** This is still §4 below and
+>    still the #1 cause of "it's silent": `NewChatMessage` is `ShouldBroadcast` and
+>    the queue is `database`, so with no worker every broadcast is enqueued and never
+>    delivered.
+> 2. **Flip the Flutter client** (`kolabing-app` IF-18) — the key it waits for is the
+>    `REVERB_APP_KEY` above.
+> 3. Nothing on the web panel: it already reads these values via
+>    `config('webapp.realtime')` and switches from polling to the socket by itself.
+
 ## TL;DR — what's already done (do NOT rebuild)
 - `app/Events/NewChatMessage.php` — `ShouldBroadcast`, broadcasts on
   `PrivateChannel('chat.thread.{id}')` (+ legacy `chat.application.{id}`),
