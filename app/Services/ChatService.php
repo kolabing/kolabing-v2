@@ -231,7 +231,6 @@ class ChatService
             ->where('type', ChatThreadType::Collaboration->value)
             ->whereIn('application_id', $applicationIds)
             ->with([
-                'latestMessage', // chat-list preview (#8), avoids N+1
                 'application.collaboration',
                 'application.applicantProfile.businessProfile',
                 'application.applicantProfile.communityProfile',
@@ -250,6 +249,8 @@ class ChatService
         foreach ($threads as $thread) {
             $thread->unread_count = $unreadByApplication[$thread->application_id] ?? 0;
         }
+
+        $this->attachLatestMessages($threads);
 
         return $threads;
     }
@@ -508,7 +509,6 @@ class ChatService
                 ChatThreadType::CommunityMain->value,
                 ChatThreadType::CommunityCustom->value,
             ])
-            ->with('latestMessage') // chat-list preview (#8), avoids N+1
             ->get();
 
         $bannedThreadIds = $this->bannedThreadIds($profile, $threads);
@@ -537,6 +537,7 @@ class ChatService
         });
 
         $this->attachUnreadCounts($profile, $visible);
+        $this->attachLatestMessages($visible);
 
         return $visible->values();
     }
@@ -618,7 +619,6 @@ class ChatService
                     $query->orWhereIn('community_id', $managedCommunityIds);
                 }
             })
-            ->with('latestMessage') // chat-list preview (#8), avoids N+1
             ->get();
 
         $bannedThreadIds = $this->bannedThreadIds($profile, $threads);
@@ -628,6 +628,7 @@ class ChatService
         $threads = $threads->reject(fn (ChatThread $thread): bool => $bannedThreadIds->contains($thread->id));
 
         $this->attachUnreadCounts($profile, $threads);
+        $this->attachLatestMessages($threads);
 
         return $threads->values();
     }
@@ -886,6 +887,54 @@ class ChatService
     /**
      * @param  Collection<int, ChatThread>  $threads
      */
+    /**
+     * Attach each thread's newest message as the `latestMessage` relation, so the
+     * `ChatThreadResource` preview (#8) resolves without an N+1.
+     *
+     * Done here instead of `with('latestMessage')` because the relation cannot be
+     * an `ofMany()` one: Eloquent always adds `MAX(<primary key>)` to that
+     * sub-query and `chat_messages.id` is a `uuid`, which Postgres has no `max()`
+     * for — that is what made `GET /chats` a 500 in production (#146).
+     *
+     * Two grouped queries, both served by the `(thread_id, created_at)` index.
+     *
+     * @param  Collection<int, ChatThread>  $threads
+     */
+    private function attachLatestMessages(Collection $threads): void
+    {
+        $threadIds = $threads->pluck('id')->filter()->values();
+        if ($threadIds->isEmpty()) {
+            return;
+        }
+
+        $latestAtByThread = ChatMessage::query()
+            ->whereIn('thread_id', $threadIds)
+            ->selectRaw('thread_id, MAX(created_at) as latest_at')
+            ->groupBy('thread_id')
+            ->pluck('latest_at', 'thread_id');
+
+        $messages = collect();
+
+        if ($latestAtByThread->isNotEmpty()) {
+            $messages = ChatMessage::query()
+                ->where(function ($query) use ($latestAtByThread): void {
+                    foreach ($latestAtByThread as $threadId => $latestAt) {
+                        $query->orWhere(function ($clause) use ($threadId, $latestAt): void {
+                            $clause->where('thread_id', $threadId)
+                                ->where('created_at', $latestAt);
+                        });
+                    }
+                })
+                ->orderBy('created_at')
+                ->get()
+                ->keyBy('thread_id');
+        }
+
+        foreach ($threads as $thread) {
+            $thread->setRelation('latestMessage', $messages[$thread->id] ?? null);
+        }
+    }
+
     private function attachUnreadCounts(Profile $profile, Collection $threads): void
     {
         $threadIds = $threads->pluck('id')->filter()->values();
