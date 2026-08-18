@@ -73,27 +73,9 @@ return [
     'hero' => [
         'headline' => 'Where businesses & communities grow together',
         'tagline' => 'Real kolabs · real communities · real growth',
-        'subline' => 'Businesses open their doors. Communities bring the people.',
         'get_started' => 'Get started',
         'already_in' => 'Already in?',
         'log_in' => 'Log in',
-        // One line each — the trade lands faster than a paragraph explaining it.
-        'swaps' => [
-            ['gives' => 'A café opens its quiet mornings', 'gets' => 'A run club brings 40 people every Saturday'],
-            ['gives' => 'A brand hands over its new gear', 'gets' => 'A cycling crew gives it an honest month'],
-            ['gives' => 'A studio offers its rooftop at sunrise', 'gets' => 'A yoga group fills it every week'],
-        ],
-        'steps' => ['Post', 'Match', 'Meet'],
-        'cross_title' => 'One account, web and app',
-        'cross_sub' => 'Sign up here and everything is already waiting in the Kolabing app — same Kolabs, same chats, same plan.',
-        'biz_title' => 'For businesses',
-        'biz_sub' => 'Fill your quiet hours with a group that shows up.',
-        'biz_price' => ':price / month · cancel anytime',
-        'biz_cta' => 'Start as a business',
-        'comm_title' => 'For communities',
-        'comm_sub' => 'Find venues, products and perks for your members.',
-        'comm_price' => 'Free, with no limits.',
-        'comm_cta' => 'Start as a community',
     ],
     'login' => [
         'heading' => 'Welcome back',

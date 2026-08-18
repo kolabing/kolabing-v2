@@ -4,9 +4,10 @@
 @section('robots', 'index,follow')
 
 @section('body')
-{{-- /login stays a real URL (deep links, `kb.requireAuth()` redirects, SEO), but it
-     presents as the same overlay the hero opens — never a bare standalone form.
-     Closing it drops onto the hero behind. --}}
+{{-- The app host's only front door: the sign-in sheet opens on load, over a
+     brand backdrop rather than a pitch — kolabing.com does the pitching. Closing
+     the sheet leaves the two ways forward (sign in again, or create an account)
+     on screen. `/` redirects here; `/register` is its own page. --}}
 <div class="min-h-screen bg-cream-alt" x-data="kbMerge(kbThemeState(), kbLoginModal(), loginPage())" x-init="init()">
     <div class="min-h-screen flex flex-col">
         <div class="kb-on-yellow bg-primary h-[42vh] min-h-[220px] flex items-center justify-center kb-hero-curve">

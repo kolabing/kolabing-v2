@@ -30,10 +30,17 @@ class WebAppRoutesTest extends TestCase
             ->assertSee('Where businesses &amp; communities grow together', false);
     }
 
-    public function test_the_hero_opens_the_same_login_overlay(): void
+    public function test_the_app_host_has_no_landing_page_of_its_own(): void
     {
-        // Arriving from the marketing site never needs a separate login page load.
-        $this->get('http://'.$this->host().'/')
+        // kolabing.com is where the product is pitched. Anyone arriving on the app
+        // host goes straight to signing in; signing up is its own page.
+        $host = $this->host();
+
+        $this->get('http://'.$host.'/')->assertRedirect('http://'.$host.'/login');
+        $this->get('http://'.$host.'/es')->assertRedirect('http://'.$host.'/es/login');
+        $this->get('http://'.$host.'/ca')->assertRedirect('http://'.$host.'/ca/login');
+
+        $this->get('http://'.$host.'/login')
             ->assertOk()
             ->assertSee('kbLoginModal', false)
             ->assertSee('openLogin()', false)
@@ -130,12 +137,8 @@ class WebAppRoutesTest extends TestCase
         }
     }
 
-    public function test_app_root_and_welcome_render(): void
+    public function test_post_purchase_welcome_renders(): void
     {
-        $this->get('http://'.$this->host().'/')
-            ->assertOk()
-            ->assertSee('Where businesses &amp; communities grow together', false);
-
         $this->get('http://'.$this->host().'/welcome')
             ->assertOk()
             ->assertSee('Continue in the Kolabing app');
