@@ -104,7 +104,9 @@
     }
     nav { display: flex; align-items: center; gap: 32px; }
     nav a { text-decoration: none; color: var(--dark); font-size: 13px; font-weight: 600; opacity: 0.75; transition: opacity .2s, color .2s; }
-    nav a:hover { opacity: 1; color: var(--dark); }
+    /* Plain nav links only. The filled CTA is a dark pill with white text, so
+       letting this reach it repainted its label near-black on near-black. */
+    nav a:not(.btn-nav):hover { opacity: 1; color: var(--dark); }
     /* In-page section anchors — these drop away on mobile so the two web-app
        CTAs are the only things left in the header. */
     .nav-links { display: flex; align-items: center; gap: 32px; }
@@ -117,7 +119,8 @@
       letter-spacing: 0.01em;
       transition: background .2s, transform .2s;
     }
-    .btn-nav:hover { background: #1c2025; transform: translateY(-1px); }
+    /* Restates the colour so no nav-wide rule can wash the label out again. */
+    .btn-nav:hover, .btn-nav:focus-visible { background: #1c2025; color: #fff; transform: translateY(-1px); }
     .menu-icon {
       display: none;
       width: 34px; height: 34px;
