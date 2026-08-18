@@ -138,6 +138,29 @@ class WebAppChatPageTest extends TestCase
         $this->assertFileExists(public_path('webapp-assets/kb-realtime.js'));
     }
 
+    public function test_the_browser_gets_the_client_reverb_values_not_the_daemon_bind_pair(): void
+    {
+        // Reverb has two host/port pairs and they are not interchangeable:
+        // REVERB_HOST/REVERB_PORT are what a client dials (config/reverb.php →
+        // apps.apps.*.options), while REVERB_SERVER_HOST/REVERB_SERVER_PORT are what
+        // a self-hosted daemon binds (servers.reverb). Handing the browser the bind
+        // pair points it at a port nothing serves — in production the daemon is
+        // Laravel Cloud's managed instance behind TLS on 443, and the bind pair is
+        // unused entirely.
+        $clientOptions = config('reverb.apps.apps.0.options');
+
+        $this->assertSame($clientOptions['host'], config('webapp.realtime.host'));
+        $this->assertSame((int) $clientOptions['port'], config('webapp.realtime.port'));
+        $this->assertSame($clientOptions['scheme'], config('webapp.realtime.scheme'));
+        $this->assertSame(config('reverb.apps.apps.0.key'), config('webapp.realtime.key'));
+
+        // The browser-facing block carries the four public values and nothing else.
+        $this->assertSame(
+            ['key', 'host', 'port', 'scheme'],
+            array_keys(config('webapp.realtime'))
+        );
+    }
+
     public function test_the_app_secret_is_never_exposed_to_the_browser(): void
     {
         config(['reverb.apps.apps' => [['app_id' => 'x', 'key' => 'k', 'secret' => 'super-secret-value']]]);

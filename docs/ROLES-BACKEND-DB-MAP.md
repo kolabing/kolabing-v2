@@ -568,8 +568,26 @@ self-hosted assets with no bundler and the CSP forbids third-party origins. Priv
 plus the same one-shot refresh the REST client uses.
 
 Config: `config('webapp.realtime')` exposes `REVERB_APP_KEY` / `REVERB_HOST` / `REVERB_PORT` / `REVERB_SCHEME` to the browser.
-The **app secret is never exposed** (pinned by a test). With `key` unset — the state until BE-IF-18 deploys the daemon — the
-socket is disabled and a 4s ticker polls the open thread (8s) and the inbox (20s) instead, so chat is functional either way.
+The **app secret is never exposed** (pinned by a test). With `key` unset the socket is disabled and a 4s ticker polls the open
+thread (8s) and the inbox (20s) instead, so chat is functional either way.
+
+**Production already runs Reverb** (verified 2026-08-18). Laravel Cloud hosts the managed instance and the client trio is set:
+`REVERB_HOST=ws-a0f4ad70-…-reverb.laravel.cloud`, `REVERB_PORT=443`, `REVERB_SCHEME=https`, with `BROADCAST_CONNECTION=reverb`
+and `QUEUE_CONNECTION=database`. The handshake was confirmed against that endpoint with `Origin: https://app.kolabing.com`
+(and `https://kolabing.com`) → `pusher:connection_established`, `activity_timeout: 30`, so `REVERB_ALLOWED_ORIGINS` already
+covers the web panel. A connection with **no** Origin is rejected `4009 Origin not allowed` — expected, and irrelevant to
+browsers, which always send one. The client treats 4000–4099 as fatal and stops reconnecting (falling back to polling), so a
+future origin/key misconfiguration surfaces as chat that never goes live rather than a reconnect storm.
+
+The full loop was then exercised against a local `reverb:start` + `queue:work` on an isolated SQLite database: handshake →
+`POST /broadcasting/auth` (200, `key:signature`) → `pusher:subscribe` → `POST /applications/{id}/messages` → `message.sent`
+received on `private-chat.chat.thread.{id}` carrying `{message: {...}}` with the right `thread_id` and `is_own: false`.
+One consequence worth remembering: `NewChatMessage` broadcasts with `->toOthers()`, so the sender's own socket never receives
+its own message — that is why the composer appends the API's returned message locally instead of waiting for the event.
+
+**`REVERB_PORT` vs `REVERB_SERVER_PORT`.** `config/reverb.php` maps the first to `apps.apps.*.options` (what clients dial) and
+the second to `servers.reverb` (what a self-hosted daemon binds — `REVERB_SERVER_HOST` defaults to `0.0.0.0` and is not set in
+`.env`; `REVERB_SERVER_PORT` is `6001`). With Laravel Cloud's managed Reverb that server pair is unused — do not "align" them.
 
 `AddSecurityHeaders` adds `wss:` to `connect-src` **for the web-app host only**. CSP treats `ws:`/`wss:` as their own
 schemes, so the existing `connect-src 'self' https:` does not cover the socket.
