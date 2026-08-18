@@ -30,6 +30,7 @@ return new class extends Migration
             $table->text('intro')->nullable();
             $table->text('how_ranked')->nullable();
             $table->json('verticals')->nullable();          // CRM vertical keywords this page pulls (null = all, for a hub)
+            $table->json('host_venues')->nullable();        // [{name,note,url}] studios/spaces that host these communities
             $table->json('faq')->nullable();               // [{q,a}, ...]
             $table->string('editor_name', 80)->nullable(); // named editor byline (E-E-A-T)
             $table->boolean('published')->default(false);  // progressive-rollout guard

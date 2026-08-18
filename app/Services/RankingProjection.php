@@ -77,7 +77,7 @@ class RankingProjection
     public function hubRanked(Collection $cityCommunities): Collection
     {
         return $this->rank($cityCommunities->filter(
-            fn (CrmAccount $a) => isset($a->metrics['rank_override'])
+            fn (CrmAccount $a) => isset($a->metrics['hub_rank'])
         ));
     }
 }

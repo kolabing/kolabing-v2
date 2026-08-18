@@ -253,8 +253,15 @@ Route::get('/blog/{post}', [BlogController::class, 'show'])->name('blog.show');
 // Community rankings directory (public GTM lead-magnet pages).
 Route::get('/communities', [DirectoryController::class, 'index'])->name('directory.index');
 Route::get('/communities/how-we-rank', [DirectoryController::class, 'howWeRank'])->name('directory.how-we-rank');
+// Social layer + claim (literal paths before the {city} catch-alls).
 Route::post('/communities/claim', [DirectoryController::class, 'claim'])
     ->middleware('throttle:10,1')->name('directory.claim');
+Route::get('/communities/claim/verify/{token}', [DirectoryController::class, 'verifyClaim'])->name('directory.claim.verify');
+Route::post('/communities/vouch', [DirectoryController::class, 'vouch'])
+    ->middleware('throttle:40,1')->name('directory.vouch');
+Route::post('/communities/testimonial', [DirectoryController::class, 'testimonial'])
+    ->middleware('throttle:10,1')->name('directory.testimonial');
+Route::get('/communities/{city}/badge/{id}', [DirectoryController::class, 'badge'])->name('directory.badge');
 Route::get('/communities/{city}', [DirectoryController::class, 'show'])->name('directory.city');
 Route::get('/communities/{city}/{slug}', [DirectoryController::class, 'topic'])->name('directory.topic');
 

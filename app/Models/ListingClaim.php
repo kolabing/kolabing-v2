@@ -21,7 +21,15 @@ class ListingClaim extends Model
 
     protected $fillable = [
         'community_name', 'handle', 'email', 'city', 'source', 'crm_account_id',
+        'verify_token', 'verified_at',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'verified_at' => 'datetime',
+        ];
+    }
 
     /**
      * @return BelongsTo<CrmAccount, $this>

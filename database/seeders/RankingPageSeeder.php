@@ -79,9 +79,21 @@ class RankingPageSeeder extends Seeder
             }
 
             $metrics = $existing->metrics ?? [];
-            $metrics['blurb'] = $model->metrics['blurb'] ?? ($metrics['blurb'] ?? null);
-            $metrics['rank_override'] = $model->metrics['rank_override'] ?? ($metrics['rank_override'] ?? null);
-            $metrics['handle'] ??= $model->metrics['handle'] ?? null;
+            // Copy the ranking display facts onto the existing CRM lead. rank_override /
+            // hub_rank / blurb take the ranking value; the rest only fill blanks so any
+            // richer PR#157 data on the lead is preserved.
+            foreach (['blurb', 'rank_override', 'hub_rank'] as $key) {
+                if (isset($model->metrics[$key])) {
+                    $metrics[$key] = $model->metrics[$key];
+                }
+            }
+            foreach (['handle', 'members', 'cadence', 'venue', 'collabs', 'photo_url',
+                'luma_url', 'meetup_url', 'eventbrite_url', 'app_url', 'instagram_url',
+                'needs_verify', 'confidence'] as $key) {
+                if (isset($model->metrics[$key]) && ! isset($metrics[$key])) {
+                    $metrics[$key] = $model->metrics[$key];
+                }
+            }
 
             $existing->metrics = $metrics;
             $existing->listed = true;
@@ -123,6 +135,7 @@ class RankingPageSeeder extends Seeder
             'intro' => $piece['intro'] ?? null,
             'how_ranked' => $piece['how_ranked'] ?? null,
             'verticals' => $piece['verticals'] ?? null,
+            'host_venues' => $piece['host_venues'] ?? null,
             'faq' => $piece['faq'] ?? [],
             'editor_name' => $editor,
             'published' => (int) ($piece['wave'] ?? 3) === 1,
@@ -142,10 +155,31 @@ class RankingPageSeeder extends Seeder
     public static function communityAttributes(string $city, array $piece, int $rank, array $entry): array
     {
         $handle = ($entry['handle'] ?? '') ?: null;
+        if ($handle === null && ! empty($entry['instagram_url'])) {
+            $handle = '@'.trim(parse_url($entry['instagram_url'], PHP_URL_PATH) ?? '', '/');
+        }
         // Only the hub (topic === null) pins a citywide rank_override; topic-only
         // communities carry none, so they never pollute the curated hub order and
         // fall to score/name ordering on their own topic page.
         $isHub = ($piece['topic'] ?? null) === null;
+
+        $metrics = array_filter([
+            'city' => $city,
+            'vertical' => $piece['verticals'][0] ?? 'community',
+            'handle' => $handle,
+            'blurb' => $entry['summary'] ?? null,
+            // rank_override = position within this piece (drives topic-page order and is
+            // admin-editable in /admin/crm). hub_rank is set ONLY for hub members so the
+            // curated hub list never mixes in topic-only communities.
+            'rank_override' => $rank,
+            'hub_rank' => $isHub ? $rank : null,
+            'needs_verify' => ! empty($entry['needs_verify']) ?: null,
+            'confidence' => $entry['confidence'] ?? null,
+        ], fn ($v): bool => $v !== null);
+
+        // Structured display facts (members/cadence/venue/collabs + event/social links),
+        // from research fields or a conservative parse of our own summary prose.
+        $metrics = array_merge($metrics, \App\Support\CommunityFacts::enrich($entry));
 
         return [
             'type' => 'community',
@@ -153,13 +187,7 @@ class RankingPageSeeder extends Seeder
             'status' => 'Target',
             'instagram_handle' => $handle,
             'listed' => true,
-            'metrics' => array_filter([
-                'city' => $city,
-                'vertical' => $piece['verticals'][0] ?? 'community',
-                'handle' => $handle,
-                'blurb' => $entry['summary'] ?? null,
-                'rank_override' => $isHub ? $rank : null,
-            ], fn ($v): bool => $v !== null),
+            'metrics' => $metrics,
         ];
     }
 
