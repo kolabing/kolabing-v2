@@ -37,6 +37,7 @@
             </div>
             <div class="mt-6 flex shrink-0 flex-col gap-3 md:mt-0">
                 <a href="{{ rtrim(config('webapp.url'), '/') }}/register?type=business" class="rounded-full bg-primary px-7 py-3 text-center font-bold text-off-black transition hover:bg-primary/90">Create your business account</a>
+                <a href="{{ config('kolabing.book_a_call_url_business') }}" target="_blank" rel="noopener" class="text-center text-sm font-medium text-white/75 underline decoration-white/30 underline-offset-4 hover:text-white">Prefer to talk first? Book a 20-min call</a>
                 <a href="{{ rtrim(config('webapp.url'), '/') }}/login" class="text-center text-sm font-medium text-white/60 hover:text-white">Already have an account? Log in</a>
             </div>
         </div>
