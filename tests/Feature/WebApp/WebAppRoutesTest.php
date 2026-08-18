@@ -128,7 +128,7 @@ class WebAppRoutesTest extends TestCase
         // A declined card silently removes access; the shell must say so and offer
         // the fix. The banner ships with the sidebar, so it cannot be forgotten on
         // a new page.
-        foreach (['/dashboard', '/feed', '/kolabs', '/subscription', '/account'] as $path) {
+        foreach (['/dashboard', '/feed', '/kolabs', '/chats', '/subscription', '/account'] as $path) {
             $this->get('http://'.$this->host().$path)
                 ->assertOk()
                 ->assertSee('We could not charge your card')

@@ -155,7 +155,14 @@
                             </template>
 
                             <template x-if="rq.status === 'accepted'">
-                                <p class="mt-2 text-[12px] text-ok-ink">{{ __('webapp.applications.accepted_note') }}</p>
+                                <div class="mt-2 flex items-center justify-between gap-3">
+                                    <p class="text-[12px] text-ok-ink">{{ __('webapp.applications.accepted_note') }}</p>
+                                    <a :href="window.kbPath('/chats') + '?application=' + rq.id"
+                                       class="shrink-0 h-[38px] px-4 rounded-pill bg-white border border-line text-[13px] font-bold hover:border-ink transition flex items-center gap-1.5">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                        {{ __('webapp.chats.title') }}
+                                    </a>
+                                </div>
                             </template>
                         </div>
                     </template>
@@ -185,6 +192,11 @@
                             <span class="px-3 py-1 rounded-xl text-[11px] font-bold tracking-[.4px] shrink-0"
                                   :style="`background:${statusPill(cl.status).bg};color:${statusPill(cl.status).c}`"
                                   x-text="statusPill(cl.status).label"></span>
+                            <a :href="window.kbPath('/chats') + '?collaboration=' + cl.id"
+                               class="shrink-0 w-9 h-9 rounded-full bg-cream-low hover:bg-cream-low-hover transition flex items-center justify-center text-ink"
+                               :aria-label="t('chats.title')" :title="t('chats.title')">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            </a>
                         </div>
                     </template>
                 </div>
