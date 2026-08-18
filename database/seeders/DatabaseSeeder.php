@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
             XpEarnRuleSeeder::class,
             XpLevelSeeder::class,
             RewardEconomicsSeeder::class,
+            BlogPostSeeder::class,
             RealisticDataSeeder::class,
         ]);
     }
