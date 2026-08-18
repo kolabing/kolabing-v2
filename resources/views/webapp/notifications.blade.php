@@ -97,6 +97,9 @@
             targetPath(nt) {
                 const type = String(nt.target_type || '').toLowerCase();
                 if (!nt.target_id) return null;
+                // A new-message notification targets the APPLICATION, so without this
+                // it fell through to the Requests tab instead of opening the chat.
+                if (nt.type === 'new_message') return '/chats?application=' + nt.target_id;
                 if (type.includes('kolab') || type.includes('opportunity')) return '/kolabs/' + nt.target_id;
                 if (type.includes('application')) return '/kolabs?tab=requests';
                 if (type.includes('collaboration')) return '/kolabs?tab=active';

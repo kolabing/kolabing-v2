@@ -7,7 +7,7 @@
 > Restoring/creating `BACKEND-SCHEMA.md` is tracked as backlog, not part of
 > this PR.
 
-**Last updated:** 2026-08-17 (**Web payment flow — new §14.** No gate changed. `POST /me/subscription/checkout/confirm` added: the return-from-Stripe page activates the subscription synchronously (ownership-checked against `client_reference_id`, 403 otherwise; 409 `pending` while unpaid; same idempotent `activateFromStripeSession` the webhook runs — which now returns the upserted row). Checkout Session gains `customer` **or** `customer_email` (never both — duplicate customers orphan the Billing Portal), `allow_promotion_codes` (buyer discount — NOT the referrer-rewarding referral code), and `locale` (`ca → es`, Stripe has no Catalan); payload building split into `StripeService::checkoutSessionParams()` so it is testable without the SDK. `UserResource` gains additive business-only `subscription_status` + `subscription_cancel_at_period_end` (warning copy only — `has_active_subscription` is still the only field the paywall reads; `past_due` is NOT active). Paywall redirects carry `?reason=…` (§3). Public `/pricing` + `/es/pricing` added. Prior: Web app redesign wiring: documented the **paywall HTTP-status asymmetry** — apply/publish surface as 402 but **accept surfaces as 403** via `ApplicationPolicy::accept()`, so clients must treat `403 + business-without-sub` as the paywall too; also documented the `scheduled_date` recurring-day/window rule on accept — §3. No role rule changed. Prior: 2026-08-15 Stripe web checkout now implements `source=stripe` — `POST /me/subscription/checkout` + public signature-verified `/webhooks/stripe`, business-only, server-side price ids, return-URL allowlist, referral-on-first-paid; the `source`-invariant in §9 still holds — see §9. Prior: 2026-07-28 Explore browse feed now hides date-exhausted kolabs — `KolabService::browse()` applies `Kolab::scopeWithSelectableDates()` (serves `/kolabs` + `/opportunities` shim), mirroring the apply-time guard; `?saved=1` left unfiltered — §4. Prior: 2026-07-15 admin company/legal settings: single-row `company_settings` (name/address/NIF/refund/emails + `terms_version`/`terms_effective_date`), maintainer CRUD at `/admin/company-settings`, `CompanySettingService::termsVersion()` is now the consent-version source (config = fallback), a view composer injects the values into the four legal pages — §0 item 12. Prior: legal consent gate: `accepted_terms` (`required|accepted`) on all `register/*` endpoints, OAuth signups stamped in `AuthService::consentStamp()`, consent on `profiles.terms_accepted_at`/`terms_version` vs `config('legal.terms_version')`, `GET /auth/me` `terms` block, `POST /me/consent` (`ConsentController`), `Profile::needsTermsAcceptance()` — §0 item 12. Prior: profile reputation cache (#76): `getReputationSummary()` cached per profile with observer-based invalidation (`CollaborationReviewObserver` + `CollaborationObserver`) and the duplicate `completed_kolabs_count` COUNT removed — §13. Prior: DB scalability indexes (#72): 37 previously-unindexed FKs + hot-path composite/partial indexes added; `ProfileService::getReputationSummary()` window function gained a deterministic `id ASC` tiebreaker so the per-pair cap is stable across index/scan order — §13. Prior: PR 5: reputation shape — `unique_partner_count` removed from public reputation block; per-pair fairness cap added (max 2 reviews per reviewer→reviewed pair via SQL window function, no schema change); `recent_reviews` items serialise `is_verified_kolab_review: true` — §13. Prior: PR 4: public reputation summary — `collaboration_reviews` schema expansion with five category star ratings + `public_comment` + `public_comment_visible` gate, `ProfileService::getReputationSummary()` aggregation, and new `reputation` block on `PublicProfileResource` — §13. Prior: 2026-06-28 gamification mission system v1 curation: `challenges.app_visible` column + the three event/general mission filter sites — #49. Prior same day: #61 Saved Kolabs — new `saved_kolabs` pivot + save/unsave endpoints + `?saved=1` list + viewer-scoped `is_saved` flag — §7, §7.1. PR #59 review fixes: completion-confirmation gate hardening — terminal-state guard, `pending = not-yes` resource/gate alignment, auto-complete grace anchored on `updated_at`, `Collaboration::roleFor()`, **legacy feedback fallback + backfill removed (`/complete` now gates purely on real completion confirmations)**, dead-code removal — §0 item 10, §3, §8, §10. Prior: 2026-06-26 PR 1 moved the `/complete` gate to `collaboration_completions`)
+**Last updated:** 2026-08-18 (**Chat on the web panel — new §15.** No endpoint, column, or gate added: the panel is a second client over the existing chat API. Documented what it calls and why, including two things that are easy to get wrong — `GET /chats/{thread}/messages` paginates **oldest-first** (page 1 is the start of the conversation; the newest messages are on `last_page`), and `POST /chats/{thread}/messages` on a **collaboration** thread notifies nobody because `threadRecipientIds()` returns `[]` for that type, so Kolab sends must use `POST /applications/{id}/messages` (§15.4, BE-FX-13). Real-time: `NewChatMessage` + `chat.thread.{id}` channel auth already existed; the panel subscribes with a self-hosted Pusher-protocol client and signs private channels at `POST /broadcasting/auth` (app root, Sanctum, bearer token). `config('webapp.realtime')` exposes only the four public Reverb values — never the app secret — and with the key unset the page polls, so this ships safely ahead of BE-IF-18. `AddSecurityHeaders` adds `wss:` to `connect-src` on the web-app host only. Two further gaps filed: BE-FX-14 (§2.8 lapse re-gate unenforced for chat — doc/code drift) and BE-FX-15 (`GET /me/communities` hides `can_manage` delegates' communities). Prior: 2026-08-17 (**Web payment flow — new §14.** No gate changed. `POST /me/subscription/checkout/confirm` added: the return-from-Stripe page activates the subscription synchronously (ownership-checked against `client_reference_id`, 403 otherwise; 409 `pending` while unpaid; same idempotent `activateFromStripeSession` the webhook runs — which now returns the upserted row). Checkout Session gains `customer` **or** `customer_email` (never both — duplicate customers orphan the Billing Portal), `allow_promotion_codes` (buyer discount — NOT the referrer-rewarding referral code), and `locale` (`ca → es`, Stripe has no Catalan); payload building split into `StripeService::checkoutSessionParams()` so it is testable without the SDK. `UserResource` gains additive business-only `subscription_status` + `subscription_cancel_at_period_end` (warning copy only — `has_active_subscription` is still the only field the paywall reads; `past_due` is NOT active). Paywall redirects carry `?reason=…` (§3). Public `/pricing` + `/es/pricing` added. Prior: Web app redesign wiring: documented the **paywall HTTP-status asymmetry** — apply/publish surface as 402 but **accept surfaces as 403** via `ApplicationPolicy::accept()`, so clients must treat `403 + business-without-sub` as the paywall too; also documented the `scheduled_date` recurring-day/window rule on accept — §3. No role rule changed. Prior: 2026-08-15 Stripe web checkout now implements `source=stripe` — `POST /me/subscription/checkout` + public signature-verified `/webhooks/stripe`, business-only, server-side price ids, return-URL allowlist, referral-on-first-paid; the `source`-invariant in §9 still holds — see §9. Prior: 2026-07-28 Explore browse feed now hides date-exhausted kolabs — `KolabService::browse()` applies `Kolab::scopeWithSelectableDates()` (serves `/kolabs` + `/opportunities` shim), mirroring the apply-time guard; `?saved=1` left unfiltered — §4. Prior: 2026-07-15 admin company/legal settings: single-row `company_settings` (name/address/NIF/refund/emails + `terms_version`/`terms_effective_date`), maintainer CRUD at `/admin/company-settings`, `CompanySettingService::termsVersion()` is now the consent-version source (config = fallback), a view composer injects the values into the four legal pages — §0 item 12. Prior: legal consent gate: `accepted_terms` (`required|accepted`) on all `register/*` endpoints, OAuth signups stamped in `AuthService::consentStamp()`, consent on `profiles.terms_accepted_at`/`terms_version` vs `config('legal.terms_version')`, `GET /auth/me` `terms` block, `POST /me/consent` (`ConsentController`), `Profile::needsTermsAcceptance()` — §0 item 12. Prior: profile reputation cache (#76): `getReputationSummary()` cached per profile with observer-based invalidation (`CollaborationReviewObserver` + `CollaborationObserver`) and the duplicate `completed_kolabs_count` COUNT removed — §13. Prior: DB scalability indexes (#72): 37 previously-unindexed FKs + hot-path composite/partial indexes added; `ProfileService::getReputationSummary()` window function gained a deterministic `id ASC` tiebreaker so the per-pair cap is stable across index/scan order — §13. Prior: PR 5: reputation shape — `unique_partner_count` removed from public reputation block; per-pair fairness cap added (max 2 reviews per reviewer→reviewed pair via SQL window function, no schema change); `recent_reviews` items serialise `is_verified_kolab_review: true` — §13. Prior: PR 4: public reputation summary — `collaboration_reviews` schema expansion with five category star ratings + `public_comment` + `public_comment_visible` gate, `ProfileService::getReputationSummary()` aggregation, and new `reputation` block on `PublicProfileResource` — §13. Prior: 2026-06-28 gamification mission system v1 curation: `challenges.app_visible` column + the three event/general mission filter sites — #49. Prior same day: #61 Saved Kolabs — new `saved_kolabs` pivot + save/unsave endpoints + `?saved=1` list + viewer-scoped `is_saved` flag — §7, §7.1. PR #59 review fixes: completion-confirmation gate hardening — terminal-state guard, `pending = not-yes` resource/gate alignment, auto-complete grace anchored on `updated_at`, `Collaboration::roleFor()`, **legacy feedback fallback + backfill removed (`/complete` now gates purely on real completion confirmations)**, dead-code removal — §0 item 10, §3, §8, §10. Prior: 2026-06-26 PR 1 moved the `/complete` gate to `collaboration_completions`)
 **Status:** Authoritative companion to [`ROLES-AND-PERMISSIONS.md`](./ROLES-AND-PERMISSIONS.md). Read that first (the *what*), then this (the *where*).
 **Sync note:** Duplicated in both repos (`kolabing-app`, `kolabing-v2`). Keep identical, and **bump the Last updated date in both** when role behaviour or backend wiring changes.
 
@@ -236,6 +236,10 @@ Fixed since the last revision:
 - [x] **Gamification mission system v1 shipped** (2026-06-28, #49): `challenges.app_visible` curation column, atomic `challenge_progress` upsert, wallet-service delegation + `isLive()` guard on `/me/missions`, the DTO refactor, and the curated 18-mission v1 set (5 attendee / 7 business / 6 community). Event/general mission separation enforced in three places. See §11.1.
 
 Still open:
+
+- [ ] **BE-FX-13 — converge the two chat send paths:** `sendThreadMessage()` must notify the counterpart when the thread has an `application_id`, so `POST /chats/{thread}/messages` stops delivering silent Kolab messages (§15.4).
+- [ ] **BE-FX-14 — decide §2.8 vs. the code for chat:** either enforce the lapse re-gate in `canParticipate()` / on the chat routes (community side unaffected), or correct §2.8. Today the doc and the code disagree (§15.5).
+- [ ] **BE-FX-15 — let `can_manage` delegates find their communities:** include managed communities in `GET /me/communities` and emit `my_can_manage` on `CommunityResource` (§15.5).
 
 - [ ] Implement the **blur** (name + logo) for free businesses on Explore. Server should emit an `identity_locked` flag (or null the identity for free businesses) and the client should render an actual blur. **No hard block on Explore.** (§4)
 - [ ] Past events linked to collaborations and `completed_at` populated.
@@ -524,3 +528,80 @@ Web surfaces: `resources/views/webapp/partials/billing-banner.blade.php` (includ
 ### 14.6 Required prod configuration
 
 `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_MONTHLY_PRICE_ID`, `STRIPE_THREE_MONTHS_PRICE_ID`; the webhook endpoint registered in the Stripe dashboard for the three event types in §14.1; Billing Portal + cancellation enabled there. A plan with no configured `stripe_price_id` is hidden on `/subscription` rather than offered as a button that 502s (unless *no* plan is configured, in which case both render — local/CI preview).
+
+---
+
+## 15. Chat on the web panel — backend map (added 2026-08-18)
+
+The web panel (`app.kolabing.com/chats`) adds **no endpoints and no columns**. It is a second client over the chat API that
+mobile already uses, so everything below is a map of existing code — with three real gaps called out at the end.
+
+### 15.1 What the page calls
+
+| Purpose | Endpoint | Notes |
+|---|---|---|
+| Inbox | `GET /chats` | `ChatService::visibleThreads()` — collaboration + community + event threads merged, sorted by `last_message_at`, each carrying transient `unread_count` and a `last_message` preview. **Unpaginated** (see BE-NF-15 scale audit). |
+| Badge | `GET /chats/unread-count` | `data.total`. Loaded in `kbShell()` next to the notification count; they are two different numbers. |
+| Read a thread | `GET /chats/{thread}/messages` | Works for **every** thread type, collaboration included — `canAccessThread()` routes collaboration through `canParticipate()`, and messages are found by `thread_id` (populated by `sendMessage()` and backfilled by `2026_06_04_000004_backfill_chat_threads`). Oldest-first under `data.messages`; also moves the viewer's read pointer. |
+| Send (Kolab) | `POST /applications/{application}/messages` | **Required for collaboration threads** — see §15.4. |
+| Send (group) | `POST /chats/{thread}/messages` | Community main / custom channel / event. |
+| Read pointer | `POST /chats/{thread}/read` | `markThreadRead()` handles both read models: per-message `read_at` for collaboration, `chat_thread_reads` for group threads. |
+| Channel CRUD | `POST /communities/{community}/chats`, `PATCH`/`DELETE /chats/{thread}` | `CommunityPolicy@manage` on create; `canManageCustomChat()` (custom threads only) on rename/delete. ≤5 cap raises `DomainException` → 422. |
+| Blocking | `GET`/`POST /chats/{thread}/bans`, `DELETE /chats/{thread}/bans/{profile}` | `canManageThread()` — any thread with a `community_id` the viewer manages, main chat included. Returns `banned_profile_ids` only, so the panel joins names from `GET /communities/{community}/members`. |
+| Manageable communities | `GET /me/communities` | Owned communities only — see §15.5. |
+
+Pagination note: `getThreadMessages()` paginates **oldest-first**, so page 1 is the beginning of the conversation and the
+newest messages live on `last_page`. The panel therefore reads page 1, and re-reads `meta.last_page` when there is more than
+one page; "load older" walks the page number **down**. Do not "fix" this by reversing the order — the mobile client reads the
+same shape.
+
+### 15.2 Real-time
+
+`NewChatMessage` (`ShouldBroadcast`) already broadcasts `message.sent` on `PrivateChannel('chat.thread.{id}')` (plus the
+legacy `chat.application.{id}`), and `routes/channels.php` authorizes it with the same `canAccessThread()` used by REST —
+that is the security boundary; never authorize a chat channel on community membership alone.
+
+The panel subscribes with `public/webapp-assets/kb-realtime.js`, a hand-written Pusher-protocol client (connect → auth →
+subscribe → `message.sent`, with ping/pong and backoff). It is not laravel-echo + pusher-js because the web app ships static
+self-hosted assets with no bundler and the CSP forbids third-party origins. Private-channel signing goes to
+`POST /broadcasting/auth`, which is **at the app root, not under `/api/v1`**, and is Sanctum-guarded — hence a bearer token
+plus the same one-shot refresh the REST client uses.
+
+Config: `config('webapp.realtime')` exposes `REVERB_APP_KEY` / `REVERB_HOST` / `REVERB_PORT` / `REVERB_SCHEME` to the browser.
+The **app secret is never exposed** (pinned by a test). With `key` unset — the state until BE-IF-18 deploys the daemon — the
+socket is disabled and a 4s ticker polls the open thread (8s) and the inbox (20s) instead, so chat is functional either way.
+
+`AddSecurityHeaders` adds `wss:` to `connect-src` **for the web-app host only**. CSP treats `ws:`/`wss:` as their own
+schemes, so the existing `connect-src 'self' https:` does not cover the socket.
+
+### 15.3 Role behaviour (unchanged, just now visible on web)
+
+Business viewers see only collaboration threads with `last_message_at != null` (`visibleCollaborationThreads()`); custom
+channels are gated by tier (`community_tiers.permissions.chat_channels` → `canAccessCustomChat()`); event chats need a
+`going` sign-up or leader rights. Communities are never paywalled in any of this (ROLES §4.1, §8.4).
+
+### 15.4 Trap: `sendThreadMessage()` does not notify for collaboration threads
+
+`threadRecipientIds()` returns `[]` for `ChatThreadType::Collaboration`, and `sendThreadMessage()` calls neither
+`notifyNewMessage()` nor `syncUnreadMessageReminder()`. Posting a Kolab message to `POST /chats/{thread}/messages` therefore
+delivers **no notification, no push, no reminder**. Both clients avoid it by using the application endpoint for Kolab chats
+(the panel's split is pinned by `WebAppChatPageTest::test_kolab_chats_send_through_the_application_endpoint`). Converging the
+two paths is BACKLOG **BE-FX-13**.
+
+### 15.5 Two more open gaps
+
+- **BE-FX-14 — §2.8 re-gate not enforced for chat.** `canParticipate()` never reads subscription state and the chat routes
+  have no subscription middleware, so a lapsed business keeps full chat access even though ROLES §2.8 says it should not.
+  Doc/code drift; needs a product decision, not a drive-by patch.
+- **BE-FX-15 — `GET /me/communities` returns `ownedCommunities()` only.** A `community_members.can_manage = true` delegate is
+  authorized by `canManageCommunity()` for channels and bans, but cannot discover the community id in any client. Fix is
+  additive: include managed communities and emit `my_can_manage` on `CommunityResource`.
+
+### 15.6 Tests
+
+`tests/Feature/WebApp/WebAppChatPageTest.php` (12) pins the shell: routes in all three locales, the endpoints the page calls,
+the send-path split, the deep links, channel management, CSP `wss:`, the self-hosted client, secret non-exposure, the
+no-Reverb fallback, and es/ca copy parity. `tests/Feature/Api/V1/ChatCollaborationThreadEndpointTest.php` (5) covers the
+previously untested assumption the panel depends on: the generic thread endpoints against a **collaboration** thread —
+oldest-first read, read pointer clearing the badge, outsider 403, and that a Kolab thread cannot be renamed or deleted as a
+channel.

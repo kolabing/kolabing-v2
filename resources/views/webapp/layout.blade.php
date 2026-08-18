@@ -243,6 +243,9 @@
             androidUrl: @json(config('webapp.play_store_url')),
             deepLink: @json(config('webapp.deep_link')),
             marketingUrl: @json(config('webapp.marketing_url')),
+            // Reverb (real-time chat). `key` is null until the daemon is deployed
+            // (BE-IF-18); the chat page then polls instead of opening a socket.
+            realtime: @json(config('webapp.realtime')),
         };
         window.KB_LOCALE = @json($loc);
         window.KB_BASE = @json($base);
@@ -505,7 +508,7 @@
         // kbMerge (never object spread) so kbThemeState's `isDark` getter stays lazy.
         function kbShell() {
             return window.kbMerge(window.kbThemeState(), {
-                me: null, unread: 0, menuOpen: false, shellReady: false,
+                me: null, unread: 0, chatUnread: 0, menuOpen: false, shellReady: false,
                 get isBusiness() { return this.me?.user_type === 'business'; },
                 get isCommunity() { return this.me?.user_type === 'community'; },
                 /** A business without an active plan — paywalled actions should route to /subscription. */
@@ -538,13 +541,17 @@
                 get roleLabel() { return this.isBusiness ? window.t('nav.role_business') : window.t('nav.role_community'); },
                 async loadShell() {
                     if (!window.kb.token) return null;
-                    const [me, un] = await Promise.all([
+                    const [me, un, chat] = await Promise.all([
                         window.kb.api('/auth/me'),
                         window.kb.api('/me/notifications/unread-count'),
+                        window.kb.api('/chats/unread-count'),
                     ]);
                     if (!me.ok) { window.kb.logout(); return null; }
                     this.me = me.json?.data || null;
                     if (un.ok) this.unread = un.json?.data?.count ?? 0;
+                    // Unread messages are counted separately from notifications:
+                    // a message raises both, and the two badges sit on two nav rows.
+                    if (chat.ok) this.chatUnread = chat.json?.data?.total ?? 0;
                     this.shellReady = true;
                     return this.me;
                 },

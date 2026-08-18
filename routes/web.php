@@ -60,6 +60,10 @@ $webappRoutes = function (): void {
     Route::view('/welcome', 'webapp.welcome');
     Route::view('/feed', 'webapp.feed');
     Route::view('/notifications', 'webapp.notifications');
+    // Chat. One route for the whole inbox: the two-pane layout swaps threads
+    // client-side, and ?thread= / ?application= / ?collaboration= deep-link into
+    // one (resolved against GET /chats, so no extra endpoint is needed).
+    Route::view('/chats', 'webapp.chats');
     // Kolabs — order matters: literal + edit before the {kolab} catch-all.
     Route::view('/kolabs', 'webapp.kolabs');
     Route::view('/kolabs/create', 'webapp.kolab-form');

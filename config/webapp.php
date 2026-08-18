@@ -57,6 +57,26 @@ return [
     // where() constraint and the language switcher.
     'prefixed_locales' => ['es', 'ca'],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Real-time chat (Reverb) — browser-facing credentials
+    |--------------------------------------------------------------------------
+    | The chat page opens a WebSocket to Reverb and falls back to polling when it
+    | cannot. These are the four public values a Pusher-protocol client needs;
+    | the app *secret* stays server-side (config/reverb.php) and must never be
+    | exposed here. `key` empty (the default until the Reverb daemon is deployed
+    | — BE-IF-18) disables the socket entirely and the page polls instead, so
+    | shipping this ahead of the ops work is safe.
+    */
+    'realtime' => [
+        'key' => env('REVERB_APP_KEY'),
+        'host' => env('REVERB_HOST'),
+        // Client-facing port: what the browser dials (443 behind TLS), which is
+        // NOT REVERB_SERVER_PORT (what the daemon binds locally).
+        'port' => (int) env('REVERB_PORT', 443),
+        'scheme' => env('REVERB_SCHEME', 'https'),
+    ],
+
     'deep_link' => env('WEBAPP_DEEP_LINK', 'kolabing://'),
 
     'app_store_url' => env('KOLABING_IOS_APP_URL'),

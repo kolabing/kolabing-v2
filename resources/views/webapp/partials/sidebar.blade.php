@@ -8,6 +8,7 @@
         'dashboard'     => ['/dashboard', __('webapp.nav.home'), '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>'],
         'feed'          => ['/feed', __('webapp.nav.explore'), '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>'],
         'kolabs'        => ['/kolabs', __('webapp.nav.my_kolabs'), '<path d="m12 2-10 5 10 5 10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>'],
+        'chats'         => ['/chats', __('webapp.nav.messages'), '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'],
         'notifications' => ['/notifications', __('webapp.nav.notifications'), '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'],
         'account'       => ['/account', __('webapp.nav.profile'), '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'],
     ];
@@ -21,6 +22,10 @@
             <img src="/webapp-assets/wordmark-light.png" alt="Kolabing" class="h-6 w-auto">
         </a>
         <div class="flex items-center gap-1">
+            <a href="{{ $base }}/chats" class="relative w-10 h-10 flex items-center justify-center text-ink" aria-label="{{ __('webapp.nav.messages') }}">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <span x-show="chatUnread > 0" x-cloak class="absolute top-2 right-2 w-2 h-2 rounded-full bg-accent ring-2 ring-cream"></span>
+            </a>
             <a href="{{ $base }}/notifications" class="relative w-10 h-10 flex items-center justify-center text-ink" aria-label="{{ __('webapp.nav.notifications') }}">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                 <span x-show="unread > 0" x-cloak class="absolute top-2 right-2 w-2 h-2 rounded-full bg-accent ring-2 ring-cream"></span>
@@ -78,6 +83,9 @@
                 @if ($key === 'notifications')
                     <span class="ml-auto min-w-[20px] h-5 px-1.5 rounded-pill bg-inverse text-on-inverse text-[11px] font-bold flex items-center justify-center"
                           x-show="unread > 0" x-text="unread" x-cloak></span>
+                @elseif ($key === 'chats')
+                    <span class="ml-auto min-w-[20px] h-5 px-1.5 rounded-pill bg-inverse text-on-inverse text-[11px] font-bold flex items-center justify-center"
+                          x-show="chatUnread > 0" x-text="chatUnread" x-cloak></span>
                 @endif
             </a>
         @endforeach
