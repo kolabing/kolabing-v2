@@ -33,6 +33,12 @@
                     <option value="">All statuses</option>
                     @foreach ($statuses as $s)<option value="{{ $s }}" @selected(($filters['status'] ?? '') === $s)>{{ $s }}</option>@endforeach
                 </select>
+                @if ($cities->isNotEmpty())
+                    <select name="city" class="form-control form-control-sm">
+                        <option value="">All cities</option>
+                        @foreach ($cities as $c)<option value="{{ $c }}" @selected(($filters['city'] ?? '') === $c)>{{ $c }}</option>@endforeach
+                    </select>
+                @endif
                 <button class="btn btn-sm btn-outline-secondary">Filter</button>
             </form>
 
@@ -58,6 +64,67 @@
                 </div>
             </details>
         </div>
+
+        @if ($cityCounts->isNotEmpty())
+            @php
+                $coords = [
+                    'Madrid' => [40.4168, -3.7038], 'Tallinn' => [59.4370, 24.7536],
+                    'Berlin' => [52.5200, 13.4050], 'Paris' => [48.8566, 2.3522],
+                    'Lisbon' => [38.7223, -9.1393], 'Amsterdam' => [52.3676, 4.9041],
+                    'Warsaw' => [52.2297, 21.0122], 'Barcelona' => [41.3874, 2.1686],
+                    'London' => [51.5072, -0.1276], 'Milan' => [45.4642, 9.1900],
+                ];
+                $known = [];
+                foreach ($cityCounts as $c => $n) {
+                    if (isset($coords[$c])) { $known[$c] = ['ll' => $coords[$c], 'n' => $n]; }
+                }
+                $unmapped = collect($cityCounts->keys())->reject(fn ($c) => isset($coords[$c]));
+                $W = 780; $H = 440; $pad = 70;
+                $lats = array_map(fn ($k) => $k['ll'][0], $known);
+                $lngs = array_map(fn ($k) => $k['ll'][1], $known);
+                $latMin = $known ? min($lats) : 0; $latMax = $known ? max($lats) : 1;
+                $lngMin = $known ? min($lngs) : 0; $lngMax = $known ? max($lngs) : 1;
+                $latSpan = ($latMax - $latMin) ?: 1; $lngSpan = ($lngMax - $lngMin) ?: 1;
+                $maxN = $known ? max(array_map(fn ($k) => $k['n'], $known)) : 1;
+                $px = fn ($lng) => $pad + ($lng - $lngMin) / $lngSpan * ($W - 2 * $pad);
+                $py = fn ($lat) => $pad + ($latMax - $lat) / $latSpan * ($H - 2 * $pad);
+                $rr = fn ($n) => 12 + sqrt($n / max($maxN, 1)) * 16;
+            @endphp
+            <div class="card-body border-bottom">
+                <details open>
+                    <summary style="cursor:pointer; list-style:none" class="text-muted mb-2">
+                        <i class="fas fa-map-marked-alt mr-1"></i> Map — {{ ucfirst($type) }} by city
+                        ({{ $cityCounts->count() }} cities, {{ $cityCounts->sum() }} total). Click a city to filter.
+                    </summary>
+                    @if (count($known))
+                        <svg viewBox="0 0 {{ $W }} {{ $H }}" style="width:100%; max-width:820px; height:auto; background:#f4f6f9; border-radius:8px">
+                            @foreach ($known as $city => $d)
+                                @php $x = $px($d['ll'][1]); $y = $py($d['ll'][0]); $r = $rr($d['n']);
+                                    $active = ($filters['city'] ?? '') === $city; @endphp
+                                <a href="{{ route('admin.crm.index', ['type' => $type, 'city' => $active ? null : $city]) }}">
+                                    <circle cx="{{ $x }}" cy="{{ $y }}" r="{{ $r }}"
+                                        fill="{{ $active ? '#dc3545' : '#007bff' }}" fill-opacity="0.72" stroke="#fff" stroke-width="2"/>
+                                    <text x="{{ $x }}" y="{{ $y + 4 }}" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff">{{ $d['n'] }}</text>
+                                    <text x="{{ $x }}" y="{{ $y + $r + 14 }}" text-anchor="middle" font-size="12" fill="#2b333b">{{ $city }}</text>
+                                </a>
+                            @endforeach
+                        </svg>
+                    @endif
+                    @if ($unmapped->isNotEmpty())
+                        <div class="mt-2">
+                            <span class="text-muted small mr-1">Other:</span>
+                            @foreach ($unmapped as $city)
+                                <a href="{{ route('admin.crm.index', ['type' => $type, 'city' => $city]) }}"
+                                    class="badge {{ ($filters['city'] ?? '') === $city ? 'badge-danger' : 'badge-info' }}">{{ $city }} ({{ $cityCounts[$city] }})</a>
+                            @endforeach
+                        </div>
+                    @endif
+                    @if ($filters['city'] ?? false)
+                        <a href="{{ route('admin.crm.index', ['type' => $type]) }}" class="btn btn-sm btn-outline-secondary mt-2">Clear city filter ({{ $filters['city'] }})</a>
+                    @endif
+                </details>
+            </div>
+        @endif
 
         <div class="card-body p-0">
             <div class="table-responsive">
