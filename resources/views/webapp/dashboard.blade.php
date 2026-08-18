@@ -30,7 +30,7 @@
             <div class="flex flex-col gap-7 mt-7 kb-fade-up">
                 <div class="flex flex-col sm:flex-row gap-3">
                     <a href="{{ $base }}/feed"
-                       class="flex-1 h-12 rounded-pill bg-primary text-ink text-sm font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition flex items-center justify-center gap-2.5">
+                       class="kb-on-yellow flex-1 h-12 rounded-pill bg-primary text-ink text-sm font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition flex items-center justify-center gap-2.5">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                         {{ __('webapp.dashboard.find_kolab') }}
                     </a>
@@ -54,7 +54,7 @@
                         <div class="h-full rounded-pill bg-ink transition-all" :style="`width:${profileScore.percent}%`"></div>
                     </div>
                     <a href="{{ $base }}/account?edit=1"
-                       class="inline-flex items-center justify-center h-10 px-5 mt-4 rounded-pill bg-ink text-primary text-[13px] font-bold hover:-translate-y-px transition">{{ __('webapp.dashboard.complete_profile') }}</a>
+                       class="inline-flex items-center justify-center h-10 px-5 mt-4 rounded-pill bg-inverse text-on-inverse text-[13px] font-bold hover:-translate-y-px transition">{{ __('webapp.dashboard.complete_profile') }}</a>
                 </div>
 
                 @include('webapp.partials.upcoming')
@@ -112,7 +112,7 @@
                                 <span x-text="d.monthly_goal?.completed ?? 0"></span><span class="text-muted text-[20px]"> / <span x-text="d.monthly_goal?.goal ?? 0"></span></span>
                             </p>
                             <div class="h-2 rounded-pill bg-ink/10 mt-3 overflow-hidden">
-                                <div class="h-full rounded-pill bg-primary transition-all" :style="`width:${goalPercent}%`"></div>
+                                <div class="kb-on-yellow h-full rounded-pill bg-primary transition-all" :style="`width:${goalPercent}%`"></div>
                             </div>
                             <p class="text-xs text-muted mt-2" x-text="goalHint"></p>
                         </div>
@@ -134,8 +134,8 @@
                 </div>
 
                 <div class="grid md:grid-cols-2 gap-5 items-start">
-                    <div class="rounded-3xl bg-primary p-5 flex flex-col items-start gap-2.5">
-                        <span class="px-3 py-[5px] rounded-pill bg-ink text-primary text-[11px] font-bold tracking-[.8px]">{{ __('webapp.dashboard.biz_activity') }}</span>
+                    <div class="kb-on-yellow rounded-3xl bg-primary p-5 flex flex-col items-start gap-2.5">
+                        <span class="px-3 py-[5px] rounded-pill bg-inverse text-on-inverse text-[11px] font-bold tracking-[.8px]">{{ __('webapp.dashboard.biz_activity') }}</span>
                         <div>
                             <p class="font-anton text-[40px] leading-[.95] text-ink" x-text="d.opportunities?.published ?? 0">0</p>
                             <p class="text-[11px] font-bold tracking-[1.2px] text-amber mt-[3px]">{{ __('webapp.dashboard.live_kolabs') }}</p>
@@ -148,7 +148,7 @@
                                 </div>
                             </template>
                         </div>
-                        <a href="{{ $base }}/kolabs/create" class="w-full h-[42px] rounded-pill bg-ink text-primary text-sm font-bold hover:-translate-y-px transition flex items-center justify-center">{{ __('webapp.nav.create') }}</a>
+                        <a href="{{ $base }}/kolabs/create" class="w-full h-[42px] rounded-pill bg-inverse text-on-inverse text-sm font-bold hover:-translate-y-px transition flex items-center justify-center">{{ __('webapp.nav.create') }}</a>
                     </div>
 
                     <div>
@@ -174,7 +174,7 @@
                                     <span class="block text-xs text-muted" x-text="t('dashboard.waiting', { count: d.applications_received?.pending ?? 0 })"></span>
                                 </span>
                                 <span x-show="(d.applications_received?.pending ?? 0) > 0" x-cloak
-                                      class="px-2 py-[3px] rounded-pill bg-ink text-primary text-[11px] font-bold shrink-0" x-text="d.applications_received?.pending"></span>
+                                      class="px-2 py-[3px] rounded-pill bg-inverse text-on-inverse text-[11px] font-bold shrink-0" x-text="d.applications_received?.pending"></span>
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="m9 18 6-6-6-6"/></svg>
                             </a>
 

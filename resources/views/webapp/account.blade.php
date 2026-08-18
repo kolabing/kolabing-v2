@@ -134,7 +134,7 @@
                 </template>
 
                 <button type="submit" :disabled="busy"
-                        class="mt-2 h-[52px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition disabled:opacity-50">
+                        class="kb-on-yellow mt-2 h-[52px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition disabled:opacity-50">
                     <span x-text="busy ? t('form.saving') : t('account.submit')">{{ __('webapp.account.submit') }}</span>
                 </button>
             </form>
@@ -173,7 +173,7 @@
                 <div x-show="showLanguages" x-cloak class="px-6 py-4 border-b border-ink/[.06] bg-cream-low/60 flex gap-2">
                     @foreach ($localePaths as $l => $href)
                         <a href="{{ $href }}"
-                           class="px-4 py-2 rounded-pill text-[13px] font-bold border transition {{ $l === $loc ? 'bg-primary border-primary text-ink' : 'bg-white border-ink/[.12] text-body' }}">{{ strtoupper($l) }}</a>
+                           class="kb-on-yellow px-4 py-2 rounded-pill text-[13px] font-bold border transition {{ $l === $loc ? 'kb-on-yellow bg-primary border-primary text-ink' : 'bg-white border-ink/[.12] text-body' }}">{{ strtoupper($l) }}</a>
                     @endforeach
                 </div>
 

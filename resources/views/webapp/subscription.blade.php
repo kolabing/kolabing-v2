@@ -71,7 +71,7 @@
                 <p class="text-[17px] font-bold text-ink">{{ __('webapp.subscription.not_business_title') }}</p>
                 <p class="text-sm text-body mt-2 leading-relaxed">{{ __('webapp.subscription.not_business_desc') }}</p>
                 <a href="{{ $base }}/dashboard"
-                   class="inline-flex items-center justify-center h-11 px-6 mt-5 rounded-pill bg-primary text-ink text-sm font-bold shadow-btn hover:bg-primary-dark transition">{{ __('webapp.subscription.back_home') }}</a>
+                   class="kb-on-yellow inline-flex items-center justify-center h-11 px-6 mt-5 rounded-pill bg-primary text-ink text-sm font-bold shadow-btn hover:bg-primary-dark transition">{{ __('webapp.subscription.back_home') }}</a>
             </div>
         </template>
 
@@ -84,12 +84,12 @@
                     @foreach ($plans as $key => $plan)
                         @if ($showAll || $configured[$key])
                             <button type="button" @click="plan = '{{ $key }}'"
-                                    :class="plan === '{{ $key }}' ? 'border-ink bg-primary ring-2 ring-ink' : 'border-ink/[.12] bg-white hover:border-ink/40'"
+                                    :class="kb-on-yellow plan === '{{ $key }}' ? 'kb-on-yellow border-ink bg-primary ring-2 ring-ink' : 'border-ink/[.12] bg-white hover:border-ink/40'"
                                     class="text-left rounded-3xl border p-5 transition">
                                 <div class="flex items-center justify-between gap-2">
                                     <span class="text-[13px] font-bold tracking-[.06em] uppercase text-ink">{{ $plan['name'] }}</span>
                                     @if ($plan['badge'])
-                                        <span class="px-2.5 py-1 rounded-pill bg-ink text-primary text-[10px] font-bold tracking-[.6px]">{{ $plan['badge'] }}</span>
+                                        <span class="px-2.5 py-1 rounded-pill bg-inverse text-on-inverse text-[10px] font-bold tracking-[.6px]">{{ $plan['badge'] }}</span>
                                     @endif
                                 </div>
                                 <div class="flex items-baseline gap-1 mt-3">
@@ -103,7 +103,7 @@
                 </div>
 
                 <div class="bg-white border border-ink/[.08] rounded-3xl p-[26px] mt-3 shadow-card">
-                    <span class="inline-block px-3 py-[5px] rounded-pill bg-ink text-primary text-[11px] font-bold tracking-[.8px]">{{ __('webapp.subscription.badge') }}</span>
+                    <span class="inline-block px-3 py-[5px] rounded-pill bg-inverse text-on-inverse text-[11px] font-bold tracking-[.8px]">{{ __('webapp.subscription.badge') }}</span>
 
                     <div class="flex flex-col gap-2.5 mt-4">
                         @foreach (__('webapp.subscription.benefits') as $benefit)
@@ -119,7 +119,7 @@
                                class="h-12 rounded-2xl border border-ink/15 bg-cream-input px-4 text-sm text-ink uppercase">
                         <p x-show="referralNote" x-cloak class="text-xs font-semibold px-1" :class="referralOk ? 'text-ok-ink' : 'text-bad-ink'" x-text="referralNote"></p>
                         <button type="button" @click="checkout()" :disabled="busy"
-                                class="h-[52px] rounded-pill bg-ink text-primary text-[15px] font-bold hover:-translate-y-px transition disabled:opacity-50">
+                                class="h-[52px] rounded-pill bg-inverse text-on-inverse text-[15px] font-bold hover:-translate-y-px transition disabled:opacity-50">
                             <span x-text="busy ? t('subscription.opening') : t('subscription.subscribe')">{{ __('webapp.subscription.subscribe') }}</span>
                         </button>
                     </div>

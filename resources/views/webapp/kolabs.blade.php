@@ -49,7 +49,7 @@
                             <div class="flex gap-2 shrink-0 flex-wrap">
                                 <template x-if="of.status === 'draft'">
                                     <button type="button" @click="publish(of)" :disabled="busy"
-                                            class="h-[38px] px-[18px] rounded-pill bg-primary text-ink text-[13px] font-bold hover:bg-primary-dark transition disabled:opacity-50">{{ __('webapp.kolabs.publish') }}</button>
+                                            class="kb-on-yellow h-[38px] px-[18px] rounded-pill bg-primary text-ink text-[13px] font-bold hover:bg-primary-dark transition disabled:opacity-50">{{ __('webapp.kolabs.publish') }}</button>
                                 </template>
                                 <template x-if="of.status === 'published'">
                                     <button type="button" @click="closeKolab(of)" :disabled="busy"
@@ -79,10 +79,10 @@
                     <div class="flex p-1 bg-white border border-ink/[.12] rounded-pill">
                         <button type="button" @click="setReqSub('sent')"
                                 class="min-w-[100px] h-8 rounded-pill text-[12.5px] font-bold tracking-[.4px] transition"
-                                :class="reqSub === 'sent' ? 'bg-primary text-ink' : 'text-muted'">{{ __('webapp.applications.tab_sent') }}</button>
+                                :class="kb-on-yellow reqSub === 'sent' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.applications.tab_sent') }}</button>
                         <button type="button" @click="setReqSub('received')"
                                 class="min-w-[100px] h-8 rounded-pill text-[12.5px] font-bold tracking-[.4px] transition"
-                                :class="reqSub === 'received' ? 'bg-primary text-ink' : 'text-muted'">{{ __('webapp.applications.tab_received') }}</button>
+                                :class="kb-on-yellow reqSub === 'received' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.applications.tab_received') }}</button>
                     </div>
                 </div>
 
@@ -119,7 +119,7 @@
                                     <template x-if="acceptingId !== rq.id">
                                         <div class="flex gap-2">
                                             <button type="button" @click="startAccept(rq)"
-                                                    class="flex-1 h-[38px] rounded-pill bg-primary text-ink text-[13px] font-bold hover:bg-primary-dark transition">{{ __('webapp.applications.accept') }}</button>
+                                                    class="kb-on-yellow flex-1 h-[38px] rounded-pill bg-primary text-ink text-[13px] font-bold hover:bg-primary-dark transition">{{ __('webapp.applications.accept') }}</button>
                                             <button type="button" @click="decline(rq)" :disabled="busy"
                                                     class="flex-1 h-[38px] rounded-pill bg-white border border-line text-ink text-[13px] font-bold hover:border-ink transition disabled:opacity-50">{{ __('webapp.applications.decline') }}</button>
                                         </div>
@@ -135,7 +135,7 @@
                                                            class="mt-1 h-10 w-full rounded-xl border border-transparent bg-white px-3 text-sm text-ink">
                                                 </div>
                                                 <button type="button" @click="confirmAccept(rq)" :disabled="busy || !scheduledDate"
-                                                        class="h-10 px-4 rounded-pill bg-ink text-primary text-[13px] font-bold disabled:opacity-50">{{ __('webapp.applications.confirm') }}</button>
+                                                        class="h-10 px-4 rounded-pill bg-inverse text-on-inverse text-[13px] font-bold disabled:opacity-50">{{ __('webapp.applications.confirm') }}</button>
                                                 <button type="button" @click="acceptingId = null"
                                                         class="h-10 px-4 rounded-pill bg-white border border-line text-[13px] font-bold">{{ __('webapp.common.cancel') }}</button>
                                             </div>
