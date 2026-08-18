@@ -20,6 +20,6 @@
             </button>
         </div>
         <button type="button" @click="openBillingPortal()"
-                class="w-full h-11 mt-4 rounded-pill bg-ink text-primary text-[13px] font-bold hover:-translate-y-px transition">{{ __('webapp.subscription.past_due_cta') }}</button>
+                class="w-full h-11 mt-4 rounded-pill bg-inverse text-on-inverse text-[13px] font-bold hover:-translate-y-px transition">{{ __('webapp.subscription.past_due_cta') }}</button>
     </div>
 </div>

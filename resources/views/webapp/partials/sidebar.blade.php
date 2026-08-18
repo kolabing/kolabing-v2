@@ -31,7 +31,7 @@
         </div>
     </div>
     <nav class="border-t border-ink/10 bg-cream px-5 py-3 flex flex-col gap-1 text-sm" x-show="menuOpen" x-cloak>
-        <a href="{{ $base }}/kolabs/create" class="mb-2 h-11 rounded-pill bg-primary text-ink font-bold flex items-center justify-center gap-2 shadow-btn">
+        <a href="{{ $base }}/kolabs/create" class="kb-on-yellow mb-2 h-11 rounded-pill bg-primary text-ink font-bold flex items-center justify-center gap-2 shadow-btn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
             {{ __('webapp.nav.create') }}
         </a>
@@ -64,7 +64,7 @@
     </a>
 
     <a href="{{ $base }}/kolabs/create"
-       class="shrink-0 mb-5 flex items-center justify-center gap-2 h-12 rounded-pill bg-primary text-ink text-sm font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition">
+       class="kb-on-yellow shrink-0 mb-5 flex items-center justify-center gap-2 h-12 rounded-pill bg-primary text-ink text-sm font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
         {{ __('webapp.nav.create') }}
     </a>
@@ -76,7 +76,7 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{!! $icon !!}</svg>
                 {{ $label }}
                 @if ($key === 'notifications')
-                    <span class="ml-auto min-w-[20px] h-5 px-1.5 rounded-pill bg-ink text-primary text-[11px] font-bold flex items-center justify-center"
+                    <span class="ml-auto min-w-[20px] h-5 px-1.5 rounded-pill bg-inverse text-on-inverse text-[11px] font-bold flex items-center justify-center"
                           x-show="unread > 0" x-text="unread" x-cloak></span>
                 @endif
             </a>
@@ -95,14 +95,14 @@
             <div class="flex p-1 bg-white border border-ink/[.12] rounded-pill">
                 <button type="button" @click="setTheme('light')"
                         class="flex-1 h-8 rounded-pill text-xs font-bold tracking-wide flex items-center justify-center gap-1.5 transition"
-                        :class="!isDark ? 'bg-primary text-ink' : 'text-muted hover:text-ink'"
+                        :class="kb-on-yellow !isDark ? 'kb-on-yellow bg-primary text-ink' : 'text-muted hover:text-ink'"
                         :aria-pressed="!isDark">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
                     {{ __('webapp.nav.theme_light') }}
                 </button>
                 <button type="button" @click="setTheme('dark')"
                         class="flex-1 h-8 rounded-pill text-xs font-bold tracking-wide flex items-center justify-center gap-1.5 transition"
-                        :class="isDark ? 'bg-primary text-ink' : 'text-muted hover:text-ink'"
+                        :class="kb-on-yellow isDark ? 'kb-on-yellow bg-primary text-ink' : 'text-muted hover:text-ink'"
                         :aria-pressed="isDark">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
                     {{ __('webapp.nav.theme_dark') }}
@@ -115,7 +115,7 @@
             <div class="flex p-1 bg-white border border-ink/[.12] rounded-pill">
                 @foreach ($localePaths as $l => $href)
                     <a href="{{ $href }}"
-                       class="flex-1 h-8 rounded-pill text-xs font-bold tracking-wide flex items-center justify-center {{ $l === $loc ? 'bg-primary text-ink' : 'text-muted hover:text-ink' }}">{{ strtoupper($l) }}</a>
+                       class="kb-on-yellow flex-1 h-8 rounded-pill text-xs font-bold tracking-wide flex items-center justify-center {{ $l === $loc ? 'kb-on-yellow bg-primary text-ink' : 'text-muted hover:text-ink' }}">{{ strtoupper($l) }}</a>
                 @endforeach
             </div>
         </div>

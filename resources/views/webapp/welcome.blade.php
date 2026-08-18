@@ -15,7 +15,7 @@
             <p class="text-[13px] text-muted mt-1.5 leading-relaxed">{{ __('webapp.welcome.continue_desc') }}</p>
 
             <a :href="deepLink"
-               class="mt-4 w-full h-[52px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark transition flex items-center justify-center">{{ __('webapp.welcome.open_app') }}</a>
+               class="kb-on-yellow mt-4 w-full h-[52px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark transition flex items-center justify-center">{{ __('webapp.welcome.open_app') }}</a>
 
             <div class="mt-3 flex items-center justify-center gap-3 text-[13px]">
                 <template x-if="iosUrl">

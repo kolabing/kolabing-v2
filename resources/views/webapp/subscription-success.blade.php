@@ -12,7 +12,7 @@
         {{-- ── Confirming ──────────────────────────────────────────────── --}}
         <template x-if="state === 'confirming'">
             <div>
-                <div class="w-16 h-16 rounded-full bg-primary mx-auto flex items-center justify-center">
+                <div class="kb-on-yellow w-16 h-16 rounded-full bg-primary mx-auto flex items-center justify-center">
                     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                 </div>
                 <h1 class="font-anton text-[28px] text-ink mt-5">{{ __('webapp.subscription.success.confirming') }}</h1>
@@ -33,7 +33,7 @@
                     <p class="text-[15px] font-bold text-ink">{{ __('webapp.subscription.success.next_step_title') }}</p>
                     <p class="text-[13px] text-muted mt-1.5 leading-relaxed">{{ __('webapp.subscription.success.next_step_desc') }}</p>
                     <a href="{{ $base }}/kolabs/create"
-                       class="mt-4 w-full h-[52px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark transition flex items-center justify-center">{{ __('webapp.subscription.success.create_kolab') }}</a>
+                       class="kb-on-yellow mt-4 w-full h-[52px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark transition flex items-center justify-center">{{ __('webapp.subscription.success.create_kolab') }}</a>
                     <a :href="deepLink" class="mt-2.5 w-full h-11 rounded-pill bg-white border border-line text-ink text-[13px] font-bold hover:border-ink transition flex items-center justify-center">{{ __('webapp.welcome.open_app') }}</a>
                 </div>
 
@@ -44,14 +44,14 @@
         {{-- ── Paid, activation still in flight ────────────────────────── --}}
         <template x-if="state === 'pending'">
             <div>
-                <div class="w-16 h-16 rounded-full bg-primary mx-auto flex items-center justify-center">
+                <div class="kb-on-yellow w-16 h-16 rounded-full bg-primary mx-auto flex items-center justify-center">
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
                 </div>
                 <h1 class="font-anton text-[28px] text-ink mt-5">{{ __('webapp.subscription.success.pending_title') }}</h1>
                 <p class="text-sm text-body mt-2 leading-relaxed">{{ __('webapp.subscription.success.pending_desc') }}</p>
 
                 <button type="button" @click="retry()" :disabled="busy"
-                        class="mt-6 w-full h-[52px] rounded-pill bg-ink text-primary text-[15px] font-bold hover:-translate-y-px transition disabled:opacity-50">
+                        class="mt-6 w-full h-[52px] rounded-pill bg-inverse text-on-inverse text-[15px] font-bold hover:-translate-y-px transition disabled:opacity-50">
                     <span x-text="busy ? t('subscription.success.confirming') : t('subscription.success.retry')">{{ __('webapp.subscription.success.retry') }}</span>
                 </button>
                 <p class="text-[12px] text-muted mt-3">{{ __('webapp.subscription.success.support') }}</p>
@@ -67,7 +67,7 @@
                 <h1 class="font-anton text-[28px] text-ink mt-5">{{ __('webapp.subscription.success.failed_title') }}</h1>
                 <p class="text-sm text-body mt-2 leading-relaxed" x-text="error || t('subscription.success.failed_desc')"></p>
                 <a href="{{ $base }}/subscription"
-                   class="mt-6 inline-flex items-center justify-center h-[52px] px-8 rounded-pill bg-ink text-primary text-[15px] font-bold hover:-translate-y-px transition">{{ __('webapp.subscription.success.view_plan') }}</a>
+                   class="mt-6 inline-flex items-center justify-center h-[52px] px-8 rounded-pill bg-inverse text-on-inverse text-[15px] font-bold hover:-translate-y-px transition">{{ __('webapp.subscription.success.view_plan') }}</a>
                 <p class="text-[12px] text-muted mt-3">{{ __('webapp.subscription.success.support') }}</p>
             </div>
         </template>

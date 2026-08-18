@@ -76,6 +76,13 @@
             --kb-neutral-surface: 237 234 224; --kb-neutral-ink: 76 70 56;
             --kb-success-solid: 86 98 77;   /* the confirmation sheet's check disc */
 
+            /* The brand yellow is light in BOTH themes, so anything sitting on it
+               must stay dark — see the on-yellow scope class below. */
+            --kb-on-primary: 25 21 15;
+            /* "Strong" filled pill: near-black with a yellow label in light theme. */
+            --kb-inverse: 25 21 15;
+            --kb-on-inverse: 255 226 140;
+
             --kb-shadow-card: 0 1.5px 8px rgba(55, 73, 87, .10);
             --kb-shadow-btn: 0 1.5px 4px rgba(55, 73, 87, .11);
             --kb-shadow-cardhover: 0 4px 16px rgba(55, 73, 87, .12);
@@ -86,9 +93,9 @@
 
         /*
          * Dark theme. The yellow stays the brand anchor but is dimmed so it does not
-         * glare on a dark ground, and `ink` inverts to near-white — which also flips
-         * every dark-on-yellow pairing (bg-ink text-primary) into the correct
-         * light-on-dark one, because both sides come from the same tokens.
+         * glare on a dark ground, and `ink` inverts to near-white for page text.
+         * Anything painted ON the yellow keeps its light-theme ink instead — see
+         * the on-yellow scope class — because the yellow itself never goes dark.
          */
         [data-theme="dark"] {
             --kb-primary: 245 205 106;
@@ -117,12 +124,36 @@
             --kb-neutral-surface: 52 47 40; --kb-neutral-ink: 190 182 168;
             --kb-success-solid: 108 130 96;
 
+            --kb-on-primary: 25 21 15;
+            /* On a dark ground a near-black pill has no presence, so the strong
+               action becomes the yellow one with a dark label. */
+            --kb-inverse: 245 205 106;
+            --kb-on-inverse: 25 21 15;
+
             --kb-shadow-card: 0 1.5px 8px rgba(0, 0, 0, .45);
             --kb-shadow-btn: 0 1.5px 4px rgba(0, 0, 0, .5);
             --kb-shadow-cardhover: 0 4px 16px rgba(0, 0, 0, .55);
             --kb-overlay: rgba(0, 0, 0, .7);
             --kb-scrollbar: rgba(255, 255, 255, .16);
             color-scheme: dark;
+        }
+
+        /*
+         * Anything sitting on the brand yellow. The yellow stays light in both
+         * themes, so this subtree pins the ink tokens to their light-theme values —
+         * otherwise dark theme flips the label to near-white on yellow. Because
+         * every colour is a variable, one class re-themes the whole subtree.
+         */
+        /* Also set `color` itself: an element on the yellow that declares no text
+           colour would otherwise inherit the near-white page ink. Tailwind's
+           utilities are injected after this, so an explicit text-* still wins. */
+        .kb-on-yellow { color: rgb(var(--kb-ink)); }
+        .kb-on-yellow, .kb-on-yellow * {
+            --kb-ink: 25 21 15;
+            --kb-body: 63 58 50;
+            --kb-muted: 92 84 70;
+            --kb-amber: 122 96 26;
+            --kb-line: 214 180 96;
         }
 
         [x-cloak] { display: none !important; }
@@ -183,6 +214,9 @@
                         "bad-surface": "rgb(var(--kb-bad-surface) / <alpha-value>)",
                         "bad-ink": "rgb(var(--kb-bad-ink) / <alpha-value>)",
                         "success-solid": "rgb(var(--kb-success-solid) / <alpha-value>)",
+                        "on-primary": "rgb(var(--kb-on-primary) / <alpha-value>)",
+                        inverse: "rgb(var(--kb-inverse) / <alpha-value>)",
+                        "on-inverse": "rgb(var(--kb-on-inverse) / <alpha-value>)",
                         // Card surfaces. Remapping `white` re-themes every existing
                         // `bg-white` without editing ~100 call sites.
                         white: "rgb(var(--kb-surface) / <alpha-value>)",
