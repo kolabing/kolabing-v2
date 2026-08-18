@@ -24,12 +24,13 @@ class RankingPage extends Model
 
     protected $fillable = [
         'city', 'topic', 'slug', 'title', 'meta_description',
-        'intro', 'how_ranked', 'faq', 'editor_name', 'published', 'sort',
+        'intro', 'how_ranked', 'verticals', 'faq', 'editor_name', 'published', 'sort',
     ];
 
     protected function casts(): array
     {
         return [
+            'verticals' => 'array',
             'faq' => 'array',
             'published' => 'boolean',
             'sort' => 'integer',

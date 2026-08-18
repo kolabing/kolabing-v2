@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\CrmAccount;
 use App\Models\ListingClaim;
 use App\Models\RankingPage;
+use App\Services\RankingProjection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -19,18 +20,24 @@ use Illuminate\View\View;
  * crm_accounts (type=community, listed=true) filtered by the page's city + verticals
  * and ordered by the admin-managed CRM score (with an optional metrics.rank_override).
  * So re-rank / edit / add / remove all happen in /admin/crm, never in code.
+ *
+ * The filter + ordering live in RankingProjection so the static preview exporter
+ * renders through the exact same code path (no drift between preview and production).
  */
 class DirectoryController extends Controller
 {
+    public function __construct(private readonly RankingProjection $projection) {}
+
     public function index(): View
     {
         $cities = RankingPage::query()->published()->whereNull('topic')
             ->orderBy('sort')->orderBy('city')->get();
+        $listed = $this->listedCommunities();
 
         return view('directory.index', [
             'cities' => $cities->map(fn (RankingPage $p) => [
                 'page' => $p,
-                'count' => $this->communities($p->city)->count(),
+                'count' => $this->projection->forCity($listed, $p->city)->count(),
             ]),
         ]);
     }
@@ -39,11 +46,11 @@ class DirectoryController extends Controller
     {
         $page = RankingPage::query()->published()->where('city', $city)->whereNull('topic')->firstOrFail();
 
-        $communities = $this->communities($city);
+        $communities = $this->projection->forCity($this->listedCommunities(), $city);
 
         return view('directory.city', [
             'page' => $page,
-            'ranked' => $this->rank($communities)->take((int) config('rankings.hub_limit', 12)),
+            'ranked' => $this->projection->hubRanked($communities)->take((int) config('rankings.hub_limit', 20)),
             'total' => $communities->count(),
             'topics' => RankingPage::query()->published()->where('city', $city)->whereNotNull('topic')
                 ->orderBy('sort')->get(),
@@ -54,11 +61,11 @@ class DirectoryController extends Controller
     {
         $page = RankingPage::query()->published()->where('slug', $slug)->where('city', $city)->firstOrFail();
 
-        $communities = $this->communities($city, (array) $page->verticals);
+        $communities = $this->projection->forCity($this->listedCommunities(), $city, (array) $page->verticals);
 
         return view('directory.topic', [
             'page' => $page,
-            'ranked' => $this->rank($communities),
+            'ranked' => $this->projection->rank($communities),
         ]);
     }
 
@@ -95,43 +102,17 @@ class DirectoryController extends Controller
     }
 
     /**
-     * Listed community leads for a city, optionally narrowed to a set of vertical keywords.
+     * Every listed community lead, loaded once and filtered/ordered in memory by
+     * RankingProjection. Loading the whole listed set (hundreds of rows) and
+     * projecting in PHP is what lets the preview exporter reuse the identical code.
      *
-     * @param  list<string>  $verticals
      * @return Collection<int, CrmAccount>
      */
-    private function communities(string $city, array $verticals = []): Collection
+    private function listedCommunities(): Collection
     {
-        $query = CrmAccount::query()
+        return CrmAccount::query()
             ->where('type', 'community')
             ->where('listed', true)
-            ->where('metrics->city', $city);
-
-        if ($verticals !== []) {
-            $query->where(function ($q) use ($verticals): void {
-                foreach ($verticals as $keyword) {
-                    $q->orWhere('metrics->vertical', 'like', '%'.$keyword.'%');
-                }
-            });
-        }
-
-        return $query->get();
-    }
-
-    /**
-     * Order the ranked list: an explicit metrics.rank_override first, then the
-     * admin-managed CRM score (desc), then name — all resolved in PHP so the JSON
-     * override works regardless of the database driver.
-     *
-     * @param  Collection<int, CrmAccount>  $communities
-     * @return Collection<int, CrmAccount>
-     */
-    private function rank(Collection $communities): Collection
-    {
-        return $communities->sortBy([
-            fn (CrmAccount $a) => $a->metrics['rank_override'] ?? PHP_INT_MAX,
-            fn (CrmAccount $a) => -1 * (int) $a->score,
-            fn (CrmAccount $a) => $a->name,
-        ])->values();
+            ->get();
     }
 }
