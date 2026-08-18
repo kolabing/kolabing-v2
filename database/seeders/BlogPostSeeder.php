@@ -159,6 +159,76 @@ HTML,
 <p>New to the idea? Start with <a href="/blog/what-is-community-led-footfall">what community-led footfall is</a>, then <a href="/blog/how-to-get-more-footfall-without-paying-for-ads">how to get more footfall without paying for ads</a>. When you are ready to be found by communities near you, see <a href="/for-businesses">how businesses use Kolabing</a>.</p>
 HTML,
             ],
+            [
+                'slug' => 'is-influencer-marketing-worth-it-for-a-local-business',
+                'title' => 'Is Influencer Marketing Worth It for a Local Business?',
+                'description' => 'For a local venue that lives on regulars, influencer marketing is usually a spark, not an engine. Here is when it is worth it, why the visits rarely repeat, and what brings footfall that comes back.',
+                'author_name' => 'Daniel Martinez',
+                'author_title' => 'Founder of Kolabing',
+                'locale' => 'en',
+                'published_at' => $published->copy()->addMinutes(3),
+                'cover_image_url' => null,
+                'body' => <<<'HTML'
+<p>An influencer posts about your cafe. For a day, the likes roll in and a few new faces appear. Then the feed moves on, the faces do not come back, and you are left with a receipt and a quiet Tuesday again. Every local owner has felt some version of this. So the question is fair: is it worth it?</p>
+<p>Here is an honest answer, and what tends to work better for a business that needs people through the door, not just eyes on a screen.</p>
+
+<h2>Is influencer marketing worth it for a local business?</h2>
+<p>Usually not on its own. An influencer sells a burst of attention: you pay, a post goes out, and a handful of one-time visitors may show up before the algorithm moves on. For a national brand chasing awareness that can pay off. For a local venue that lives on regulars and repeat visits, the maths rarely closes, because attention is not the same as footfall that returns.</p>
+<p>That does not make it worthless. It makes it a spark, not an engine. Used as one part of a plan it can help. Used as the plan, it burns money.</p>
+
+<h2>Why don't influencer posts bring repeat customers?</h2>
+<p>Because the incentive ends when the post does. An influencer is paid once to say a nice thing, and has no reason to care whether anyone comes back. Their followers came for the influencer, not for you, so when the content stops, the reason to visit stops with it. You rented a crowd that was never yours.</p>
+<p>This is the quiet law under all local marketing: incentives always win. Anyone paid once to send people your way will send them once. To get repeat visits, you need people who have their own reason to return.</p>
+
+<h2>What works better than influencers for a cafe or bar?</h2>
+<p>A nearby community that already gathers. A running club, a book group, a language exchange, these are people who meet every week and want somewhere to land. Host them and you get the same room an influencer promised, plus the part they cannot sell: the return visit, because the group comes back next month, and the word that spreads inside a circle that already trusts each other.</p>
+<p>In Barcelona a single running club filled a slow weekend morning with about thirty people and roughly four hundred euros, and many of them came back on their own. That is footfall that compounds, not footfall you rent.</p>
+
+<h2>When does an influencer actually make sense?</h2>
+<p>As the spark, not the fire. If a well-matched local creator can tell the neighbourhood you exist, or capture a great night so it reaches more people, that is a fair use of the budget. The test is simple: are you buying awareness for something that will keep working after the post, or buying the post itself? Awareness that feeds a community event compounds. A post that feeds nothing does not.</p>
+
+<h2>How do I get the word of mouth influencers promise, without paying for it?</h2>
+<p>Let a community do it, because word of mouth is what a community is. Give a local group a good night in your venue and its members tell each other, unprompted, because they trust each other more than they trust an ad. Kolabing matches your venue with nearby communities that fit, so the recommendation you were trying to buy happens for free, inside a group that meant it.</p>
+<p>An influencer for the spark. A community for the fire. Which one do you want your Tuesdays to run on?</p>
+
+<p>Read <a href="/blog/what-is-community-led-footfall">what community-led footfall is</a>, or <a href="/blog/how-to-get-more-footfall-without-paying-for-ads">how to get more footfall without paying for ads</a>. When you are ready, see <a href="/for-businesses">how businesses use Kolabing</a>.</p>
+HTML,
+            ],
+            [
+                'slug' => 'how-your-community-can-get-a-free-venue-for-its-next-event',
+                'title' => 'How Your Community Can Get a Free Venue (and Perks) for Its Next Event',
+                'description' => 'Local venues will host your community event for free, because your members fill a room that would sit empty. Here is how to get a free venue, and what the business wants in return.',
+                'author_name' => 'Daniel Martinez',
+                'author_title' => 'Founder of Kolabing',
+                'locale' => 'en',
+                'published_at' => $published->copy()->addMinutes(4),
+                'cover_image_url' => null,
+                'body' => <<<'HTML'
+<p>Your community needs a room. Somewhere to run the monthly meetup, launch the season, hold the workshop, without paying a fee that eats the whole budget. The good news is that plenty of local venues will give you that room for nothing, and thank you for it. You just have to understand why.</p>
+<p>Here is how communities get a free venue, and what the venue wants back.</p>
+
+<h2>How can my community get a free venue for an event?</h2>
+<p>Offer a venue the one thing it is short of on a quiet night: people. A cafe, bar, or gym with an empty Tuesday will host your group for free, because your members fill a room that was going to sit empty anyway. You are not asking for a favour. You are bringing the crowd a business would otherwise pay to reach.</p>
+<p>Approach it as a fair trade. Tell the venue how many people you bring, when, and how often, and let them picture the quiet shift you would fill. A full room on a slow night is worth far more to them than the cost of the space.</p>
+
+<h2>Why would a business host my group for free?</h2>
+<p>Because your members are the customers they are trying to reach, and you deliver them at no cost. Every ad a venue buys rents a stranger's attention for a second. Your community walks in as a group, spends while it is there, and some of it comes back as regulars. For the venue that is the cheapest, warmest marketing there is, so hosting you is not charity, it is a good deal.</p>
+<p>The incentives line up, which is why it lasts. You want a good room for your members. They want your members to become regulars. Both sides win when the night goes well, so both sides want to do it again.</p>
+
+<h2>What do venues want from a community in return?</h2>
+<p>Usually just the crowd, and a little visibility. Bring your members, spend a normal amount while you are there, and tag the place in a post or a story so the night reaches a few more people. Some venues will ask for a minimum spend or a set number of attendees. That is fair. You are trading your reliability for their room.</p>
+<p>Be the group that is easy to host: show up when you said, treat the space well, and the same venue will want you back every month. A reputation as a good guest is the most valuable thing a community can carry.</p>
+
+<h2>What kind of communities can do this?</h2>
+<p>Almost any that meets in person with a handful of people. Running and cycling clubs, book and language groups, board-game and hobby nights, new-parent meetups, university and alumni circles, expat and neighbourhood groups. You do not need thousands of followers. You need a real group that shows up, because reliability is worth more to a venue than raw size.</p>
+
+<h2>How do I find venues that want to host my community?</h2>
+<p>Start with the places your members already like, and ask. Many will say yes to a quiet night. Doing it by hand works, and it takes time and a few awkward messages. Kolabing does the matching for you: it connects your community with nearby venues looking for exactly the kind of crowd you bring, and on Kolabing it is free for communities, always.</p>
+<p>A room for your next event. A perk for your members. A venue that wants you back. Isn't that worth a message?</p>
+
+<p>See <a href="/for-communities">how communities join Kolabing</a>, or read <a href="/blog/what-is-community-led-footfall">what community-led footfall is</a> to understand why venues want you there.</p>
+HTML,
+            ],
         ];
     }
 }
