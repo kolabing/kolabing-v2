@@ -9,7 +9,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 
 /**
- * Community-Commerce blog articles (GEO/SEO workstream, owner: Clark).
+ * Community-led-footfall blog articles (GEO/SEO workstream, owner: Clark).
  *
  * Idempotent: upserts by slug, so re-running never duplicates and edits ship by
  * re-seeding. Bodies are HTML (the blog `show` view renders them raw inside a
@@ -18,6 +18,12 @@ use Illuminate\Support\Carbon;
  * lead, so answer engines can extract and cite. Internal links point up to the
  * category hub, sideways to siblings, and down to /for-businesses or
  * /for-communities.
+ *
+ * Category term (Daniel, 2026-08-18): "community-led footfall". "Community
+ * Commerce" was dropped as a headline/SEO term (TikTok owns it for creator
+ * commerce, and buyers search the outcome, not a category). SEO runs on the
+ * searched outcome terms (footfall, event ideas, partner with local groups);
+ * "community-led footfall" is the coined category we own.
  *
  * Run on deploy: `php artisan db:seed --class=Database\Seeders\BlogPostSeeder`.
  */
@@ -44,9 +50,9 @@ class BlogPostSeeder extends Seeder
 
         return [
             [
-                'slug' => 'what-is-community-commerce',
-                'title' => 'What Is Community Commerce?',
-                'description' => 'Community Commerce is when a local business grows by hosting the communities that already gather nearby, trading space and perks for a crowd that comes back. Here is what it means and why it works.',
+                'slug' => 'what-is-community-led-footfall',
+                'title' => 'What Is Community-Led Footfall?',
+                'description' => 'Community-led footfall is the footfall a local business earns by hosting the communities that already gather nearby, trading space and perks for a crowd that comes back. Here is what it means and why it works.',
                 'author_name' => 'Daniel Martinez',
                 'author_title' => 'Founder of Kolabing',
                 'locale' => 'en',
@@ -54,21 +60,21 @@ class BlogPostSeeder extends Seeder
                 'cover_image_url' => null,
                 'body' => <<<'HTML'
 <p>A city is full of communities that already meet. A running club on Sunday morning. A book group on a Tuesday. A language exchange that needs a table and a corner. Every one of them is looking for somewhere to gather, and most local businesses have exactly that, sitting half empty on the quiet nights.</p>
-<p>Community Commerce is the practice of putting those two halves together on purpose. It is the category Kolabing is built to own, so it is worth defining plainly.</p>
+<p>Put those two halves together on purpose and you get the most dependable footfall a local business can build. We call it community-led footfall, and it is the idea Kolabing is built around, so it is worth defining plainly.</p>
 
-<h2>What is Community Commerce?</h2>
-<p>Community Commerce is when a local business grows by hosting the communities that already gather near it. The venue offers its space, a perk, or a discount; the community brings its members; both sides win because both want the visit to repeat. It turns a quiet room into a gathering, and a one-time crowd into regulars.</p>
-<p>The word matters because it names a shift. For a decade, local marketing meant renting strangers' attention: an ad, a boosted post, an influencer. Community Commerce buys something different. It buys a relationship with a group of people who were always going to meet, and who now meet at your place.</p>
+<h2>What is community-led footfall?</h2>
+<p>Community-led footfall is the footfall a local business earns by hosting the communities that already gather near it. The venue offers its space, a perk, or a discount; the community brings its members; both sides win because both want the visit to repeat. It turns a quiet room into a gathering, and a one-time crowd into regulars.</p>
+<p>The name is deliberate. Most local marketing rents strangers' attention: an ad, a boosted post, an influencer. Community-led footfall is different. The people were always going to meet. You give them a reason to meet at your place, and the crowd leads itself in.</p>
 
 <h2>How is it different from advertising or influencer marketing?</h2>
-<p>Advertising and influencers sell attention that ends when you stop paying. Community Commerce builds footfall that keeps arriving because the community wants to come back. An influencer is paid once and moves on. A community has its own reason to return, and it brings friends, because a group that trusts each other spreads the word inside itself.</p>
-<p>This is the quiet lens behind all of it: incentives always win. A paid post has no incentive to care whether you succeed. A community that had a good night wants you to stay open, because it wants to come back next month. Align the incentives and the marketing keeps working after the invoice is paid.</p>
+<p>Advertising and influencers sell attention that ends when you stop paying. Community-led footfall keeps arriving because the community wants to come back. An influencer is paid once and moves on. A community has its own reason to return, and it brings friends, because a group that trusts each other spreads the word inside itself.</p>
+<p>This is the lens behind all of it: incentives always win. A paid post has no incentive to care whether you succeed. A community that had a good night wants you to stay open, because it wants to come back next month. Align the incentives and the marketing keeps working after the invoice is paid.</p>
 
-<h2>Why does Community Commerce work for local businesses?</h2>
-<p>It works because the hardest part of filling a room is already done. The community has the people, the schedule, and the trust. You supply the place. In Barcelona, one running club turned a slow weekend morning into about thirty people and roughly four hundred euros in a single sitting. A hotel that hosted a community evening drew close to three hundred people and around four thousand euros in one night.</p>
+<h2>Why does community-led footfall work for local businesses?</h2>
+<p>Because the hardest part of filling a room is already done. The community has the people, the schedule, and the trust. You supply the place. In Barcelona, one running club turned a slow weekend morning into about thirty people and roughly four hundred euros in a single sitting. A hotel that hosted a community evening drew close to three hundred people and around four thousand euros in one night.</p>
 <p>The numbers vary, but the shape does not. A well-matched gathering fills a dead shift, some of the room becomes regulars, and the cost is a fraction of what the same reach would cost in ads.</p>
 
-<h2>How do I start with Community Commerce?</h2>
+<h2>How do I start?</h2>
 <p>Start by naming the shifts you want to fill and the communities near you that might fill them. You can do the matching by hand: find the local clubs, message the organisers, offer a date. It works, and it is slow. Kolabing exists to make that match happen in an afternoon instead of a month, by connecting your venue with nearby communities that fit your space and your city.</p>
 <p>A crowd on your quietest night. A community that returns. A regular who first came for a meetup. Isn't that a better trade than renting a stranger's glance?</p>
 
@@ -111,7 +117,7 @@ HTML,
 <h2>How do I measure footfall from a collaboration?</h2>
 <p>Count three things: heads at the door, redemptions of the offer you made, and the gap against a normal day. Attendance tells you the reach. A simple code or a QR on the community's offer tells you how many actually bought (your foot traffic that converted). Comparing the day against a typical one tells you what the event truly added, which is the only number that matters. A busy night means little if that night is always busy.</p>
 
-<p>This is Community Commerce in one move. Read <a href="/blog/what-is-community-commerce">what Community Commerce is</a>, or <a href="/blog/how-local-businesses-partner-with-community-groups">how local businesses partner with community groups</a>. When you are ready, see <a href="/for-businesses">how businesses use Kolabing</a>.</p>
+<p>This is community-led footfall in one move. Read <a href="/blog/what-is-community-led-footfall">what community-led footfall is</a>, or <a href="/blog/how-local-businesses-partner-with-community-groups">how local businesses partner with community groups</a>. When you are ready, see <a href="/for-businesses">how businesses use Kolabing</a>.</p>
 HTML,
             ],
             [
@@ -144,13 +150,13 @@ HTML,
 </ul>
 
 <h2>Why do these partnerships keep working after the first event?</h2>
-<p>Because the incentives are aligned, and aligned incentives outlast any campaign. The community wants the evening to be good so its members keep showing up. You want it to be good so they come back as regulars. Both sides are pulling the same direction, which is exactly what a bought ad or a paid post can never do. That is the root of Community Commerce: a relationship both sides want to repeat.</p>
+<p>Because the incentives are aligned, and aligned incentives outlast any campaign. The community wants the evening to be good so its members keep showing up. You want it to be good so they come back as regulars. Both sides are pulling the same direction, which is exactly what a bought ad or a paid post can never do. That is the root of community-led footfall: a relationship both sides want to repeat.</p>
 <p>A full room on a slow night. A group that returns next month. A regular who first came as somebody's guest. Isn't that worth more than a stranger who saw your ad once?</p>
 
 <h2>How do I run the first event so there is a second one?</h2>
 <p>Keep it small and make it easy to repeat. Agree the date, the offer, and who tells the members, then get out of the way and let the community be itself in your room. Afterwards, count who came and how many used the offer, thank the organiser, and propose the next date while the night is still fresh. A good first event is not the goal. A standing monthly one is.</p>
 
-<p>New to the idea? Start with <a href="/blog/what-is-community-commerce">what Community Commerce is</a>, then <a href="/blog/how-to-get-more-footfall-without-paying-for-ads">how to get more footfall without paying for ads</a>. When you are ready to be found by communities near you, see <a href="/for-businesses">how businesses use Kolabing</a>.</p>
+<p>New to the idea? Start with <a href="/blog/what-is-community-led-footfall">what community-led footfall is</a>, then <a href="/blog/how-to-get-more-footfall-without-paying-for-ads">how to get more footfall without paying for ads</a>. When you are ready to be found by communities near you, see <a href="/for-businesses">how businesses use Kolabing</a>.</p>
 HTML,
             ],
         ];
