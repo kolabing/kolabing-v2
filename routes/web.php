@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\KolabController as AdminKolabController;
 use App\Http\Controllers\Admin\ManagedUserController;
 use App\Http\Controllers\Admin\OfferOptionController as AdminOfferOptionController;
 use App\Http\Controllers\Admin\PartnerRewardController as AdminPartnerRewardController;
+use App\Http\Controllers\Admin\RankingController as AdminRankingController;
 use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Admin\RewardEconomicsController as AdminRewardEconomicsController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
@@ -151,6 +152,12 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::get('/crm/{account}/edit', [AdminCrmController::class, 'edit'])->name('crm.edit');
     Route::put('/crm/{account}', [AdminCrmController::class, 'update'])->name('crm.update');
     Route::delete('/crm/{account}', [AdminCrmController::class, 'destroy'])->name('crm.destroy');
+
+    // Community-rankings directory: publish/unpublish pages + moderate testimonials.
+    // (Re-ranking is done in /admin/crm via score + metrics.rank_override + listed.)
+    Route::get('/rankings', [AdminRankingController::class, 'index'])->name('rankings.index');
+    Route::post('/rankings/{page}/publish', [AdminRankingController::class, 'togglePublish'])->name('rankings.publish');
+    Route::post('/rankings/testimonials/{testimonial}/{decision}', [AdminRankingController::class, 'moderate'])->name('rankings.testimonials.moderate');
 
     Route::get('/tasks', [AdminTaskController::class, 'index'])->name('tasks.index');
     Route::get('/tasks/create', [AdminTaskController::class, 'create'])->name('tasks.create');
