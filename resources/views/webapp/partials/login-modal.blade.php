@@ -61,7 +61,12 @@
                         :class="userType === 'community' ? 'bg-primary text-ink' : 'text-muted'">{{ __('webapp.login.community') }}</button>
             </div>
 
-            <div id="googleBtn" class="flex justify-center min-h-[44px]" x-show="hasGoogle" x-cloak></div>
+            <div x-show="hasGoogle" x-cloak class="w-full max-w-[400px] mx-auto">
+                {{-- Google renders inside its own card; clipping it to the design's
+                     pill and giving the shell the surface colour stops that card
+                     showing as a pale frame in dark theme. --}}
+                <div id="googleBtn" class="rounded-pill overflow-hidden bg-white flex justify-center min-h-[44px]"></div>
+            </div>
 
             {{-- Without GOOGLE_CLIENT_ID_WEB the widget cannot load — say so instead of
                  silently dropping the option off the sheet. --}}
@@ -123,26 +128,25 @@
                 }
                 this.loginError = window.kb.errorText(res, t('login.error'));
             },
-            loadGoogle() {
+            async loadGoogle() {
                 if (this.googleLoaded) return;
                 this.googleLoaded = true;
-                const s = document.createElement('script');
-                s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true;
-                s.onload = () => {
-                    try {
-                        google.accounts.id.initialize({
-                            client_id: window.KB_CONFIG.googleClientId,
-                            callback: (resp) => this.onGoogle(resp),
-                        });
-                        google.accounts.id.renderButton(document.getElementById('googleBtn'),
-                            { theme: 'outline', size: 'large', text: 'continue_with', shape: 'pill', width: 340, logo_alignment: 'center' });
-                    } catch (e) {
-                        // Bad or blocked client id — fall back to the inert button + notice.
-                        this.hasGoogle = false;
-                    }
-                };
-                s.onerror = () => { this.hasGoogle = false; };
-                document.head.appendChild(s);
+                // Bad/blocked client id or a blocked GSI script falls back to the
+                // inert button + notice rather than leaving an empty gap.
+                this.hasGoogle = await this.renderGoogle();
+                if (!this.hasGoogle) return;
+                // Re-render on a theme flip or a resize so Google's own card never
+                // ends up the wrong colour or the wrong width for its row.
+                const again = () => { if (this.loginOpen) this.renderGoogle(); };
+                window.addEventListener('kb:theme', again);
+                window.addEventListener('resize', again);
+            },
+            renderGoogle() {
+                return window.kbGoogle.render(document.getElementById('googleBtn'), {
+                    text: 'continue_with',
+                    dark: this.isDark,
+                    onCredential: (resp) => this.onGoogle(resp),
+                });
             },
             postGoogle(idToken, userType) {
                 return window.kb.api('/auth/google', {
