@@ -413,9 +413,58 @@
                     if (meta) {
                         meta.setAttribute('content', getComputedStyle(root).getPropertyValue('background-color') || '');
                     }
+                    // Embedded third-party widgets (Google's button) can't inherit our
+                    // CSS variables — they have to be told to re-render.
+                    window.dispatchEvent(new CustomEvent('kb:theme', { detail: { theme } }));
                 },
                 toggleTheme() { this.setTheme(this.isDark ? 'light' : 'dark'); },
             };
+        };
+
+        /**
+         * Google Sign-In button. Google renders it inside its own card, so it has to
+         * be sized to the row it sits in and themed to match — otherwise its chrome
+         * shows as a pale frame around a dark pill (and vice versa).
+         */
+        window.kbGoogle = {
+            scriptPromise: null,
+            loadScript() {
+                if (this.scriptPromise) return this.scriptPromise;
+                this.scriptPromise = new Promise((resolve, reject) => {
+                    const s = document.createElement('script');
+                    s.src = 'https://accounts.google.com/gsi/client';
+                    s.async = true; s.defer = true;
+                    s.onload = resolve;
+                    s.onerror = () => reject(new Error('Google Identity Services blocked'));
+                    document.head.appendChild(s);
+                });
+                return this.scriptPromise;
+            },
+            /** @returns {Promise<boolean>} false when GSI cannot render — callers fall back. */
+            async render(el, { text, dark, onCredential }) {
+                if (!window.KB_CONFIG.googleClientId || !el) return false;
+                try { await this.loadScript(); } catch (e) { return false; }
+                try {
+                    google.accounts.id.initialize({
+                        client_id: window.KB_CONFIG.googleClientId,
+                        callback: (resp) => onCredential(resp),
+                    });
+                    el.innerHTML = '';
+                    google.accounts.id.renderButton(el, {
+                        // Google clamps width to 200–400. Matching the row keeps its
+                        // card from showing as a frame either side of the button.
+                        width: Math.max(200, Math.min(400, Math.round(el.clientWidth || 320))),
+                        theme: dark ? 'filled_black' : 'outline',
+                        size: 'large',
+                        text,
+                        shape: 'pill',
+                        logo_alignment: 'left',
+                    });
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            },
         };
 
         // Shared shell state: viewer identity + unread notification count + theme.

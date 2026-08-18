@@ -4,7 +4,7 @@
 @section('robots', 'index,follow')
 
 @section('body')
-<div class="min-h-screen bg-cream-alt flex items-center justify-center px-6 py-10" x-data="registerPage()" x-init="init()">
+<div class="min-h-screen bg-cream-alt flex items-center justify-center px-6 py-10" x-data="kbMerge(kbThemeState(), registerPage())" x-init="init()">
 
     {{-- ── Step 1 · pick a role ─────────────────────────────────────────── --}}
     <div x-show="step === 'type'" class="w-full max-w-[480px] flex flex-col gap-4">
@@ -103,7 +103,12 @@
             <div class="flex items-center gap-3 text-muted text-xs mb-3">
                 <span class="h-px bg-ink/10 flex-1"></span>{{ __('webapp.login.or') }}<span class="h-px bg-ink/10 flex-1"></span>
             </div>
-            <div id="googleBtn" class="flex justify-center min-h-[44px]" x-show="hasGoogle" x-cloak></div>
+            <div x-show="hasGoogle" x-cloak class="w-full max-w-[400px] mx-auto">
+                {{-- Google renders inside its own card; clipping it to the design's
+                     pill and giving the shell the surface colour stops that card
+                     showing as a pale frame in dark theme. --}}
+                <div id="googleBtn" class="rounded-pill overflow-hidden bg-white flex justify-center min-h-[44px]"></div>
+            </div>
             <template x-if="!hasGoogle">
                 <div>
                     <div class="w-full h-11 rounded-pill bg-white border border-line flex items-center justify-center gap-2.5 opacity-60 cursor-not-allowed select-none">
@@ -310,23 +315,21 @@
                 // The GSI widget can only render once its container is on screen.
                 if (this.hasGoogle) this.$nextTick(() => this.loadGoogle());
             },
-            loadGoogle() {
+            async loadGoogle() {
                 if (this.googleLoaded) return;
                 this.googleLoaded = true;
-                const s = document.createElement('script');
-                s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true;
-                s.onload = () => {
-                    try {
-                        google.accounts.id.initialize({
-                            client_id: window.KB_CONFIG.googleClientId,
-                            callback: (resp) => this.onGoogle(resp),
-                        });
-                        google.accounts.id.renderButton(document.getElementById('googleBtn'),
-                            { theme: 'filled_black', size: 'large', text: 'signup_with', shape: 'pill', width: 360, logo_alignment: 'center' });
-                    } catch (e) { this.hasGoogle = false; }
-                };
-                s.onerror = () => { this.hasGoogle = false; };
-                document.head.appendChild(s);
+                this.hasGoogle = await this.renderGoogle();
+                if (!this.hasGoogle) return;
+                const again = () => { if (this.step === 'account') this.renderGoogle(); };
+                window.addEventListener('kb:theme', again);
+                window.addEventListener('resize', again);
+            },
+            renderGoogle() {
+                return window.kbGoogle.render(document.getElementById('googleBtn'), {
+                    text: 'signup_with',
+                    dark: this.isDark,
+                    onCredential: (resp) => this.onGoogle(resp),
+                });
             },
             async onGoogle(resp) {
                 this.error = '';
