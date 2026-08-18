@@ -43,7 +43,13 @@ use Illuminate\Support\Facades\Route;
 | in-app links are literal, locale-prefixed client-side). Config: config/webapp.php.
 */
 $webappRoutes = function (): void {
-    Route::view('/', 'webapp.index');
+    // The app host has no landing page of its own — kolabing.com is where the
+    // product is pitched. Anyone arriving here (typed URL, bookmark, or a
+    // requireAuth() bounce) goes straight to the sign-in screen; signing up is
+    // its own page at /register.
+    Route::get('/', function (?string $locale = null) {
+        return redirect(($locale ? '/'.$locale : '').'/login');
+    });
     Route::view('/login', 'webapp.login');
     Route::view('/register', 'webapp.register');
     Route::view('/dashboard', 'webapp.dashboard');
