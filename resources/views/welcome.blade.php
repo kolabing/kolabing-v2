@@ -1923,7 +1923,7 @@ COMMUNITIES GET PERKS.</div>
 
       <div class="kb-pop__or"><span>or</span></div>
       <a class="kb-pop__call kb-pop__call--primary" href="{{ $appRegister }}">Create your free account →</a>
-      <a class="kb-pop__call" href="{{ config('kolabing.book_a_call_url') }}" target="_blank" rel="noopener">Book a call with us →</a>
+      <a class="kb-pop__call kb-pop__bookcall" data-url-community="{{ config('kolabing.book_a_call_url_community') }}" data-url-business="{{ config('kolabing.book_a_call_url_business') }}" href="{{ config('kolabing.book_a_call_url_community') }}" target="_blank" rel="noopener">Book a call with us →</a>
     </div>
 
     <div class="kb-pop__body kb-pop__done" id="kbPopDone" hidden>
@@ -1931,7 +1931,7 @@ COMMUNITIES GET PERKS.</div>
       <h2 class="kb-pop__title">You're on the list</h2>
       <p class="kb-pop__sub">Thanks — we'll be in touch. Want to start now?</p>
       <a class="kb-pop__call kb-pop__call--primary" href="{{ $appRegister }}">Create your free account →</a>
-      <a class="kb-pop__call" href="{{ config('kolabing.book_a_call_url') }}" target="_blank" rel="noopener">Book a call with us →</a>
+      <a class="kb-pop__call kb-pop__bookcall" data-url-community="{{ config('kolabing.book_a_call_url_community') }}" data-url-business="{{ config('kolabing.book_a_call_url_business') }}" href="{{ config('kolabing.book_a_call_url_community') }}" target="_blank" rel="noopener">Book a call with us →</a>
     </div>
   </div>
 </div>
@@ -1959,11 +1959,21 @@ COMMUNITIES GET PERKS.</div>
   }
 
   // Audience toggle
+  // Point the "Book a call" CTAs at the discovery call that matches the segment.
+  function syncBookCall(){
+    pop.querySelectorAll('.kb-pop__bookcall').forEach(function(a){
+      var url = a.getAttribute('data-url-' + audience);
+      if (url) a.setAttribute('href', url);
+    });
+  }
+  syncBookCall();
+
   pop.querySelectorAll('.kb-pop__seg-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
       audience = btn.getAttribute('data-aud');
       pop.querySelectorAll('.kb-pop__seg-btn').forEach(function(b){ b.classList.remove('is-on'); });
       btn.classList.add('is-on');
+      syncBookCall();
     });
   });
 
