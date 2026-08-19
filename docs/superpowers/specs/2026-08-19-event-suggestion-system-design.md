@@ -86,7 +86,7 @@ retired, BE-IF-47).
 | `city_id` | uuid FK `cities` nullable | resolved city of the proposed event |
 | `score` | smallint | 0–100, computed in PHP |
 | `confidence` | string enum | `low` \| `medium` \| `high` — share of signal weight backed by real data |
-| `signals` | jsonb | `[{key, label, weight, score, reason}]` — reason strings carry real numbers |
+| `signals` | jsonb | `[{key, reason_key, reason_params, weight, score}]` — **keys and params, never rendered text** (see below) |
 | `suggested_format` | jsonb | `{title, intent_type, weekday, time_of_day, expected_attendance, offer[], expects[]}` |
 | `evidence` | jsonb | ids + aggregates that produced it (`event_ids`, `collaboration_ids`, `posts_reels_total`, …) |
 | `batch_key` | date | the date this pair was last scored (not a generation bucket — see below) |
@@ -102,6 +102,19 @@ Constraints and indexes:
 
 `signals` and `evidence` are **write-once, read-only** jsonb: never filtered or
 aggregated in SQL. This is deliberate — see §3.8.
+
+**Reasons are persisted as keys, rendered at read time.** An earlier draft stored
+the finished sentence. That was wrong: generation runs in a nightly command, in the
+app's default locale, so every Spanish and Catalan reader would have received
+English reasons and the three locale files could never reach production. So a
+signal persists `reason_key` plus `reason_params` (**raw slugs and raw numbers,
+never localised labels**), and a shared `SignalReasonRenderer` turns them into a
+sentence in the *reader's* locale — used by both `SuggestionResource` (§3.5) and
+the digest (§3.7). `reason_key` is separate from `key` because one signal chooses
+different sentences depending on its data (distance vs same-city vs other-city;
+the business vs community phrasing of proven delivery; and the variants that name
+only the non-zero half of a two-number claim). Number formatting is also a
+render-time concern: `2,5 km` in Spanish, `2.5 km` in English.
 
 **One row per pair, refreshed in place.** The unique key deliberately excludes
 `batch_key`: the nightly pass `updateOrCreate`s the same row, so a pair is never

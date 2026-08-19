@@ -623,6 +623,20 @@ class SignalScorerTest extends TestCase
 
 **Step 4: Implement `SignalScorer`** — the whole class, all six signals. Each signal returns `null` when it has no data; nulls are dropped and the remaining weights are renormalised.
 
+**The returned signal shape carries keys, not rendered text:**
+
+```php
+[
+    'key' => 'category_fit',            // also selects the label: suggestions.signal.category_fit
+    'reason_key' => 'category_fit',     // selects suggestions.reason.category_fit
+    'reason_params' => ['community_type' => 'food_community', 'business_category' => 'cafe'],
+    'weight' => 0.25,
+    'score' => 1.0,
+]
+```
+
+`reason_key` is stored separately from `key` because one signal picks different sentences depending on its data (distance vs same-city vs other-city; the business vs community phrasing of proven delivery; the variants that name only the non-zero half of a two-number claim). `reason_params` carry **raw slugs and raw numbers** — never localised labels and never pre-formatted numbers. A shared `app/Services/Suggestions/SignalReasonRenderer.php` turns a persisted signal into `['label' => …, 'reason' => …]` in the *current* locale, applying the `vocabulary.*` lookup and `Illuminate\Support\Number::format(…, locale: app()->getLocale())`. Both Task 7's resource and Task 15's digest render through it; that is why it is its own class.
+
 Two things about `category_fit` that Task 2's review surfaced, and that you must get right:
 
 - **A business declares several categories** (`business_profiles.categories` is an array). Take the **best** matching category, the way Explore does — not the first one, and not a single scalar. Naming the winning category in the reason line is what makes the copy specific ("cafés and run clubs collaborate often") instead of generic.
@@ -1188,7 +1202,10 @@ Laravel 12 auto-discovers `App\Policies\KolabSuggestionPolicy` for `App\Models\K
 - `orderByDesc('score')->orderByDesc('created_at')` — the tiebreaker keeps pagination stable
 - stamp `shown_at` for the returned ids in **one** `whereIn(...)->whereNull('shown_at')->update([...])`, never per row
 
-`SuggestionResource` — the blur lives here and nowhere else:
+`SuggestionResource` — the blur lives here, and it renders the persisted signal
+keys into sentences in the **caller's** locale via `SignalReasonRenderer` (Task 3).
+Never emit the stored `reason_key` / `reason_params` raw to a client, and never
+assume the stored row carries a rendered string — it deliberately does not:
 
 ```php
 /**
@@ -1371,7 +1388,7 @@ public function test_is_a_noop_when_the_feature_flag_is_off(): void
 
 **Step 2: Implement.** Model the whole thing on `SendBusinessReactivationReminders`: `--dry-run` option, flag check first, per-profile try/catch, dedup via a `Notification` lookup on `NotificationType::SuggestionsReady` inside `config('suggestions.digest.resend_after_days')`.
 
-Send through `EmailService::send($profile, $template, $model, EmailService::CATEGORY_MARKETING)`, resolving the alias as `config("suggestions.digest.templates.{$audience->value}")`. Using `CATEGORY_MARKETING` is the whole point: `EmailService::shouldSend()` already routes it through `notification_preferences.marketing_tips` **and** the `email_notifications` master switch, so opt-out works with **no new column**. Do not invent a preference field.
+Render each suggestion's signals through `SignalReasonRenderer` **in the recipient's `profiles.preferred_locale`**, not the command's locale — that is the whole reason the rows store keys instead of sentences. Send through `EmailService::send($profile, $template, $model, EmailService::CATEGORY_MARKETING)`, resolving the alias as `config("suggestions.digest.templates.{$audience->value}")`. Using `CATEGORY_MARKETING` is the whole point: `EmailService::shouldSend()` already routes it through `notification_preferences.marketing_tips` **and** the `email_notifications` master switch, so opt-out works with **no new column**. Do not invent a preference field.
 
 Schedule:
 
