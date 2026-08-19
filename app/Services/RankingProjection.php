@@ -76,8 +76,10 @@ class RankingProjection
      */
     public function hubRanked(Collection $cityCommunities): Collection
     {
-        return $this->rank($cityCommunities->filter(
-            fn (CrmAccount $a) => isset($a->metrics['hub_rank'])
-        ));
+        // Ordered by hub_rank (the curated citywide order), not rank_override — a hub
+        // member's rank_override is its per-CATEGORY position, which is a different axis.
+        return $cityCommunities->filter(fn (CrmAccount $a) => isset($a->metrics['hub_rank']))
+            ->sort(fn (CrmAccount $a, CrmAccount $b) => [$a->metrics['hub_rank'], $a->name] <=> [$b->metrics['hub_rank'], $b->name])
+            ->values();
     }
 }

@@ -226,9 +226,11 @@ class RankingPageSeeder extends Seeder
     {
         $byKey = [];
 
-        // Two passes so the hub (topic === null) sets the canonical rank_override
-        // before any topic page fills in communities the hub did not carry.
-        foreach ([true, false] as $hubPass) {
+        // Topic pieces FIRST, so a community that lives in a category keeps that
+        // category's vertical + its per-category rank_override (it must appear on, and
+        // order correctly on, its category page). The hub pass runs LAST and only adds
+        // hub_rank to the communities it also lists (which drives the hub order).
+        foreach ([false, true] as $hubPass) {
             foreach ($data['cities'] as $c) {
                 $city = $c['city'];
                 if ($onlyCity !== null && $city !== $onlyCity) {
@@ -242,8 +244,12 @@ class RankingPageSeeder extends Seeder
                     foreach ($piece['ranked'] as $rank => $entry) {
                         $key = $city.'|'.mb_strtolower(trim((string) $entry['name']));
                         if (isset($byKey[$key])) {
-                            // Already carried (hub is canonical); only backfill blanks.
+                            // Already carried by a category piece; the hub only tags it
+                            // with a hub_rank and backfills any blanks.
                             $attrs = self::communityAttributes($city, $piece, (int) $rank, $entry);
+                            if ($isHub) {
+                                $byKey[$key]['metrics']['hub_rank'] = (int) $rank;
+                            }
                             $byKey[$key]['metrics']['blurb'] ??= $attrs['metrics']['blurb'] ?? null;
                             $byKey[$key]['metrics']['handle'] ??= $attrs['metrics']['handle'] ?? null;
 

@@ -43,21 +43,44 @@
         </section>
     @endif
 
-    {{-- Featured city: the deep one, with its categories --}}
-    @if ($featured && $featured['categories']->isNotEmpty())
+    {{-- Featured city: photo bento of its scenes --}}
+    @if (! empty($bento))
+        @php
+            $tiles = ['run' => '#FFE9A3', 'cycl' => '#FFD560', 'well' => '#CDE9D9', 'tech' => '#DDE3EA', 'ai' => '#DDE3EA', 'startup' => '#DDE3EA', 'found' => '#DDE3EA', 'expat' => '#F6D8C7', 'social' => '#F6D8C7', 'lang' => '#F6D8C7', 'potter' => '#EAD7C7', 'ceramic' => '#EAD7C7', 'craft' => '#EAD7C7', 'art' => '#E7D3E8', 'creat' => '#E7D3E8', 'draw' => '#E7D3E8', 'sketch' => '#E7D3E8', 'book' => '#E9E2CF', 'supper' => '#F3CFC6', 'dinner' => '#F3CFC6', 'food' => '#F3CFC6', 'board' => '#D7E3D0', 'game' => '#D7E3D0', 'dance' => '#F1D2DE'];
+            $tintOf = function ($topic) use ($tiles) {
+                $t = strtolower($topic ?? '');
+                foreach ($tiles as $k => $c) {
+                    if (str_contains($t, $k)) { return $c; }
+                }
+                return '#FFEFC2';
+            };
+        @endphp
         <section class="mx-auto max-w-6xl px-6 py-16">
             <div class="flex items-end justify-between gap-4">
                 <div>
-                    <p class="text-sm font-bold uppercase tracking-[0.24em] text-off-black/50">Browse {{ $featured['page']->city }} by category</p>
-                    <h2 class="mt-2 font-montserrat text-3xl font-black uppercase tracking-tight">{{ $featured['count'] }} communities across {{ $featured['categories']->count() }} categories</h2>
+                    <p class="text-sm font-bold uppercase tracking-[0.24em] text-off-black/50">Browse {{ $featuredCity }} by scene</p>
+                    <h2 class="mt-2 font-montserrat text-3xl font-black uppercase tracking-tight">Every scene in {{ $featuredCity }}</h2>
                 </div>
-                <a href="{{ route('directory.city', $featured['page']->city) }}" class="hidden shrink-0 text-sm font-bold text-off-black hover:text-primary md:inline">See the full ranking &rarr;</a>
+                <a href="{{ route('directory.city', $featuredCity) }}" class="hidden shrink-0 text-sm font-bold text-off-black hover:text-primary md:inline">See the full ranking &rarr;</a>
             </div>
-            <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                @foreach ($featured['categories'] as $cat)
-                    <a href="{{ route('directory.topic', [$featured['page']->city, $cat['slug']]) }}" class="group flex items-center justify-between rounded-2xl border border-off-black/10 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-off-black/25 hover:shadow-md">
-                        <span class="font-montserrat font-bold">{{ $cat['label'] }}</span>
-                        <span class="text-off-black/30 transition group-hover:translate-x-0.5 group-hover:text-primary">&rarr;</span>
+            <div class="mt-8 grid grid-cols-2 gap-4 md:auto-rows-[176px] md:grid-cols-4">
+                @foreach ($bento as $i => $cat)
+                    @php
+                        $span = $i === 0 ? 'col-span-2 md:col-span-2 md:row-span-2' : ($i === 3 ? 'md:col-span-2' : '');
+                        $hasPhoto = ! empty($cat['photo']);
+                    @endphp
+                    <a href="{{ route('directory.topic', [$featuredCity, $cat['slug']]) }}"
+                       class="group relative min-h-[176px] overflow-hidden rounded-3xl border border-off-black/10 {{ $span }}">
+                        @if ($hasPhoto)
+                            <div class="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-105" style="background-image:url('{{ $cat['photo'] }}')"></div>
+                            <div class="absolute inset-0 bg-gradient-to-t from-off-black/85 via-off-black/35 to-off-black/5"></div>
+                        @else
+                            <div class="absolute inset-0" style="background: {{ $tintOf($cat['topic']) }}"></div>
+                        @endif
+                        <div class="relative flex h-full flex-col justify-end p-5">
+                            <h3 class="font-montserrat {{ $i === 0 ? 'text-3xl md:text-4xl' : 'text-xl' }} font-black uppercase leading-none {{ $hasPhoto ? 'text-white' : 'text-off-black' }}">{{ $cat['label'] }}</h3>
+                            <p class="mt-1.5 text-sm font-bold {{ $hasPhoto ? 'text-primary' : 'text-off-black/70' }}">{{ $cat['count'] }} communities &rarr;</p>
+                        </div>
                     </a>
                 @endforeach
             </div>
@@ -113,7 +136,7 @@
                 function chip(count, size) {
                     return L.divIcon({
                         className: '',
-                        html: '<div style="display:flex;align-items:center;justify-content:center;width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:#FFD560;color:#1B1F1C;font-weight:800;font-family:Montserrat,system-ui,sans-serif;font-size:' + (size > 36 ? 14 : 12) + 'px;box-shadow:0 4px 14px rgba(27,31,28,.28);border:2px solid #1B1F1C">' + count + '</div>',
+                        html: '<div style="display:flex;align-items:center;justify-content:center;width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:#FFD560;color:#1B1F1C;font-weight:800;font-family:Montserrat,sans-serif;font-size:' + (size > 36 ? 14 : 12) + 'px;box-shadow:0 4px 14px rgba(27,31,28,.28);border:2px solid #1B1F1C">' + count + '</div>',
                         iconSize: [size, size], iconAnchor: [size / 2, size / 2],
                     });
                 }

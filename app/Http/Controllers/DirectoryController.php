@@ -41,6 +41,8 @@ class DirectoryController extends Controller
         $topics = RankingPage::query()->published()->whereNotNull('topic')
             ->orderBy('sort')->get()->groupBy('city');
 
+        $featuredCity = optional($cities->first())->city;
+
         return view('directory.index', [
             'cities' => $cities->map(fn (RankingPage $p) => [
                 'page' => $p,
@@ -49,6 +51,10 @@ class DirectoryController extends Controller
                     ->map(fn (RankingPage $t) => ['slug' => $t->slug, 'label' => self::topicLabel($t->topic)]),
             ]),
             'map' => self::mapData($listed, $cities->pluck('city')->all()),
+            'featuredCity' => $featuredCity,
+            'bento' => $featuredCity
+                ? self::categoryCards($this->projection, $listed, $featuredCity, $topics->get($featuredCity) ?? collect())
+                : [],
         ]);
     }
 
@@ -92,6 +98,32 @@ class DirectoryController extends Controller
         }
 
         return $out;
+    }
+
+    /**
+     * Category tiles for a city's photo bento: label, slug, count, and the top-ranked
+     * community's real photo (for the tile background). Shared by live + preview.
+     *
+     * @param  Collection<int, CrmAccount>  $communities
+     * @param  Collection<int, RankingPage>  $topicPages
+     * @return list<array{slug: string, label: string, topic: ?string, count: int, photo: ?string}>
+     */
+    public static function categoryCards(RankingProjection $projection, Collection $communities, string $city, Collection $topicPages): array
+    {
+        $cards = [];
+        foreach ($topicPages as $t) {
+            $comms = $projection->rank($projection->forCity($communities, $city, (array) $t->verticals));
+            $withPhoto = $comms->first(fn (CrmAccount $a) => ! empty($a->metrics['photo_url']));
+            $cards[] = [
+                'slug' => $t->slug,
+                'label' => self::topicLabel($t->topic),
+                'topic' => $t->topic,
+                'count' => $comms->count(),
+                'photo' => $withPhoto->metrics['photo_url'] ?? null,
+            ];
+        }
+
+        return $cards;
     }
 
     /** Human label for a topic slug (shared by the index + category views). */

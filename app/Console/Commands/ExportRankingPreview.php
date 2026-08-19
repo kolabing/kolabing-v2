@@ -71,9 +71,17 @@ class ExportRankingPreview extends Command
                     ->values(),
             ]);
             $cityNames = $hubs->pluck('page.city')->all();
+            $featuredCity = $hubs->first()['page']->city ?? null;
+            $featuredTopics = $featuredCity
+                ? $pages->filter(fn ($t) => $t->city === $featuredCity && $t->topic !== null)->values()
+                : collect();
             $this->emit($out.'/communities/index.html', view('directory.index', [
                 'cities' => $hubs,
                 'map' => \App\Http\Controllers\DirectoryController::mapData($communities, $cityNames),
+                'featuredCity' => $featuredCity,
+                'bento' => $featuredCity
+                    ? \App\Http\Controllers\DirectoryController::categoryCards($projection, $communities, $featuredCity, $featuredTopics)
+                    : [],
             ])->render(), $site);
             $written++;
         }
