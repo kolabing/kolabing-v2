@@ -370,8 +370,31 @@ class ProfileService
             throw $exception;
         }
 
+        return $this->getPublicProfileDetail($profile);
+    }
+
+    /**
+     * The rich public profile — identity, gallery, aggregated photos, past events,
+     * past collaborations and headline stats — for a business OR a community.
+     *
+     * `past_events` lives on `kolabs.past_events`, a column any creator writes, so
+     * businesses have always had this data; only the community-scoped endpoint made
+     * it look community-only. Attendees have no public profile of this shape.
+     *
+     * @throws ModelNotFoundException
+     */
+    public function getPublicProfileDetail(Profile $profile): Profile
+    {
+        if (! $profile->isCommunity() && ! $profile->isBusiness()) {
+            $exception = new ModelNotFoundException;
+            $exception->setModel(Profile::class, [$profile->id]);
+
+            throw $exception;
+        }
+
         $profile->load([
             'communityProfile.city',
+            'businessProfile.city',
             'galleryPhotos',
         ]);
 
@@ -519,7 +542,7 @@ class ProfileService
     {
         $photos = collect();
 
-        $profilePhoto = $profile->communityProfile?->profile_photo;
+        $profilePhoto = $profile->getExtendedProfile()?->profile_photo;
         if (is_string($profilePhoto) && $profilePhoto !== '') {
             $photos->push([
                 'url' => $profilePhoto,

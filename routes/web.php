@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\CollaborationStatus;
+use App\Enums\UserType;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
 use App\Http\Controllers\Admin\BlogController as AdminBlogController;
@@ -27,7 +29,10 @@ use App\Http\Controllers\BlogController;
 use App\Http\Controllers\DirectoryController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\PasswordResetPageController;
+use App\Http\Controllers\PublicProfilePageController;
 use App\Models\BlogPost;
+use App\Models\Profile;
+use App\Support\PublicProfileLink;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -74,6 +79,8 @@ $webappRoutes = function (): void {
     // The design folds applications into My Kolabs → Requests; this route keeps
     // the standalone URL working by opening that same tab.
     Route::view('/applications', 'webapp.kolabs', ['initialTab' => 'requests']);
+    // Public profile of any business/community, seen from inside the app.
+    Route::view('/profiles/{profile}', 'webapp.profile');
     Route::view('/account', 'webapp.account');
 };
 
@@ -255,6 +262,10 @@ Route::view('/terms', 'pages.terms')->name('terms');
 Route::view('/es/privacy', 'pages.es.privacy')->name('privacy.es');
 Route::view('/es/terms', 'pages.es.terms')->name('terms.es');
 
+// Shareable public profile teaser (marketing host, indexable). The slug is
+// `name-<uuid tail>`; see App\Support\PublicProfileLink.
+Route::get('/p/{slug}', [PublicProfilePageController::class, 'show'])->name('public-profile');
+
 Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
 Route::get('/blog/{post}', [BlogController::class, 'show'])->name('blog.show');
 
@@ -291,6 +302,20 @@ Route::get('/sitemap.xml', function () {
 
     foreach (BlogPost::query()->published()->orderByDesc('published_at')->pluck('slug') as $slug) {
         $urls[] = route('blog.show', $slug);
+    }
+
+    // Public profile teasers. Only profiles with something to show are listed —
+    // an empty shell is a thin page that dilutes the rest of the site.
+    $completed = fn ($query) => $query->where('status', CollaborationStatus::Completed);
+    foreach (Profile::query()
+        ->whereIn('user_type', [UserType::Business, UserType::Community])
+        ->where(fn ($query) => $query
+            ->whereHas('createdCollaborations', $completed)
+            ->orWhereHas('appliedCollaborations', $completed))
+        ->with(['businessProfile', 'communityProfile'])
+        ->limit(500)
+        ->get() as $profile) {
+        $urls[] = route('public-profile', PublicProfileLink::slugFor($profile));
     }
 
     return response()->view('sitemap', [

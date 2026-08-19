@@ -103,14 +103,14 @@
             <div class="flex p-1 bg-white border border-ink/[.12] rounded-pill">
                 <button type="button" @click="setTheme('light')"
                         class="flex-1 h-8 rounded-pill text-xs font-bold tracking-wide flex items-center justify-center gap-1.5 transition"
-                        :class="kb-on-yellow !isDark ? 'kb-on-yellow bg-primary text-ink' : 'text-muted hover:text-ink'"
+                        :class="!isDark ? 'kb-on-yellow bg-primary text-ink' : 'text-muted hover:text-ink'"
                         :aria-pressed="!isDark">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
                     {{ __('webapp.nav.theme_light') }}
                 </button>
                 <button type="button" @click="setTheme('dark')"
                         class="flex-1 h-8 rounded-pill text-xs font-bold tracking-wide flex items-center justify-center gap-1.5 transition"
-                        :class="kb-on-yellow isDark ? 'kb-on-yellow bg-primary text-ink' : 'text-muted hover:text-ink'"
+                        :class="isDark ? 'kb-on-yellow bg-primary text-ink' : 'text-muted hover:text-ink'"
                         :aria-pressed="isDark">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
                     {{ __('webapp.nav.theme_dark') }}
@@ -135,10 +135,10 @@
             <template x-if="!avatarUrl">
                 <div class="w-9 h-9 rounded-full bg-primary/50 flex items-center justify-center text-sm font-semibold shrink-0" x-text="initial">&nbsp;</div>
             </template>
-            <div class="flex-1 min-w-0">
-                <p class="text-[13px] font-semibold truncate" x-text="displayName">&nbsp;</p>
+            <a :href="me?.id ? window.kbPath('/profiles/' + me.id) : window.kbPath('/account')" class="flex-1 min-w-0 group">
+                <p class="text-[13px] font-semibold truncate group-hover:underline" x-text="displayName">&nbsp;</p>
                 <p class="text-[11px] text-muted" x-text="roleLabel">&nbsp;</p>
-            </div>
+            </a>
             <button type="button" @click="window.kb.logout()" title="{{ __('webapp.nav.logout') }}" class="text-muted hover:text-ink shrink-0">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
             </button>

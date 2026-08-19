@@ -79,10 +79,10 @@
                     <div class="flex p-1 bg-white border border-ink/[.12] rounded-pill">
                         <button type="button" @click="setReqSub('sent')"
                                 class="min-w-[100px] h-8 rounded-pill text-[12.5px] font-bold tracking-[.4px] transition"
-                                :class="kb-on-yellow reqSub === 'sent' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.applications.tab_sent') }}</button>
+                                :class="reqSub === 'sent' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.applications.tab_sent') }}</button>
                         <button type="button" @click="setReqSub('received')"
                                 class="min-w-[100px] h-8 rounded-pill text-[12.5px] font-bold tracking-[.4px] transition"
-                                :class="kb-on-yellow reqSub === 'received' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.applications.tab_received') }}</button>
+                                :class="reqSub === 'received' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.applications.tab_received') }}</button>
                     </div>
                 </div>
 
@@ -98,7 +98,13 @@
                                 <div class="w-10 h-10 rounded-full bg-primary/40 flex items-center justify-center text-[15px] font-semibold text-ink shrink-0"
                                      x-text="initialOf(partyName(rq))"></div>
                                 <div class="flex-1 min-w-0">
-                                    <p class="text-sm font-semibold text-ink truncate" x-text="partyName(rq)"></p>
+                                    <template x-if="partyId(rq)">
+                                        <a :href="window.kbPath('/profiles/' + partyId(rq))"
+                                           class="block text-sm font-semibold text-ink truncate hover:underline" x-text="partyName(rq)"></a>
+                                    </template>
+                                    <template x-if="!partyId(rq)">
+                                        <p class="text-sm font-semibold text-ink truncate" x-text="partyName(rq)"></p>
+                                    </template>
                                     <p class="text-[12.5px] text-muted mt-px truncate" x-text="requestMeta(rq)"></p>
                                 </div>
                                 <span class="px-3 py-1 rounded-xl text-[11px] font-bold tracking-[.4px] shrink-0"
@@ -183,7 +189,13 @@
                             <div class="w-10 h-10 rounded-full bg-primary/40 flex items-center justify-center text-[15px] font-semibold text-ink shrink-0"
                                  x-text="initialOf(collabPartner(cl).name)"></div>
                             <div class="flex-1 min-w-0">
-                                <p class="text-sm font-semibold text-ink truncate" x-text="collabPartner(cl).name"></p>
+                                <template x-if="collabPartner(cl).id">
+                                    <a :href="window.kbPath('/profiles/' + collabPartner(cl).id)"
+                                       class="block text-sm font-semibold text-ink truncate hover:underline" x-text="collabPartner(cl).name"></a>
+                                </template>
+                                <template x-if="!collabPartner(cl).id">
+                                    <p class="text-sm font-semibold text-ink truncate" x-text="collabPartner(cl).name"></p>
+                                </template>
                                 <p class="text-[13px] text-body mt-px truncate" x-text="cl.kolab?.title || ''"></p>
                                 <span x-show="cl.scheduled_date" x-cloak
                                       class="inline-block mt-[7px] px-2 py-[3px] rounded-md bg-cream-input text-[11px] font-medium text-body"
@@ -243,6 +255,11 @@
                 if (this.reqSub === 'received') return rq.applicant_profile?.display_name || t('applications.a_community');
                 return rq.kolab?.creator_profile?.display_name || rq.opportunity?.creator_profile?.display_name || t('feed.a_partner');
             },
+            /** …and their profile id, so the row links to who they are. */
+            partyId(rq) {
+                if (this.reqSub === 'received') return rq.applicant_profile?.id || null;
+                return rq.kolab?.creator_profile?.id || rq.opportunity?.creator_profile?.id || null;
+            },
             requestMeta(rq) {
                 const title = rq.kolab?.title || rq.opportunity?.title || t('intent.kolab');
                 return `${title} · ${window.kbDate(rq.created_at)}`;
@@ -250,7 +267,7 @@
             collabPartner(cl) {
                 const mine = this.me?.id;
                 const other = cl.creator_profile?.id === mine ? cl.applicant_profile : cl.creator_profile;
-                return { name: other?.display_name || t('dashboard.partner') };
+                return { name: other?.display_name || t('dashboard.partner'), id: other?.id || null };
             },
 
             async init() {

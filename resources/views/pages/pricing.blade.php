@@ -11,7 +11,7 @@
     $c = [
         'eyebrow' => 'Pricing',
         'headline' => 'One plan. Unlimited local partnerships.',
-        'intro' => 'Kolabing Business is a single monthly subscription — publish as many Kolabs as you want, see who applies, and run the collaborations that fill your quiet hours. Communities never pay.',
+        'intro' => 'Kolabing Business is a single monthly subscription — publish as many Kolabs as you want, see who applies, and run the collaborations that fill your quiet nights. Communities never pay.',
         'monthly_name' => 'Monthly',
         'quarterly_name' => '3 months',
         'per_month' => '/ month',

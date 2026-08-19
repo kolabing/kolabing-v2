@@ -84,7 +84,7 @@
                     @foreach ($plans as $key => $plan)
                         @if ($showAll || $configured[$key])
                             <button type="button" @click="plan = '{{ $key }}'"
-                                    :class="kb-on-yellow plan === '{{ $key }}' ? 'kb-on-yellow border-ink bg-primary ring-2 ring-ink' : 'border-ink/[.12] bg-white hover:border-ink/40'"
+                                    :class="plan === '{{ $key }}' ? 'kb-on-yellow border-ink bg-primary ring-2 ring-ink' : 'border-ink/[.12] bg-white hover:border-ink/40'"
                                     class="text-left rounded-3xl border p-5 transition">
                                 <div class="flex items-center justify-between gap-2">
                                     <span class="text-[13px] font-bold tracking-[.06em] uppercase text-ink">{{ $plan['name'] }}</span>

@@ -53,6 +53,16 @@ class CrmAdminTest extends TestCase
             ->assertDontSee('Berlin Runners XT');
     }
 
+    public function test_community_catalog_exposes_verification_columns(): void
+    {
+        $catalog = app(\App\Http\Controllers\Admin\CrmController::class)->columnsFor('community');
+
+        foreach (['city', 'classification', 'audience', 'confidence', 'last_active_date', 'evidence_url'] as $key) {
+            $this->assertArrayHasKey($key, $catalog, "community CRM should expose the {$key} verification column");
+            $this->assertTrue($catalog[$key][2], "{$key} should be a metric column");
+        }
+    }
+
     public function test_create_and_edit_pages_render_for_each_type(): void
     {
         (new CrmSeeder)->run();

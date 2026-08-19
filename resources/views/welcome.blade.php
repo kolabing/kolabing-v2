@@ -17,18 +17,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Kolabing — Local Business &amp; Community Collaboration</title>
-  <meta name="description" content="Kolabing connects local businesses with nearby communities to plan real-world collaborations that drive foot traffic, members, and repeat visits. Live in Barcelona.">
+  <meta name="description" content="Kolabing connects local businesses with nearby communities to plan real-world collaborations that drive footfall, members, and repeat visits. Live in Barcelona.">
   <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
   <link rel="canonical" href="{{ route('home') }}">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Kolabing">
   <meta property="og:title" content="Kolabing — Local Business &amp; Community Collaboration">
-  <meta property="og:description" content="Connect with nearby communities to plan real-world collaborations that drive foot traffic, members, and repeat visits.">
+  <meta property="og:description" content="Connect with nearby communities to plan real-world collaborations that drive footfall, members, and repeat visits.">
   <meta property="og:url" content="{{ route('home') }}">
   <meta property="og:image" content="{{ url('/social-preview.svg') }}">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Kolabing — Local Business &amp; Community Collaboration">
-  <meta name="twitter:description" content="Connect with nearby communities to plan real-world collaborations that drive foot traffic, members, and repeat visits.">
+  <meta name="twitter:description" content="Connect with nearby communities to plan real-world collaborations that drive footfall, members, and repeat visits.">
   <meta name="twitter:image" content="{{ url('/social-preview.svg') }}">
   <script type="application/ld+json">
   {!! json_encode([
@@ -39,7 +39,7 @@
               'name' => 'Kolabing',
               'url' => route('home'),
               'logo' => url('/brand/kolabing-logo.png'),
-              'description' => 'Kolabing helps local businesses and communities plan partnerships that turn events into foot traffic, member value, and repeat visits.',
+              'description' => 'Kolabing helps local businesses and communities plan partnerships that turn events into footfall, member value, and repeat visits.',
               'email' => 'support@kolabing.com',
           ],
           [
@@ -1923,7 +1923,7 @@ COMMUNITIES GET PERKS.</div>
 
       <div class="kb-pop__or"><span>or</span></div>
       <a class="kb-pop__call kb-pop__call--primary" href="{{ $appRegister }}">Create your free account →</a>
-      <a class="kb-pop__call" href="{{ config('kolabing.book_a_call_url') }}" target="_blank" rel="noopener">Book a call with us →</a>
+      <a class="kb-pop__call kb-pop__bookcall" data-url-community="{{ config('kolabing.book_a_call_url_community') }}" data-url-business="{{ config('kolabing.book_a_call_url_business') }}" href="{{ config('kolabing.book_a_call_url_community') }}" target="_blank" rel="noopener">Book a call with us →</a>
     </div>
 
     <div class="kb-pop__body kb-pop__done" id="kbPopDone" hidden>
@@ -1931,7 +1931,7 @@ COMMUNITIES GET PERKS.</div>
       <h2 class="kb-pop__title">You're on the list</h2>
       <p class="kb-pop__sub">Thanks — we'll be in touch. Want to start now?</p>
       <a class="kb-pop__call kb-pop__call--primary" href="{{ $appRegister }}">Create your free account →</a>
-      <a class="kb-pop__call" href="{{ config('kolabing.book_a_call_url') }}" target="_blank" rel="noopener">Book a call with us →</a>
+      <a class="kb-pop__call kb-pop__bookcall" data-url-community="{{ config('kolabing.book_a_call_url_community') }}" data-url-business="{{ config('kolabing.book_a_call_url_business') }}" href="{{ config('kolabing.book_a_call_url_community') }}" target="_blank" rel="noopener">Book a call with us →</a>
     </div>
   </div>
 </div>
@@ -1959,11 +1959,21 @@ COMMUNITIES GET PERKS.</div>
   }
 
   // Audience toggle
+  // Point the "Book a call" CTAs at the discovery call that matches the segment.
+  function syncBookCall(){
+    pop.querySelectorAll('.kb-pop__bookcall').forEach(function(a){
+      var url = a.getAttribute('data-url-' + audience);
+      if (url) a.setAttribute('href', url);
+    });
+  }
+  syncBookCall();
+
   pop.querySelectorAll('.kb-pop__seg-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
       audience = btn.getAttribute('data-aud');
       pop.querySelectorAll('.kb-pop__seg-btn').forEach(function(b){ b.classList.remove('is-on'); });
       btn.classList.add('is-on');
+      syncBookCall();
     });
   });
 

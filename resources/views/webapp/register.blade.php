@@ -195,7 +195,7 @@
                                 class="text-left flex items-center gap-3 p-4 rounded-xl border transition"
                                 :class="form.has_venue === opt.value ? 'bg-primary-tint border-primary' : 'bg-white border-ink/10'">
                             <span class="w-6 h-6 rounded-full shrink-0 flex items-center justify-center border-[1.5px]"
-                                  :class="kb-on-yellow form.has_venue === opt.value ? 'kb-on-yellow bg-primary border-primary' : 'border-ink/20'">
+                                  :class="form.has_venue === opt.value ? 'kb-on-yellow bg-primary border-primary' : 'border-ink/20'">
                                 <template x-if="form.has_venue === opt.value">
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                                 </template>

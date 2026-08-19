@@ -1,13 +1,13 @@
 <x-layouts.marketing-page
     title="Blog"
-    description="Community Commerce insights for local businesses and communities: turn real-world partnerships into foot traffic, members, and repeat visits."
+    description="Community Commerce insights for local businesses and communities: turn real-world partnerships into footfall, members, and repeat visits."
     :canonical="route('blog.index')"
 >
     <section class="mx-auto max-w-6xl px-6 py-16">
         <header class="max-w-2xl">
             <p class="font-montserrat text-sm font-bold uppercase tracking-widest text-off-black/50">Community Commerce</p>
             <h1 class="mt-3 font-montserrat text-4xl font-black uppercase tracking-tight md:text-5xl">The Kolabing blog</h1>
-            <p class="mt-4 text-lg text-off-black/70">Real playbooks for local businesses and communities: foot traffic without paid ads, event marketing that actually works, and how the two sides grow together.</p>
+            <p class="mt-4 text-lg text-off-black/70">Real playbooks for local businesses and communities: footfall without paid ads, event marketing that actually works, and how the two sides grow together.</p>
         </header>
 
         @if ($posts->isEmpty())
