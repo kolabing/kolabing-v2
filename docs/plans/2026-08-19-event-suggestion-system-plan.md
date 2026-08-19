@@ -108,8 +108,10 @@ return [
     'digest' => [
         'per_email' => 3,
         'resend_after_days' => 6,
-        'template_business' => 'suggestion-digest-business',
-        'template_community' => 'suggestion-digest-community',
+        'templates' => [
+            'business' => 'suggestion-digest-business',
+            'community' => 'suggestion-digest-community',
+        ],
     ],
 
 ];
@@ -157,7 +159,7 @@ return new class extends Migration
             $table->jsonb('signals');
             $table->jsonb('suggested_format');
             $table->jsonb('evidence');
-            $table->date('batch_key');
+            $table->date('batch_key'); // date this pair was last scored
             $table->timestamp('expires_at');
             $table->timestamp('shown_at')->nullable();
             $table->timestamp('clicked_at')->nullable();
@@ -167,9 +169,13 @@ return new class extends Migration
                 ->nullOnDelete();
             $table->timestamps();
 
+            // Deliberately NOT keyed on batch_key: one row per pair, refreshed
+            // in place by the nightly pass. Including batch_key would write a
+            // new row every night while the previous 13 were still inside their
+            // 14-day expiry — up to 14 near-identical cards per counterpart.
             $table->unique(
-                ['viewer_profile_id', 'counterpart_profile_id', 'batch_key'],
-                'kolab_suggestions_pair_batch_unique'
+                ['viewer_profile_id', 'counterpart_profile_id'],
+                'kolab_suggestions_pair_unique'
             );
             $table->index(['viewer_profile_id', 'score'], 'kolab_suggestions_viewer_score_index');
             $table->index(['audience', 'batch_key'], 'kolab_suggestions_audience_batch_index');
@@ -1002,7 +1008,7 @@ public function candidatesFor(Profile $viewer, SuggestionAudience $audience): ar
 - Base query: `Profile::query()->where('user_type', $counterpartType)` scoped to the city set (`profiles.city_id` in the viewer's cities; for a business viewer the set is `[city_id, ...business_profiles.target_city_ids]`).
 - `whereNotExists` for `user_blocks` in either direction.
 - `whereNotExists` for `applications` in a pending state and `collaborations` in `scheduled`/`active` between the pair (use `collaborations.business_profile_id` / `community_profile_id` — they exist and read cleaner than the creator/applicant pair).
-- `whereNotExists` for `kolab_suggestions` with `dismissed_at >= now()->subDays(config('suggestions.dismissal_cooldown_days'))` for this viewer+counterpart.
+- Dismissal cooldown: exclude a pair whose existing row has `dismissed_at >= now()->subDays(config('suggestions.dismissal_cooldown_days'))`. A pair dismissed **longer** ago than the cooldown stays a candidate, and the generator clears its `dismissed_at` when it refreshes the row — that is what makes the cooldown a cooldown rather than a permanent block. Cover both halves with tests.
 - Completeness filter: counterpart must have either non-empty `categories`/`community_type` **or** at least one past event.
 - Then three batched aggregate queries over the resulting counterpart ids:
   1. `events`: `attendee_count` per profile for the last 24 months + count within `momentum_window_days` + city (one query, grouped in PHP).
@@ -1056,7 +1062,7 @@ public function generateFor(Profile $viewer): int
 - Resolve the audience from `$viewer->user_type` (`Business` → suggestions about communities; `Community` → about businesses; attendee → return 0 immediately).
 - `PairCandidateFinder::candidatesFor()` → score each with `SignalScorer` → drop below `min_score` → sort desc → take `per_profile`.
 - `FormatSuggester::suggest()` per survivor.
-- `KolabSuggestion::updateOrCreate(['viewer_profile_id','counterpart_profile_id','batch_key'], [...])` — the unique key means a same-day re-run updates in place and never duplicates. **Do not write `shown_at`/`clicked_at`/`dismissed_at` in the update payload** or a re-run resets the funnel.
+- `KolabSuggestion::updateOrCreate(['viewer_profile_id','counterpart_profile_id'], [...])` — one row per pair, forever. Every re-run (same day or a month later) updates that row instead of adding a card. `batch_key` and `expires_at` move forward in the payload. **Never put `shown_at`/`clicked_at`/`dismissed_at` in the update payload** — that is what makes the funnel and the dismissal survive a re-score. Clearing `dismissed_at` happens only on the cooldown-expiry path described in Task 5.
 - Return the number written.
 
 The command wraps it:
@@ -1345,7 +1351,7 @@ public function test_is_a_noop_when_the_feature_flag_is_off(): void
 
 **Step 2: Implement.** Model the whole thing on `SendBusinessReactivationReminders`: `--dry-run` option, flag check first, per-profile try/catch, dedup via a `Notification` lookup on `NotificationType::SuggestionsReady` inside `config('suggestions.digest.resend_after_days')`.
 
-Send through `EmailService::send($profile, $template, $model, EmailService::CATEGORY_MARKETING)`. Using `CATEGORY_MARKETING` is the whole point: `EmailService::shouldSend()` already routes it through `notification_preferences.marketing_tips` **and** the `email_notifications` master switch, so opt-out works with **no new column**. Do not invent a preference field.
+Send through `EmailService::send($profile, $template, $model, EmailService::CATEGORY_MARKETING)`, resolving the alias as `config("suggestions.digest.templates.{$audience->value}")`. Using `CATEGORY_MARKETING` is the whole point: `EmailService::shouldSend()` already routes it through `notification_preferences.marketing_tips` **and** the `email_notifications` master switch, so opt-out works with **no new column**. Do not invent a preference field.
 
 Schedule:
 

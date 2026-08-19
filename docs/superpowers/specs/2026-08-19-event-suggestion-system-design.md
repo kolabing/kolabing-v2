@@ -89,22 +89,35 @@ retired, BE-IF-47).
 | `signals` | jsonb | `[{key, label, weight, score, reason}]` — reason strings carry real numbers |
 | `suggested_format` | jsonb | `{title, intent_type, weekday, time_of_day, expected_attendance, offer[], expects[]}` |
 | `evidence` | jsonb | ids + aggregates that produced it (`event_ids`, `collaboration_ids`, `posts_reels_total`, …) |
-| `batch_key` | date | generation batch; makes re-runs idempotent |
-| `expires_at` | timestamp | `batch + 14 days` |
+| `batch_key` | date | the date this pair was last scored (not a generation bucket — see below) |
+| `expires_at` | timestamp | last score + 14 days |
 | `shown_at` / `clicked_at` / `dismissed_at` | timestamp nullable | funnel |
 | `converted_kolab_id` | uuid FK `kolabs` nullable | funnel close |
 
 Constraints and indexes:
 
-- `unique(viewer_profile_id, counterpart_profile_id, batch_key)`
+- `unique(viewer_profile_id, counterpart_profile_id)`
 - index `(viewer_profile_id, score desc)` — the read path
 - index `(audience, batch_key)` — the digest path
 
 `signals` and `evidence` are **write-once, read-only** jsonb: never filtered or
 aggregated in SQL. This is deliberate — see §3.8.
 
-Dismissals persist without a second table: the generator excludes any pair with
-a `dismissed_at` inside the last 60 days (configurable).
+**One row per pair, refreshed in place.** The unique key deliberately excludes
+`batch_key`: the nightly pass `updateOrCreate`s the same row, so a pair is never
+shown twice. An earlier draft of this spec keyed the constraint on
+`(viewer, counterpart, batch_key)`, which would have written a fresh row every
+night while the previous 13 were still inside their 14-day expiry — up to 14
+near-identical cards per counterpart. Consequences of the corrected shape:
+
+- `expires_at` moves forward while the pair keeps matching; a pair that stops
+  matching (or drops below `min_score`) simply stops being refreshed and ages out.
+- Funnel timestamps live on the one row, so `shown_at` / `clicked_at` survive
+  every re-score. The update payload must therefore never include them.
+- Dismissals persist without a second table: the generator skips a pair whose
+  `dismissed_at` is inside the cooldown (60 days, configurable), and once the
+  cooldown has passed it refreshes the row **and clears `dismissed_at`**, which
+  is what makes the cooldown a cooldown rather than a permanent block.
 
 ### 3.3 The engine — `app/Services/Suggestions/`
 
@@ -161,7 +174,7 @@ a bad suggestion.
 
 `php artisan app:generate-suggestions` — scheduled **daily at 04:00**
 (02:00/03:00/08:00/09:00/14:20 are taken), `withoutOverlapping()`, chunked over
-profiles, idempotent per `batch_key`. Writes at most
+profiles, idempotent through the `(viewer, counterpart)` unique key. Writes at most
 `config('suggestions.per_profile')` (default 5) rows per profile per audience.
 
 A `GenerateSuggestionsForProfile` job runs on registration and on profile
@@ -240,10 +253,12 @@ there are none.
 - **Stale counterparts.** A suggestion whose counterpart was deleted or
   deactivated after generation is filtered at read time by joining on the
   counterpart's active state — stale rows are invisible, never a 500.
-- **Expiry.** `expires_at` (batch + 14 days) keeps the page from showing a
-  three-week-old "this Saturday" proposal.
-- **Idempotence.** `batch_key` + the unique constraint make a re-run a no-op;
-  `updateOrCreate` preserves funnel timestamps on a same-day re-run.
+- **Expiry.** `expires_at` (last score + 14 days) keeps the page from showing a
+  three-week-old "this Saturday" proposal once a pair stops being refreshed.
+- **Idempotence.** The `(viewer, counterpart)` unique key makes every re-run —
+  same day or a month later — an update of the one existing row, so re-runs never
+  multiply cards. `updateOrCreate` must omit the funnel columns from its update
+  payload so `shown_at` / `clicked_at` / `dismissed_at` survive a re-score.
 - **Feature flag.** `config('suggestions.enabled')` gates the command, the
   endpoints, and the nav entry, so the backend can ship dark and be enabled after
   the first batch is inspected on real data.
