@@ -56,11 +56,16 @@ class PairCandidateFinder
     private const ATTENDANCE_WINDOW_MONTHS = 24;
 
     /**
+     * @param  int|null  $skipped  out-parameter, incremented once per candidate
+     *                             dropped because its context failed an invariant.
+     *                             The nightly command surfaces the total, so a
+     *                             batch that silently loses every pair is
+     *                             distinguishable from an empty platform.
      * @return array<int, PairContext>
      *
      * @throws InvalidArgumentException
      */
-    public function candidatesFor(Profile $viewer, SuggestionAudience $audience): array
+    public function candidatesFor(Profile $viewer, SuggestionAudience $audience, ?int &$skipped = null): array
     {
         $this->assertAudienceMatchesViewer($viewer, $audience);
 
@@ -111,10 +116,16 @@ class PairCandidateFinder
             ? $this->recentCollaborations($counterpartIds)
             : [];
 
+        /**
+         * A closure with an explicit `use (&$skipped)` rather than an arrow
+         * function: an arrow function captures by value, so `contextOrSkip`'s
+         * by-reference increment would land on a copy and every skip would be
+         * lost on the way out. A test counts them, which is the only thing that
+         * would ever have shown it.
+         */
         return $counterparts
-            ->map(fn (Profile $counterpart): ?PairContext => $this->contextOrSkip(
+            ->map(function (Profile $counterpart) use (
                 $viewer,
-                $counterpart,
                 $audience,
                 $events,
                 $series,
@@ -123,7 +134,22 @@ class PairCandidateFinder
                 $contentDelivered,
                 $completedCollaborations,
                 $recentCollaborations,
-            ))
+                &$skipped,
+            ): ?PairContext {
+                return $this->contextOrSkip(
+                    $viewer,
+                    $counterpart,
+                    $audience,
+                    $events,
+                    $series,
+                    $offers,
+                    $reviews,
+                    $contentDelivered,
+                    $completedCollaborations,
+                    $recentCollaborations,
+                    $skipped,
+                );
+            })
             ->filter()
             ->values()
             ->all();
@@ -160,6 +186,7 @@ class PairCandidateFinder
         array $contentDelivered,
         array $completedCollaborations,
         array $recentCollaborations,
+        ?int &$skipped = null,
     ): ?PairContext {
         try {
             return $this->context(
@@ -175,6 +202,8 @@ class PairCandidateFinder
                 $recentCollaborations,
             );
         } catch (InvalidArgumentException $e) {
+            $skipped = ($skipped ?? 0) + 1;
+
             Log::warning('Skipped a suggestion candidate whose pair context failed its invariants', [
                 'viewer_profile_id' => (string) $viewer->getKey(),
                 'counterpart_profile_id' => (string) $counterpart->getKey(),

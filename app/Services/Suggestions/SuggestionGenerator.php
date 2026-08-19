@@ -59,22 +59,26 @@ class SuggestionGenerator
     /**
      * Score every candidate for one viewer and persist the survivors.
      *
-     * @return int the number of rows written (or, on a dry run, the number that
-     *             would have been)
+     * Returns both halves of the outcome, because `written: 0` alone cannot tell
+     * an empty platform from a batch in which every single write failed — and one
+     * of those is an incident. `skipped` counts every pair this profile lost to a
+     * failure: an invariant violation while the finder built the context, a
+     * format that could not be proposed, or a write that raised. The per-pair
+     * `Log::warning` carries the detail; this count is the signal that someone
+     * should go and read it.
+     *
+     * @return array{written: int, skipped: int}
      */
-    public function generateFor(Profile $viewer, bool $dryRun = false): int
+    public function generateFor(Profile $viewer, bool $dryRun = false): array
     {
         $audience = $this->audienceFor($viewer);
 
         if ($audience === null) {
-            return 0;
+            return ['written' => 0, 'skipped' => 0];
         }
 
-        $scored = $this->scoreCandidates($viewer, $audience);
-
-        if ($scored === []) {
-            return 0;
-        }
+        $skipped = 0;
+        $scored = $this->scoreCandidates($viewer, $audience, $skipped);
 
         $written = 0;
 
@@ -87,10 +91,12 @@ class SuggestionGenerator
 
             if ($this->persist($candidate)) {
                 $written++;
+            } else {
+                $skipped++;
             }
         }
 
-        return $written;
+        return ['written' => $written, 'skipped' => $skipped];
     }
 
     /**
@@ -119,14 +125,23 @@ class SuggestionGenerator
      * tie resolved by whatever order Postgres returned the candidates in would
      * move cards on and off the cap from night to night with nothing behind it.
      *
+     * `$skipped` is accumulated, not assigned: the finder reports the pairs it
+     * dropped while building their contexts — failures this class never sees a
+     * `PairContext` for — and the scoring failures below add to that same total.
+     *
+     * @param  int  $skipped  out-parameter, incremented by every pair lost to a failure
      * @return array<int, array{context: PairContext, score: int, confidence: string, signals: array<int, array<string, mixed>>, format: array<string, mixed>}>
      */
-    private function scoreCandidates(Profile $viewer, SuggestionAudience $audience): array
+    private function scoreCandidates(Profile $viewer, SuggestionAudience $audience, int &$skipped): array
     {
         $minScore = (int) config('suggestions.min_score');
         $scored = [];
+        $skippedContexts = 0;
 
-        foreach ($this->finder->candidatesFor($viewer, $audience) as $context) {
+        $candidates = $this->finder->candidatesFor($viewer, $audience, $skippedContexts);
+        $skipped += $skippedContexts;
+
+        foreach ($candidates as $context) {
             try {
                 $result = $this->scorer->score($context);
 
@@ -149,6 +164,7 @@ class SuggestionGenerator
                     ),
                 ];
             } catch (Throwable $e) {
+                $skipped++;
                 $this->skip($context->viewerProfileId, $context->counterpartProfileId, 'score', $e);
             }
         }
@@ -169,6 +185,13 @@ class SuggestionGenerator
      * string — a per-pair failure where a per-pair *skip* is wanted, so the
      * coercion happens here.
      *
+     * Everything numeric is coerced rather than dropped. A float `3.0` is
+     * Thursday written by a JSON decoder that saw no decimal point, and dropping
+     * it would silently cost the pair its cadence; `FormatSuggester` still range
+     * checks the result, so a genuinely nonsensical value is rejected there
+     * rather than passed off as a weekday. Non-numeric entries are dropped,
+     * because there is nothing to coerce them to.
+     *
      * @return array<int, int>
      */
     private function intArray(mixed $values): array
@@ -180,7 +203,8 @@ class SuggestionGenerator
         return array_values(array_map(
             static fn (mixed $value): int => (int) $value,
             array_filter($values, static fn (mixed $value): bool => is_int($value)
-                || (is_string($value) && $value !== '' && ctype_digit($value)))
+                || is_float($value)
+                || (is_string($value) && is_numeric($value)))
         ));
     }
 

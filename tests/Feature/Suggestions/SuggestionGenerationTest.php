@@ -125,9 +125,9 @@ class SuggestionGenerationTest extends TestCase
         $sixth = $this->community($city, 'professional_networking_community'); // 84
         $seventh = $this->community($city, 'tech_startup_community');          // 81
 
-        $written = $this->generator()->generateFor($viewer);
+        $result = $this->generator()->generateFor($viewer);
 
-        $this->assertSame(5, $written);
+        $this->assertSame(5, $result['written']);
         $this->assertSame(
             [$best->id, $second->id, $third->id, $fourth->id, $fifth->id],
             $this->counterpartIdsFor($viewer)
@@ -152,7 +152,7 @@ class SuggestionGenerationTest extends TestCase
         $this->community($city, 'run_club');
         $this->community($city, 'fitness_community');
 
-        $this->assertSame(2, $this->generator()->generateFor($viewer));
+        $this->assertSame(2, $this->generator()->generateFor($viewer)['written']);
         $this->assertSame(2, KolabSuggestion::query()->count());
     }
 
@@ -179,9 +179,9 @@ class SuggestionGenerationTest extends TestCase
 
         $this->app->bind(PairCandidateFinder::class, fn (): PairCandidateFinder => new class extends PairCandidateFinder
         {
-            public function candidatesFor(Profile $viewer, SuggestionAudience $audience): array
+            public function candidatesFor(Profile $viewer, SuggestionAudience $audience, ?int &$skipped = null): array
             {
-                return array_reverse(parent::candidatesFor($viewer, $audience));
+                return array_reverse(parent::candidatesFor($viewer, $audience, $skipped));
             }
         });
 
@@ -284,9 +284,9 @@ class SuggestionGenerationTest extends TestCase
         $kept = $this->community($city, 'tech_startup_community', 40);
         $dropped = $this->community($city, 'food_community', 2000);
 
-        $written = $this->generator()->generateFor($viewer);
+        $result = $this->generator()->generateFor($viewer);
 
-        $this->assertSame(1, $written);
+        $this->assertSame(1, $result['written']);
         $this->assertSame([$kept->id], $this->counterpartIdsFor($viewer));
         $this->assertDatabaseMissing('kolab_suggestions', [
             'counterpart_profile_id' => $dropped->id,
@@ -303,9 +303,9 @@ class SuggestionGenerationTest extends TestCase
 
         config(['suggestions.min_score' => 95]);
 
-        $written = $this->generator()->generateFor($viewer);
+        $result = $this->generator()->generateFor($viewer);
 
-        $this->assertSame(1, $written);
+        $this->assertSame(1, $result['written']);
         $this->assertSame([$best->id], $this->counterpartIdsFor($viewer));
         $this->assertDatabaseMissing('kolab_suggestions', [
             'counterpart_profile_id' => $middling->id,
@@ -330,11 +330,11 @@ class SuggestionGenerationTest extends TestCase
             'score' => 51,
         ]);
 
-        $written = $this->generator()->generateFor($viewer);
+        $result = $this->generator()->generateFor($viewer);
 
         $row->refresh();
 
-        $this->assertSame(0, $written);
+        $this->assertSame(0, $result['written']);
         $this->assertTrue($dismissedAt->equalTo($row->dismissed_at), 'A live dismissal was cleared.');
         $this->assertSame(51, $row->score, 'A pair inside the cooldown was re-scored.');
         $this->assertSame(now()->subDays(2)->toDateString(), $row->batch_key->toDateString());
@@ -360,11 +360,11 @@ class SuggestionGenerationTest extends TestCase
             'score' => 51,
         ]);
 
-        $written = $this->generator()->generateFor($viewer);
+        $result = $this->generator()->generateFor($viewer);
 
         $row->refresh();
 
-        $this->assertSame(1, $written);
+        $this->assertSame(1, $result['written']);
         $this->assertSame(1, KolabSuggestion::query()->count());
         $this->assertNull($row->dismissed_at, 'The cooldown never expires — dismissed_at was not cleared.');
         $this->assertSame(100, $row->score);
@@ -385,9 +385,9 @@ class SuggestionGenerationTest extends TestCase
 
         $healthy = $this->community($city, 'run_club');
 
-        $written = $this->generator()->generateFor($viewer);
+        $result = $this->generator()->generateFor($viewer);
 
-        $this->assertSame(1, $written);
+        $this->assertSame(1, $result['written']);
         $this->assertSame([$healthy->id], $this->counterpartIdsFor($viewer));
     }
 
@@ -406,9 +406,9 @@ class SuggestionGenerationTest extends TestCase
 
         $healthy = $this->community($city, 'run_club');
 
-        $written = $this->generator()->generateFor($viewer);
+        $result = $this->generator()->generateFor($viewer);
 
-        $this->assertSame(1, $written);
+        $this->assertSame(1, $result['written']);
         $this->assertSame([$healthy->id], $this->counterpartIdsFor($viewer));
     }
 
@@ -426,13 +426,13 @@ class SuggestionGenerationTest extends TestCase
         {
             public function __construct(private readonly string $poisonId) {}
 
-            public function candidatesFor(Profile $viewer, SuggestionAudience $audience): array
+            public function candidatesFor(Profile $viewer, SuggestionAudience $audience, ?int &$skipped = null): array
             {
                 if ((string) $viewer->getKey() === $this->poisonId) {
                     throw new RuntimeException('candidate lookup exploded');
                 }
 
-                return parent::candidatesFor($viewer, $audience);
+                return parent::candidatesFor($viewer, $audience, $skipped);
             }
         });
 
@@ -487,7 +487,10 @@ class SuggestionGenerationTest extends TestCase
         $this->business($city);
         $this->community($city, 'food_community');
 
-        $this->assertSame(0, $this->generator()->generateFor($attendee));
+        $this->assertSame(
+            ['written' => 0, 'skipped' => 0],
+            $this->generator()->generateFor($attendee)
+        );
 
         $this->artisan('app:generate-suggestions')->assertExitCode(0)->run();
 
@@ -509,6 +512,265 @@ class SuggestionGenerationTest extends TestCase
         $this->assertSame(0, KolabSuggestion::query()->where('viewer_profile_id', $other->id)->count());
     }
 
+    /**
+     * A non-uuid `--profile` reaches `whereKey()` on a uuid column, which is a
+     * Postgres `22P02` that kills the command outright — while SQLite compares it
+     * as text and quietly matches nothing. The suite runs on SQLite, so it can
+     * only ever see the *validated* behaviour: the guard has to be in PHP.
+     */
+    public function test_a_non_uuid_profile_option_is_rejected_before_it_reaches_sql(): void
+    {
+        $city = City::factory()->create();
+        $this->business($city);
+        $this->community($city, 'food_community');
+
+        $this->artisan('app:generate-suggestions', ['--profile' => 'not-a-uuid'])
+            ->expectsOutputToContain('[not-a-uuid] is not a valid profile id')
+            ->assertExitCode(1)
+            ->run();
+
+        $this->assertSame(0, KolabSuggestion::query()->count());
+    }
+
+    /**
+     * `city_id` is the city of the proposed *event*, so both mirrored rows of one
+     * pair have to agree about it — and they can only agree if the resolution is
+     * anchored to one side rather than to whoever is reading. The business side
+     * is that anchor: the event happens at its venue, and a business viewer
+     * matches into its own `target_city_ids`, so "the counterpart's city" would
+     * move as the viewer widened its reach.
+     */
+    public function test_both_mirrored_rows_of_a_pair_carry_the_business_sides_city(): void
+    {
+        $businessCity = City::factory()->create();
+        $communityCity = City::factory()->create();
+
+        /**
+         * The business declares `business_profiles.city_id = $businessCity` — its
+         * real city, and the one both rows must name — but is reachable from the
+         * community's city through `profiles.city_id`, which is the second column
+         * the finder consults on both sides of the pair. That asymmetry is what
+         * makes the assertion able to tell "the business side" from "whoever is
+         * reading": for the business audience the anchor is the viewer, for the
+         * community audience it is the counterpart, and both must resolve to
+         * $businessCity.
+         */
+        $business = Profile::factory()->business()->create(['city_id' => $communityCity->id]);
+        BusinessProfile::factory()->create([
+            'profile_id' => $business->id,
+            'city_id' => $businessCity->id,
+            'business_type' => 'cafe',
+            'categories' => ['cafe'],
+            'primary_venue' => null,
+            'has_venue' => true,
+            'target_city_ids' => [$communityCity->id],
+        ]);
+        $business = $business->fresh();
+
+        $community = $this->community($communityCity, 'food_community');
+
+        $this->generator()->generateFor($business);
+        $this->generator()->generateFor($community);
+
+        $businessAudienceRow = KolabSuggestion::query()
+            ->where('viewer_profile_id', $business->id)
+            ->sole();
+        $communityAudienceRow = KolabSuggestion::query()
+            ->where('viewer_profile_id', $community->id)
+            ->sole();
+
+        $this->assertNotSame($businessCity->id, $communityCity->id);
+        $this->assertSame($businessCity->id, $businessAudienceRow->city_id);
+        $this->assertSame($businessCity->id, $communityAudienceRow->city_id);
+        $this->assertSame($businessAudienceRow->city_id, $communityAudienceRow->city_id);
+    }
+
+    /**
+     * `written: 0` alone reads the same whether the platform is empty or every
+     * pair was lost to a failure, and one of those is an incident. The skip count
+     * is what makes someone go and read the per-pair warnings.
+     */
+    public function test_skipped_pairs_are_counted_and_surfaced(): void
+    {
+        $city = City::factory()->create();
+        $viewer = $this->business($city);
+
+        $poison = $this->community($city, 'food_community');
+        CommunityProfile::query()->where('profile_id', $poison->id)->update(['community_size' => -5]);
+
+        $formatPoison = $this->community($city, 'run_club');
+        EventSeries::factory()->forProfile($formatPoison)->create(['byweekday' => [7]]);
+
+        $healthy = $this->community($city, 'fitness_community');
+
+        $result = $this->generator()->generateFor($viewer);
+
+        $this->assertSame(1, $result['written']);
+        $this->assertSame(2, $result['skipped'], 'A context failure and a format failure must both be counted.');
+        $this->assertSame([$healthy->id], $this->counterpartIdsFor($viewer));
+
+        $this->artisan('app:generate-suggestions', ['--profile' => $viewer->id])
+            ->expectsOutputToContain('pair(s) were skipped')
+            ->assertExitCode(0)
+            ->run();
+    }
+
+    /**
+     * A clean batch must not cry wolf: the skip line only appears when something
+     * was actually skipped.
+     */
+    public function test_a_clean_batch_reports_no_skips(): void
+    {
+        $city = City::factory()->create();
+        $viewer = $this->business($city);
+        $this->community($city, 'food_community');
+
+        $result = $this->generator()->generateFor($viewer);
+
+        $this->assertSame(0, $result['skipped']);
+
+        $this->artisan('app:generate-suggestions', ['--profile' => $viewer->id])
+            ->doesntExpectOutputToContain('pair(s) were skipped')
+            ->assertExitCode(0)
+            ->run();
+    }
+
+    /**
+     * Nothing else ever deletes from this table, so without a prune it grows as
+     * `viewers x counterparts ever scored` — `expires_at` only hides a row.
+     */
+    public function test_the_pass_prunes_rows_expired_beyond_the_cooldown(): void
+    {
+        $city = City::factory()->create();
+        $viewer = $this->business($city);
+
+        /**
+         * Out of the viewer's city, so the pair no longer matches and the
+         * generation pass leaves it alone — which is the state the prune exists
+         * for. A pair that still matches is refreshed instead, and its
+         * `expires_at` moves forward before the prune could ever see it.
+         */
+        $counterpart = $this->community(City::factory()->create(), 'food_community');
+        $cooldownDays = (int) config('suggestions.dismissal_cooldown_days');
+
+        $stale = KolabSuggestion::factory()->forPair($viewer, $counterpart)->create([
+            'batch_key' => now()->subDays($cooldownDays + 40)->toDateString(),
+            'expires_at' => now()->subDays($cooldownDays + 1),
+        ]);
+
+        $this->artisan('app:generate-suggestions')
+            ->expectsOutputToContain('pruned: 1')
+            ->assertExitCode(0)
+            ->run();
+
+        $this->assertDatabaseMissing('kolab_suggestions', ['id' => $stale->id]);
+    }
+
+    /**
+     * Expired, but not for long enough. A row is never removed while any rule
+     * could still depend on it.
+     */
+    public function test_a_row_expired_inside_the_cooldown_is_kept(): void
+    {
+        $city = City::factory()->create();
+        $viewer = $this->business($city);
+        $counterpart = $this->community(City::factory()->create(), 'food_community');
+
+        $recentlyExpired = KolabSuggestion::factory()->forPair($viewer, $counterpart)->create([
+            'batch_key' => now()->subDays(20)->toDateString(),
+            'expires_at' => now()->subDay(),
+        ]);
+
+        $this->artisan('app:generate-suggestions')
+            ->expectsOutputToContain('pruned: 0')
+            ->assertExitCode(0)
+            ->run();
+
+        $this->assertDatabaseHas('kolab_suggestions', ['id' => $recentlyExpired->id]);
+    }
+
+    /**
+     * A converted row is the only record that a suggestion became a real Kolab —
+     * the whole measurement story for this feature — so it survives at any age.
+     */
+    public function test_a_converted_row_survives_the_prune_however_old(): void
+    {
+        $city = City::factory()->create();
+        $viewer = $this->business($city);
+        $counterpart = $this->community(City::factory()->create(), 'food_community');
+
+        $converted = KolabSuggestion::factory()->forPair($viewer, $counterpart)->converted()->create([
+            'batch_key' => now()->subYears(2)->toDateString(),
+            'expires_at' => now()->subYears(2),
+        ]);
+
+        $this->artisan('app:generate-suggestions')
+            ->expectsOutputToContain('pruned: 0')
+            ->assertExitCode(0)
+            ->run();
+
+        $this->assertDatabaseHas('kolab_suggestions', ['id' => $converted->id]);
+    }
+
+    /**
+     * Deleting a live dismissal would drop the suppression and re-suggest the
+     * pair the following night, which is the one thing a dismissal must prevent.
+     */
+    public function test_a_row_dismissed_inside_the_cooldown_survives_the_prune(): void
+    {
+        $city = City::factory()->create();
+        $viewer = $this->business($city);
+
+        /**
+         * Out of the viewer's city, so the pair no longer matches and the
+         * generation pass leaves it alone — which is the state the prune exists
+         * for. A pair that still matches is refreshed instead, and its
+         * `expires_at` moves forward before the prune could ever see it.
+         */
+        $counterpart = $this->community(City::factory()->create(), 'food_community');
+        $cooldownDays = (int) config('suggestions.dismissal_cooldown_days');
+
+        $dismissed = KolabSuggestion::factory()->forPair($viewer, $counterpart)->create([
+            'batch_key' => now()->subDays($cooldownDays + 40)->toDateString(),
+            'expires_at' => now()->subDays($cooldownDays + 1),
+            'dismissed_at' => now()->subDay(),
+        ]);
+
+        $this->artisan('app:generate-suggestions')
+            ->expectsOutputToContain('pruned: 0')
+            ->assertExitCode(0)
+            ->run();
+
+        $this->assertDatabaseHas('kolab_suggestions', ['id' => $dismissed->id]);
+    }
+
+    public function test_a_dry_run_does_not_prune(): void
+    {
+        $city = City::factory()->create();
+        $viewer = $this->business($city);
+
+        /**
+         * Out of the viewer's city, so the pair no longer matches and the
+         * generation pass leaves it alone — which is the state the prune exists
+         * for. A pair that still matches is refreshed instead, and its
+         * `expires_at` moves forward before the prune could ever see it.
+         */
+        $counterpart = $this->community(City::factory()->create(), 'food_community');
+        $cooldownDays = (int) config('suggestions.dismissal_cooldown_days');
+
+        $stale = KolabSuggestion::factory()->forPair($viewer, $counterpart)->create([
+            'batch_key' => now()->subDays($cooldownDays + 40)->toDateString(),
+            'expires_at' => now()->subDays($cooldownDays + 1),
+        ]);
+
+        $this->artisan('app:generate-suggestions', ['--dry-run' => true])
+            ->expectsOutputToContain('[dry-run] Expired suggestions pruned: 1')
+            ->assertExitCode(0)
+            ->run();
+
+        $this->assertDatabaseHas('kolab_suggestions', ['id' => $stale->id]);
+    }
+
     public function test_a_dry_run_reports_without_writing(): void
     {
         $city = City::factory()->create();
@@ -516,6 +778,7 @@ class SuggestionGenerationTest extends TestCase
         $this->community($city, 'food_community');
 
         $this->artisan('app:generate-suggestions', ['--dry-run' => true])
+            ->expectsOutputToContain('[dry-run] Suggestions written: 2')
             ->assertExitCode(0)
             ->run();
 
@@ -553,6 +816,15 @@ class SuggestionGenerationTest extends TestCase
             $large,
             "Generation cost grew with the candidate pool: {$small} queries for 2 candidates, {$large} for 6."
         );
+
+        /**
+         * The absolute pin. Equality alone lets a constant regression through —
+         * one extra query per profile is flat too, and eight of those is the
+         * whole per-profile budget doubled. Eight batched finder queries plus two
+         * per written row (the `firstOrNew` select and the insert), with
+         * `per_profile` held at 1 above.
+         */
+        $this->assertSame(10, $small, 'The per-profile query budget changed.');
     }
 
     public function test_registration_dispatches_a_per_profile_generation_job(): void
