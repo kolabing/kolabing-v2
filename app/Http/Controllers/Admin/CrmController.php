@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CrmController extends Controller
 {
@@ -98,7 +99,11 @@ class CrmController extends Controller
             ->first();
 
         if ($pref !== null) {
-            return array_values(array_intersect(array_keys($catalog), $pref->visible_columns));
+            // Preserve the admin's saved ORDER (drop any keys no longer in the catalog).
+            return array_values(array_filter(
+                $pref->visible_columns,
+                static fn (string $key): bool => isset($catalog[$key]),
+            ));
         }
 
         return array_keys(array_filter($catalog, static fn (array $c): bool => $c[1]));
@@ -140,6 +145,15 @@ class CrmController extends Controller
 
         $accounts = $query->orderByDesc('score')->orderBy('name')->paginate(50)->withQueryString();
 
+        // Funnel counters (community only): leads per stage across the whole set.
+        $stageCounts = null;
+        if ($type === 'community') {
+            $raw = CrmAccount::query()->where('type', 'community')
+                ->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status');
+            $stageCounts = collect(CrmAccount::COMMUNITY_STAGES)
+                ->mapWithKeys(fn (string $s): array => [$s => (int) ($raw[$s] ?? 0)]);
+        }
+
         // Cities present for this type + their counts — powers the city filter dropdown and the map.
         $cityRows = CrmAccount::query()->where('type', $type)
             ->whereNotNull("metrics->{$cityKey}")
@@ -158,6 +172,7 @@ class CrmController extends Controller
             'cities' => $cityRows->pluck('city'),
             'cityCounts' => $cityRows->pluck('n', 'city'),
             'workNow' => $workNow,
+            'stageCounts' => $stageCounts,
             'filters' => $request->only(['owner', 'status', 'q', 'city']),
         ]);
     }
@@ -210,7 +225,12 @@ class CrmController extends Controller
     {
         $type = in_array($request->input('type'), CrmAccount::TYPES, true) ? $request->input('type') : 'business';
         $allowed = array_keys($this->columnsFor($type));
-        $cols = array_values(array_intersect($allowed, (array) $request->input('columns', [])));
+        // Keep the SUBMITTED order (that's how the picker persists a reorder), not
+        // the catalog order; drop unknowns and de-duplicate.
+        $cols = array_values(array_unique(array_filter(
+            (array) $request->input('columns', []),
+            static fn ($key): bool => is_string($key) && in_array($key, $allowed, true),
+        )));
         if (! in_array('name', $cols, true)) {
             array_unshift($cols, 'name');
         }
@@ -235,12 +255,63 @@ class CrmController extends Controller
         return view('admin.crm.edit', ['type' => $account->type, 'account' => $account]);
     }
 
-    /** Lead detail: contact, pipeline stage, and the activity timeline. */
-    public function show(CrmAccount $account): View
+    /** Lead detail: contact, pipeline stage, the activity timeline, first-touch draft. */
+    public function show(CrmAccount $account, CrmPipelineService $pipeline): View
     {
         $account->load('activities');
 
-        return view('admin.crm.show', ['account' => $account]);
+        return view('admin.crm.show', [
+            'account' => $account,
+            'firstTouch' => $account->type === 'community' ? $pipeline->firstTouchMessage($account) : null,
+        ]);
+    }
+
+    /** Log that the first-touch message was sent and move Target → Contacted. */
+    public function firstTouch(CrmAccount $account, CrmPipelineService $pipeline): RedirectResponse
+    {
+        $actor = auth('admin')->user()?->name;
+        $pipeline->log($account, 'first_touch', 'First-touch message sent.', $actor);
+        if ($account->currentStage() === 'Target') {
+            $pipeline->moveStage($account, 'Contacted', $actor);
+        }
+
+        return redirect()->route('admin.crm.show', $account)->with('status', 'First-touch logged.');
+    }
+
+    /** Stream the filtered community set as CSV. */
+    public function export(Request $request): StreamedResponse
+    {
+        $query = CrmAccount::query()->where('type', 'community');
+        if ($owner = $request->query('owner')) {
+            $query->where('owner', $owner);
+        }
+        if ($city = $request->query('city')) {
+            $query->where('metrics->city', $city);
+        }
+        if ($status = $request->query('status')) {
+            $query->where('status', $status);
+        }
+        if ($q = $request->query('q')) {
+            $query->where('name', 'like', "%{$q}%");
+        }
+
+        $accounts = $query->orderByDesc('score')->orderBy('name')->get();
+
+        return response()->streamDownload(function () use ($accounts): void {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Name', 'City', 'Type', 'Audience', 'Confidence', 'Fit', 'Stage', 'Owner', 'Last activity', 'Instagram', 'Evidence', 'Collabs']);
+            foreach ($accounts as $a) {
+                $m = $a->metrics ?? [];
+                fputcsv($out, [
+                    $a->name, $m['city'] ?? '', $m['classification'] ?? '', $m['audience'] ?? '',
+                    $m['confidence'] ?? '', $a->score, $a->currentStage(), $a->owner ?? '',
+                    $a->last_activity_at?->format('Y-m-d') ?? '',
+                    $a->instagram_handle ?? ($m['handle'] ?? ''),
+                    $m['evidence_url'] ?? '', $m['collab_businesses'] ?? ($m['collabs'] ?? ''),
+                ]);
+            }
+            fclose($out);
+        }, 'kolabing-communities-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv']);
     }
 
     /**

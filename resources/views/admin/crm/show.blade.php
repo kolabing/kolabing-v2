@@ -69,6 +69,22 @@
                 </div>
             </div>
 
+            @if ($firstTouch ?? false)
+                <div class="card">
+                    <div class="card-header d-flex align-items-center">
+                        <h3 class="card-title mb-0">First-touch draft</h3>
+                        <form method="POST" action="{{ route('admin.crm.first-touch', $account) }}" class="ml-auto mb-0">
+                            @csrf
+                            <button class="btn btn-sm btn-outline-primary"><i class="fas fa-paper-plane mr-1"></i> Log as sent</button>
+                        </form>
+                    </div>
+                    <div class="card-body">
+                        <textarea class="form-control mb-2" rows="9" readonly onclick="this.select()">{{ $firstTouch }}</textarea>
+                        <small class="text-muted">Personalised from this lead — copy, edit, send. “Log as sent” records it and moves Target → Contacted.</small>
+                    </div>
+                </div>
+            @endif
+
             <div class="card">
                 <div class="card-header"><h3 class="card-title mb-0">Activity</h3></div>
                 <div class="card-body">
