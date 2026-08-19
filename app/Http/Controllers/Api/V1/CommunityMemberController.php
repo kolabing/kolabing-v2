@@ -6,13 +6,16 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\MissionTrigger;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\BulkUpdateCommunityMembersRequest;
 use App\Http\Requests\Api\V1\StoreCommunityMemberRequest;
 use App\Http\Requests\Api\V1\UpdateCommunityMemberRequest;
 use App\Http\Resources\Api\V1\CommunityMemberResource;
 use App\Models\Community;
 use App\Models\CommunityMember;
+use App\Models\CommunityPointLedger;
 use App\Models\Profile;
 use App\Services\CommunityMemberService;
+use App\Services\CommunityRosterQuery;
 use App\Services\HandleService;
 use App\Services\MissionService;
 use Illuminate\Http\JsonResponse;
@@ -22,6 +25,7 @@ class CommunityMemberController extends Controller
 {
     public function __construct(
         private readonly CommunityMemberService $memberService,
+        private readonly CommunityRosterQuery $rosterQuery,
         private readonly HandleService $handleService,
         private readonly MissionService $missionService,
     ) {}
@@ -65,6 +69,85 @@ class CommunityMemberController extends Controller
                     'per_page' => $paginator->perPage(),
                 ],
             ],
+        ]);
+    }
+
+    /**
+     * GET /api/v1/communities/{community}/members/{member} — the roster drawer.
+     *
+     * Member + engagement metrics + a capped activity timeline. Not paginated:
+     * this is a drawer, not a page.
+     */
+    public function show(Request $request, Community $community, CommunityMember $member): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        if ($profile->cannot('manage', $community)) {
+            return $this->forbidden();
+        }
+
+        if ($member->community_id !== $community->id) {
+            return $this->notFound();
+        }
+
+        // Re-read through the roster query so the drawer carries the same
+        // engagement metrics the list row does.
+        $member = $this->rosterQuery->base($community)
+            ->where('community_members.id', $member->id)
+            ->firstOrFail();
+
+        $activity = CommunityPointLedger::query()
+            ->where('community_id', $community->id)
+            ->where('profile_id', $member->profile_id)
+            ->latest()
+            ->limit(25)
+            ->get()
+            ->map(fn (CommunityPointLedger $row): array => [
+                'id' => $row->id,
+                'points' => $row->points,
+                'source' => $row->source,
+                'description' => $row->description,
+                'created_at' => $row->created_at?->toIso8601String(),
+            ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'member' => new CommunityMemberResource($member),
+                'activity' => $activity,
+            ],
+        ]);
+    }
+
+    /**
+     * PATCH /api/v1/communities/{community}/members — bulk tier / can_manage / status.
+     */
+    public function bulkUpdate(BulkUpdateCommunityMembersRequest $request, Community $community): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        if ($profile->cannot('manage', $community)) {
+            return $this->forbidden();
+        }
+
+        $data = $request->validated();
+        $memberIds = $data['member_ids'];
+        unset($data['member_ids']);
+
+        if (array_key_exists('tier_id', $data) && $data['tier_id'] !== null
+            && ! $community->tiers()->whereKey($data['tier_id'])->exists()) {
+            return response()->json([
+                'success' => false,
+                'error' => 'tier_not_in_community',
+                'message' => __('That tier does not belong to this community.'),
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->memberService->bulkUpdate($community, $memberIds, $data),
         ]);
     }
 

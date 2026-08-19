@@ -12,6 +12,7 @@ use App\Models\CommunityMember;
 use App\Models\Profile;
 use DomainException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class CommunityMemberService
 {
@@ -81,6 +82,32 @@ class CommunityMemberService
         $member->save();
 
         return $member->refresh();
+    }
+
+    /**
+     * Apply one change set to many memberships. Every id is verified to belong
+     * to $community first, so a caller can never write across communities.
+     *
+     * @param  array<int, string>  $memberIds
+     * @param  array<string, mixed>  $data
+     * @return array{updated: int, skipped: int}
+     */
+    public function bulkUpdate(Community $community, array $memberIds, array $data): array
+    {
+        $memberIds = array_values(array_unique($memberIds));
+
+        $members = $community->members()->whereIn('id', $memberIds)->get();
+
+        DB::transaction(function () use ($members, $data): void {
+            foreach ($members as $member) {
+                $this->updateMember($member, $data);
+            }
+        });
+
+        return [
+            'updated' => $members->count(),
+            'skipped' => count($memberIds) - $members->count(),
+        ];
     }
 
     /**

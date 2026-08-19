@@ -496,6 +496,10 @@ Route::prefix('v1')->group(function (): void {
 
         Route::get('communities/{community}/members', [CommunityMemberController::class, 'index'])
             ->name('api.v1.communities.members.index');
+        Route::patch('communities/{community}/members', [CommunityMemberController::class, 'bulkUpdate'])
+            ->name('api.v1.communities.members.bulk-update');
+        Route::get('communities/{community}/members/{member}', [CommunityMemberController::class, 'show'])
+            ->name('api.v1.communities.members.show');
         Route::post('communities/{community}/members', [CommunityMemberController::class, 'store'])
             ->name('api.v1.communities.members.store');
         Route::patch('communities/{community}/members/{member}', [CommunityMemberController::class, 'update'])
