@@ -221,6 +221,17 @@ for the nightly pass.
 Failure isolation: each profile is scored inside its own try/catch — a single bad
 profile logs to Sentry and the batch continues.
 
+**Retention.** The same nightly pass prunes, unconditionally rather than behind a
+flag — a prune that must be remembered is a prune that never runs, and this command
+is the table's only scheduled writer. The rule is deliberately conservative: a row
+with `converted_kolab_id` is never deleted (it is the funnel evidence this feature
+is measured by), a row dismissed inside the cooldown is never deleted (it is what
+suppresses re-suggestion), and everything else goes once it has been expired for
+longer than the cooldown. Note what this means operationally: a pair that still
+matches is *refreshed* earlier in the same pass, so its `expires_at` has already
+moved forward and the prune can never reach it. Only pairs that stopped matching,
+or fell below `min_score`, are ever collected.
+
 ### 3.5 API (all additive, `/api/v1`)
 
 | Endpoint | Behaviour |
