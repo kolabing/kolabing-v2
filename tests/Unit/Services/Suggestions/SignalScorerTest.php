@@ -29,6 +29,8 @@ class SignalScorerTest extends TestCase
             'pastAttendance' => [40, 45, 50],
             'communitySize' => 120,
             'venueCapacity' => 45,
+            'viewerHasVenue' => true,
+            'counterpartHasVenue' => false,
             'viewerOffers' => ['food_drink', 'venue'],
             'counterpartNeeds' => ['food_drink'],
             'counterpartOffers' => ['social_media'],
@@ -39,6 +41,7 @@ class SignalScorerTest extends TestCase
             'completedCollaborations' => 0,
             'reviewCount' => 4,
             'recentEventCount' => 3,
+            'recentActivityCount' => 2,
             'hasActiveSeries' => true,
         ], $overrides));
     }
@@ -227,6 +230,7 @@ class SignalScorerTest extends TestCase
             'reviewCount' => 0,
             'contentDelivered' => 0,
             'recentEventCount' => 0,
+            'recentActivityCount' => 0,
             'hasActiveSeries' => false,
         ];
     }
@@ -388,6 +392,79 @@ class SignalScorerTest extends TestCase
         $this->assertNotNull($signal);
         $this->assertSame(1.0, $signal['score']);
         $this->assertSame(['expected' => 25, 'capacity' => 25], $signal['reason_params']);
+    }
+
+    /**
+     * Momentum describes the *counterpart*, so a business counterpart is measured
+     * in the artefacts a business produces — published Kolabs and started
+     * collaborations — under its own reason key. Reading `recentEventCount` here
+     * would put the community viewer's own event count under a sentence about the
+     * business, and dropping the signal instead would put every
+     * community-audience card a confidence band below every business one.
+     */
+    public function test_momentum_reads_partner_activity_for_a_community_audience(): void
+    {
+        $signal = $this->signal((new SignalScorer)->score($this->context([
+            'audience' => SuggestionAudience::Community,
+            'recentEventCount' => 4,
+            'hasActiveSeries' => true,
+            'recentActivityCount' => 2,
+        ])), 'momentum');
+
+        $this->assertNotNull($signal);
+        $this->assertSame('momentum_business', $signal['reason_key']);
+        $this->assertSame(0.5, $signal['score'], 'the community-side count and the series bonus must not leak in');
+        $this->assertSame([
+            'count' => 2,
+            'days' => (int) config('suggestions.momentum_window_days'),
+        ], $signal['reason_params']);
+    }
+
+    public function test_momentum_is_dropped_for_a_community_audience_with_no_partner_activity(): void
+    {
+        $result = (new SignalScorer)->score($this->context([
+            'audience' => SuggestionAudience::Community,
+            'recentEventCount' => 4,
+            'hasActiveSeries' => true,
+            'recentActivityCount' => 0,
+        ]));
+
+        $this->assertNull($this->signal($result, 'momentum'));
+        $this->assertCount(5, $result['signals']);
+    }
+
+    /**
+     * The two offer taxonomies only meet through the alias table. Without it a
+     * business offering exactly what the community asked for scores 0.0 —
+     * "no overlap" — which claims the pair is a bad match rather than reporting
+     * missing data.
+     */
+    public function test_offer_need_fit_bridges_the_two_offer_vocabularies(): void
+    {
+        $signal = $this->signal((new SignalScorer)->score($this->context([
+            'viewerOffers' => ['venue_space', 'free_drinks'],
+            'counterpartNeeds' => ['venue', 'food_drink'],
+        ])), 'offer_need_fit');
+
+        $this->assertNotNull($signal);
+        $this->assertSame(1.0, $signal['score']);
+        $this->assertSame(['items' => ['venue_space', 'free_drinks']], $signal['reason_params']);
+    }
+
+    /**
+     * Two spellings of one offer are one offer: counted twice they would inflate
+     * the coverage ratio and read as two offers in the reason line.
+     */
+    public function test_offer_need_fit_counts_two_spellings_of_one_offer_once(): void
+    {
+        $signal = $this->signal((new SignalScorer)->score($this->context([
+            'viewerOffers' => ['venue', 'venue_space'],
+            'counterpartNeeds' => ['venue', 'discount'],
+        ])), 'offer_need_fit');
+
+        $this->assertNotNull($signal);
+        $this->assertSame(0.5, $signal['score']);
+        $this->assertSame(['items' => ['venue']], $signal['reason_params']);
     }
 
     public function test_momentum_persists_the_raw_count_and_the_configured_window(): void

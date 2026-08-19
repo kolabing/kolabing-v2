@@ -28,6 +28,8 @@ class PairContextTest extends TestCase
             'pastAttendance' => [40, 45, 50],
             'communitySize' => 120,
             'venueCapacity' => 45,
+            'viewerHasVenue' => true,
+            'counterpartHasVenue' => false,
             'viewerOffers' => ['food_drink', 'venue'],
             'counterpartNeeds' => ['food_drink'],
             'counterpartOffers' => ['social_media'],
@@ -38,6 +40,7 @@ class PairContextTest extends TestCase
             'completedCollaborations' => 0,
             'reviewCount' => 4,
             'recentEventCount' => 3,
+            'recentActivityCount' => 2,
             'hasActiveSeries' => true,
         ], $overrides));
     }

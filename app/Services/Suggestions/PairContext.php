@@ -39,6 +39,19 @@ use InvalidArgumentException;
  * own test rather than by a range assertion here. Over-populating both is
  * harmless (the unused half is ignored); swapping them is not, which is why this
  * note exists.
+ *
+ * `recentEventCount` and `recentActivityCount` are the same hazard one signal
+ * over: two non-negative counts, audience-selected, indistinguishable by range.
+ * Momentum means different artefacts on each side — a community runs events, a
+ * business publishes Kolabs and starts collaborations — and both counts describe
+ * the *counterpart*, because the reason line is a claim about the partner and
+ * not about the reader. That selection is pinned by its own test too.
+ *
+ * `viewerHasVenue` / `counterpartHasVenue` exist because `venueCapacity` cannot
+ * stand in for them. Of 62 live businesses with `has_venue = true`, only 44
+ * carry a `capacity` in `primary_venue` (checked read-only, 2026-08-19), so
+ * deriving the flag from a positive capacity would file 18 real venue businesses
+ * as product promotions. Capacity caps the attendance; the flag picks the intent.
  */
 final readonly class PairContext
 {
@@ -49,9 +62,13 @@ final readonly class PairContext
      * @param  array<int, string>  $counterpartNeeds  what the counterpart wants
      * @param  array<int, string>  $counterpartOffers  what the counterpart can give
      * @param  array<int, string>  $viewerNeeds  what the viewer wants
+     * @param  bool  $viewerHasVenue  `business_profiles.has_venue`; false for a community viewer
+     * @param  bool  $counterpartHasVenue  the same column on the counterpart
      * @param  int  $contentDelivered  posts/stories a community delivered; the business audience's volume term
      * @param  int  $completedCollaborations  business_partner_statuses.completed_kolabs_count; the community audience's volume term
-     * @param  array<string, mixed>  $evidence  ids + aggregates for the audit trail
+     * @param  int  $recentEventCount  events the counterpart ran inside the momentum window; the business audience's momentum term
+     * @param  int  $recentActivityCount  Kolabs published + collaborations started by the counterpart inside the same window; the community audience's momentum term
+     * @param  array<string, mixed>  $evidence  ids + aggregates for the audit trail, plus the three FormatSuggester cadence inputs
      *
      * @throws InvalidArgumentException
      */
@@ -67,6 +84,8 @@ final readonly class PairContext
         public array $pastAttendance,
         public ?int $communitySize,
         public ?int $venueCapacity,
+        public bool $viewerHasVenue,
+        public bool $counterpartHasVenue,
         public array $viewerOffers,
         public array $counterpartNeeds,
         public array $counterpartOffers,
@@ -77,6 +96,7 @@ final readonly class PairContext
         public int $completedCollaborations,
         public int $reviewCount,
         public int $recentEventCount,
+        public int $recentActivityCount,
         public bool $hasActiveSeries,
         public array $evidence = [],
     ) {
@@ -93,6 +113,7 @@ final readonly class PairContext
             'completedCollaborations' => $completedCollaborations,
             'reviewCount' => $reviewCount,
             'recentEventCount' => $recentEventCount,
+            'recentActivityCount' => $recentActivityCount,
         ] as $field => $count) {
             if ($count !== null && $count < 0) {
                 throw new InvalidArgumentException("PairContext [{$field}] must not be negative, got [{$count}].");

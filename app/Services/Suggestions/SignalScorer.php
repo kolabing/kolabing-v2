@@ -6,6 +6,7 @@ namespace App\Services\Suggestions;
 
 use App\Enums\SuggestionAudience;
 use App\Support\Matching\CategoryFitMatrix;
+use App\Support\Matching\OfferTypeAliases;
 use LogicException;
 
 /**
@@ -46,6 +47,13 @@ class SignalScorer
      * failure mode this class already guards against for its weights.
      */
     private const FULL_COLLABORATION_RECORD = 8.0;
+
+    /**
+     * Momentum divisor for both audiences: four things inside the window —
+     * roughly one a fortnight over the shipped 90 days — reads as an active
+     * partner, and more than that adds no further reassurance.
+     */
+    private const ACTIVE_CADENCE = 4.0;
 
     /**
      * @return array{score: int, confidence: string, signals: array<int, array{key: string, reason_key: string, reason_params: array<string, mixed>, weight: float, score: float}>}
@@ -262,10 +270,7 @@ class SignalScorer
      */
     private function offerNeedFit(PairContext $context): ?array
     {
-        $offers = array_values(array_unique($context->viewerOffers));
-        $needs = array_values(array_unique($context->counterpartNeeds));
-
-        if ($offers === [] || $needs === []) {
+        if ($context->viewerOffers === [] || $context->counterpartNeeds === []) {
             return null;
         }
 
@@ -274,6 +279,8 @@ class SignalScorer
         if ($overlap === []) {
             return [0.0, 'offer_need_none', []];
         }
+
+        $needs = OfferTypeAliases::canonicalSet($context->counterpartNeeds);
 
         return [min(1.0, count($overlap) / count($needs)), 'offer_need_overlap', [
             'items' => $overlap,
@@ -287,14 +294,18 @@ class SignalScorer
      * and the card shows it twice — once as this signal's reason line, once as
      * the proposed format. Two implementations would eventually disagree.
      *
+     * Compared on canonical form and returned in the viewer's own spelling: a
+     * business declares `venue_space` where a community asks for `venue`, and a
+     * plain intersection would call that no overlap — a false 0.0, describing
+     * the pair as an actively bad match. The returned spelling has to stay the
+     * viewer's, because this list pre-fills a Kolab field validated against the
+     * viewer's own taxonomy.
+     *
      * @return array<int, string>
      */
     public function offerOverlap(PairContext $context): array
     {
-        return array_values(array_intersect(
-            array_values(array_unique($context->viewerOffers)),
-            array_values(array_unique($context->counterpartNeeds))
-        ));
+        return OfferTypeAliases::intersect($context->viewerOffers, $context->counterpartNeeds);
     }
 
     /**
@@ -377,15 +388,42 @@ class SignalScorer
     }
 
     /**
+     * How live the counterpart is, in whichever artefact its side of the platform
+     * produces: a community runs events (and may hold a live `event_series`
+     * cadence, worth a bonus because a standing rule is a stronger commitment
+     * than a run of one-offs), while a business publishes Kolabs and starts
+     * collaborations.
+     *
+     * The two counts are not interchangeable and are selected by audience, for
+     * the same reason `delivery_proof`'s volume term is: the reason line is a
+     * claim about the *partner*. Reading a community viewer's own event count
+     * here would describe the reader back to themselves under a sentence about
+     * the business, and leaving the signal to drop instead would put every
+     * community-audience card a confidence band lower than every business one —
+     * a systematic asymmetry rather than honesty about missing data.
+     *
      * @return array{0: float, 1: string, 2: array<string, mixed>}|null
      */
     private function momentum(PairContext $context): ?array
     {
+        $days = (int) config('suggestions.momentum_window_days');
+
+        if ($context->audience === SuggestionAudience::Community) {
+            if ($context->recentActivityCount === 0) {
+                return null;
+            }
+
+            return [min(1.0, $context->recentActivityCount / self::ACTIVE_CADENCE), 'momentum_business', [
+                'count' => $context->recentActivityCount,
+                'days' => $days,
+            ]];
+        }
+
         if ($context->recentEventCount === 0 && ! $context->hasActiveSeries) {
             return null;
         }
 
-        $value = min(1.0, $context->recentEventCount / 4.0);
+        $value = min(1.0, $context->recentEventCount / self::ACTIVE_CADENCE);
 
         if ($context->hasActiveSeries) {
             $value = min(1.0, $value + 0.25);
@@ -393,7 +431,7 @@ class SignalScorer
 
         return [$value, 'momentum', [
             'count' => $context->recentEventCount,
-            'days' => (int) config('suggestions.momentum_window_days'),
+            'days' => $days,
         ]];
     }
 

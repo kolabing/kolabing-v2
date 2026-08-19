@@ -7,6 +7,7 @@ namespace App\Services\Suggestions;
 use App\Enums\IntentType;
 use App\Enums\SuggestionAudience;
 use App\Support\Matching\CategoryFitMatrix;
+use App\Support\Matching\OfferTypeAliases;
 use Illuminate\Support\Facades\Lang;
 use InvalidArgumentException;
 
@@ -97,12 +98,12 @@ class FormatSuggester
         return [
             'title_key' => $this->titleKey($communityType),
             'title_params' => $communityType !== null ? ['community_type' => $communityType] : [],
-            'intent_type' => $this->intentType($context, $capacity)->value,
+            'intent_type' => $this->intentType($context)->value,
             'weekday' => $weekday,
             'time_of_day' => $this->timeOfDay($seriesTime),
             'expected_attendance' => $attendance,
             'offer' => $this->scorer->offerOverlap($context),
-            'expects' => $this->expects(),
+            'expects' => $this->expects($context),
             'notes' => $notes,
             'attendance_basis' => $this->attendanceBasis($context, $expected),
             'weekday_basis' => $weekdayBasis,
@@ -223,39 +224,43 @@ class FormatSuggester
      * `community_seeking` Kolab; a business promotes its venue when it has one
      * and its product otherwise.
      *
-     * `has_venue` is not on PairContext, but it does not need to be: the column
-     * makes `primary_venue` required, which makes `primary_venue.capacity`
-     * required and `min:1` (RegisterBusinessRequest / BusinessOnboardingRequest),
-     * so a positive `venueCapacity` *is* `has_venue = true`. The capacity here is
-     * always the business side of the pair — the viewer's own on the business
-     * audience, which is the only audience that consults it.
+     * Read off `viewerHasVenue`, never inferred from a positive `venueCapacity`.
+     * The onboarding requests do make capacity required alongside a venue, but
+     * the live table disagrees with the form: 62 businesses carry
+     * `has_venue = true` and only 44 of them have a `capacity` key in
+     * `primary_venue` (checked read-only, 2026-08-19). Deriving the flag would
+     * file the other 18 real venues as product promotions and propose the wrong
+     * kind of Kolab to each of them.
      */
-    private function intentType(PairContext $context, ?int $venueCapacity): IntentType
+    private function intentType(PairContext $context): IntentType
     {
         if ($context->audience === SuggestionAudience::Community) {
             return IntentType::CommunitySeeking;
         }
 
-        return $venueCapacity !== null
+        return $context->viewerHasVenue
             ? IntentType::VenuePromotion
             : IntentType::ProductPromotion;
     }
 
     /**
      * What the viewer would ask for in return — `expects` on a business Kolab,
-     * `needs` on a community one. PairContext carries "what the viewer can give"
-     * and "what the counterpart wants", which is one intersection: the offer. The
-     * mirrored pair (what the counterpart can give, what the viewer wants) is not
-     * in the context, so there is nothing here to derive an ask from, and a
-     * plausible-looking guess would be a claim about a partner we never checked.
-     * The key stays in the payload so the jsonb shape does not change on the day
-     * PairContext grows that pair.
+     * the `required_if` `needs` on a `community_seeking` one. The mirror image of
+     * `offer`: the viewer's own asks, kept only where the counterpart can
+     * actually supply them, so the pre-filled field is a claim the partner's own
+     * profile supports.
+     *
+     * `viewerNeeds` is the side that is kept, exactly as `viewerOffers` is for
+     * `offer`. Both fields belong to the viewer's form and are validated against
+     * the viewer's taxonomy — `KIND_DELIVERABLE` for a business `expects`,
+     * `KIND_NEED` for a community `needs` — so returning the counterpart's
+     * spelling would pre-fill a value the form rejects.
      *
      * @return array<int, string>
      */
-    private function expects(): array
+    private function expects(PairContext $context): array
     {
-        return [];
+        return OfferTypeAliases::intersect($context->viewerNeeds, $context->counterpartOffers);
     }
 
     /**

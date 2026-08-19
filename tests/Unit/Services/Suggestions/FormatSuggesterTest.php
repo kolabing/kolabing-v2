@@ -39,6 +39,8 @@ class FormatSuggesterTest extends TestCase
             'pastAttendance' => [40, 45, 50],
             'communitySize' => 120,
             'venueCapacity' => 60,
+            'viewerHasVenue' => true,
+            'counterpartHasVenue' => false,
             'viewerOffers' => ['food_drink', 'venue'],
             'counterpartNeeds' => ['food_drink', 'discount'],
             'counterpartOffers' => ['social_media'],
@@ -49,6 +51,7 @@ class FormatSuggesterTest extends TestCase
             'completedCollaborations' => 0,
             'reviewCount' => 4,
             'recentEventCount' => 3,
+            'recentActivityCount' => 2,
             'hasActiveSeries' => true,
         ], $overrides));
     }
@@ -193,10 +196,30 @@ class FormatSuggesterTest extends TestCase
 
     public function test_a_business_without_a_venue_promotes_a_product(): void
     {
-        $format = $this->suggester()->suggest($this->context(['venueCapacity' => null]));
+        $format = $this->suggester()->suggest($this->context([
+            'venueCapacity' => null,
+            'viewerHasVenue' => false,
+        ]));
 
         $this->assertSame(IntentType::ProductPromotion->value, $format['intent_type']);
         $this->assertSame(45, $format['expected_attendance']);
+    }
+
+    /**
+     * 18 of the 62 live venue businesses have no `capacity` in `primary_venue`,
+     * so inferring the intent from a positive capacity — as this class used to —
+     * proposed a product promotion to a business whose whole offer is its room.
+     * The flag decides the intent; capacity only caps the attendance.
+     */
+    public function test_a_venue_with_no_recorded_capacity_still_promotes_the_venue(): void
+    {
+        $format = $this->suggester()->suggest($this->context([
+            'venueCapacity' => null,
+            'viewerHasVenue' => true,
+        ]));
+
+        $this->assertSame(IntentType::VenuePromotion->value, $format['intent_type']);
+        $this->assertSame(45, $format['expected_attendance'], 'no capacity means no cap, not no number');
     }
 
     public function test_attendance_falls_back_to_a_quarter_of_the_community_size(): void
@@ -331,11 +354,44 @@ class FormatSuggesterTest extends TestCase
         $this->assertSame('none', $format['weekday_basis']);
     }
 
-    public function test_it_proposes_no_ask_it_cannot_derive(): void
+    /**
+     * `expects` is the mirror of `offer`: the viewer's own asks, kept only where
+     * the counterpart can supply them, and returned in the viewer's vocabulary
+     * because that is what its form validates. `needs` is `required_if` on a
+     * `community_seeking` Kolab, so an empty one leaves the pre-fill
+     * unsubmittable.
+     */
+    public function test_it_proposes_the_ask_the_counterpart_can_actually_supply(): void
     {
         $format = $this->suggester()->suggest($this->context());
 
+        $this->assertSame(['social_media'], $format['expects']);
+    }
+
+    public function test_it_proposes_no_ask_it_cannot_derive(): void
+    {
+        $format = $this->suggester()->suggest($this->context([
+            'counterpartOffers' => ['product_feedback'],
+        ]));
+
         $this->assertSame([], $format['expects']);
+    }
+
+    /**
+     * A community's ask and a business's offer are drawn from different
+     * `OfferOption` kinds, so the two only meet through the alias table — and the
+     * value that survives has to be the community's own, because it pre-fills
+     * `needs`, validated against `KIND_NEED`.
+     */
+    public function test_the_ask_bridges_the_two_offer_vocabularies_in_the_viewers_spelling(): void
+    {
+        $format = $this->suggester()->suggest($this->context([
+            'audience' => SuggestionAudience::Community,
+            'viewerNeeds' => ['food_drink', 'sponsor'],
+            'counterpartOffers' => ['free_drinks'],
+        ]));
+
+        $this->assertSame(['food_drink'], $format['expects']);
     }
 
     /**

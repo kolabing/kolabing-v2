@@ -17,10 +17,13 @@ use App\Models\Event;
 use App\Models\EventSeries;
 use App\Models\Kolab;
 use App\Models\KolabSuggestion;
+use App\Models\OfferOption;
 use App\Models\Profile;
 use App\Models\UserBlock;
 use App\Services\Suggestions\PairCandidateFinder;
 use App\Services\Suggestions\PairContext;
+use App\Support\Matching\OfferTypeAliases;
+use Database\Seeders\OfferOptionSeeder;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -35,7 +38,7 @@ class PairCandidateFinderTest extends TestCase
         return app(PairCandidateFinder::class);
     }
 
-    private function business(City $city, ?array $venue = null, array $categories = ['cafe']): Profile
+    private function business(City $city, ?array $venue = null, array $categories = ['cafe'], bool $hasVenue = true): Profile
     {
         $profile = Profile::factory()->business()->create();
 
@@ -45,6 +48,7 @@ class PairCandidateFinderTest extends TestCase
             'business_type' => $categories[0] ?? null,
             'categories' => $categories,
             'primary_venue' => $venue,
+            'has_venue' => $hasVenue,
         ]);
 
         return $profile->fresh();
@@ -62,6 +66,25 @@ class PairCandidateFinderTest extends TestCase
         ]);
 
         return $profile->fresh();
+    }
+
+    /**
+     * The query log rather than `DB::listen`, because this is called twice in one
+     * test and a listener cannot be removed once registered — the second call
+     * would be counted by both.
+     */
+    private function countQueries(callable $callback): int
+    {
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        $callback();
+
+        $count = count(DB::getQueryLog());
+
+        DB::disableQueryLog();
+
+        return $count;
     }
 
     /**
@@ -325,15 +348,24 @@ class PairCandidateFinderTest extends TestCase
             ]);
         }
 
-        $queries = 0;
-        DB::listen(static function () use (&$queries): void {
-            $queries++;
+        $contexts = [];
+        $queries = $this->countQueries(function () use ($viewer, &$contexts): void {
+            $contexts = $this->finder()->candidatesFor($viewer, SuggestionAudience::Business);
         });
-
-        $contexts = $this->finder()->candidatesFor($viewer, SuggestionAudience::Business);
 
         $this->assertCount(6, $contexts);
         $this->assertLessThan(12, $queries, "the finder ran {$queries} queries for 6 candidates");
+
+        // The same pass over a pool of one. The batch count is a function of the
+        // audience, so the two must agree; a per-pair query would put five extra
+        // queries on the six-candidate run.
+        $secondViewer = $this->business($city);
+
+        $onePool = $this->countQueries(function () use ($secondViewer): void {
+            $this->finder()->candidatesFor($secondViewer, SuggestionAudience::Business);
+        });
+
+        $this->assertSame($onePool, $queries, 'the query count must not grow with the candidate count');
 
         $first = $contexts[0];
         $this->assertNotEmpty($first->pastAttendance);
@@ -470,8 +502,11 @@ class PairCandidateFinderTest extends TestCase
     }
 
     /**
-     * Some Kolabs still carry the legacy keyed-boolean shape rather than a list
-     * of slugs, and a false entry is not a declared offer.
+     * Roughly 45% of live rows in these four columns are the legacy
+     * keyed-boolean shape rather than a list of slugs. The fixture below is a
+     * verbatim copy of a production `kolabs.offering` row (read-only,
+     * 2026-08-19), nested `discount` included: an intersection against it would
+     * otherwise match nothing and report a false 0.0 for half the corpus.
      */
     public function test_reads_the_legacy_keyed_boolean_offer_shape(): void
     {
@@ -481,8 +516,14 @@ class PairCandidateFinderTest extends TestCase
 
         Kolab::factory()->create([
             'creator_profile_id' => $viewer->id,
-            'offering' => ['venue' => true, 'food_drink' => false],
-            'expects' => null,
+            'offering' => [
+                'venue' => true,
+                'food_drink' => false,
+                'social_media_exposure' => false,
+                'content_creation' => false,
+                'discount' => ['enabled' => false],
+            ],
+            'expects' => ['reviews' => true, 'ugc_content' => false],
             'needs' => null,
             'offers_in_return' => null,
         ]);
@@ -490,6 +531,147 @@ class PairCandidateFinderTest extends TestCase
         $context = $this->finder()->candidatesFor($viewer, SuggestionAudience::Business)[0];
 
         $this->assertSame(['venue'], $context->viewerOffers);
+        $this->assertSame(['reviews'], $context->viewerNeeds);
+    }
+
+    /**
+     * `has_venue` is a column, not something capacity can stand in for: 18 of the
+     * 62 live venue businesses have no `capacity` key in `primary_venue`.
+     */
+    public function test_carries_the_has_venue_flag_independently_of_capacity(): void
+    {
+        $city = City::factory()->create();
+
+        $venueWithoutCapacity = $this->business($city, ['latitude' => 37.38, 'longitude' => -5.98]);
+        $community = $this->community($city);
+
+        $businessAudience = $this->finder()->candidatesFor($venueWithoutCapacity, SuggestionAudience::Business)[0];
+
+        $this->assertTrue($businessAudience->viewerHasVenue);
+        $this->assertNull($businessAudience->venueCapacity);
+        $this->assertFalse($businessAudience->counterpartHasVenue, 'a community never promotes a venue');
+
+        $communityAudience = collect($this->finder()->candidatesFor($community, SuggestionAudience::Community))
+            ->firstWhere('counterpartProfileId', $venueWithoutCapacity->id);
+
+        $this->assertNotNull($communityAudience);
+        $this->assertTrue($communityAudience->counterpartHasVenue);
+        $this->assertFalse($communityAudience->viewerHasVenue);
+    }
+
+    public function test_a_business_without_a_venue_reports_the_flag_as_false(): void
+    {
+        $city = City::factory()->create();
+        $viewer = $this->business($city, null, ['cafe'], hasVenue: false);
+        $this->community($city);
+
+        $context = $this->finder()->candidatesFor($viewer, SuggestionAudience::Business)[0];
+
+        $this->assertFalse($context->viewerHasVenue);
+    }
+
+    /**
+     * A business counterpart proves momentum in Kolabs and collaborations, not
+     * events, and only inside the configured window.
+     */
+    public function test_a_business_counterpart_reports_momentum_as_kolabs_and_collaborations(): void
+    {
+        config()->set('suggestions.momentum_window_days', 90);
+
+        $city = City::factory()->create();
+        $viewer = $this->community($city);
+        $partner = $this->business($city);
+
+        Kolab::factory()->published()->create([
+            'creator_profile_id' => $partner->id,
+            'published_at' => now()->subDays(5),
+        ]);
+        Kolab::factory()->published()->create([
+            'creator_profile_id' => $partner->id,
+            'published_at' => now()->subDays(200),
+        ]);
+        Kolab::factory()->create([
+            'creator_profile_id' => $partner->id,
+            'status' => 'draft',
+            'published_at' => null,
+        ]);
+
+        Collaboration::factory()->completed()->create([
+            'creator_profile_id' => $partner->id,
+            'applicant_profile_id' => $viewer->id,
+            'created_at' => now()->subDays(3),
+        ]);
+        Collaboration::factory()->cancelled()->create([
+            'creator_profile_id' => $partner->id,
+            'applicant_profile_id' => $viewer->id,
+            'created_at' => now()->subDays(300),
+        ]);
+
+        $context = collect($this->finder()->candidatesFor($viewer, SuggestionAudience::Community))
+            ->firstWhere('counterpartProfileId', $partner->id);
+
+        $this->assertNotNull($context);
+        $this->assertSame(2, $context->recentActivityCount, 'one live Kolab plus one recent collaboration');
+        $this->assertSame(1, $context->evidence['recent_live_kolabs']);
+        $this->assertSame(1, $context->evidence['recent_collaborations']);
+    }
+
+    /**
+     * The business audience never needs partner activity, so it is not loaded —
+     * the same discipline that keeps `completedCollaborations` out of it.
+     */
+    public function test_a_business_audience_does_not_load_partner_activity(): void
+    {
+        $city = City::factory()->create();
+        $viewer = $this->business($city);
+        $community = $this->community($city);
+
+        Kolab::factory()->published()->create([
+            'creator_profile_id' => $community->id,
+            'published_at' => now()->subDay(),
+        ]);
+
+        $context = $this->finder()->candidatesFor($viewer, SuggestionAudience::Business)[0];
+
+        $this->assertSame(0, $context->recentActivityCount);
+    }
+
+    /**
+     * The alias table bridges live, admin-editable taxonomies, so every spelling
+     * in it has to be a slug one of them actually holds — a typo would silently
+     * bridge nothing, which is exactly the failure the table exists to prevent.
+     *
+     * Checked against every `OfferOption` kind rather than the three offer kinds:
+     * `discount_code` is a `product_interaction` slug and `free_samples` a
+     * `kolab_highlight` one. Both arrive with the map extracted from Explore,
+     * which text-matches offer terms across fields drawing on those kinds. They
+     * are inert for the offer/need comparison here and are kept so adopting this
+     * class in Explore later does not lose behaviour.
+     *
+     * `commission` is the one exemption: it is in Explore's map and in no
+     * taxonomy at all.
+     */
+    public function test_every_offer_type_alias_is_a_live_offer_options_slug(): void
+    {
+        // The reference-taxonomy migration deliberately skips the `testing`
+        // environment, so the vocabulary has to be seeded explicitly here.
+        $this->seed(OfferOptionSeeder::class);
+
+        $seeded = OfferOption::query()->pluck('slug')->all();
+
+        $this->assertNotEmpty($seeded, 'offer_options must be seeded by the reference-taxonomy migration');
+
+        $unknown = [];
+
+        foreach (OfferTypeAliases::ALIASES as $canonical => $spellings) {
+            foreach ($spellings as $spelling) {
+                if ($spelling !== 'commission' && ! in_array($spelling, $seeded, true)) {
+                    $unknown[] = $canonical.' => '.$spelling;
+                }
+            }
+        }
+
+        $this->assertSame([], $unknown, 'aliases matching no live slug: '.implode(', ', $unknown));
     }
 
     /**

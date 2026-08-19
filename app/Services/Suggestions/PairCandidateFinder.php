@@ -6,10 +6,12 @@ namespace App\Services\Suggestions;
 
 use App\Enums\ApplicationStatus;
 use App\Enums\CollaborationStatus;
+use App\Enums\KolabStatus;
 use App\Enums\SuggestionAudience;
 use App\Enums\UserType;
 use App\Models\BusinessPartnerStatus;
 use App\Models\BusinessProfile;
+use App\Models\Collaboration;
 use App\Models\CollaborationFeedback;
 use App\Models\CollaborationReview;
 use App\Models\CommunityProfile;
@@ -18,6 +20,7 @@ use App\Models\EventSeries;
 use App\Models\Kolab;
 use App\Models\Profile;
 use App\Support\Matching\CategoryFitMatrix;
+use App\Support\Matching\OfferVocabulary;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Carbon;
@@ -103,6 +106,9 @@ class PairCandidateFinder
         $completedCollaborations = $audience === SuggestionAudience::Community
             ? $this->completedCollaborations($counterpartIds)
             : [];
+        $recentCollaborations = $audience === SuggestionAudience::Community
+            ? $this->recentCollaborations($counterpartIds)
+            : [];
 
         return $counterparts
             ->map(fn (Profile $counterpart): PairContext => $this->context(
@@ -115,6 +121,7 @@ class PairCandidateFinder
                 $reviews,
                 $contentDelivered,
                 $completedCollaborations,
+                $recentCollaborations,
             ))
             ->all();
     }
@@ -559,6 +566,49 @@ class PairCandidateFinder
     }
 
     /**
+     * Collaborations a business counterpart started inside the momentum window —
+     * the other half of its momentum term, alongside the Kolabs counted in
+     * `offerVocabularies()`.
+     *
+     * `creator_profile_id` / `applicant_profile_id` rather than the extended
+     * profile columns, for the reason `activeCollaborationExists()` gives, and
+     * summed against the id set in PHP because the business occupies whichever
+     * of the two columns it happens to occupy — there is no single column to
+     * GROUP BY, and exactly one of them can be in the set, so nothing is counted
+     * twice.
+     *
+     * @param  array<int, string>  $profileIds
+     * @return array<string, int>
+     */
+    private function recentCollaborations(array $profileIds): array
+    {
+        $momentumSince = Carbon::today()->subDays((int) config('suggestions.momentum_window_days'));
+
+        $rows = Collaboration::query()
+            ->select(['creator_profile_id', 'applicant_profile_id'])
+            ->where('created_at', '>=', $momentumSince)
+            ->where(function (Builder $eitherSide) use ($profileIds): void {
+                $eitherSide->whereIn('creator_profile_id', $profileIds)
+                    ->orWhereIn('applicant_profile_id', $profileIds);
+            })
+            ->toBase()
+            ->get();
+
+        $wanted = array_fill_keys($profileIds, true);
+        $counts = [];
+
+        foreach ($rows as $row) {
+            foreach ([$row->creator_profile_id, $row->applicant_profile_id] as $side) {
+                if (is_string($side) && isset($wanted[$side])) {
+                    $counts[$side] = ($counts[$side] ?? 0) + 1;
+                }
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
      * The four offer/need vocabularies, per profile, from the Kolabs it has
      * written. There is nowhere else to read them from: `business_profiles.offering`
      * is a free-text sentence, not a slug list, and a community profile has no
@@ -566,16 +616,22 @@ class PairCandidateFinder
      *
      * Both list-of-slugs (`['venue']`, what the request validators accept today)
      * and the legacy keyed-boolean shape (`['venue' => true]`) appear in these
-     * columns, so both are read — the same tolerance
-     * DiscoveryOpportunityService applies to `kolabs.offering`.
+     * columns — roughly 45% of live rows are the latter — so every read goes
+     * through OfferVocabulary rather than touching the array directly.
+     *
+     * The same pass counts the Kolabs published inside the momentum window,
+     * because it is already reading this table: half of a business counterpart's
+     * momentum term, and a query saved.
      *
      * @param  array<int, string>  $profileIds
-     * @return array<string, array{offering: array<int, string>, expects: array<int, string>, offers_in_return: array<int, string>, needs: array<int, string>}>
+     * @return array<string, array{offering: array<int, string>, expects: array<int, string>, offers_in_return: array<int, string>, needs: array<int, string>, live_kolabs: int}>
      */
     private function offerVocabularies(array $profileIds): array
     {
+        $momentumSince = Carbon::today()->subDays((int) config('suggestions.momentum_window_days'));
+
         $rows = Kolab::query()
-            ->select(['creator_profile_id', 'offering', 'expects', 'offers_in_return', 'needs'])
+            ->select(['creator_profile_id', 'offering', 'expects', 'offers_in_return', 'needs', 'status', 'published_at'])
             ->whereIn('creator_profile_id', $profileIds)
             ->get();
 
@@ -589,43 +645,24 @@ class PairCandidateFinder
                 'expects' => [],
                 'offers_in_return' => [],
                 'needs' => [],
+                'live_kolabs' => 0,
             ];
+
+            if ($kolab->status === KolabStatus::Published
+                && $kolab->published_at !== null
+                && $kolab->published_at->greaterThanOrEqualTo($momentumSince)) {
+                $vocabularies[$profileId]['live_kolabs']++;
+            }
 
             foreach (['offering', 'expects', 'offers_in_return', 'needs'] as $column) {
                 $vocabularies[$profileId][$column] = array_values(array_unique([
                     ...$vocabularies[$profileId][$column],
-                    ...$this->slugList($kolab->{$column}),
+                    ...OfferVocabulary::slugs($kolab->{$column}),
                 ]));
             }
         }
 
         return $vocabularies;
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function slugList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $slugs = [];
-
-        foreach ($value as $key => $entry) {
-            if (is_int($key) && is_string($entry) && trim($entry) !== '') {
-                $slugs[] = mb_strtolower(trim($entry));
-
-                continue;
-            }
-
-            if (is_string($key) && filter_var($entry, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) === true) {
-                $slugs[] = mb_strtolower(trim($key));
-            }
-        }
-
-        return array_values(array_unique($slugs));
     }
 
     /**
@@ -645,10 +682,11 @@ class PairCandidateFinder
      *
      * @param  array<string, array{attendance: array<int, int>, recent: int, weekdays: array<int, int>, lat: float|null, lng: float|null}>  $events
      * @param  array<string, array{weekdays: array<int, int>, time: string|null, present: bool}>  $series
-     * @param  array<string, array{offering: array<int, string>, expects: array<int, string>, offers_in_return: array<int, string>, needs: array<int, string>}>  $offers
+     * @param  array<string, array{offering: array<int, string>, expects: array<int, string>, offers_in_return: array<int, string>, needs: array<int, string>, live_kolabs: int}>  $offers
      * @param  array<string, array{rating: float|null, repeat: float|null, count: int}>  $reviews
      * @param  array<string, int>  $contentDelivered
      * @param  array<string, int>  $completedCollaborations
+     * @param  array<string, int>  $recentCollaborations
      */
     private function context(
         Profile $viewer,
@@ -660,6 +698,7 @@ class PairCandidateFinder
         array $reviews,
         array $contentDelivered,
         array $completedCollaborations,
+        array $recentCollaborations,
     ): PairContext {
         $viewerId = (string) $viewer->getKey();
         $counterpartId = (string) $counterpart->getKey();
@@ -680,8 +719,9 @@ class PairCandidateFinder
         $counterpartSeries = $series[$counterpartId] ?? ['weekdays' => [], 'time' => null, 'present' => false];
         $counterpartReviews = $reviews[$counterpartId] ?? ['rating' => null, 'repeat' => null, 'count' => 0];
 
-        $viewerVocabulary = $offers[$viewerId] ?? ['offering' => [], 'expects' => [], 'offers_in_return' => [], 'needs' => []];
-        $counterpartVocabulary = $offers[$counterpartId] ?? ['offering' => [], 'expects' => [], 'offers_in_return' => [], 'needs' => []];
+        $emptyVocabulary = ['offering' => [], 'expects' => [], 'offers_in_return' => [], 'needs' => [], 'live_kolabs' => 0];
+        $viewerVocabulary = $offers[$viewerId] ?? $emptyVocabulary;
+        $counterpartVocabulary = $offers[$counterpartId] ?? $emptyVocabulary;
 
         [$viewerGives, $viewerWants] = $isBusinessAudience
             ? [$viewerVocabulary['offering'], $viewerVocabulary['expects']]
@@ -710,6 +750,8 @@ class PairCandidateFinder
             pastAttendance: $communityEvents['attendance'],
             communitySize: $communitySide->communityProfile?->community_size,
             venueCapacity: $venueCapacity,
+            viewerHasVenue: $this->hasVenue($viewer),
+            counterpartHasVenue: $this->hasVenue($counterpart),
             viewerOffers: $viewerGives,
             counterpartNeeds: $counterpartWants,
             counterpartOffers: $counterpartGives,
@@ -720,6 +762,9 @@ class PairCandidateFinder
             completedCollaborations: $completedCollaborations[$counterpartId] ?? 0,
             reviewCount: $counterpartReviews['count'],
             recentEventCount: $counterpartEvents['recent'],
+            recentActivityCount: $isBusinessAudience
+                ? 0
+                : $counterpartVocabulary['live_kolabs'] + ($recentCollaborations[$counterpartId] ?? 0),
             hasActiveSeries: $counterpartSeries['present'],
             evidence: [
                 'series_weekdays' => $communitySeries['weekdays'],
@@ -729,6 +774,8 @@ class PairCandidateFinder
                 'business_side_profile_id' => (string) $businessSide->getKey(),
                 'past_attendance' => $communityEvents['attendance'],
                 'recent_event_count' => $counterpartEvents['recent'],
+                'recent_live_kolabs' => $isBusinessAudience ? 0 : $counterpartVocabulary['live_kolabs'],
+                'recent_collaborations' => $recentCollaborations[$counterpartId] ?? 0,
                 'review_count' => $counterpartReviews['count'],
             ],
         );
@@ -739,6 +786,20 @@ class PairCandidateFinder
      * extended profile; `profiles.city_id` is the attendee column and is only a
      * fallback here.
      */
+    /**
+     * `business_profiles.has_venue`, read from the column rather than derived
+     * from a positive capacity: 18 of the 62 live venue businesses have no
+     * `capacity` key in `primary_venue`, and inferring the flag would propose a
+     * product promotion to every one of them. A community has no such column and
+     * is never promoting a venue.
+     */
+    private function hasVenue(Profile $profile): bool
+    {
+        $extended = $this->extendedProfile($profile);
+
+        return $extended instanceof BusinessProfile && $extended->has_venue;
+    }
+
     private function cityIdFor(Profile $profile): ?string
     {
         return $this->extendedProfile($profile)?->city_id ?? $profile->city_id;

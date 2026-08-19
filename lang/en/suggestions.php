@@ -28,6 +28,7 @@ return [
         'delivery_proof_rating' => 'Rated :rating by past partners.',
         'delivery_proof_collaborations' => 'Completed :collaborations Kolabs with past partners.',
         'momentum' => ':count events in the last :days days.',
+        'momentum_business' => ':count Kolabs and collaborations in the last :days days.',
         'no_history' => 'No past events yet — matched on profile.',
     ],
 

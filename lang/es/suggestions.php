@@ -28,6 +28,7 @@ return [
         'delivery_proof_rating' => 'Con una nota de :rating de colaboradores anteriores.',
         'delivery_proof_collaborations' => 'Ha completado :collaborations Kolabs con colaboradores anteriores.',
         'momentum' => ':count eventos en los últimos :days días.',
+        'momentum_business' => ':count Kolabs y colaboraciones en los últimos :days días.',
         'no_history' => 'Aún no hay eventos anteriores: la coincidencia es por perfil.',
     ],
 
