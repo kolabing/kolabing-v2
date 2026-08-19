@@ -78,7 +78,7 @@
             'name' => 'Kolabing',
             'url' => route('home'),
             'logo' => url('/brand/kolabing-logo.png'),
-            'description' => 'Kolabing helps local businesses and communities plan partnerships that turn events into foot traffic, member value, and repeat visits.',
+            'description' => 'Kolabing helps local businesses and communities plan partnerships that turn events into footfall, member value, and repeat visits.',
             'email' => 'support@kolabing.com',
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
     </script>
@@ -115,7 +115,7 @@
         <div class="mx-auto flex max-w-6xl flex-col gap-6 px-6 md:flex-row md:items-center md:justify-between">
             <div>
                 <p class="font-montserrat text-xl font-black uppercase tracking-wide">Kolabing</p>
-                <p class="mt-2 max-w-xl text-sm text-white/70">Kolabing helps local businesses and communities plan partnerships that turn events into foot traffic, member value, and repeat visits.</p>
+                <p class="mt-2 max-w-xl text-sm text-white/70">Kolabing helps local businesses and communities plan partnerships that turn events into footfall, member value, and repeat visits.</p>
             </div>
             <div class="flex flex-wrap gap-4 text-sm text-white/70">
                 <a href="{{ $webappRegister }}" class="font-bold text-primary hover:text-primary/80">Get started</a>

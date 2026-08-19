@@ -1,6 +1,6 @@
 @php
     $title = 'For Businesses';
-    $description = 'See how Kolabing helps local businesses drive foot traffic, activate neighborhoods, and launch community partnerships without wasted ad spend.';
+    $description = 'See how Kolabing helps local businesses drive footfall, activate neighborhoods, and launch community partnerships without wasted ad spend.';
     $canonical = route('for-businesses');
 @endphp
 
@@ -11,7 +11,7 @@
         <p class="mt-6 max-w-3xl text-lg text-off-black/70">Kolabing helps neighborhood businesses launch collaborations with clubs, teams, creators, and community organizers that bring real people into real spaces.</p>
         <div class="mt-10 grid gap-6 md:grid-cols-3">
             <article class="rounded-3xl border border-off-black/10 bg-white p-7 shadow-sm">
-                <h2 class="text-xl font-bold">Fill quiet hours</h2>
+                <h2 class="text-xl font-bold">Fill quiet nights</h2>
                 <p class="mt-3 text-off-black/70">Create campaigns for mornings, midweek evenings, seasonal launches, or product drops without relying on discounts alone.</p>
             </article>
             <article class="rounded-3xl border border-off-black/10 bg-white p-7 shadow-sm">
