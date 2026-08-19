@@ -83,11 +83,11 @@ retired, BE-IF-47).
 | `audience` | string enum | `business` \| `community` — which side is being shown the card |
 | `viewer_profile_id` | uuid FK `profiles` | who sees it; cascade on delete |
 | `counterpart_profile_id` | uuid FK `profiles` | the proposed partner |
-| `city_id` | uuid FK `cities` nullable | resolved city of the proposed event |
+| `city_id` | uuid FK `cities` nullable | city of the proposed event — resolved from the **business** side, community as fallback. Not viewer-relative: the event usually happens at the venue, and both mirrored rows of a pair must agree on one city or the digest's `(audience, batch_key)` grouping splits them |
 | `score` | smallint | 0–100, computed in PHP |
 | `confidence` | string enum | `low` \| `medium` \| `high` — share of signal weight backed by real data |
 | `signals` | jsonb | `[{key, reason_key, reason_params, weight, score}]` — **keys and params, never rendered text** (see below) |
-| `suggested_format` | jsonb | `{title_key, title_params, intent_type, weekday, time_of_day, expected_attendance, attendance_basis, offer[], expects[]}` — `title_key`/`title_params` render at read time like the reasons; `weekday` is **ISO 1-7**, `time_of_day` is `H:i` |
+| `suggested_format` | jsonb | `{title_key, title_params, intent_type, weekday, weekday_basis, time_of_day, expected_attendance, attendance_basis, notes, offer[], expects[]}` — `title_key`/`title_params` render at read time like the reasons; `weekday` is **ISO 1-7**, `time_of_day` is `H:i`; the `*_basis` keys record which data produced the number so the card can grade its own claim |
 | `evidence` | jsonb | ids + aggregates that produced it (`event_ids`, `collaboration_ids`, `posts_reels_total`, …) |
 | `batch_key` | date | the date this pair was last scored (not a generation bucket — see below) |
 | `expires_at` | timestamp | last score + 14 days |
