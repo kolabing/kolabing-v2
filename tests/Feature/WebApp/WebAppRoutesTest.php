@@ -196,6 +196,16 @@ class WebAppRoutesTest extends TestCase
             // the viewer's role — a community is never blurred (ROLES §3.6).
             ->assertSee('const blurred = !!s.is_identity_blurred;', false)
             ->assertSee('blur-sm select-none', false)
+            // Every figure on the card carries the basis it came from — the engine
+            // never invents a number and the card has to show that. These are source
+            // assertions, not behaviour: a route-render test cannot execute Alpine,
+            // so they pin the two rules the captions depend on rather than prove them.
+            ->assertSee("basisCaption('attendance', fmt.attendance_basis, fmt.expected_attendance)", false)
+            ->assertSee("basisCaption('weekday', fmt.weekday_basis, this.weekdayLabel(fmt.weekday))", false)
+            // tOr, so an unrecognised basis renders no caption instead of a raw key…
+            ->assertSee("return window.tOr('suggestions.basis.' + field + '_' + slug, '');", false)
+            // …and a caption with no figure to qualify renders neither.
+            ->assertSee("if (!qualifies || !slug) return '';", false)
             // The empty state names the fix instead of apologising.
             ->assertSee('No suggestions yet')
             ->assertSee('Complete your profile')
@@ -253,6 +263,16 @@ class WebAppRoutesTest extends TestCase
         // English copy would render a raw dotted key to a Spanish reader.
         $en = $this->flattenTranslations((array) trans('webapp', [], 'en'));
         $this->assertArrayHasKey('suggestions.title', $en);
+
+        // Every basis FormatSuggester can persist for a figure the card shows…
+        foreach (['attendance_past_events', 'attendance_community_size', 'weekday_series', 'weekday_past_events'] as $basis) {
+            $this->assertArrayHasKey('suggestions.basis.'.$basis, $en);
+        }
+
+        // …and the two "no basis" slugs deliberately have none: that absence is what
+        // makes them render no caption at all rather than one that says nothing.
+        $this->assertArrayNotHasKey('suggestions.basis.attendance_profile_only', $en);
+        $this->assertArrayNotHasKey('suggestions.basis.weekday_none', $en);
 
         foreach (['es', 'ca'] as $locale) {
             $translated = $this->flattenTranslations((array) trans('webapp', [], $locale));

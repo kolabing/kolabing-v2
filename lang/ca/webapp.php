@@ -281,6 +281,25 @@ return [
         'format_title' => 'Format suggerit',
         'weekday_time' => ':weekday a les :time',
         'expected_attendance' => 'S’esperen unes :count persones',
+        /*
+         * D'on surt un número de la targeta. El motor no s'inventa mai una xifra, i
+         * aquí és on això es veu a la pantalla: «unes 45 persones» mereix una
+         * confiança diferent si és la mediana d'esdeveniments reals que si és una
+         * fracció del nombre de membres que la comunitat mateixa declara.
+         *
+         * La clau és `{camp}_{base}` perquè el peu encaixi amb el número que
+         * acompanya: `past_events` no diu el mateix de l'assistència que del dia de
+         * la setmana. Hi falten a propòsit `attendance_profile_only` i
+         * `weekday_none`, les dues bases buides. La targeta els busca amb tOr(), així
+         * que una clau que no existeix — o una base que afegeixi un desplegament
+         * posterior de l'API — no mostra cap peu en lloc d'una clau en cru.
+         */
+        'basis' => [
+            'attendance_past_events' => 'Segons l’assistència als seus esdeveniments anteriors',
+            'attendance_community_size' => 'Estimat a partir dels membres que declaren',
+            'weekday_series' => 'El dia en què es repeteix la seva sèrie',
+            'weekday_past_events' => 'El dia en què van caure la majoria dels seus esdeveniments',
+        ],
         'offer_title' => 'Què hi ha damunt la taula',
         'expects_title' => 'Què estan buscant',
         'create_cta' => 'Crea aquest Kolab',

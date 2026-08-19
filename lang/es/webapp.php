@@ -281,6 +281,25 @@ return [
         'format_title' => 'Formato sugerido',
         'weekday_time' => ':weekday a las :time',
         'expected_attendance' => 'Se esperan unas :count personas',
+        /*
+         * De dónde sale un número de la tarjeta. El motor nunca se inventa una
+         * cifra, y aquí es donde eso se ve en pantalla: «unas 45 personas» merece
+         * otra confianza si es la mediana de eventos reales que si es una fracción
+         * del número de miembros que la propia comunidad declara.
+         *
+         * La clave es `{campo}_{base}` para que el pie encaje con el número al que
+         * acompaña: `past_events` no dice lo mismo de la asistencia que del día de
+         * la semana. Faltan a propósito `attendance_profile_only` y `weekday_none`,
+         * las dos bases vacías. La tarjeta los busca con tOr(), así que una clave
+         * que no existe — o una base que añada un despliegue posterior de la API —
+         * no muestra ningún pie en lugar de una clave en crudo.
+         */
+        'basis' => [
+            'attendance_past_events' => 'Según la asistencia a sus eventos anteriores',
+            'attendance_community_size' => 'Estimado a partir de los miembros que declaran',
+            'weekday_series' => 'El día en que se repite su serie',
+            'weekday_past_events' => 'El día en que cayeron la mayoría de sus eventos',
+        ],
         'offer_title' => 'Lo que hay sobre la mesa',
         'expects_title' => 'Qué están buscando',
         'create_cta' => 'Crear este Kolab',

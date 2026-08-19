@@ -281,6 +281,25 @@ return [
         'format_title' => 'Suggested format',
         'weekday_time' => ':weekday at :time',
         'expected_attendance' => 'Around :count people expected',
+        /*
+         * Where a number on the card came from. The engine never invents a figure,
+         * and this is where that shows on screen: "around 45 people" deserves
+         * different trust when it is a median of real past events than when it is a
+         * fraction of a self-reported member count.
+         *
+         * Keyed `{field}_{basis}` so the caption reads correctly for the number it
+         * sits under — `past_events` means two different things about attendance and
+         * about a weekday. Deliberately absent: `attendance_profile_only` and
+         * `weekday_none`, the two "no basis" slugs. The card looks these up with
+         * tOr(), so a missing key — or a basis value a later API deploy adds —
+         * renders no caption at all rather than a raw key.
+         */
+        'basis' => [
+            'attendance_past_events' => 'From attendance at their past events',
+            'attendance_community_size' => 'Estimated from their declared member count',
+            'weekday_series' => 'The day their recurring series runs',
+            'weekday_past_events' => 'The day most of their past events fell on',
+        ],
         'offer_title' => 'On the table',
         'expects_title' => 'What they are looking for',
         'create_cta' => 'Create this Kolab',

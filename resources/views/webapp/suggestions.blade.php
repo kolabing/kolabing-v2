@@ -119,15 +119,25 @@
                     <div class="mt-5 rounded-2xl bg-cream-low px-4 py-3.5" x-show="c.hasFormat" x-cloak>
                         <p class="text-[10px] font-semibold tracking-[.16em] uppercase text-muted">{{ __('webapp.suggestions.format_title') }}</p>
                         <p class="text-[14.5px] font-bold text-ink mt-1.5" x-show="c.formatTitle" x-cloak x-text="c.formatTitle"></p>
-                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[12.5px] text-body">
-                            <span class="flex items-center gap-1.5" x-show="c.whenLine" x-cloak>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-                                <span x-text="c.whenLine"></span>
-                            </span>
-                            <span class="flex items-center gap-1.5" x-show="c.attendanceLine" x-cloak>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
-                                <span x-text="c.attendanceLine"></span>
-                            </span>
+                        {{-- Each figure carries the basis it came from, right under it: the
+                             engine never invents a number, and this is where a reader can
+                             see that. No basis (or one this build does not know) means no
+                             caption — see basisCaption(). --}}
+                        <div class="flex flex-wrap gap-x-7 gap-y-2.5 mt-1.5 text-[12.5px] text-body">
+                            <div x-show="c.whenLine" x-cloak>
+                                <span class="flex items-center gap-1.5">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                                    <span x-text="c.whenLine"></span>
+                                </span>
+                                <p class="text-[11px] text-muted mt-0.5 pl-[21px] leading-snug" x-show="c.weekdayBasis" x-cloak x-text="c.weekdayBasis"></p>
+                            </div>
+                            <div x-show="c.attendanceLine" x-cloak>
+                                <span class="flex items-center gap-1.5">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+                                    <span x-text="c.attendanceLine"></span>
+                                </span>
+                                <p class="text-[11px] text-muted mt-0.5 pl-[21px] leading-snug" x-show="c.attendanceBasis" x-cloak x-text="c.attendanceBasis"></p>
+                            </div>
                         </div>
 
                         <div class="mt-3" x-show="c.offer.length" x-cloak>
@@ -236,6 +246,8 @@
                     attendanceLine: fmt.expected_attendance
                         ? t('suggestions.expected_attendance', { count: fmt.expected_attendance })
                         : '',
+                    attendanceBasis: this.basisCaption('attendance', fmt.attendance_basis, fmt.expected_attendance),
+                    weekdayBasis: this.basisCaption('weekday', fmt.weekday_basis, this.weekdayLabel(fmt.weekday)),
                     offer: (fmt.offer || []).map(window.kbHumanize).filter(Boolean),
                     expects: (fmt.expects || []).map(window.kbHumanize).filter(Boolean),
                     notes: (fmt.notes || []).filter(Boolean),
@@ -244,6 +256,27 @@
                             || this.offer.length || this.expects.length || this.notes.length);
                     },
                 };
+            },
+
+            /**
+             * The caption under a figure, naming where the figure came from. Two
+             * rules, both of which the card depends on to stay honest:
+             *
+             * `tOr` returns '' for a key this build does not have, so a basis value
+             * added by a later API deploy renders **no caption** rather than
+             * "suggestions.basis.attendance_whatever" — the same rule the signal
+             * sentences follow. `attendance_profile_only` and `weekday_none` have no
+             * copy on purpose and take that path.
+             *
+             * And a caption with nothing to qualify is not a caption: when the figure
+             * itself is absent (no attendance estimate, no weekday) there is neither
+             * a number nor a basis line.
+             *
+             * @param qualifies the figure being qualified; falsy means render neither
+             */
+            basisCaption(field, slug, qualifies) {
+                if (!qualifies || !slug) return '';
+                return window.tOr('suggestions.basis.' + field + '_' + slug, '');
             },
 
             /** ":weekday at :time" when both are known, otherwise whichever is. */
