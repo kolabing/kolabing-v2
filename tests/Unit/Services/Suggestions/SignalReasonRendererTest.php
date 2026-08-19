@@ -172,6 +172,108 @@ class SignalReasonRendererTest extends TestCase
         $this->assertSame(__('suggestions.reason.no_history'), $rendered['reason']);
     }
 
+    public function test_it_renders_a_proposed_format_title_in_the_readers_locale(): void
+    {
+        $renderer = new SignalReasonRenderer;
+        $format = ['title_key' => 'run_club', 'title_params' => ['community_type' => 'run_club']];
+
+        $this->assertSame(__('suggestions.format.title.run_club'), $renderer->renderTitle($format));
+
+        App::setLocale('es');
+
+        $this->assertSame(__('suggestions.format.title.run_club', locale: 'es'), $renderer->renderTitle($format));
+    }
+
+    public function test_an_unknown_format_title_key_renders_empty_and_is_logged(): void
+    {
+        Log::spy();
+
+        $rendered = (new SignalReasonRenderer)->renderTitle([
+            'title_key' => 'knitting_circle',
+            'title_params' => [],
+        ]);
+
+        $this->assertSame('', $rendered);
+
+        Log::shouldHaveReceived('warning')
+            ->withArgs(fn (string $message, array $context): bool => ($context['title_key'] ?? null) === 'knitting_circle')
+            ->once();
+    }
+
+    /**
+     * A title reworded to interpolate a param renders from the raw slug the row
+     * already carries — and renders nothing at all, rather than a leaked
+     * `:community_type`, for a row written before the rewording.
+     */
+    public function test_a_parameterised_title_interpolates_the_persisted_slug(): void
+    {
+        $this->assertTrue(Lang::has('suggestions.format.title.generic'));
+
+        Lang::addLines(['suggestions.format.title.parameterised' => 'Kolab with a :community_type community'], 'en');
+
+        $renderer = new SignalReasonRenderer;
+
+        $this->assertSame('Kolab with a Run club community', $renderer->renderTitle([
+            'title_key' => 'parameterised',
+            'title_params' => ['community_type' => 'run_club'],
+        ]));
+
+        Log::spy();
+
+        $this->assertSame('', $renderer->renderTitle([
+            'title_key' => 'parameterised',
+            'title_params' => [],
+        ]));
+
+        Log::shouldHaveReceived('warning')
+            ->withArgs(fn (string $message, array $context): bool => ($context['missing_params'] ?? null) === ['community_type'])
+            ->once();
+    }
+
+    public function test_a_format_title_without_a_key_renders_empty_without_logging(): void
+    {
+        Log::spy();
+
+        $this->assertSame('', (new SignalReasonRenderer)->renderTitle([]));
+
+        Log::shouldNotHaveReceived('warning');
+    }
+
+    /**
+     * Every community type the matrix knows needs a title template, plus the
+     * generic fallback, in all three locales — and with the same placeholders in
+     * each, or one locale renders a sentence where another renders nothing.
+     */
+    public function test_every_format_title_exists_with_the_same_placeholders_in_every_locale(): void
+    {
+        $titles = (require lang_path('en/suggestions.php'))['format']['title'];
+
+        $this->assertArrayHasKey('generic', $titles);
+
+        foreach (array_keys(CategoryFitMatrix::MATRIX) as $communityType) {
+            $this->assertArrayHasKey($communityType, $titles);
+        }
+
+        foreach (array_keys($titles) as $titleKey) {
+            $key = 'suggestions.format.title.'.$titleKey;
+            $placeholders = null;
+
+            foreach (['en', 'es', 'ca'] as $locale) {
+                $this->assertTrue(
+                    Lang::has($key, $locale, false),
+                    "Missing translation [{$key}] for locale [{$locale}]."
+                );
+
+                preg_match_all('/:([A-Za-z_][A-Za-z0-9_]*)/', (string) __($key, locale: $locale), $matches);
+                sort($matches[1]);
+
+                $placeholders ??= $matches[1];
+
+                $this->assertSame($placeholders, $matches[1], "Placeholder mismatch on [{$key}] for locale [{$locale}].");
+            }
+        }
+    }
+
     /**
      * The vocabulary map covers every matrix key by construction, which is what
      * makes the slug fallback above unreachable through real data. Assert the
@@ -216,7 +318,7 @@ class SignalReasonRendererTest extends TestCase
     {
         $keys = array_keys(require lang_path('en/suggestions.php'));
 
-        $this->assertSame(['signal', 'reason', 'vocabulary'], $keys);
+        $this->assertSame(['signal', 'reason', 'format', 'vocabulary'], $keys);
 
         foreach (['signal', 'reason'] as $group) {
             $groupKeys = array_keys((require lang_path('en/suggestions.php'))[$group]);

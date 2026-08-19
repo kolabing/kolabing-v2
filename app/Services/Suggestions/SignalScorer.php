@@ -269,7 +269,7 @@ class SignalScorer
             return null;
         }
 
-        $overlap = array_values(array_intersect($offers, $needs));
+        $overlap = $this->offerOverlap($context);
 
         if ($overlap === []) {
             return [0.0, 'offer_need_none', []];
@@ -278,6 +278,23 @@ class SignalScorer
         return [min(1.0, count($overlap) / count($needs)), 'offer_need_overlap', [
             'items' => $overlap,
         ]];
+    }
+
+    /**
+     * What the viewer can give that the counterpart actually wants.
+     *
+     * Public because FormatSuggester proposes the same list as the Kolab's offer,
+     * and the card shows it twice — once as this signal's reason line, once as
+     * the proposed format. Two implementations would eventually disagree.
+     *
+     * @return array<int, string>
+     */
+    public function offerOverlap(PairContext $context): array
+    {
+        return array_values(array_intersect(
+            array_values(array_unique($context->viewerOffers)),
+            array_values(array_unique($context->counterpartNeeds))
+        ));
     }
 
     /**
@@ -381,14 +398,22 @@ class SignalScorer
     }
 
     /**
-     * Median of the attendance actually reported.
+     * Median of the attendance actually reported, falling back to a quarter of
+     * the declared community size.
+     *
+     * Public because FormatSuggester proposes the same number as the event's
+     * expected attendance, and the card shows it twice — once as this signal's
+     * reason line, once as the proposed format. Two implementations would
+     * eventually disagree, and the reader would see the disagreement.
      *
      * PairContext already rejects a zero or negative `pastAttendance` entry, so
      * this filter is defence in depth rather than a live path — it is what would
      * keep a future caller that bypasses the invariant from medianing unreported
-     * events into "expect around 0 people".
+     * events into "expect around 0 people". The size fallback needs the same
+     * protection for a real reason: a community of one rounds to zero, and
+     * "expect around 0 people" is a claim, not an absence of one.
      */
-    private function expectedAttendance(PairContext $context): ?int
+    public function expectedAttendance(PairContext $context): ?int
     {
         $values = array_values(array_filter(
             $context->pastAttendance,
@@ -404,9 +429,13 @@ class SignalScorer
                 : ($values[$middle] + $values[$middle + 1]) / 2);
         }
 
-        return $context->communitySize !== null && $context->communitySize > 0
-            ? (int) round($context->communitySize * 0.25)
-            : null;
+        if ($context->communitySize === null || $context->communitySize <= 0) {
+            return null;
+        }
+
+        $quarter = (int) round($context->communitySize * 0.25);
+
+        return $quarter > 0 ? $quarter : null;
     }
 
     /**

@@ -33,6 +33,33 @@ return [
 
     /*
     |--------------------------------------------------------------------
+    | Formato propuesto
+    |--------------------------------------------------------------------
+    |
+    | Títulos para el evento que propone una sugerencia, según el tipo de
+    | comunidad que ha resuelto FormatSuggester, con `generic` como respaldo
+    | cuando no hay plantilla para ese tipo (o no hay tipo). Se guardan como
+    | clave más parámetros y se traducen aquí en el momento de leerlos, para
+    | que el idioma del proceso nocturno no llegue a la tarjeta de quien lee.
+    | Son títulos de Kolab: breves y ciertos para ese tipo de comunidad, sin
+    | afirmar nada sobre el colaborador ni sobre las cifras.
+    |
+    */
+    'format' => [
+        'title' => [
+            'run_club' => 'Salida en grupo con parada después de correr',
+            'food_community' => 'Sesión de degustación para una comunidad gastronómica',
+            'fitness_community' => 'Sesión de entrenamiento en grupo',
+            'wellness_community' => 'Sesión de bienestar para una comunidad local',
+            'tech_startup_community' => 'Encuentro para una comunidad tecnológica',
+            'professional_networking_community' => 'Tarde de networking para profesionales',
+            'student_community' => 'Encuentro estudiantil con un negocio local',
+            'generic' => 'Kolab con una comunidad local',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------
     | Vocabulario
     |--------------------------------------------------------------------
     |

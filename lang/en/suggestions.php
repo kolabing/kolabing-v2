@@ -33,6 +33,33 @@ return [
 
     /*
     |--------------------------------------------------------------------
+    | Proposed format
+    |--------------------------------------------------------------------
+    |
+    | Titles for the event a suggestion proposes, keyed by the community type
+    | FormatSuggester resolved, with `generic` as the fallback for a community
+    | type we have no template for (or none at all). Persisted as a key plus
+    | params and rendered here at read time, so the nightly generator's locale
+    | never leaks into a Spanish or Catalan reader's card. These are Kolab
+    | titles: short, and true of the community type without claiming anything
+    | about the partner or the numbers.
+    |
+    */
+    'format' => [
+        'title' => [
+            'run_club' => 'Group run and post-run stop',
+            'food_community' => 'Tasting session for a food community',
+            'fitness_community' => 'Group training session',
+            'wellness_community' => 'Wellness session for a local community',
+            'tech_startup_community' => 'Tech community meetup',
+            'professional_networking_community' => 'Networking evening for professionals',
+            'student_community' => 'Student meetup with a local business',
+            'generic' => 'Kolab with a local community',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------
     | Vocabulary
     |--------------------------------------------------------------------
     |

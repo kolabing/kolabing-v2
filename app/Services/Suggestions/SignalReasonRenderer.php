@@ -59,6 +59,23 @@ class SignalReasonRenderer
         ];
     }
 
+    /**
+     * The proposed event's title, from the same key-plus-params split and for the
+     * same reason: FormatSuggester runs inside the nightly command, so a title it
+     * rendered would reach every reader in the command's locale. Lives here
+     * rather than on FormatSuggester so the resource and the digest render a
+     * title exactly the way they render a reason.
+     *
+     * @param  array<string, mixed>  $format  kolab_suggestions.suggested_format
+     */
+    public function renderTitle(array $format): string
+    {
+        $key = is_string($format['title_key'] ?? null) ? $format['title_key'] : '';
+        $params = is_array($format['title_params'] ?? null) ? $format['title_params'] : [];
+
+        return $this->sentence('suggestions.format.title.', $key, $params, 'format title', 'title_key');
+    }
+
     private function label(string $key): string
     {
         if ($key === '') {
@@ -84,15 +101,29 @@ class SignalReasonRenderer
      */
     private function reason(string $reasonKey, array $params): string
     {
-        if ($reasonKey === '') {
+        return $this->sentence('suggestions.reason.', $reasonKey, $params, 'reason', 'reason_key');
+    }
+
+    /**
+     * One persisted sentence: a key this code may no longer have, plus params a
+     * reworded template may no longer match. Both failures render as an empty
+     * string and log, never as a dotted lang path or a leaked `:placeholder`.
+     *
+     * @param  array<string, mixed>  $params
+     * @param  string  $subject  what the copy is, for the log line
+     * @param  string  $contextKey  which stored field named the key, for the log context
+     */
+    private function sentence(string $langKeyPrefix, string $key, array $params, string $subject, string $contextKey): string
+    {
+        if ($key === '') {
             return '';
         }
 
-        $langKey = 'suggestions.reason.'.$reasonKey;
+        $langKey = $langKeyPrefix.$key;
 
         if (! Lang::has($langKey)) {
-            Log::warning('Persisted suggestion reason names a key this code no longer has.', [
-                'reason_key' => $reasonKey,
+            Log::warning("Persisted suggestion {$subject} names a key this code no longer has.", [
+                $contextKey => $key,
                 'lang_key' => $langKey,
             ]);
 
@@ -103,8 +134,8 @@ class SignalReasonRenderer
         $missing = $this->missingPlaceholders($langKey, $rendered);
 
         if ($missing !== []) {
-            Log::warning('Persisted suggestion reason is missing params its sentence needs.', [
-                'reason_key' => $reasonKey,
+            Log::warning("Persisted suggestion {$subject} is missing params its sentence needs.", [
+                $contextKey => $key,
                 'missing_params' => $missing,
             ]);
 
