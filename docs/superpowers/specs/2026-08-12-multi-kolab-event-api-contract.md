@@ -228,9 +228,20 @@ Summary (list item, `GET /api/v1/multi-kolab-events?status=recruiting&city=&cate
 ```
 
 Detail (`GET /api/v1/multi-kolab-events/{event}`) = the full shape in §3 plus
-`roles: [PartnerRole, ...]` (§4 shape) and, for the viewer's own application if
-any, `viewer_application` (§7 shape) or `null`. Detail never exposes other
-applicants' pitches or private data (§7 note).
+`roles: [PartnerRole, ...]` (§4 shape) plus **two** viewer-application fields.
+Detail never exposes other applicants' pitches or private data (§7 note).
+
+**Added review-response pass (2026-08):** `viewer_application` (singular) used
+to be an arbitrary `first()` across the viewer's applications on multiple
+roles of the same event — non-deterministic. It is now deterministic by
+priority (`accepted > shortlisted > pending > declined > withdrawn`, then
+newest) and **kept for backward compatibility** (Flutter `feat/multi-kolab-
+event-mvp` still reads it as of this pass). `viewer_applications` (plural,
+array, §7 shape) is new and additive: the viewer's full SET of applications
+across every role on this event. **`viewer_applications` is the canonical,
+preferred representation going forward** — Flutter should migrate to it;
+`viewer_application` remains functional in the meantime and is not being
+removed in this pass.
 
 ## 7. Role application
 

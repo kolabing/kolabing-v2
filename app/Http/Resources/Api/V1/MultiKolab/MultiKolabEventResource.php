@@ -60,9 +60,18 @@ class MultiKolabEventResource extends JsonResource
             // getAttribute() safely returns null when unset, so this is
             // always present in the response, matching the contract's
             // detail shape (object or null, never omitted).
+            // Deprecated but kept for backward compatibility (Review item
+            // #11) — was previously an arbitrary `first()` across the
+            // viewer's applications on this event; now deterministic via
+            // priority accepted > shortlisted > pending > declined >
+            // withdrawn, then newest. `viewer_applications` below is the
+            // canonical, preferred representation going forward.
             'viewer_application' => $this->resource->viewer_application !== null
                 ? new MultiKolabRoleApplicationResource($this->resource->viewer_application)
                 : null,
+            'viewer_applications' => MultiKolabRoleApplicationResource::collection(
+                $this->resource->viewer_applications ?? collect()
+            ),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
             'published_at' => $this->published_at?->toIso8601String(),

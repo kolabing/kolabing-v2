@@ -139,7 +139,15 @@ class MultiKolabEventService
             ->where('status', MultiKolabRoleApplicationStatus::Accepted)
             ->exists();
 
-        if ($hasAcceptedApplication) {
+        // A previously-accepted application can later become withdrawn while
+        // its canonical child Kolab still references the role via
+        // `multi_kolab_role_id` (Review item #3) — check the child-Kolab
+        // relation explicitly rather than relying on the application's
+        // *current* status, and never let the DB's FK constraint surface as
+        // an uncaught 500.
+        $hasChildKolab = $role->kolabs()->exists();
+
+        if ($hasAcceptedApplication || $hasChildKolab) {
             throw new InvalidArgumentException(
                 'This role has an accepted application and cannot be removed.'
             );

@@ -16,7 +16,7 @@ class MultiKolabEventPolicy
      */
     public function create(Profile $user): bool
     {
-        return true;
+        return $user->isBusiness() || $user->isCommunity();
     }
 
     /**

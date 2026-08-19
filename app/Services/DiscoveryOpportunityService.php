@@ -535,6 +535,11 @@ class DiscoveryOpportunityService
         $query = Kolab::query()
             ->where('status', KolabStatus::Published)
             ->where('creator_profile_id', '!=', $viewer->id)
+            // Canonical child Kolabs created by Multi-Kolab role acceptance
+            // are internal partnership records, not ordinary open offers —
+            // they surface through the typed multi_kolab_role projection
+            // instead (Review item #7).
+            ->whereNull('multi_kolab_event_id')
             ->with([
                 'creatorProfile' => function ($query): void {
                     $query->select('id', 'user_type', 'avatar_url')
@@ -948,11 +953,72 @@ class DiscoveryOpportunityService
     }
 
     /**
+     * Filter support matrix for Multi-Kolab role items (Review item #6):
+     *
+     * A. Directly supported — semantically meaningful and applied below:
+     *    `city` (event city), `search` (role/event title, need, city).
+     * B. Safely translatable — none currently; every other filter either
+     *    has no Multi-Kolab equivalent or would require guessing intent.
+     * C. Unsupported / not semantically meaningful for a role item, so an
+     *    active filter here must EXCLUDE role items rather than silently
+     *    ignore the filter and still return them: `availability_mode`,
+     *    `availability_from`, `availability_to` (ordinary Kolabs have an
+     *    explicit availability window; Multi-Kolab roles don't), plus every
+     *    ordinary-Kolab-only facet (`need_types`, `community_types`,
+     *    `audience_size_band`, `offers_in_return`, `venue_preferences`,
+     *    `intent_types`, `offer_types`, `venue_types`, `product_types`,
+     *    `expected_deliverables`, `community_requirement_band`).
+     *
+     * @var array<int, string>
+     */
+    private const MULTI_KOLAB_ROLE_UNSUPPORTED_FILTER_KEYS = [
+        'availability_mode',
+        'availability_from',
+        'availability_to',
+        'need_types',
+        'community_types',
+        'audience_size_band',
+        'offers_in_return',
+        'venue_preferences',
+        'intent_types',
+        'offer_types',
+        'venue_types',
+        'product_types',
+        'expected_deliverables',
+        'community_requirement_band',
+    ];
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function hasUnsupportedMultiKolabRoleFilter(array $filters): bool
+    {
+        foreach (self::MULTI_KOLAB_ROLE_UNSUPPORTED_FILTER_KEYS as $key) {
+            $value = $filters[$key] ?? null;
+
+            if (is_array($value) ? $value !== [] : $value !== null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @param  Builder<MultiKolabRole>  $query
      * @param  array<string, mixed>  $filters
      */
     private function applyMultiKolabRoleFilters(Builder $query, array $filters): void
     {
+        if ($this->hasUnsupportedMultiKolabRoleFilter($filters)) {
+            // The response must never claim a filter is applied while
+            // returning role items that ignored it — exclude rather than
+            // leak (Review item #6).
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
         if ($filters['city'] !== null) {
             $query->whereHas('event', function (Builder $eventQuery) use ($filters): void {
                 $eventQuery->where('city', $filters['city']);
