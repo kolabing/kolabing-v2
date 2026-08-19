@@ -20,7 +20,13 @@
                         <template x-if="!dkAvatar"><span x-text="initialOf(dkName)"></span></template>
                     </div>
                     <div class="flex-1 min-w-0">
-                        <p class="text-xl font-bold text-ink" x-text="dkName"></p>
+                        <template x-if="dk?.creator_profile?.id">
+                            <a :href="window.kbPath('/profiles/' + dk.creator_profile.id)"
+                               class="text-xl font-bold text-ink hover:underline" x-text="dkName"></a>
+                        </template>
+                        <template x-if="!dk?.creator_profile?.id">
+                            <p class="text-xl font-bold text-ink" x-text="dkName"></p>
+                        </template>
                         <span class="inline-block mt-1.5 px-2.5 py-[3px] rounded-pill bg-cream-input text-[11px] font-semibold text-body" x-text="dkTypeLabel"></span>
                     </div>
                     <button type="button" @click="closeDetail()" class="w-9 h-9 rounded-full bg-cream-low hover:bg-cream-low-hover transition flex items-center justify-center shrink-0" aria-label="{{ __('webapp.common.close') }}">

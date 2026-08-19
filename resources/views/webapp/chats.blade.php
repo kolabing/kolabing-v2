@@ -97,7 +97,13 @@
                             <template x-if="!avatarFor(active)"><span x-text="initialOf(titleFor(active))"></span></template>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <p class="text-[14px] font-bold text-ink truncate" x-text="titleFor(active)"></p>
+                            <template x-if="counterpart(active)?.id">
+                                <a :href="window.kbPath('/profiles/' + counterpart(active).id)"
+                                   class="block text-[14px] font-bold text-ink truncate hover:underline" x-text="titleFor(active)"></a>
+                            </template>
+                            <template x-if="!counterpart(active)?.id">
+                                <p class="text-[14px] font-bold text-ink truncate" x-text="titleFor(active)"></p>
+                            </template>
                             <p class="text-[11.5px] text-muted flex items-center gap-1.5">
                                 <span x-text="kindLabel(active)"></span>
                                 {{-- Socket state is worth surfacing: it is the difference

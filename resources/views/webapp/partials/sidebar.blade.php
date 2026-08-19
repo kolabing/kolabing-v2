@@ -135,10 +135,10 @@
             <template x-if="!avatarUrl">
                 <div class="w-9 h-9 rounded-full bg-primary/50 flex items-center justify-center text-sm font-semibold shrink-0" x-text="initial">&nbsp;</div>
             </template>
-            <div class="flex-1 min-w-0">
-                <p class="text-[13px] font-semibold truncate" x-text="displayName">&nbsp;</p>
+            <a :href="me?.id ? window.kbPath('/profiles/' + me.id) : window.kbPath('/account')" class="flex-1 min-w-0 group">
+                <p class="text-[13px] font-semibold truncate group-hover:underline" x-text="displayName">&nbsp;</p>
                 <p class="text-[11px] text-muted" x-text="roleLabel">&nbsp;</p>
-            </div>
+            </a>
             <button type="button" @click="window.kb.logout()" title="{{ __('webapp.nav.logout') }}" class="text-muted hover:text-ink shrink-0">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
             </button>

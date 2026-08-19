@@ -8,7 +8,12 @@
     <main class="flex-1 min-w-0 overflow-x-hidden">
     <div class="max-w-[640px] mx-auto px-5 md:px-10 py-8 md:py-10 pb-20 kb-fade-up">
 
-        <h1 class="font-anton text-[28px] tracking-[1px] text-ink">{{ __('webapp.account.title') }}</h1>
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+            <h1 class="font-anton text-[28px] tracking-[1px] text-ink">{{ __('webapp.account.title') }}</h1>
+            {{-- Editing is easier when you can see what the edit produces. --}}
+            <a x-show="me?.id" x-cloak :href="window.kbPath('/profiles/' + me.id)"
+               class="h-9 px-4 rounded-pill bg-white border border-line text-[13px] font-bold hover:border-ink transition inline-flex items-center">{{ __('webapp.profile.title') }}</a>
+        </div>
 
         <template x-if="error">
             <div class="mt-5 rounded-2xl bg-bad-surface text-bad-ink text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
