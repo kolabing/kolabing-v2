@@ -1349,7 +1349,7 @@ Commit: `feat(suggestions): en/es/ca copy for the suggestions surface`
 - Modify: `routes/web.php` (register in **both** the root and the `{locale}` group, like `/feed`)
 - Test: `tests/Feature/WebApp/WebAppRoutesTest.php` (extend)
 
-Copy the structure of `feed.blade.php`: `@extends('webapp.layout')`, `x-data="kbMerge(kbShell(), kbModalMixin(), suggestionsPage())"`, rows via `kb.rows()`, Anton headings, cream/`#FFE28C` palette, `rounded-pill` controls.
+Copy the structure of `feed.blade.php`: `@extends('webapp.layout')`, `x-data="kbMerge(kbShell(), suggestionsPage())"` — **not** `kbModalMixin()`, which is only defined by `@include('webapp.partials.kolab-modals')`; merging it without that include throws and the component never initialises (match `notifications.blade.php`). Rows via `kb.rows()`, Anton headings, cream/`#FFE28C` palette, `rounded-pill` controls.
 
 Card contents, in this order: score badge · confidence chip · counterpart (blurred variant when `is_identity_blurred`) · the three `signals[].reason` lines · proposed format (weekday/time/expected attendance) · proposed offer chips · **Create this Kolab** → `/kolabs/create?suggestion={id}` · **Not interested** → `POST /suggestions/{id}/dismiss` then remove the card optimistically.
 
