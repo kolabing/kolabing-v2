@@ -29,6 +29,29 @@ class KolabingVerifiedLeadsSeederTest extends TestCase
         $this->assertArrayHasKey('confidence', $sample->metrics);
     }
 
+    public function test_verified_rows_have_numeric_audience_and_locality_flags(): void
+    {
+        $this->seed(KolabingVerifiedLeadsSeeder::class);
+
+        $withNumeric = CrmAccount::query()->where('type', 'community')
+            ->where('metrics->source', 'neil-2026-08-18-verified')
+            ->where('metrics->audience_count', '>', 0)->count();
+        $this->assertGreaterThan(120, $withNumeric, 'most verified rows should carry a numeric audience_count for scoring');
+
+        $sample = CrmAccount::query()->where('type', 'community')
+            ->where('metrics->source', 'neil-2026-08-18-verified')->first();
+        $this->assertTrue($sample->metrics['locality_confirmed']);
+        $this->assertFalse($sample->metrics['is_global_brand']);
+    }
+
+    public function test_barcelona_is_seeded_as_the_eighth_city(): void
+    {
+        $this->seed(KolabingVerifiedLeadsSeeder::class);
+
+        $this->assertGreaterThanOrEqual(15, CrmAccount::query()->where('type', 'community')
+            ->where('metrics->city', 'Barcelona')->count(), 'Barcelona (home city) should be seeded');
+    }
+
     public function test_it_retires_the_first_pass_rows(): void
     {
         // A first-pass (flawed) row that should be removed by the verified seeder.

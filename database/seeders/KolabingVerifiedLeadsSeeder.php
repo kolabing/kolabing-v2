@@ -60,7 +60,11 @@ class KolabingVerifiedLeadsSeeder extends Seeder
                         'source' => self::SOURCE,
                         'city' => $this->clean($r['city'] ?? ''),
                         'classification' => $this->clean($r['classification'] ?? ''),
+                        // All verified rows passed the identity gate as genuine local communities.
+                        'locality_confirmed' => true,
+                        'is_global_brand' => false,
                         'audience' => $this->clean($r['audience'] ?? ''),
+                        'audience_count' => $this->extractNumeric($r['audience'] ?? ''),
                         'audience_source' => $this->clean($r['audience_source'] ?? ''),
                         'last_active' => $this->clean($r['last_active'] ?? ''),
                         'last_active_date' => $this->clean($r['last_active_date'] ?? ''),
@@ -101,6 +105,12 @@ class KolabingVerifiedLeadsSeeder extends Seeder
         fclose($fh);
 
         return $rows;
+    }
+
+    /** First run of digits in a display string ("7,124 IG followers" -> 7124). 0 when none. */
+    private function extractNumeric(string $v): int
+    {
+        return preg_match('/([0-9][0-9,.]{1,})/', $v, $m) ? (int) str_replace([',', '.'], '', $m[1]) : 0;
     }
 
     private function clean(string $v): string
