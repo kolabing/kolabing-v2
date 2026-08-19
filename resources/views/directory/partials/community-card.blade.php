@@ -8,8 +8,11 @@
     $blurb = $m['blurb'] ?? trim(implode(' · ', array_filter([$m['audience'] ?? null, $m['cadence'] ?? null, $m['collab'] ?? null])));
 
     // Deterministic on-brand avatar tile by vertical; initials in Montserrat black.
-    $initials = collect(preg_split('/\s+/', trim(preg_replace('/[^\p{L}\s]/u', '', $a->name)) ?: 'K'))
-        ->filter()->take(2)->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))->implode('');
+    $cleanName = trim(preg_replace('/\s+/', ' ', preg_replace('/[^\p{L}\s]/u', ' ', str_replace(['º', 'ª'], '', $a->name))));
+    $words = array_values(array_filter(explode(' ', $cleanName)));
+    $initials = count($words) >= 2
+        ? mb_strtoupper(mb_substr($words[0], 0, 1).mb_substr($words[1], 0, 1))
+        : mb_strtoupper(mb_substr($words[0] ?? 'K', 0, 2));
     $vert = mb_strtolower($m['vertical'] ?? '');
     $tiles = ['run' => '#FFE9A3', 'cycl' => '#FFD560', 'well' => '#CDE9D9', 'sauna' => '#CDE9D9',
         'tech' => '#DDE3EA', 'ai' => '#DDE3EA', 'startup' => '#DDE3EA', 'product' => '#DDE3EA', 'found' => '#DDE3EA',
@@ -94,10 +97,15 @@
             @endforeach
         </div>
 
-        {{-- Honest social proof: real vouch count (0 shown honestly) + verified-member proof. --}}
+        {{-- Honest social proof: a real Like count (hidden until >0 so day-one cards
+             don't read as unloved) + email-verified-member proof. --}}
         <div class="mt-3 flex flex-wrap items-center gap-4 border-t border-off-black/5 pt-3">
-            <button type="button" data-vouch="{{ $a->id }}" class="inline-flex items-center gap-1.5 text-xs font-semibold text-off-black/60 hover:text-off-black">
-                <span aria-hidden="true">👍</span> Vouch <span data-vouch-count class="tabular-nums">{{ $vouches }}</span>
+            <button type="button" data-vouch="{{ $a->id }}" aria-label="Like this community"
+                    class="group/like inline-flex items-center gap-1.5 text-xs font-semibold text-off-black/60 hover:text-off-black">
+                <svg class="h-4 w-4 transition group-hover/like:scale-110" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/>
+                </svg>
+                Like<span data-vouch-count class="tabular-nums {{ $vouches > 0 ? '' : 'hidden' }}"> {{ $vouches }}</span>
             </button>
             @if ($verifiedMembers > 0)
                 <span class="text-xs text-off-black/50" title="Members who verified this community by email">Verified by {{ $verifiedMembers }} {{ \Illuminate\Support\Str::plural('member', $verifiedMembers) }}</span>

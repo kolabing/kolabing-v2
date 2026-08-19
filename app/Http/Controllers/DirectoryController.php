@@ -204,17 +204,18 @@ class DirectoryController extends Controller
      */
     public function badge(string $city, string $id): View
     {
-        $communities = $this->projection->forCity($this->listedCommunities(), $city);
-        $ranked = $this->projection->hubRanked($communities);
-        $account = $communities->firstWhere('id', $id);
-        $rank = $ranked->search(fn (CrmAccount $a) => $a->id === $id);
-
+        $account = $this->projection->forCity($this->listedCommunities(), $city)->firstWhere('id', $id);
         abort_if($account === null, 404);
+
+        // A community's rank is its position in its own list: hub position for hub
+        // members, otherwise its category position. (The hub-only search left every
+        // topic-only community's badge with no number.)
+        $pos = $account->metrics['hub_rank'] ?? $account->metrics['rank_override'] ?? null;
 
         return view('directory.badge', [
             'name' => $account->name,
             'city' => $city,
-            'rank' => $rank === false ? null : $rank + 1,
+            'rank' => $pos === null ? null : (int) $pos + 1,
             'url' => route('directory.city', $city),
         ]);
     }
