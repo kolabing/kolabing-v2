@@ -133,4 +133,41 @@ return [
             'body' => '":kolab" se canceló porque el otro participante eliminó su cuenta.',
         ],
     ],
+
+    'multi_kolab' => [
+        'application' => [
+            'received' => [
+                'title' => 'Nueva solicitud de rol',
+                'body' => ':name solicitó el rol ":role" en ":event".',
+            ],
+            'accepted' => [
+                'title' => 'Solicitud aceptada',
+                'body' => '¡Tu solicitud para el rol ":role" en ":event" fue aceptada!',
+            ],
+            'declined' => [
+                'title' => 'Solicitud rechazada',
+                'body' => 'Tu solicitud para el rol ":role" en ":event" fue rechazada.',
+            ],
+            'withdrawn' => [
+                'title' => 'Un socio se retiró',
+                'body' => ':name se retiró del rol ":role" en ":event".',
+            ],
+        ],
+        'role' => [
+            'filled' => [
+                'title' => 'Rol cubierto',
+                'body' => 'El rol ":role" en ":event" ya está cubierto.',
+            ],
+        ],
+        'event' => [
+            'confirmed' => [
+                'title' => 'Evento confirmado',
+                'body' => '":event" ya está confirmado. ¡Nos vemos allí!',
+            ],
+            'cancelled' => [
+                'title' => 'Evento cancelado',
+                'body' => '":event" fue cancelado: :reason',
+            ],
+        ],
+    ],
 ];

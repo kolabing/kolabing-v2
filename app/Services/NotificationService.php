@@ -14,6 +14,9 @@ use App\Models\Collaboration;
 use App\Models\CommunityMember;
 use App\Models\CommunityTier;
 use App\Models\Kolab;
+use App\Models\MultiKolabEvent;
+use App\Models\MultiKolabRole;
+use App\Models\MultiKolabRoleApplication;
 use App\Models\Notification;
 use App\Models\Profile;
 use App\Models\RewardClaim;
@@ -852,5 +855,202 @@ class NotificationService
             targetType: 'community_member',
             emailModel: ['tier_name' => $tier->name],
         );
+    }
+
+    // --- Multi-Kolab Event MVP ------------------------------------------------
+    // Callers are responsible for only invoking these on the actual
+    // state-changing path (never on an idempotent early-return), so retrying
+    // a request never sends a duplicate notification — see
+    // MultiKolabRoleApplicationService::accept()/withdraw() and
+    // MultiKolabEventService::confirm()/cancel().
+
+    /**
+     * Notify the event organizer that a new application landed on one of
+     * their roles.
+     */
+    public function notifyMultiKolabApplicationReceived(MultiKolabRoleApplication $application): void
+    {
+        $application->loadMissing(['role.event.creatorProfile', 'applicantProfile']);
+        $role = $application->role;
+        $event = $role?->event;
+        $organizer = $event?->creatorProfile;
+
+        if ($organizer === null || $event === null || $role === null) {
+            return;
+        }
+
+        $applicant = $application->applicantProfile;
+        $applicantName = $applicant?->getExtendedProfile()?->name ?? 'Someone';
+
+        $this->createLocalizedNotification(
+            recipient: $organizer,
+            type: NotificationType::MultiKolabApplicationReceived,
+            titleKey: 'notifications.multi_kolab.application.received.title',
+            bodyKey: 'notifications.multi_kolab.application.received.body',
+            replace: ['name' => $applicantName, 'role' => $role->title, 'event' => $event->title],
+            actor: $applicant,
+            targetId: $application->id,
+            targetType: 'multi_kolab_role_application',
+        );
+    }
+
+    /**
+     * Notify the applicant their application was accepted.
+     */
+    public function notifyMultiKolabApplicantAccepted(MultiKolabRoleApplication $application): void
+    {
+        $application->loadMissing(['role.event.creatorProfile', 'applicantProfile']);
+        $role = $application->role;
+        $event = $role?->event;
+        $applicant = $application->applicantProfile;
+
+        if ($applicant === null || $event === null || $role === null) {
+            return;
+        }
+
+        $this->createLocalizedNotification(
+            recipient: $applicant,
+            type: NotificationType::MultiKolabApplicantAccepted,
+            titleKey: 'notifications.multi_kolab.application.accepted.title',
+            bodyKey: 'notifications.multi_kolab.application.accepted.body',
+            replace: ['role' => $role->title, 'event' => $event->title],
+            actor: $event->creatorProfile,
+            targetId: $application->id,
+            targetType: 'multi_kolab_role_application',
+        );
+    }
+
+    /**
+     * Notify the applicant their application was declined.
+     */
+    public function notifyMultiKolabApplicantDeclined(MultiKolabRoleApplication $application): void
+    {
+        $application->loadMissing(['role.event.creatorProfile', 'applicantProfile']);
+        $role = $application->role;
+        $event = $role?->event;
+        $applicant = $application->applicantProfile;
+
+        if ($applicant === null || $event === null || $role === null) {
+            return;
+        }
+
+        $this->createLocalizedNotification(
+            recipient: $applicant,
+            type: NotificationType::MultiKolabApplicantDeclined,
+            titleKey: 'notifications.multi_kolab.application.declined.title',
+            bodyKey: 'notifications.multi_kolab.application.declined.body',
+            replace: ['role' => $role->title, 'event' => $event->title],
+            actor: $event->creatorProfile,
+            targetId: $application->id,
+            targetType: 'multi_kolab_role_application',
+        );
+    }
+
+    /**
+     * Notify the organizer that an already-accepted partner withdrew.
+     * Deliberately not called for a pending/shortlisted withdrawal — only a
+     * "partner withdrawal" (post-acceptance) needs organizer attention.
+     */
+    public function notifyMultiKolabPartnerWithdrew(MultiKolabRoleApplication $application): void
+    {
+        $application->loadMissing(['role.event.creatorProfile', 'applicantProfile']);
+        $role = $application->role;
+        $event = $role?->event;
+        $organizer = $event?->creatorProfile;
+
+        if ($organizer === null || $event === null || $role === null) {
+            return;
+        }
+
+        $applicant = $application->applicantProfile;
+        $applicantName = $applicant?->getExtendedProfile()?->name ?? 'Your partner';
+
+        $this->createLocalizedNotification(
+            recipient: $organizer,
+            type: NotificationType::MultiKolabPartnerWithdrew,
+            titleKey: 'notifications.multi_kolab.application.withdrawn.title',
+            bodyKey: 'notifications.multi_kolab.application.withdrawn.body',
+            replace: ['name' => $applicantName, 'role' => $role->title, 'event' => $event->title],
+            actor: $applicant,
+            targetId: $application->id,
+            targetType: 'multi_kolab_role_application',
+        );
+    }
+
+    /**
+     * Notify the organizer that a role is now fully filled.
+     */
+    public function notifyMultiKolabRoleFilled(MultiKolabRole $role): void
+    {
+        $role->loadMissing('event.creatorProfile');
+        $event = $role->event;
+        $organizer = $event?->creatorProfile;
+
+        if ($organizer === null || $event === null) {
+            return;
+        }
+
+        $this->createLocalizedNotification(
+            recipient: $organizer,
+            type: NotificationType::MultiKolabRoleFilled,
+            titleKey: 'notifications.multi_kolab.role.filled.title',
+            bodyKey: 'notifications.multi_kolab.role.filled.body',
+            replace: ['role' => $role->title, 'event' => $event->title],
+            targetId: $role->id,
+            targetType: 'multi_kolab_role',
+        );
+    }
+
+    /**
+     * Notify every accepted partner that the event is now confirmed.
+     */
+    public function notifyMultiKolabEventConfirmed(MultiKolabEvent $event): void
+    {
+        $applicants = $this->acceptedApplicants($event);
+
+        foreach ($applicants as $applicant) {
+            $this->createLocalizedNotification(
+                recipient: $applicant,
+                type: NotificationType::MultiKolabEventConfirmed,
+                titleKey: 'notifications.multi_kolab.event.confirmed.title',
+                bodyKey: 'notifications.multi_kolab.event.confirmed.body',
+                replace: ['event' => $event->title],
+                targetId: $event->id,
+                targetType: 'multi_kolab_event',
+            );
+        }
+    }
+
+    /**
+     * Notify every accepted partner that the event was cancelled.
+     */
+    public function notifyMultiKolabEventCancelled(MultiKolabEvent $event, string $reason): void
+    {
+        $applicants = $this->acceptedApplicants($event);
+
+        foreach ($applicants as $applicant) {
+            $this->createLocalizedNotification(
+                recipient: $applicant,
+                type: NotificationType::MultiKolabEventCancelled,
+                titleKey: 'notifications.multi_kolab.event.cancelled.title',
+                bodyKey: 'notifications.multi_kolab.event.cancelled.body',
+                replace: ['event' => $event->title, 'reason' => $reason],
+                targetId: $event->id,
+                targetType: 'multi_kolab_event',
+            );
+        }
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, Profile>
+     */
+    private function acceptedApplicants(MultiKolabEvent $event): \Illuminate\Support\Collection
+    {
+        return Profile::query()
+            ->whereIn('id', MultiKolabRoleApplication::query()
+                ->whereIn('multi_kolab_role_id', $event->roles()->pluck('id'))
+                ->where('status', \App\Enums\MultiKolabRoleApplicationStatus::Accepted)
+                ->pluck('applicant_profile_id'))
+            ->get();
     }
 }

@@ -8,10 +8,14 @@ use App\Models\Application;
 use App\Models\Collaboration;
 use App\Models\Community;
 use App\Models\Kolab;
+use App\Models\MultiKolabEvent;
+use App\Models\MultiKolabRoleApplication;
 use App\Policies\ApplicationPolicy;
 use App\Policies\CollaborationPolicy;
 use App\Policies\CommunityPolicy;
 use App\Policies\KolabPolicy;
+use App\Policies\MultiKolabEventPolicy;
+use App\Policies\MultiKolabRoleApplicationPolicy;
 use App\Services\Admin\CompanySettingService;
 use App\Services\PostmarkClient;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -131,6 +135,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Collaboration::class, CollaborationPolicy::class);
         Gate::policy(Kolab::class, KolabPolicy::class);
         Gate::policy(Community::class, CommunityPolicy::class);
+        Gate::policy(MultiKolabEvent::class, MultiKolabEventPolicy::class);
+        Gate::policy(MultiKolabRoleApplication::class, MultiKolabRoleApplicationPolicy::class);
     }
 
     private function initializePostHog(): void

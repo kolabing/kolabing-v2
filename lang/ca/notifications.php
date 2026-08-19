@@ -133,4 +133,41 @@ return [
             'body' => '":kolab" s\'ha cancel·lat perquè l\'altre participant ha eliminat el seu compte.',
         ],
     ],
+
+    'multi_kolab' => [
+        'application' => [
+            'received' => [
+                'title' => 'Nova sol·licitud de rol',
+                'body' => ':name ha sol·licitat el rol ":role" a ":event".',
+            ],
+            'accepted' => [
+                'title' => 'Sol·licitud acceptada',
+                'body' => 'La teva sol·licitud pel rol ":role" a ":event" ha estat acceptada!',
+            ],
+            'declined' => [
+                'title' => 'Sol·licitud rebutjada',
+                'body' => 'La teva sol·licitud pel rol ":role" a ":event" ha estat rebutjada.',
+            ],
+            'withdrawn' => [
+                'title' => 'Un soci s\'ha retirat',
+                'body' => ':name s\'ha retirat del rol ":role" a ":event".',
+            ],
+        ],
+        'role' => [
+            'filled' => [
+                'title' => 'Rol cobert',
+                'body' => 'El rol ":role" a ":event" ja està cobert.',
+            ],
+        ],
+        'event' => [
+            'confirmed' => [
+                'title' => 'Esdeveniment confirmat',
+                'body' => '":event" ja està confirmat. Ens veiem allà!',
+            ],
+            'cancelled' => [
+                'title' => 'Esdeveniment cancel·lat',
+                'body' => '":event" s\'ha cancel·lat: :reason',
+            ],
+        ],
+    ],
 ];

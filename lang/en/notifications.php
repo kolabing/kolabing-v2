@@ -133,4 +133,41 @@ return [
             'body' => '":kolab" was cancelled because the other participant deleted their account.',
         ],
     ],
+
+    'multi_kolab' => [
+        'application' => [
+            'received' => [
+                'title' => 'New Role Application',
+                'body' => ':name applied to your ":role" role on ":event".',
+            ],
+            'accepted' => [
+                'title' => 'Application Accepted',
+                'body' => 'Your application for the ":role" role on ":event" was accepted!',
+            ],
+            'declined' => [
+                'title' => 'Application Declined',
+                'body' => 'Your application for the ":role" role on ":event" was declined.',
+            ],
+            'withdrawn' => [
+                'title' => 'Partner Withdrew',
+                'body' => ':name withdrew from the ":role" role on ":event".',
+            ],
+        ],
+        'role' => [
+            'filled' => [
+                'title' => 'Role Filled',
+                'body' => 'The ":role" role on ":event" is now filled.',
+            ],
+        ],
+        'event' => [
+            'confirmed' => [
+                'title' => 'Event Confirmed',
+                'body' => '":event" is now confirmed. See you there!',
+            ],
+            'cancelled' => [
+                'title' => 'Event Cancelled',
+                'body' => '":event" was cancelled: :reason',
+            ],
+        ],
+    ],
 ];
