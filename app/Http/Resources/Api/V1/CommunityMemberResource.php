@@ -33,6 +33,8 @@ class CommunityMemberResource extends JsonResource
             'tier_assigned_at' => $this->tier_assigned_at?->toIso8601String(),
             'profile' => $this->whenLoaded('profile', fn () => [
                 'name' => $this->profileDisplayName(),
+                'handle' => $this->profile?->handle,
+                'email' => $this->profile?->email,
                 'avatar_url' => $this->profileAvatarUrl(),
             ]),
             'created_at' => $this->created_at?->toIso8601String(),
@@ -40,8 +42,19 @@ class CommunityMemberResource extends JsonResource
         ];
     }
 
+    /**
+     * profiles.name is the canonical display name (set at onboarding for every
+     * user type). attendee_profiles carries no name column at all, so the old
+     * extended-profile-first order rendered every community member as their
+     * email prefix. Extended names stay as a fallback for business/community
+     * profiles created before profiles.name existed.
+     */
     private function profileDisplayName(): ?string
     {
+        if (filled($this->profile?->name)) {
+            return $this->profile->name;
+        }
+
         $extended = $this->profile?->getExtendedProfile();
 
         if ($extended && ! empty($extended->name)) {
