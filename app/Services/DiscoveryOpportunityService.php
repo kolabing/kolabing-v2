@@ -1242,13 +1242,14 @@ class DiscoveryOpportunityService
         };
     }
 
+    /**
+     * Delegates to the matrix's own normaliser so Explore and the nightly
+     * suggestion scorer can never disagree about what a stored category
+     * normalises to — they both feed the same exact-match table.
+     */
     private function normalizeCategoryValue(string $value): string
     {
-        return Str::of($value)
-            ->trim()
-            ->lower()
-            ->replace([' ', '-'], '_')
-            ->value();
+        return CategoryFitMatrix::normalize($value);
     }
 
     /**

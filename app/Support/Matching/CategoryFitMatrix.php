@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Support\Matching;
 
+use Illuminate\Support\Str;
+
 /**
  * Single source for the community-type × business-category affinity matrix.
  *
@@ -13,9 +15,11 @@ namespace App\Support\Matching;
  *
  * Row keys are community-type slugs as stored (the `community_types` seed
  * vocabulary); column keys are business category / venue / product values as
- * stored. Lookups are exact-match: this class performs no normalisation, and
- * callers are expected to pass values they have already normalised themselves
- * (Explore, for one, trims and lower-cases before calling).
+ * stored. Lookups are exact-match: `score()` performs no normalisation, and
+ * callers are expected to pass values they have already put through
+ * `normalize()` — which lives here, rather than in each caller, so the two
+ * surfaces reading this table can never disagree about what a stored
+ * `"Food Truck"` normalises to.
  *
  * A missing pairing yields null — "no data for this signal" — rather than 0.0,
  * which would instead assert the pair is a *bad* match.
@@ -100,5 +104,21 @@ final class CategoryFitMatrix
         }
 
         return self::MATRIX[$communityType][$businessCategory] ?? null;
+    }
+
+    /**
+     * Put a stored community type or business category into the slug form this
+     * table keys on: `" Food Truck"` and `"food-truck"` both become
+     * `food_truck`. Every caller of `score()` must go through this first — the
+     * lookup is exact-match, so an un-normalised value silently returns null for
+     * every row and the caller loses the signal without an error.
+     */
+    public static function normalize(string $value): string
+    {
+        return Str::of($value)
+            ->trim()
+            ->lower()
+            ->replace([' ', '-'], '_')
+            ->value();
     }
 }

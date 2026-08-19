@@ -7,6 +7,7 @@ namespace Tests\Unit\Services\Suggestions;
 use App\Enums\SuggestionAudience;
 use App\Services\Suggestions\PairContext;
 use App\Services\Suggestions\SignalScorer;
+use LogicException;
 use Tests\TestCase;
 
 class SignalScorerTest extends TestCase
@@ -219,6 +220,29 @@ class SignalScorerTest extends TestCase
         $this->assertSame('high', $result['confidence']);
     }
 
+    /**
+     * `location_fit + scale_fit + delivery_proof` is 0.45 in decimal, which is
+     * exactly the `medium` threshold — but accumulating those three doubles
+     * yields 0.44999999999999995559, so a float comparison lands on `low`. Three
+     * further subsets of the shipped weights do the same. Confidence therefore
+     * compares integer basis points.
+     */
+    public function test_confidence_is_medium_when_the_available_weight_lands_exactly_on_the_threshold(): void
+    {
+        $result = (new SignalScorer)->score($this->context([
+            'communityType' => null,
+            'viewerOffers' => [],
+            'recentEventCount' => 0,
+            'hasActiveSeries' => false,
+        ]));
+
+        $this->assertSame(
+            ['location_fit', 'scale_fit', 'delivery_proof'],
+            array_column($result['signals'], 'key')
+        );
+        $this->assertSame('medium', $result['confidence']);
+    }
+
     public function test_a_totally_unknown_pair_scores_zero_rather_than_throwing(): void
     {
         $result = (new SignalScorer)->score($this->context([
@@ -266,7 +290,6 @@ class SignalScorerTest extends TestCase
 
         $this->assertNull($this->signal($result, 'category_fit'));
         $this->assertCount(5, $result['signals']);
-        $this->assertSame('high', $result['confidence']);
     }
 
     public function test_offer_need_fit_reports_zero_when_nothing_overlaps(): void
@@ -361,5 +384,139 @@ class SignalScorerTest extends TestCase
                 array_keys($signal)
             );
         }
+    }
+
+    public function test_category_fit_normalises_stored_values_before_the_exact_match_lookup(): void
+    {
+        $result = (new SignalScorer)->score($this->context([
+            'communityType' => ' Run Club ',
+            'businessCategories' => ['Sports-Facility'],
+        ]));
+
+        $signal = $this->signal($result, 'category_fit');
+
+        $this->assertNotNull($signal);
+        $this->assertSame(1.0, $signal['score']);
+        $this->assertSame([
+            'community_type' => 'run_club',
+            'business_category' => 'sports_facility',
+        ], $signal['reason_params']);
+    }
+
+    public function test_offer_need_fit_ignores_duplicates_on_both_sides(): void
+    {
+        $result = (new SignalScorer)->score($this->context([
+            'viewerOffers' => ['venue', 'venue'],
+            'counterpartNeeds' => ['venue'],
+        ]));
+
+        $signal = $this->signal($result, 'offer_need_fit');
+
+        $this->assertNotNull($signal);
+        $this->assertSame(1.0, $signal['score']);
+        $this->assertSame(['items' => ['venue']], $signal['reason_params']);
+
+        $duplicatedNeeds = $this->signal((new SignalScorer)->score($this->context([
+            'viewerOffers' => ['venue'],
+            'counterpartNeeds' => ['venue', 'venue', 'food_drink'],
+        ])), 'offer_need_fit');
+
+        $this->assertNotNull($duplicatedNeeds);
+        $this->assertSame(0.5, $duplicatedNeeds['score']);
+    }
+
+    /**
+     * `(float) config(null)` is 0.0 and PHP 8 throws DivisionByZeroError on float
+     * division by zero — which would kill the whole nightly batch, not one pair.
+     */
+    public function test_location_fit_falls_back_to_city_equality_when_the_max_distance_is_unusable(): void
+    {
+        config()->set('suggestions.max_distance_km', 0);
+
+        $signal = $this->signal(
+            (new SignalScorer)->score($this->context(['distanceKm' => 2.0])),
+            'location_fit'
+        );
+
+        $this->assertNotNull($signal);
+        $this->assertSame(1.0, $signal['score']);
+        $this->assertSame('location_same_city', $signal['reason_key']);
+    }
+
+    public function test_delivery_proof_names_only_the_content_when_there_are_no_reviews_yet(): void
+    {
+        $signal = $this->signal((new SignalScorer)->score($this->context([
+            'audience' => SuggestionAudience::Business,
+            'contentDelivered' => 6,
+            'reviewCount' => 0,
+            'averageRating' => null,
+        ])), 'delivery_proof');
+
+        $this->assertNotNull($signal);
+        $this->assertSame('delivery_proof_content', $signal['reason_key']);
+        $this->assertSame(['content' => 6], $signal['reason_params']);
+    }
+
+    public function test_delivery_proof_names_only_the_rating_when_nothing_was_delivered(): void
+    {
+        $signal = $this->signal((new SignalScorer)->score($this->context([
+            'audience' => SuggestionAudience::Business,
+            'contentDelivered' => 0,
+            'reviewCount' => 3,
+            'averageRating' => 4.6,
+        ])), 'delivery_proof');
+
+        $this->assertNotNull($signal);
+        $this->assertSame('delivery_proof_rating', $signal['reason_key']);
+        $this->assertSame(['rating' => 4.6], $signal['reason_params']);
+    }
+
+    public function test_delivery_proof_names_only_the_reviews_when_no_rating_landed(): void
+    {
+        $signal = $this->signal((new SignalScorer)->score($this->context([
+            'audience' => SuggestionAudience::Community,
+            'contentDelivered' => 0,
+            'reviewCount' => 3,
+            'averageRating' => null,
+        ])), 'delivery_proof');
+
+        $this->assertNotNull($signal);
+        $this->assertSame('delivery_proof_reviews', $signal['reason_key']);
+        $this->assertSame(['reviews' => 3], $signal['reason_params']);
+    }
+
+    /**
+     * The renormalisation divides by the weight of the signals that had data, so
+     * the weights must be a partition of 1.0 for a full-data score to mean
+     * "percent of the best possible pair".
+     */
+    public function test_the_configured_weights_sum_to_one(): void
+    {
+        $this->assertSame(1.0, array_sum(config('suggestions.weights')));
+    }
+
+    public function test_a_missing_weight_key_is_an_error_rather_than_a_silent_zero(): void
+    {
+        $weights = config('suggestions.weights');
+        unset($weights['momentum']);
+        config()->set('suggestions.weights', $weights);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('missing [momentum]');
+
+        (new SignalScorer)->score($this->context());
+    }
+
+    public function test_an_unrecognised_weight_key_is_an_error_rather_than_silently_ignored(): void
+    {
+        config()->set('suggestions.weights', array_merge(
+            config('suggestions.weights'),
+            ['vibe_fit' => 0.1]
+        ));
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('unexpected [vibe_fit]');
+
+        (new SignalScorer)->score($this->context());
     }
 }
