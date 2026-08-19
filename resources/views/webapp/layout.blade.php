@@ -361,10 +361,18 @@
              * data.data, while plain ones (notifications, lookups) put it at data —
              * read both so a caller never silently renders an empty list.
              */
-            rows(res) {
+            rows(res, key = null) {
                 const d = res?.json?.data;
                 if (Array.isArray(d)) return d;
                 if (Array.isArray(d?.data)) return d.data;
+                // Envelope-style endpoints name their list key alongside sibling
+                // metadata — the community roster returns data.members next to
+                // data.pagination. Without this branch it silently returned [].
+                if (key && Array.isArray(d?.[key])) return d[key];
+                if (d && typeof d === 'object') {
+                    const firstList = Object.values(d).find(v => Array.isArray(v));
+                    if (firstList) return firstList;
+                }
                 return [];
             },
             /** Pagination meta, wherever the endpoint puts it. */
@@ -539,6 +547,47 @@
                 get initial() { return window.kbInitial(this.displayName); },
                 get avatarUrl() { return this.profile.logo_url || this.profile.profile_photo || this.me?.avatar_url || ''; },
                 get roleLabel() { return this.isBusiness ? window.t('nav.role_business') : window.t('nav.role_community'); },
+                /*
+                 | Community Hub access.
+                 |
+                 | Gated on the GRANT, never on user_type: a community manager is
+                 | an attendee account carrying can_manage on their membership
+                 | (ROLES §8.1 / §8.3 D1). A leader owns their community outright.
+                 */
+                communities: [], communityPending: 0,
+                get canManageCommunity() { return this.communities.length > 0; },
+                get activeCommunity() {
+                    const saved = localStorage.getItem('kolabing_active_community');
+                    return this.communities.find(c => c.id === saved) || this.communities[0] || null;
+                },
+                setActiveCommunity(id) {
+                    localStorage.setItem('kolabing_active_community', id);
+                    location.reload();
+                },
+                async loadManagedCommunities() {
+                    if (!window.kb.token) return [];
+                    const [owned, memberships] = await Promise.all([
+                        window.kb.api('/me/communities'),
+                        window.kb.api('/me/memberships'),
+                    ]);
+                    const mine = owned.ok ? window.kb.rows(owned) : [];
+                    // /me/memberships returns membership rows: {community, tier, can_manage, …}
+                    const managed = (memberships.ok ? window.kb.rows(memberships) : [])
+                        .filter(m => m?.can_manage && m?.community)
+                        .map(m => m.community);
+                    const byId = {};
+                    [...mine, ...managed].forEach(c => { if (c && c.id) byId[c.id] = c; });
+                    this.communities = Object.values(byId);
+                    return this.communities;
+                },
+                async loadCommunityPending() {
+                    const community = this.activeCommunity;
+                    if (!community) return;
+                    const res = await window.kb.api('/communities/' + community.id + '/stats');
+                    if (!res.ok) return;
+                    const p = res.json?.data?.pending || {};
+                    this.communityPending = (p.join_requests || 0) + (p.invitations || 0);
+                },
                 async loadShell() {
                     if (!window.kb.token) return null;
                     const [me, un, chat] = await Promise.all([
@@ -553,6 +602,8 @@
                     // a message raises both, and the two badges sit on two nav rows.
                     if (chat.ok) this.chatUnread = chat.json?.data?.total ?? 0;
                     this.shellReady = true;
+                    // Non-blocking: the nav entry appears once this resolves.
+                    this.loadManagedCommunities().then(() => this.loadCommunityPending());
                     return this.me;
                 },
             });
