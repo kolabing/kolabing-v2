@@ -11,11 +11,23 @@ namespace App\Support\Matching;
  * nightly suggestion scorer read this one copy so the two surfaces can never
  * drift apart.
  *
- * Keys on both levels are the underscore-separated, lower-cased forms produced
- * by the callers' own normalisation; this class performs no normalisation of
- * its own. A missing pairing yields null — "no data for this signal" — rather
- * than 0.0, which would instead assert the pair is a *bad* match. Callers that
- * weight signals drop a null signal and renormalise the remaining weights.
+ * Row keys are community-type slugs as stored (the `community_types` seed
+ * vocabulary); column keys are business category / venue / product values as
+ * stored. Lookups are exact-match: this class performs no normalisation, and
+ * callers are expected to pass values they have already normalised themselves
+ * (Explore, for one, trims and lower-cases before calling).
+ *
+ * A missing pairing yields null — "no data for this signal" — rather than 0.0,
+ * which would instead assert the pair is a *bad* match.
+ *
+ * This class is the lookup **table** only. Aggregation policy belongs to each
+ * caller and deliberately differs: Explore takes max() across a Kolab's
+ * categories, floors at 0.25 when it has none, adds a seeking bonus, and maps
+ * unmapped pairs onto a 0.4–0.65 fallback so it can always rank something. The
+ * suggestion scorer instead treats an unmapped pair as *no data*, drops the
+ * signal and renormalises the remaining weights, because a suggestion must say
+ * "we don't know" rather than invent a mid-range score. Do not move either
+ * policy in here on the assumption they should match.
  */
 final class CategoryFitMatrix
 {
