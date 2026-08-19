@@ -17,9 +17,19 @@ use InvalidArgumentException;
  * contain several same-typed adjacencies that would swap silently:
  * `viewerProfileId`/`counterpartProfileId` (a swap writes the row for the wrong
  * profile, and the scorer never reads either field, so no score would look
- * wrong), `communitySize`/`venueCapacity`, `viewerOffers`/`counterpartNeeds`,
- * and `averageRating`/`repeatRatio` (a swap pushes a 4.6 rating through the
- * repeat term and out the other side as a score above 100).
+ * wrong), `communitySize`/`venueCapacity`, the four offer/need arrays, and
+ * `averageRating`/`repeatRatio` (a swap pushes a 4.6 rating through the repeat
+ * term and out the other side as a score above 100).
+ *
+ * The offer/need arrays come as two mirrored pairs, deliberately not collapsed
+ * into one: `viewerOffers ∩ counterpartNeeds` is what the viewer would *give*
+ * (the Kolab's `offer`), and `counterpartOffers ∩ viewerNeeds` is what it would
+ * *ask for* in return (`expects` on a business Kolab, the `required_if` `needs`
+ * on a `community_seeking` one). One intersection cannot serve both slots
+ * because the vocabularies differ: a business gives from `OfferOption`'s
+ * `offering` kind and asks from `deliverable`, while a community gives from
+ * `deliverable` and asks from `need`. A single array would fill one required
+ * field and leave the other unfillable.
  *
  * `contentDelivered` and `completedCollaborations` are the one pair no invariant
  * can separate — both are counts, both are `>= 0`. They are the
@@ -37,6 +47,8 @@ final readonly class PairContext
      * @param  array<int, int>  $pastAttendance  attendee_count of the community's past events
      * @param  array<int, string>  $viewerOffers  what the viewer can give
      * @param  array<int, string>  $counterpartNeeds  what the counterpart wants
+     * @param  array<int, string>  $counterpartOffers  what the counterpart can give
+     * @param  array<int, string>  $viewerNeeds  what the viewer wants
      * @param  int  $contentDelivered  posts/stories a community delivered; the business audience's volume term
      * @param  int  $completedCollaborations  business_partner_statuses.completed_kolabs_count; the community audience's volume term
      * @param  array<string, mixed>  $evidence  ids + aggregates for the audit trail
@@ -57,6 +69,8 @@ final readonly class PairContext
         public ?int $venueCapacity,
         public array $viewerOffers,
         public array $counterpartNeeds,
+        public array $counterpartOffers,
+        public array $viewerNeeds,
         public ?float $averageRating,
         public ?float $repeatRatio,
         public int $contentDelivered,

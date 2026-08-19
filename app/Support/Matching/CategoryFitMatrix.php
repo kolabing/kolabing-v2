@@ -17,9 +17,9 @@ use Illuminate\Support\Str;
  * vocabulary); column keys are business category / venue / product values as
  * stored. Lookups are exact-match: `score()` performs no normalisation, and
  * callers are expected to pass values they have already put through
- * `normalize()` — which lives here, rather than in each caller, so the two
- * surfaces reading this table can never disagree about what a stored
- * `"Food Truck"` normalises to.
+ * `normalize()` — or, better, `canonicalise()` — which live here rather than in
+ * each caller, so the two surfaces reading this table can never disagree about
+ * what a stored `"Food Truck"` or `"tienda-de-deportes"` resolves to.
  *
  * A missing pairing yields null — "no data for this signal" — rather than 0.0,
  * which would instead assert the pair is a *bad* match.
@@ -92,6 +92,29 @@ final class CategoryFitMatrix
     ];
 
     /**
+     * Stored category slugs that mean a column of the matrix but are not
+     * spelled like one, and that `normalize()` cannot rescue because the
+     * difference is a word rather than a separator.
+     *
+     * Verified against the production database (read-only) on 2026-08-19:
+     * `business_profiles.categories` carries Spanish slugs alongside the English
+     * vocabulary — `restaurante` (2 rows), `cafeteria` (1), `gimnasio` (1),
+     * `tienda-de-deportes` (2), `centro-de-belleza` (1). Without this map each of
+     * those businesses silently loses `category_fit` forever.
+     *
+     * Keys are in normalised form, because `canonicalise()` normalises first.
+     *
+     * @var array<string, string>
+     */
+    private const ALIASES = [
+        'restaurante' => 'restaurant',
+        'cafeteria' => 'cafe',
+        'gimnasio' => 'gym',
+        'centro_de_belleza' => 'health_beauty',
+        'tienda_de_deportes' => 'sports_facility',
+    ];
+
+    /**
      * Score one (community type, business category) pairing.
      *
      * Returns null when either side is missing or the pairing is not in the
@@ -120,5 +143,31 @@ final class CategoryFitMatrix
             ->lower()
             ->replace([' ', '-'], '_')
             ->value();
+    }
+
+    /**
+     * `normalize()` plus the alias map: the full journey from a stored value to
+     * a key this table can actually be looked up with. Normalisation collapses
+     * separators and case; this additionally folds the Spanish slugs the live
+     * `business_profiles.categories` column carries onto their English twins.
+     *
+     * Normalising is done here rather than demanded of the caller because the
+     * lookup is exact-match and the alias keys are themselves normalised: a
+     * caller that passed a raw `"Tienda-de-Deportes"` straight in would miss the
+     * alias as silently as it would miss the matrix row.
+     *
+     * Deliberately *not* claiming to canonicalise everything. Six community
+     * types in the live data (`art_creative_community`,
+     * `sustainability_community`, `photography_community`, `hobby_community`,
+     * `dance_community`, `other`) have no row here at all. They are not aliases
+     * of anything and inventing a mapping would score a pair on a resemblance
+     * nobody checked, so those pairings keep returning null and their callers
+     * drop the signal honestly.
+     */
+    public static function canonicalise(string $value): string
+    {
+        $normalized = self::normalize($value);
+
+        return self::ALIASES[$normalized] ?? $normalized;
     }
 }

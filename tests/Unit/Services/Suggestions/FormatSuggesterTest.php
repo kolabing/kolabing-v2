@@ -41,6 +41,8 @@ class FormatSuggesterTest extends TestCase
             'venueCapacity' => 60,
             'viewerOffers' => ['food_drink', 'venue'],
             'counterpartNeeds' => ['food_drink', 'discount'],
+            'counterpartOffers' => ['social_media'],
+            'viewerNeeds' => ['social_media', 'ugc_content'],
             'averageRating' => 4.6,
             'repeatRatio' => 0.9,
             'contentDelivered' => 5,

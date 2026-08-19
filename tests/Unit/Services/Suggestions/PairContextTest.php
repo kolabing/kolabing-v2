@@ -30,6 +30,8 @@ class PairContextTest extends TestCase
             'venueCapacity' => 45,
             'viewerOffers' => ['food_drink', 'venue'],
             'counterpartNeeds' => ['food_drink'],
+            'counterpartOffers' => ['social_media'],
+            'viewerNeeds' => ['social_media', 'ugc_content'],
             'averageRating' => 4.6,
             'repeatRatio' => 0.9,
             'contentDelivered' => 5,
