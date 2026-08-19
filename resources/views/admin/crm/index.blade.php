@@ -74,6 +74,7 @@
 
         @if ($cityCounts->isNotEmpty())
             @php
+                // City centroids (lat, lng). Add a city here to place it on the map.
                 $coords = [
                     'Madrid' => [40.4168, -3.7038], 'Tallinn' => [59.4370, 24.7536],
                     'Berlin' => [52.5200, 13.4050], 'Paris' => [48.8566, 2.3522],
@@ -81,45 +82,55 @@
                     'Warsaw' => [52.2297, 21.0122], 'Barcelona' => [41.3874, 2.1686],
                     'London' => [51.5072, -0.1276], 'Milan' => [45.4642, 9.1900],
                 ];
-                $known = [];
+                $mapData = [];
                 foreach ($cityCounts as $c => $n) {
-                    if (isset($coords[$c])) { $known[$c] = ['ll' => $coords[$c], 'n' => $n]; }
+                    if (isset($coords[$c])) {
+                        $active = ($filters['city'] ?? '') === $c;
+                        $mapData[] = [
+                            'city' => $c, 'lat' => $coords[$c][0], 'lng' => $coords[$c][1], 'n' => $n, 'active' => $active,
+                            'url' => route('admin.crm.index', ['type' => $type, 'city' => $active ? null : $c]),
+                        ];
+                    }
                 }
                 $unmapped = collect($cityCounts->keys())->reject(fn ($c) => isset($coords[$c]));
-                $W = 780; $H = 440; $pad = 70;
-                $lats = array_map(fn ($k) => $k['ll'][0], $known);
-                $lngs = array_map(fn ($k) => $k['ll'][1], $known);
-                $latMin = $known ? min($lats) : 0; $latMax = $known ? max($lats) : 1;
-                $lngMin = $known ? min($lngs) : 0; $lngMax = $known ? max($lngs) : 1;
-                $latSpan = ($latMax - $latMin) ?: 1; $lngSpan = ($lngMax - $lngMin) ?: 1;
-                $maxN = $known ? max(array_map(fn ($k) => $k['n'], $known)) : 1;
-                $px = fn ($lng) => $pad + ($lng - $lngMin) / $lngSpan * ($W - 2 * $pad);
-                $py = fn ($lat) => $pad + ($latMax - $lat) / $latSpan * ($H - 2 * $pad);
-                $rr = fn ($n) => 12 + sqrt($n / max($maxN, 1)) * 16;
             @endphp
             <div class="card-body border-bottom">
                 <details open>
                     <summary style="cursor:pointer; list-style:none" class="text-muted mb-2">
                         <i class="fas fa-map-marked-alt mr-1"></i> Map — {{ ucfirst($type) }} by city
-                        ({{ $cityCounts->count() }} cities, {{ $cityCounts->sum() }} total). Click a city to filter.
+                        ({{ $cityCounts->count() }} cities, {{ $cityCounts->sum() }} total). Click a marker to filter.
                     </summary>
-                    @if (count($known))
-                        <svg viewBox="0 0 {{ $W }} {{ $H }}" style="width:100%; max-width:820px; height:auto; background:#f4f6f9; border-radius:8px">
-                            @foreach ($known as $city => $d)
-                                @php $x = $px($d['ll'][1]); $y = $py($d['ll'][0]); $r = $rr($d['n']);
-                                    $active = ($filters['city'] ?? '') === $city; @endphp
-                                <a href="{{ route('admin.crm.index', ['type' => $type, 'city' => $active ? null : $city]) }}">
-                                    <circle cx="{{ $x }}" cy="{{ $y }}" r="{{ $r }}"
-                                        fill="{{ $active ? '#dc3545' : '#007bff' }}" fill-opacity="0.72" stroke="#fff" stroke-width="2"/>
-                                    <text x="{{ $x }}" y="{{ $y + 4 }}" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff">{{ $d['n'] }}</text>
-                                    <text x="{{ $x }}" y="{{ $y + $r + 14 }}" text-anchor="middle" font-size="12" fill="#2b333b">{{ $city }}</text>
-                                </a>
-                            @endforeach
-                        </svg>
+                    @if (count($mapData))
+                        <link rel="stylesheet" href="{{ asset('webapp-assets/leaflet/leaflet.css') }}">
+                        <div id="crm-map" style="height:420px; border-radius:8px; z-index:0"></div>
+                        <script src="{{ asset('webapp-assets/leaflet/leaflet.js') }}"></script>
+                        <script>
+                            (function () {
+                                var pts = @json($mapData, JSON_UNESCAPED_SLASHES);
+                                if (!window.L || !pts.length) { return; }
+                                var map = L.map('crm-map', { scrollWheelZoom: false });
+                                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                                    maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+                                }).addTo(map);
+                                var maxN = Math.max.apply(null, pts.map(function (p) { return p.n; })) || 1;
+                                var bounds = [];
+                                pts.forEach(function (p) {
+                                    var r = 10 + Math.sqrt(p.n / maxN) * 22;
+                                    var m = L.circleMarker([p.lat, p.lng], {
+                                        radius: r, color: '#fff', weight: 2,
+                                        fillColor: p.active ? '#dc3545' : '#007bff', fillOpacity: 0.85
+                                    }).addTo(map);
+                                    m.bindTooltip(p.city + ' (' + p.n + ')', { permanent: true, direction: 'top', opacity: 0.9 });
+                                    m.on('click', function () { window.location = p.url; });
+                                    bounds.push([p.lat, p.lng]);
+                                });
+                                map.fitBounds(bounds, { padding: [40, 40], maxZoom: 6 });
+                            })();
+                        </script>
                     @endif
                     @if ($unmapped->isNotEmpty())
                         <div class="mt-2">
-                            <span class="text-muted small mr-1">Other:</span>
+                            <span class="text-muted small mr-1">Other (no map coords):</span>
                             @foreach ($unmapped as $city)
                                 <a href="{{ route('admin.crm.index', ['type' => $type, 'city' => $city]) }}"
                                     class="badge {{ ($filters['city'] ?? '') === $city ? 'badge-danger' : 'badge-info' }}">{{ $city }} ({{ $cityCounts[$city] }})</a>
