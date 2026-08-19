@@ -156,6 +156,13 @@ admin-editable):
 | `scale_fit` | 0.15 | community's median `events.attendee_count` (fallback `community_size`) vs. own `primary_venue.capacity` | own typical attendance vs. business venue capacity |
 | `offer_need_fit` | 0.20 | own `offering` / `base_offer` vs. community's `needs` / historical asks | own `needs` vs. business `offering` (existing `OFFER_TYPE_ALIASES` reused) |
 | `delivery_proof` | 0.15 | community's `collaboration_feedback` (`posts_reels`, `stories_posted`, `would_collaborate_again`, `expectation_match`) + review dimensions | business's `business_partner_statuses` + reviews received |
+
+`delivery_proof` keeps one shape across both audiences — `0.4 × rating + 0.3 × repeat + 0.3 × volume` — but **`volume` is audience-specific**, because the two sides prove delivery with different artefacts:
+
+- **business audience** (counterpart is a community): volume is the reels and stories the community actually posted for past Kolabs (`collaboration_feedback.posts_reels + stories_posted`).
+- **community audience** (counterpart is a business): volume is `business_partner_statuses.completed_kolabs_count`. A business does not deliver posts, so feeding content into this arm would both score and describe the wrong subject. `PairContext` carries both counts and the unused arm is zero.
+
+This was caught in review one layer above, in the reason copy, and the scoring term had the same defect.
 | `momentum` | 0.10 | events in the last 90 days + an active `event_series` cadence | business's recent collaborations / live Kolabs |
 
 `score = round(Σ(weight × signal) / Σ(weight of signals with data) × 100)`.
