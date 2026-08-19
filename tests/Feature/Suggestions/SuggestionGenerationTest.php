@@ -15,6 +15,7 @@ use App\Models\Profile;
 use App\Services\OnboardingService;
 use App\Services\ProfileService;
 use App\Services\Suggestions\PairCandidateFinder;
+use App\Services\Suggestions\PairContext;
 use App\Services\Suggestions\SuggestionGenerator;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -825,6 +826,69 @@ class SuggestionGenerationTest extends TestCase
          * `per_profile` held at 1 above.
          */
         $this->assertSame(10, $small, 'The per-profile query budget changed.');
+    }
+
+    /**
+     * `series_weekdays` comes out of a jsonb document, and a decoder that saw
+     * `3` without a decimal point can still hand back a float. Dropping it would
+     * silently cost the pair its cadence — the card would propose no day at all —
+     * so it is coerced. Driven through a finder double because the finder's own
+     * reader filters floats out one layer earlier, which is exactly why this
+     * coercion is defence rather than a live path.
+     */
+    public function test_a_float_weekday_is_coerced_rather_than_dropped(): void
+    {
+        $city = City::factory()->create();
+        $viewer = $this->business($city);
+        $this->community($city, 'food_community');
+
+        $base = app(PairCandidateFinder::class)->candidatesFor($viewer, SuggestionAudience::Business)[0];
+
+        $withFloatWeekday = new PairContext(
+            audience: $base->audience,
+            viewerProfileId: $base->viewerProfileId,
+            counterpartProfileId: $base->counterpartProfileId,
+            communityType: $base->communityType,
+            businessCategories: $base->businessCategories,
+            viewerCityId: $base->viewerCityId,
+            counterpartCityId: $base->counterpartCityId,
+            distanceKm: $base->distanceKm,
+            pastAttendance: $base->pastAttendance,
+            communitySize: $base->communitySize,
+            venueCapacity: $base->venueCapacity,
+            viewerHasVenue: $base->viewerHasVenue,
+            counterpartHasVenue: $base->counterpartHasVenue,
+            viewerOffers: $base->viewerOffers,
+            counterpartNeeds: $base->counterpartNeeds,
+            counterpartOffers: $base->counterpartOffers,
+            viewerNeeds: $base->viewerNeeds,
+            averageRating: $base->averageRating,
+            repeatRatio: $base->repeatRatio,
+            contentDelivered: $base->contentDelivered,
+            completedCollaborations: $base->completedCollaborations,
+            reviewCount: $base->reviewCount,
+            recentEventCount: $base->recentEventCount,
+            recentActivityCount: $base->recentActivityCount,
+            hasActiveSeries: $base->hasActiveSeries,
+            evidence: [...$base->evidence, 'series_weekdays' => [3.0]],
+        );
+
+        $this->app->bind(PairCandidateFinder::class, fn (): PairCandidateFinder => new class($withFloatWeekday) extends PairCandidateFinder
+        {
+            public function __construct(private readonly PairContext $context) {}
+
+            public function candidatesFor(Profile $viewer, SuggestionAudience $audience, ?int &$skipped = null): array
+            {
+                return [$this->context];
+            }
+        });
+
+        app(SuggestionGenerator::class)->generateFor($viewer);
+
+        $row = KolabSuggestion::query()->sole();
+
+        $this->assertSame(3, $row->suggested_format['weekday'], 'A float weekday was dropped instead of coerced.');
+        $this->assertSame('series', $row->suggested_format['weekday_basis']);
     }
 
     public function test_registration_dispatches_a_per_profile_generation_job(): void
