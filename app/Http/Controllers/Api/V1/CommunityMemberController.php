@@ -27,12 +27,32 @@ class CommunityMemberController extends Controller
     ) {}
 
     /**
-     * GET /api/v1/communities/{community}/members (paginated, nested tier+profile).
+     * GET /api/v1/communities/{community}/members
+     *
+     * Paginated roster with nested tier + profile + engagement metrics.
+     * Manage-gated: the payload carries member emails, so it is not a public
+     * roster. Filters: search, status, tier_id, can_manage, sort, direction.
      */
     public function index(Request $request, Community $community): JsonResponse
     {
-        $perPage = min((int) $request->query('limit', '25'), 100);
-        $paginator = $this->memberService->roster($community, $perPage);
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        if ($profile->cannot('manage', $community)) {
+            return $this->forbidden();
+        }
+
+        $perPage = min(max((int) $request->query('limit', '25'), 1), 100);
+        $canManage = $request->query('can_manage');
+
+        $paginator = $this->memberService->roster($community, $perPage, [
+            'search' => $request->query('search'),
+            'status' => $request->query('status'),
+            'tier_id' => $request->query('tier_id'),
+            'can_manage' => $canManage === null ? null : filter_var($canManage, FILTER_VALIDATE_BOOL),
+            'sort' => $request->query('sort'),
+            'direction' => $request->query('direction'),
+        ]);
 
         return response()->json([
             'success' => true,

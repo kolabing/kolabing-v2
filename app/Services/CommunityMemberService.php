@@ -17,6 +17,7 @@ class CommunityMemberService
 {
     public function __construct(
         private readonly MissionService $missionService,
+        private readonly CommunityRosterQuery $rosterQuery,
     ) {}
 
     /**
@@ -91,19 +92,14 @@ class CommunityMemberService
     }
 
     /**
-     * Paginated roster with nested tier + profile for one-call rendering.
+     * Paginated roster with nested tier + profile and per-member engagement
+     * metrics, filtered and sorted by the caller. See CommunityRosterQuery.
+     *
+     * @param  array<string, mixed>  $filters
      */
-    public function roster(Community $community, int $perPage = 25): LengthAwarePaginator
+    public function roster(Community $community, int $perPage = 25, array $filters = []): LengthAwarePaginator
     {
-        return $community->members()
-            ->with([
-                'tier',
-                'profile.attendeeProfile',
-                'profile.businessProfile',
-                'profile.communityProfile',
-            ])
-            ->orderBy('created_at')
-            ->paginate($perPage);
+        return $this->rosterQuery->paginate($community, $filters, $perPage);
     }
 
     private function upsertMember(Community $community, string $profileId, ?string $tierId = null): CommunityMember
