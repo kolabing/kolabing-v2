@@ -57,16 +57,16 @@ class CrmController extends Controller
                 'monthly_call_attendance' => ['Calls', false, true],
             ],
             default => $common + [ // community
-                'category' => ['Category', true, true],
+                'category' => ['Category', false, true],
                 'location' => ['Location', false, true],
                 'ig_followers' => ['IG followers', false, true],
                 'whatsapp_members' => ['WhatsApp members', false, true],
                 'discord_members' => ['Discord members', false, true],
-                'avg_attendance' => ['Avg attendance', true, true],
-                'founder_name' => ['Founder', true, true],
+                'avg_attendance' => ['Avg attendance', false, true],
+                'founder_name' => ['Founder', false, true],
                 'founder_email' => ['Founder email', false, true],
                 'founder_instagram' => ['Founder IG', false, true],
-                'ambassador_potential' => ['Ambassador', true, true],
+                'ambassador_potential' => ['Ambassador', false, true],
                 'founding_partner' => ['Founding partner', false, true],
                 // Challenge-A verification metadata (from the verified-leads seed).
                 'city' => ['City', true, true],
@@ -265,6 +265,13 @@ class CrmController extends Controller
             foreach (['events_weekly', 'strong_attendance', 'active_ig', 'engaged_founder', 'good_vibes'] as $f) {
                 $metrics[$f] = ! empty($metrics[$f]);
             }
+        }
+
+        // Preserve seeded/verification metadata (city, classification, audience_count, evidence_url, …):
+        // merge the posted metrics ONTO the existing ones instead of replacing the whole JSON. Without
+        // this, editing a verified community and saving would wipe its Challenge-A verification data.
+        if ($account !== null) {
+            $metrics = array_merge($account->metrics ?? [], $metrics);
         }
         $data['metrics'] = $metrics;
 

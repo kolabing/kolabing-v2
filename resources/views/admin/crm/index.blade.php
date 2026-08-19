@@ -158,6 +158,12 @@
                                             @case('instagram_handle')
                                                 {{ $a->instagram_handle ?: '—' }}
                                                 @break
+                                            @case('evidence_url')
+                                                @php $ev = $a->metrics['evidence_url'] ?? null; @endphp
+                                                @if ($ev)
+                                                    <a href="{{ $ev }}" target="_blank" rel="noopener" title="{{ $ev }}">{{ parse_url($ev, PHP_URL_HOST) ?: 'link' }}</a>
+                                                @else — @endif
+                                                @break
                                             @default
                                                 @php
                                                     $v = $catalog[$key][2] ? ($a->metrics[$key] ?? null) : $a->{$key};
