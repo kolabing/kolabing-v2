@@ -160,12 +160,16 @@
                                     <td>
                                         @switch($key)
                                             @case('name')
-                                                <span class="font-weight-bold">{{ $a->name }}</span>
+                                                <a href="{{ route('admin.crm.show', $a) }}" class="font-weight-bold">{{ $a->name }}</a>
                                                 @if ($a->isTrialCandidate()) <span title="Trial-Kolab candidate">🔥</span>@endif
                                                 @if ($a->needsFollowUp()) <span title="No contact 14d+">⚠️</span>@endif
                                                 @break
                                             @case('status')
-                                                <span class="badge badge-light text-uppercase">{{ $a->status ?: '—' }}</span>
+                                                @if ($type === 'community')
+                                                    @include('admin.crm.partials.stage', ['stage' => $a->currentStage(), 'small' => true])
+                                                @else
+                                                    <span class="badge badge-light text-uppercase">{{ $a->status ?: '—' }}</span>
+                                                @endif
                                                 @break
                                             @case('score')
                                                 <span class="badge {{ $a->score >= 80 ? 'badge-success' : ($a->score >= 50 ? 'badge-warning' : 'badge-secondary') }}">{{ $a->score }}</span>
