@@ -6,6 +6,9 @@
     'alternates' => null,
     'image' => null,
     'ogType' => 'website',
+    // Overridable so private surfaces (e.g. an invite-only community's join
+    // page) can opt out of indexing without a second layout.
+    'robots' => 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1',
 ])
 @php
 
@@ -46,7 +49,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $title }} | Kolabing</title>
     <meta name="description" content="{{ $description }}">
-    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+    <meta name="robots" content="{{ $robots }}">
     <link rel="canonical" href="{{ $canonical }}">
     @isset($alternates)
         @foreach ($alternates as $alternate)

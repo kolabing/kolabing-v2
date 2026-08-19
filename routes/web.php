@@ -98,6 +98,13 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
+// Public landing for a community's shareable join link. config('communities.
+// invite_base_url') has always pointed here and Community::inviteUrl() has
+// always emitted /c/{slug}, but the route did not exist until now — every
+// invite link ever shared 404'd.
+Route::get('/c/{slug}', [\App\Http\Controllers\CommunityJoinPageController::class, 'show'])
+    ->name('communities.join-page');
+
 Route::post('/newsletter', [NewsletterController::class, 'store'])
     ->middleware('throttle:10,1')
     ->name('newsletter.store');
