@@ -68,6 +68,14 @@ class CrmController extends Controller
                 'founder_instagram' => ['Founder IG', false, true],
                 'ambassador_potential' => ['Ambassador', true, true],
                 'founding_partner' => ['Founding partner', false, true],
+                // Challenge-A verification metadata (from the verified-leads seed).
+                'city' => ['City', true, true],
+                'classification' => ['Type', true, true],
+                'audience' => ['Audience', true, true],
+                'audience_source' => ['Audience src', false, true],
+                'confidence' => ['Confidence', true, true],
+                'last_active_date' => ['Last active', false, true],
+                'evidence_url' => ['Evidence', false, true],
             ],
         };
     }
