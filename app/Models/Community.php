@@ -112,6 +112,11 @@ class Community extends Model
     /**
      * @return HasMany<CommunityJoinRequest, $this>
      */
+    public function invitations(): HasMany
+    {
+        return $this->hasMany(CommunityInvitation::class);
+    }
+
     public function joinRequests(): HasMany
     {
         return $this->hasMany(CommunityJoinRequest::class);
