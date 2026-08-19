@@ -541,7 +541,8 @@ readonly class PairContext
         public string $viewerProfileId,
         public string $counterpartProfileId,
         public ?string $communityType,
-        public ?string $businessCategory,
+        /** @var array<int, string> every category the business declares */
+        public array $businessCategories,
         public ?string $viewerCityId,
         public ?string $counterpartCityId,
         public ?float $distanceKm,
@@ -584,7 +585,7 @@ class SignalScorerTest extends TestCase
             'viewerProfileId' => 'viewer',
             'counterpartProfileId' => 'counterpart',
             'communityType' => 'food_community',
-            'businessCategory' => 'cafe',
+            'businessCategories' => ['cafe'],
             'viewerCityId' => 'city-1',
             'counterpartCityId' => 'city-1',
             'distanceKm' => 2.0,
@@ -617,6 +618,11 @@ class SignalScorerTest extends TestCase
 **Step 3: Run it** — Run: `php artisan test --compact --filter=test_category_fit_uses_the_shared_matrix`. Expected: FAIL, class not found.
 
 **Step 4: Implement `SignalScorer`** — the whole class, all six signals. Each signal returns `null` when it has no data; nulls are dropped and the remaining weights are renormalised.
+
+Two things about `category_fit` that Task 2's review surfaced, and that you must get right:
+
+- **A business declares several categories** (`business_profiles.categories` is an array). Take the **best** matching category, the way Explore does — not the first one, and not a single scalar. Naming the winning category in the reason line is what makes the copy specific ("cafés and run clubs collaborate often") instead of generic.
+- **Do NOT copy Explore's unmapped-pair fallback.** Explore maps an unmapped pairing onto a 0.4–0.65 mid-range value because a ranking feed must always order something. A suggestion must not: an unmapped pairing is *no data*, so the signal returns `null`, gets dropped, and the remaining weights are renormalised — and the card's confidence drops accordingly. The two policies diverge on purpose; `CategoryFitMatrix` holds only the table.
 
 ```php
 <?php
@@ -693,15 +699,25 @@ class SignalScorer
      */
     private function categoryFit(PairContext $context): ?array
     {
-        $score = CategoryFitMatrix::score($context->communityType, $context->businessCategory);
+        $best = null;
+        $bestCategory = null;
 
-        if ($score === null) {
+        foreach ($context->businessCategories as $category) {
+            $score = CategoryFitMatrix::score($context->communityType, $category);
+
+            if ($score !== null && ($best === null || $score > $best)) {
+                $best = $score;
+                $bestCategory = $category;
+            }
+        }
+
+        if ($best === null) {
             return null;
         }
 
-        return [$score, __('suggestions.reason.category_fit', [
+        return [$best, __('suggestions.reason.category_fit', [
             'community_type' => str_replace('_', ' ', (string) $context->communityType),
-            'business_category' => str_replace('_', ' ', (string) $context->businessCategory),
+            'business_category' => str_replace('_', ' ', (string) $bestCategory),
         ])];
     }
 
