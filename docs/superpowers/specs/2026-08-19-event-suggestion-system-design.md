@@ -87,7 +87,7 @@ retired, BE-IF-47).
 | `score` | smallint | 0–100, computed in PHP |
 | `confidence` | string enum | `low` \| `medium` \| `high` — share of signal weight backed by real data |
 | `signals` | jsonb | `[{key, reason_key, reason_params, weight, score}]` — **keys and params, never rendered text** (see below) |
-| `suggested_format` | jsonb | `{title, intent_type, weekday, time_of_day, expected_attendance, offer[], expects[]}` |
+| `suggested_format` | jsonb | `{title_key, title_params, intent_type, weekday, time_of_day, expected_attendance, attendance_basis, offer[], expects[]}` — `title_key`/`title_params` render at read time like the reasons; `weekday` is **ISO 1-7**, `time_of_day` is `H:i` |
 | `evidence` | jsonb | ids + aggregates that produced it (`event_ids`, `collaboration_ids`, `posts_reels_total`, …) |
 | `batch_key` | date | the date this pair was last scored (not a generation bucket — see below) |
 | `expires_at` | timestamp | last score + 14 days |

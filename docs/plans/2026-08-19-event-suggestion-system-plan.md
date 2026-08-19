@@ -984,7 +984,11 @@ The last one is the important one: assert the returned `title` and the returned 
 
 **Step 2: Run** — Expected: FAIL, class not found.
 
-**Step 3: Implement.** `suggest(PairContext $context, ?string $seriesWeekday, ?string $seriesTime, array $modalWeekdays): array` returns the `suggested_format` array documented in the spec §3.2:
+**Step 3: Implement.** `suggest(PairContext $context, array $seriesWeekdays, ?string $seriesTime, array $pastEventWeekdays): array` returns the `suggested_format` array documented in the spec §3.2.
+
+**Two weekday conventions collide here - the most dangerous detail in the task.** `event_series.byweekday` is `array<int>` of **0..6 with Sunday = 0**; `kolabs.recurring_days` is validated `between:1,7` and compared against `dayOfWeekIso`, i.e. **1..7 with Sunday = 7**. They agree Monday-Saturday and differ only on Sunday, so a mix-up is silently wrong one day in seven - the day a run club or brunch community is most likely to meet. Validate input as `0..6`, convert to ISO on output, and **throw** on an already-ISO value rather than normalising: since Mon-Sat agree, `7` is the only detectable symptom of a wrong-convention caller, so swallowing it hides the bug. `byweekday` is also multi-day and stored in submitted order, so pick the day deterministically (earliest ISO) rather than taking the first element.
+
+The returned array:
 
 - `weekday`: `$seriesWeekday`, else the modal weekday of past events, else `null`
 - `time_of_day`: `$seriesTime`, else `null`
@@ -994,7 +998,7 @@ The last one is the important one: assert the returned `title` and the returned 
 - `title`: a template keyed by `community_type`, from `lang/*/suggestions.php` (`format.title.*`), with a generic fallback key
 - The method never invents a number. If a value is unknown it is omitted and the copy degrades.
 
-**Step 4: Run** — Expected: PASS, 4 tests.
+**Step 4: Run** — Expected: PASS. The four listed cases are the floor; the branches around cadence, intent type and the no-history copy need more.
 
 **Step 5: Commit**
 
@@ -1293,7 +1297,7 @@ public function test_creating_a_kolab_without_a_suggestion_id_still_works(): voi
 
 **Step 3: Implement.** Rule: `'suggestion_id' => ['sometimes', 'uuid', Rule::exists('kolab_suggestions', 'id')->where('viewer_profile_id', $this->user()->id)]`. Scoping ownership **in the validation rule** is what makes a foreign id a clean 422 instead of a silent no-op. In `KolabService::create()`, after the Kolab is persisted, `KolabSuggestion::where('id', $data['suggestion_id'])->where('viewer_profile_id', $creator->id)->update(['converted_kolab_id' => $kolab->id])` — the redundant viewer check is deliberate defence in depth.
 
-**Step 4: Run** — Expected: PASS, 4 tests. Then run the existing Kolab suite to prove nothing broke: `php artisan test --compact --filter=Kolab`.
+**Step 4: Run** — Expected: PASS. The four listed cases are the floor; the branches around cadence, intent type and the no-history copy need more. Then run the existing Kolab suite to prove nothing broke: `php artisan test --compact --filter=Kolab`.
 
 **Step 5: Commit**
 
