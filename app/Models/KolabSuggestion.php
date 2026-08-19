@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\SuggestionAudience;
+use App\Enums\SuggestionConfidence;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,8 +14,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * A generated collaboration suggestion shown to one side of a proposed pair.
- * Rows are produced by app:generate-suggestions and are only ever read back
- * by the profile named in `viewer_profile_id` (see SuggestionPolicy).
+ * Rows are produced by app:generate-suggestions — one per pair, refreshed in
+ * place — and are only ever read back by the profile named in
+ * `viewer_profile_id` (see KolabSuggestionPolicy).
  */
 class KolabSuggestion extends Model
 {
@@ -49,6 +51,7 @@ class KolabSuggestion extends Model
         return [
             'audience' => SuggestionAudience::class,
             'score' => 'integer',
+            'confidence' => SuggestionConfidence::class,
             'signals' => 'array',
             'suggested_format' => 'array',
             'evidence' => 'array',
@@ -87,5 +90,18 @@ class KolabSuggestion extends Model
         return $query->whereNull('dismissed_at')
             ->whereNull('converted_kolab_id')
             ->where('expires_at', '>', now());
+    }
+
+    /**
+     * Restrict to the rows addressed to one profile. Every read path is
+     * required to go through this scope: a suggestion names a counterpart, so
+     * serving another profile's rows would leak who was matched with whom.
+     *
+     * @param  Builder<KolabSuggestion>  $query
+     * @return Builder<KolabSuggestion>
+     */
+    public function scopeForViewer(Builder $query, Profile $viewer): Builder
+    {
+        return $query->where('viewer_profile_id', $viewer->id);
     }
 }

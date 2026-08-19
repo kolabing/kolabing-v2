@@ -10,13 +10,19 @@ return new class extends Migration
 {
     /**
      * Generated collaboration suggestions: one row per (viewer, counterpart)
-     * pair per batch, addressed to one side (`audience`). Carries the score,
-     * the per-signal reasons behind it, a proposed event format, the evidence
-     * that produced it, and the shown/clicked/dismissed/converted funnel.
+     * pair, addressed to one side (`audience`) and refreshed in place by the
+     * nightly pass. Carries the score, the per-signal reasons behind it, a
+     * proposed event format, the evidence that produced it, and the
+     * shown/clicked/dismissed/converted funnel.
      *
-     * `signals` and `evidence` are write-once, read-only jsonb — never queried
-     * or aggregated in SQL (BE-FX-12: the suite runs on SQLite, prod is
-     * Postgres, so Postgres-only SQL cannot be caught by CI).
+     * `signals`, `suggested_format` and `evidence` are documents rather than
+     * queryable fields, so Postgres should store them as `jsonb`; on SQLite
+     * (the test suite) the same declaration degrades to `text`, which is why
+     * nothing may filter or aggregate them in SQL. That divergence is the
+     * lesson from the `GET /chats` outage: an aggregate written as
+     * `max(uuid)` passed the SQLite suite and then 500'd in production,
+     * because Postgres has no `max()` over `uuid`. Read these columns in PHP
+     * through the model's array casts only.
      */
     public function up(): void
     {
@@ -37,7 +43,7 @@ return new class extends Migration
             $table->jsonb('signals');
             $table->jsonb('suggested_format');
             $table->jsonb('evidence');
-            $table->date('batch_key');
+            $table->date('batch_key'); // The date this pair was last scored.
             $table->timestamp('expires_at');
             $table->timestamp('shown_at')->nullable();
             $table->timestamp('clicked_at')->nullable();
@@ -47,9 +53,13 @@ return new class extends Migration
                 ->nullOnDelete();
             $table->timestamps();
 
+            // Deliberately NOT keyed on batch_key: one row per pair, refreshed in place by
+            // the nightly pass. Including batch_key would write a new row every night while
+            // the previous 13 were still inside their 14-day expiry — up to 14 near-identical
+            // cards per counterpart.
             $table->unique(
-                ['viewer_profile_id', 'counterpart_profile_id', 'batch_key'],
-                'kolab_suggestions_pair_batch_unique'
+                ['viewer_profile_id', 'counterpart_profile_id'],
+                'kolab_suggestions_pair_unique'
             );
             $table->index(['viewer_profile_id', 'score'], 'kolab_suggestions_viewer_score_index');
             $table->index(['audience', 'batch_key'], 'kolab_suggestions_audience_batch_index');

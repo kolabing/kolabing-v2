@@ -24,7 +24,10 @@ return [
     | Weights sum to 1.0 and are renormalised over the signals that actually
     | have data behind them (see SignalScorer::score). `min_score` is the
     | floor below which a pair is not written at all — better an empty state
-    | than a bad suggestion. Both are first guesses to be tuned against the
+    | than a bad suggestion. `momentum_window_days` and `max_distance_km` are
+    | the two scorer inputs that are measured rather than weighted: how far
+    | back the momentum signal looks, and the distance at which location fit
+    | reaches zero. All of these are first guesses to be tuned against the
     | first real batch; tuning is a config change, not a code change.
     |
     */
@@ -44,27 +47,42 @@ return [
         'medium' => 0.45,
     ],
 
-    /*
-    |--------------------------------------------------------------------
-    | Generation
-    |--------------------------------------------------------------------
-    */
-    'per_profile' => 5,
-    'expires_after_days' => 14,
-    'dismissal_cooldown_days' => 60,
     'momentum_window_days' => 90,
     'max_distance_km' => 60,
 
     /*
     |--------------------------------------------------------------------
+    | Generation
+    |--------------------------------------------------------------------
+    |
+    | How many suggestions the nightly pass keeps per profile, how long a row
+    | stays live before it ages out, and how long a dismissal suppresses a
+    | pair. The unique key on `kolab_suggestions` excludes `batch_key`, so the
+    | pass refreshes rows in place rather than accumulating one per night.
+    |
+    */
+    'per_profile' => 5,
+    'expires_after_days' => 14,
+    'dismissal_cooldown_days' => 60,
+
+    /*
+    |--------------------------------------------------------------------
     | Digest
     |--------------------------------------------------------------------
+    |
+    | The weekly email. `per_email` caps how many cards one message carries,
+    | `resend_after_days` keeps a profile from being mailed again too soon,
+    | and `templates` is keyed by SuggestionAudience value so the sender can
+    | look a template up from the audience without a match statement.
+    |
     */
     'digest' => [
         'per_email' => 3,
         'resend_after_days' => 6,
-        'template_business' => 'suggestion-digest-business',
-        'template_community' => 'suggestion-digest-community',
+        'templates' => [
+            'business' => 'suggestion-digest-business',
+            'community' => 'suggestion-digest-community',
+        ],
     ],
 
 ];
