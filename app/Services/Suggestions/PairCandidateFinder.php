@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
 /**
@@ -111,7 +112,7 @@ class PairCandidateFinder
             : [];
 
         return $counterparts
-            ->map(fn (Profile $counterpart): PairContext => $this->context(
+            ->map(fn (Profile $counterpart): ?PairContext => $this->contextOrSkip(
                 $viewer,
                 $counterpart,
                 $audience,
@@ -123,7 +124,65 @@ class PairCandidateFinder
                 $completedCollaborations,
                 $recentCollaborations,
             ))
+            ->filter()
+            ->values()
             ->all();
+    }
+
+    /**
+     * `PairContext`'s constructor asserts range invariants that live rows can
+     * violate — a negative `community_profiles.community_size`, an out-of-range
+     * stored rating — and it throws when they do. The nightly pass runs this for
+     * every profile on the platform, so one bad counterpart must cost one card
+     * rather than every card that profile would have had.
+     *
+     * Deliberately narrow: only the documented invariant channel is swallowed.
+     * Anything else escaping `context()` is a code fault rather than bad data,
+     * and the right escalation for that is the per-profile `report()` in
+     * GenerateSuggestions, not a log line repeated once per pair.
+     *
+     * @param  array<string, array{attendance: array<int, int>, recent: int, weekdays: array<int, int>, lat: float|null, lng: float|null}>  $events
+     * @param  array<string, array{weekdays: array<int, int>, time: string|null, present: bool}>  $series
+     * @param  array<string, array{offering: array<int, string>, expects: array<int, string>, offers_in_return: array<int, string>, needs: array<int, string>, live_kolabs: int}>  $offers
+     * @param  array<string, array{rating: float|null, repeat: float|null, count: int}>  $reviews
+     * @param  array<string, int>  $contentDelivered
+     * @param  array<string, int>  $completedCollaborations
+     * @param  array<string, int>  $recentCollaborations
+     */
+    private function contextOrSkip(
+        Profile $viewer,
+        Profile $counterpart,
+        SuggestionAudience $audience,
+        array $events,
+        array $series,
+        array $offers,
+        array $reviews,
+        array $contentDelivered,
+        array $completedCollaborations,
+        array $recentCollaborations,
+    ): ?PairContext {
+        try {
+            return $this->context(
+                $viewer,
+                $counterpart,
+                $audience,
+                $events,
+                $series,
+                $offers,
+                $reviews,
+                $contentDelivered,
+                $completedCollaborations,
+                $recentCollaborations,
+            );
+        } catch (InvalidArgumentException $e) {
+            Log::warning('Skipped a suggestion candidate whose pair context failed its invariants', [
+                'viewer_profile_id' => (string) $viewer->getKey(),
+                'counterpart_profile_id' => (string) $counterpart->getKey(),
+                'exception' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     /**

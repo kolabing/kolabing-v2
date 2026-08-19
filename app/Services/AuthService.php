@@ -8,6 +8,7 @@ use App\Enums\SubscriptionSource;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserType;
 use App\Enums\VerificationStatus;
+use App\Jobs\GenerateSuggestionsForProfile;
 use App\Models\AttendeeProfile;
 use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
@@ -204,6 +205,8 @@ class AuthService
 
         $this->startOnboardingDrip($profile);
 
+        $this->seedSuggestions($profile);
+
         return [
             'profile' => $profile,
             'is_new_user' => true,
@@ -330,6 +333,8 @@ class AuthService
 
         $this->startOnboardingDrip($profile);
 
+        $this->seedSuggestions($profile);
+
         return [
             'profile' => $profile,
             'is_new_user' => true,
@@ -366,6 +371,31 @@ class AuthService
             $this->onboardingDripService->startForProfile($profile);
         } catch (\Throwable $e) {
             Log::warning('Failed to start onboarding drip for new profile', [
+                'profile_id' => $profile->id,
+                'exception' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Queue a first suggestion pass for a freshly-registered profile, so the
+     * suggestions page is not empty until the 04:00 batch reaches it.
+     *
+     * Isolated for the same reason the drip above is: suggestions are a
+     * peripheral concern, and a queue that cannot be reached must never
+     * propagate into (and roll back) account creation. Attendees are never a
+     * suggestion audience, so they are not queued at all.
+     */
+    private function seedSuggestions(Profile $profile): void
+    {
+        if ($profile->isAttendee()) {
+            return;
+        }
+
+        try {
+            GenerateSuggestionsForProfile::dispatch((string) $profile->id);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to queue the first suggestion pass for a new profile', [
                 'profile_id' => $profile->id,
                 'exception' => $e->getMessage(),
             ]);
@@ -504,6 +534,8 @@ class AuthService
 
         $this->startOnboardingDrip($profile);
 
+        $this->seedSuggestions($profile);
+
         return [
             'profile' => $profile,
             'is_new_user' => true,
@@ -600,6 +632,8 @@ class AuthService
 
         $this->startOnboardingDrip($profile);
 
+        $this->seedSuggestions($profile);
+
         return [
             'profile' => $profile,
             'is_new_user' => true,
@@ -633,6 +667,8 @@ class AuthService
         $this->loadProfileRelationships($profile);
 
         $this->startOnboardingDrip($profile);
+
+        $this->seedSuggestions($profile);
 
         return [
             'profile' => $profile,
