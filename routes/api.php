@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\CommunityJoinRequestController;
 use App\Http\Controllers\Api\V1\CommunityMemberController;
 use App\Http\Controllers\Api\V1\CommunityRewardController;
 use App\Http\Controllers\Api\V1\CommunityRewardsHubController;
+use App\Http\Controllers\Api\V1\CommunityStatsController;
 use App\Http\Controllers\Api\V1\CommunityTierController;
 use App\Http\Controllers\Api\V1\ConsentController;
 use App\Http\Controllers\Api\V1\DashboardController;
@@ -500,6 +501,9 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.communities.members.update');
         Route::delete('communities/{community}/members/{member}', [CommunityMemberController::class, 'destroy'])
             ->name('api.v1.communities.members.destroy');
+
+        Route::get('communities/{community}/stats', [CommunityStatsController::class, 'show'])
+            ->name('api.v1.communities.stats');
 
         /*
         |--------------------------------------------------------------------------
