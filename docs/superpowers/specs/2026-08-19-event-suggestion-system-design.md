@@ -187,8 +187,12 @@ a bad suggestion.
   with the community's `needs`, using the existing offer-type aliases
 - `intent_type` follows the audience: business → `product_promotion` (or venue
   promotion when `has_venue`), community → `community_seeking`
-- title from a template per `community_type` × `business_type`; when history is
-  thin the copy degrades to a generic-but-true phrasing, never an invented claim
+- title from a template per `community_type` (the 7 matrix types plus a `generic`
+  fallback), carried as `title_key` + `title_params` and rendered at read time like
+  the signal reasons. Keying it on `community_type` × `business_type` was considered
+  and rejected: 7 × 16 templates in three locales buys little over naming the
+  business in the params. When history is thin the copy degrades to a
+  generic-but-true phrasing, never an invented claim
 
 ### 3.4 Generation
 

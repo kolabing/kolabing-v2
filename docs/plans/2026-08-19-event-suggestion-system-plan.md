@@ -1051,6 +1051,8 @@ public function candidatesFor(Profile $viewer, SuggestionAudience $audience): ar
   Plus `event_series` existence for `hasActiveSeries`.
 - Distance: only when both sides have `location_lat`/`location_lng` available (business `primary_venue`, community's last event) — otherwise leave `distanceKm` null and let the scorer fall back to city equality. **Compute the Haversine in PHP**, not in SQL (SQLite/Postgres divergence).
 
+**`PairContext` must grow the mirrored offer/need pair.** Task 4 found this: the context carries `viewerOffers` and `counterpartNeeds`, whose intersection is the **offer**. It does not carry the other direction — what the counterpart can give and what the viewer wants — which is exactly what `suggested_format.expects` needs. That matters because `needs` is `required_if` on a `community_seeking` Kolab, so without it the community-side pre-fill can never fill its own required ask, and `FormatSuggester` currently ships `expects: []`. Add `counterpartOffers` and `viewerNeeds` to `PairContext` (same invariants as the existing two), populate both in the finder, and have `FormatSuggester` intersect them.
+
 **Category values need an alias map before they reach the matrix.** Verified against the production database (read-only), 2026-08-19:
 
 - `community_type` holds hyphen/underscore twins throughout — `wellness-community` alongside `wellness_community`, `food-community` alongside `food_community`, `run-club`, `tech-startup-community`, `fitness-community`, `photography-community`, `sustainability-community`. `CategoryFitMatrix::normalize()` (Task 3) already collapses these, which is why that method is load-bearing rather than cosmetic.
