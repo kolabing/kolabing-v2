@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\KolabController as AdminKolabController;
 use App\Http\Controllers\Admin\ManagedUserController;
 use App\Http\Controllers\Admin\OfferOptionController as AdminOfferOptionController;
 use App\Http\Controllers\Admin\PartnerRewardController as AdminPartnerRewardController;
+use App\Http\Controllers\Admin\RankingController as AdminRankingController;
 use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Admin\RewardEconomicsController as AdminRewardEconomicsController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
@@ -159,6 +160,13 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::put('/crm/{account}', [AdminCrmController::class, 'update'])->name('crm.update');
     Route::delete('/crm/{account}', [AdminCrmController::class, 'destroy'])->name('crm.destroy');
 
+    // Community-rankings directory: publish/unpublish pages + moderate testimonials.
+    // (Re-ranking is done in /admin/crm via score + metrics.rank_override + listed.)
+    Route::get('/rankings', [AdminRankingController::class, 'index'])->name('rankings.index');
+    Route::post('/rankings/{page}/publish', [AdminRankingController::class, 'togglePublish'])->name('rankings.publish');
+    Route::post('/rankings/{page}/spotlight', [AdminRankingController::class, 'toggleSpotlight'])->name('rankings.spotlight');
+    Route::post('/rankings/testimonials/{testimonial}/{decision}', [AdminRankingController::class, 'moderate'])->name('rankings.testimonials.moderate');
+
     Route::get('/tasks', [AdminTaskController::class, 'index'])->name('tasks.index');
     Route::get('/tasks/create', [AdminTaskController::class, 'create'])->name('tasks.create');
     Route::post('/tasks', [AdminTaskController::class, 'store'])->name('tasks.store');
@@ -264,8 +272,15 @@ Route::get('/blog/{post}', [BlogController::class, 'show'])->name('blog.show');
 // Community rankings directory (public GTM lead-magnet pages).
 Route::get('/communities', [DirectoryController::class, 'index'])->name('directory.index');
 Route::get('/communities/how-we-rank', [DirectoryController::class, 'howWeRank'])->name('directory.how-we-rank');
+// Social layer + claim (literal paths before the {city} catch-alls).
 Route::post('/communities/claim', [DirectoryController::class, 'claim'])
     ->middleware('throttle:10,1')->name('directory.claim');
+Route::get('/communities/claim/verify/{token}', [DirectoryController::class, 'verifyClaim'])->name('directory.claim.verify');
+Route::post('/communities/vouch', [DirectoryController::class, 'vouch'])
+    ->middleware('throttle:40,1')->name('directory.vouch');
+Route::post('/communities/testimonial', [DirectoryController::class, 'testimonial'])
+    ->middleware('throttle:10,1')->name('directory.testimonial');
+Route::get('/communities/{city}/badge/{id}', [DirectoryController::class, 'badge'])->name('directory.badge');
 Route::get('/communities/{city}', [DirectoryController::class, 'show'])->name('directory.city');
 Route::get('/communities/{city}/{slug}', [DirectoryController::class, 'topic'])->name('directory.topic');
 

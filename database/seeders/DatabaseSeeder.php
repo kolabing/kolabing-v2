@@ -29,6 +29,11 @@ class DatabaseSeeder extends Seeder
             RewardEconomicsSeeder::class,
             BlogPostSeeder::class,
             RealisticDataSeeder::class,
+            // Public community-rankings directory. Idempotent; only Wave-1 pages publish
+            // (the new category pages ship published=false pending Maria's review). Runs
+            // after the community leads exist (KolabingCommunityLeadsSeeder, PR #157);
+            // Barcelona leads are created here regardless.
+            RankingPageSeeder::class,
         ]);
     }
 }

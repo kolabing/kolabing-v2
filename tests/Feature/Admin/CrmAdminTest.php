@@ -63,6 +63,32 @@ class CrmAdminTest extends TestCase
         }
     }
 
+    public function test_editing_a_verified_community_preserves_verification_metadata(): void
+    {
+        $c = CrmAccount::query()->create([
+            'type' => 'community',
+            'name' => 'Verified Co',
+            'metrics' => [
+                'source' => 'neil-2026-08-18-verified', 'city' => 'Madrid',
+                'classification' => 'local-community', 'audience_count' => 5000, 'confidence' => 'High',
+            ],
+        ]);
+
+        // Edit + save WITHOUT re-posting the verification keys (as the edit form does today).
+        $this->actingAs($this->maintainer(), 'admin')
+            ->put(route('admin.crm.update', $c), [
+                'type' => 'community', 'name' => 'Verified Co', 'status' => 'Active',
+                'metrics' => ['category' => 'Sports'],
+            ])->assertRedirect();
+
+        $c->refresh();
+        $this->assertSame('neil-2026-08-18-verified', $c->metrics['source']); // preserved
+        $this->assertSame('Madrid', $c->metrics['city']);                     // preserved
+        $this->assertSame(5000, $c->metrics['audience_count']);               // preserved
+        $this->assertSame('Active', $c->status);                             // change applied
+        $this->assertSame('Sports', $c->metrics['category']);                // new value merged in
+    }
+
     public function test_create_and_edit_pages_render_for_each_type(): void
     {
         (new CrmSeeder)->run();
