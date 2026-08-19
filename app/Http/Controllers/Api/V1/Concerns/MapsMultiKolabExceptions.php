@@ -8,6 +8,7 @@ use App\Exceptions\DuplicateRoleApplicationException;
 use App\Exceptions\EventCreatorEntitlementRequiredException;
 use App\Exceptions\MultiKolabApplicationRejectedException;
 use App\Exceptions\MultiKolabEventPublishValidationException;
+use App\Exceptions\MultiKolabNotOrganizerException;
 use App\Exceptions\RoleCapacityExceededException;
 use Illuminate\Http\JsonResponse;
 use InvalidArgumentException;
@@ -58,6 +59,20 @@ trait MapsMultiKolabExceptions
     }
 
     /**
+     * Typed replacement for classifying "organizer may" via substring match
+     * (Review item #12) — stable `owner` → `not_owner` code, matching the
+     * shape {@see notOwnerResponse()} already produces for the policy layer.
+     */
+    protected function notOrganizerResponse(MultiKolabNotOrganizerException $e): JsonResponse
+    {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+            'errors' => ['owner' => ['not_owner']],
+        ], 403);
+    }
+
+    /**
      * Stable, machine-readable codes for the reachable role-application
      * rejection paths (ineligibility, event/role not accepting applications,
      * applying to your own event) — added in the Phase 5 hardening pass so
@@ -99,14 +114,6 @@ trait MapsMultiKolabExceptions
                 'message' => $message,
                 'errors' => ['status' => ['invalid_transition']],
             ], 422);
-        }
-
-        if (str_contains($message, 'organizer may')) {
-            return response()->json([
-                'success' => false,
-                'message' => $message,
-                'errors' => ['owner' => ['not_owner']],
-            ], 403);
         }
 
         return response()->json([

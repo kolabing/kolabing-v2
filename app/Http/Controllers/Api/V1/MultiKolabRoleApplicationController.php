@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Exceptions\DuplicateRoleApplicationException;
 use App\Exceptions\MultiKolabApplicationRejectedException;
+use App\Exceptions\MultiKolabNotOrganizerException;
 use App\Exceptions\RoleCapacityExceededException;
 use App\Http\Controllers\Api\V1\Concerns\MapsMultiKolabExceptions;
 use App\Http\Controllers\Controller;
@@ -45,7 +46,7 @@ class MultiKolabRoleApplicationController extends Controller
             return $this->notOwnerResponse();
         }
 
-        $perPage = min((int) $request->query('per_page', 20), 100);
+        $perPage = min(max((int) $request->query('per_page', 20), 1), 100);
 
         $query = MultiKolabRoleApplication::query()->where('multi_kolab_role_id', $role->id);
 
@@ -140,6 +141,8 @@ class MultiKolabRoleApplicationController extends Controller
             $kolab = $this->applicationService->accept($application, $profile);
         } catch (RoleCapacityExceededException $e) {
             return $this->roleCapacityExceededResponse($e);
+        } catch (MultiKolabNotOrganizerException $e) {
+            return $this->notOrganizerResponse($e);
         } catch (InvalidArgumentException $e) {
             return $this->invalidArgumentResponse($e);
         }
@@ -183,6 +186,8 @@ class MultiKolabRoleApplicationController extends Controller
 
         try {
             $application = $action($application, $profile);
+        } catch (MultiKolabNotOrganizerException $e) {
+            return $this->notOrganizerResponse($e);
         } catch (InvalidArgumentException $e) {
             return $this->invalidArgumentResponse($e);
         }

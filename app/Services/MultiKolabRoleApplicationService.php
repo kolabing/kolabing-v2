@@ -14,6 +14,7 @@ use App\Enums\MultiKolabRoleApplicationStatus;
 use App\Enums\MultiKolabRoleStatus;
 use App\Exceptions\DuplicateRoleApplicationException;
 use App\Exceptions\MultiKolabApplicationRejectedException;
+use App\Exceptions\MultiKolabNotOrganizerException;
 use App\Exceptions\RoleCapacityExceededException;
 use App\Models\Application;
 use App\Models\Collaboration;
@@ -166,7 +167,13 @@ class MultiKolabRoleApplicationService
             $event = $role->event;
 
             if ($event === null || $actor->id !== $event->creator_profile_id) {
-                throw new InvalidArgumentException('Only the event organizer may accept this application.');
+                throw new MultiKolabNotOrganizerException('Only the event organizer may accept this application.');
+            }
+
+            if ($event->status !== MultiKolabEventStatus::Recruiting) {
+                throw new InvalidArgumentException(
+                    "Cannot accept an application while the event is \"{$event->status->value}\" — only a recruiting event may accept new partners."
+                );
             }
 
             if ($role->positions_filled >= $role->positions_needed) {
@@ -276,49 +283,93 @@ class MultiKolabRoleApplicationService
      * decrements the role's `positions_filled` (never below zero) and
      * reopens the role to `open` if it had been marked `filled`.
      */
+    /**
+     * Withdraw an application. Status determination happens ENTIRELY inside
+     * the locked transaction (Review item #10) so a concurrent double-
+     * withdraw can never decrement role capacity twice: the application row
+     * is reloaded with `lockForUpdate()`, ownership/allowed-status/reason
+     * validation is re-run against that locked snapshot, and — when the
+     * locked snapshot was Accepted — the canonical child Kolab and
+     * Collaboration are cancelled and the role's `positions_filled` is
+     * decremented exactly once, all before the lock is released.
+     *
+     * Withdrawing an already-accepted application additionally (Review
+     * item #4) transitions the canonical partnership out of its live state
+     * using EXISTING domain statuses (Kolab → `closed`, Collaboration →
+     * `cancelled`) rather than deleting any historical record, and (Review
+     * item #5) only reopens the role to `open` when it had been
+     * auto-`filled` by capacity — never when the organizer had explicitly
+     * `closed` it, and never when the parent event is no longer Recruiting.
+     */
     public function withdraw(
         MultiKolabRoleApplication $application,
         Profile $actor,
         ?string $reason,
     ): MultiKolabRoleApplication {
-        if ($actor->id !== $application->applicant_profile_id) {
-            throw new InvalidArgumentException('Only the applicant may withdraw this application.');
-        }
+        $outcome = DB::transaction(function () use ($application, $actor, $reason): array {
+            $lockedApplication = MultiKolabRoleApplication::query()
+                ->lockForUpdate()
+                ->findOrFail($application->id);
 
-        if (! in_array($application->status, [
-            MultiKolabRoleApplicationStatus::Pending,
-            MultiKolabRoleApplicationStatus::Shortlisted,
-            MultiKolabRoleApplicationStatus::Accepted,
-        ], true)) {
-            throw new InvalidArgumentException(
-                "Cannot withdraw an application with status \"{$application->status->value}\"."
-            );
-        }
+            if ($actor->id !== $lockedApplication->applicant_profile_id) {
+                throw new InvalidArgumentException('Only the applicant may withdraw this application.');
+            }
 
-        $wasAccepted = $application->status === MultiKolabRoleApplicationStatus::Accepted;
+            if (! in_array($lockedApplication->status, [
+                MultiKolabRoleApplicationStatus::Pending,
+                MultiKolabRoleApplicationStatus::Shortlisted,
+                MultiKolabRoleApplicationStatus::Accepted,
+            ], true)) {
+                throw new InvalidArgumentException(
+                    "Cannot withdraw an application with status \"{$lockedApplication->status->value}\"."
+                );
+            }
 
-        if ($wasAccepted && ! Str::of((string) ($reason ?? ''))->trim()->isNotEmpty()) {
-            throw new InvalidArgumentException(
-                'A reason is required to withdraw an already-accepted application.'
-            );
-        }
+            $wasAccepted = $lockedApplication->status === MultiKolabRoleApplicationStatus::Accepted;
 
-        $outcome = DB::transaction(function () use ($application, $reason, $wasAccepted): array {
-            $application->update([
+            if ($wasAccepted && ! Str::of((string) ($reason ?? ''))->trim()->isNotEmpty()) {
+                throw new InvalidArgumentException(
+                    'A reason is required to withdraw an already-accepted application.'
+                );
+            }
+
+            $lockedApplication->update([
                 'status' => MultiKolabRoleApplicationStatus::Withdrawn,
                 'withdrawn_at' => now(),
                 'withdrawal_reason' => $reason,
             ]);
 
             if ($wasAccepted) {
-                $role = MultiKolabRole::query()->lockForUpdate()->findOrFail($application->multi_kolab_role_id);
+                $role = MultiKolabRole::query()->lockForUpdate()->findOrFail($lockedApplication->multi_kolab_role_id);
+                $role->loadMissing('event');
+                $preWithdrawalRoleStatus = $role->status;
+                $event = $role->event;
+
+                $newStatus = ($preWithdrawalRoleStatus === MultiKolabRoleStatus::Filled
+                    && $event?->status === MultiKolabEventStatus::Recruiting)
+                    ? MultiKolabRoleStatus::Open
+                    : $preWithdrawalRoleStatus;
+
                 $role->update([
                     'positions_filled' => max(0, $role->positions_filled - 1),
-                    'status' => MultiKolabRoleStatus::Open,
+                    'status' => $newStatus,
                 ]);
+
+                // Historical records remain — only the *live* partnership
+                // state is cancelled. `kolab_id` still points at the same
+                // canonical Kolab/Application/Collaboration.
+                if ($lockedApplication->kolab_id !== null) {
+                    $kolab = Kolab::query()->find($lockedApplication->kolab_id);
+                    $kolab?->update(['status' => KolabStatus::Closed]);
+
+                    Collaboration::query()
+                        ->where('kolab_id', $lockedApplication->kolab_id)
+                        ->whereIn('status', [CollaborationStatus::Scheduled, CollaborationStatus::Active])
+                        ->update(['status' => CollaborationStatus::Cancelled]);
+                }
             }
 
-            return ['application' => $application->fresh(['applicantProfile']), 'was_accepted' => $wasAccepted];
+            return ['application' => $lockedApplication->fresh(['applicantProfile']), 'was_accepted' => $wasAccepted];
         });
 
         if ($outcome['was_accepted']) {
@@ -406,7 +457,7 @@ class MultiKolabRoleApplicationService
         $event = $application->role?->event;
 
         if ($event === null || $actor->id !== $event->creator_profile_id) {
-            throw new InvalidArgumentException('Only the event organizer may perform this action.');
+            throw new MultiKolabNotOrganizerException('Only the event organizer may perform this action.');
         }
     }
 }
