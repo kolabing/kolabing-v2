@@ -10,6 +10,7 @@ use App\Support\OfferOptionValues;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator as ValidationValidator;
 
 class CreateKolabRequest extends FormRequest
@@ -60,6 +61,30 @@ class CreateKolabRequest extends FormRequest
             'negotiation_triggers.*.condition' => ['required_with:negotiation_triggers', 'string', 'max:255'],
             'negotiation_triggers.*.additional_offer' => ['required_with:negotiation_triggers', 'string', 'max:1000'],
             'preferred_city' => ['required_unless:intent_type,venue_promotion', 'nullable', 'string', 'max:100'],
+
+            /*
+             * The end of the suggestion funnel (BE-NF-28). Optional and additive:
+             * every existing client keeps working, and a client that sends it
+             * gets `converted_kolab_id` written on the row (KolabService::create).
+             *
+             * The `exists` rule is scoped to the caller's own suggestions on
+             * purpose. Ownership checked *here* turns a stranger's id into a
+             * clean 422; ownership checked only afterwards would make it a silent
+             * no-op that quietly marks someone else's row converted and
+             * corrupts the one funnel this feature is judged on. A null viewer
+             * (unreachable behind auth) scopes to `viewer_profile_id is null`,
+             * which the NOT NULL column can never match — it fails closed.
+             *
+             * Liveness is deliberately NOT required: an expired or dismissed row
+             * of the caller's own still converts, because refusing the create
+             * would let a stale card block Kolab creation.
+             */
+            'suggestion_id' => [
+                'sometimes',
+                'nullable',
+                'uuid',
+                Rule::exists('kolab_suggestions', 'id')->where('viewer_profile_id', $this->user()?->id),
+            ],
 
             // Community Seeking fields
             'needs' => ['required_if:intent_type,community_seeking', 'nullable', 'array'],
@@ -183,6 +208,8 @@ class CreateKolabRequest extends FormRequest
             'selected_time.date_format' => __('validation.date_format', ['attribute' => 'selected time', 'format' => 'HH:mm']),
             'recurring_days.*.between' => __('validation.between.numeric', ['attribute' => 'recurring day', 'min' => 1, 'max' => 7]),
             'expects.*.in' => __('validation.in', ['attribute' => 'expects item']),
+            'suggestion_id.uuid' => __('validation.uuid', ['attribute' => 'suggestion']),
+            'suggestion_id.exists' => __('validation.exists', ['attribute' => 'suggestion']),
         ];
     }
 
