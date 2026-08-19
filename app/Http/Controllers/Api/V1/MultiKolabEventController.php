@@ -68,9 +68,27 @@ class MultiKolabEventController extends Controller
      *
      * GET /api/v1/multi-kolab-events
      */
+    /**
+     * Statuses that may ever be requested through the public listing.
+     * Draft/cancelled/expired events are private to their organizer and
+     * must only ever be reachable via `/multi-kolab-events/me`.
+     *
+     * @var array<int, string>
+     */
+    private const PUBLIC_STATUSES = [
+        'recruiting',
+        'confirmed',
+        'completed',
+    ];
+
     public function index(Request $request): JsonResponse
     {
-        $perPage = min((int) $request->query('per_page', 15), 100);
+        $perPage = $this->normalizePerPage($request->query('per_page', 15));
+
+        $requestedStatus = $request->query('status');
+        $status = is_string($requestedStatus) && in_array($requestedStatus, self::PUBLIC_STATUSES, true)
+            ? $requestedStatus
+            : MultiKolabEventStatus::Recruiting->value;
 
         $query = MultiKolabEvent::query()
             ->with(['creatorProfile.businessProfile', 'creatorProfile.communityProfile'])
@@ -79,7 +97,7 @@ class MultiKolabEventController extends Controller
                 'roles as open_roles_count' => fn ($q) => $q->where('status', MultiKolabRoleStatus::Open),
                 'roles as filled_roles_count' => fn ($q) => $q->where('status', MultiKolabRoleStatus::Filled),
             ])
-            ->where('status', $request->query('status', MultiKolabEventStatus::Recruiting->value));
+            ->where('status', $status);
 
         if ($city = $request->query('city')) {
             $query->where('city', $city);
@@ -114,7 +132,7 @@ class MultiKolabEventController extends Controller
     {
         /** @var Profile $profile */
         $profile = $request->user();
-        $perPage = min((int) $request->query('per_page', 15), 100);
+        $perPage = $this->normalizePerPage($request->query('per_page', 15));
 
         $events = MultiKolabEvent::query()
             ->with(['creatorProfile.businessProfile', 'creatorProfile.communityProfile'])
@@ -147,6 +165,8 @@ class MultiKolabEventController extends Controller
         /** @var Profile $profile */
         $profile = $request->user();
 
+        $this->authorize('create', MultiKolabEvent::class);
+
         $event = $this->eventService->createDraft($profile, $request->validated());
         $event->load(['creatorProfile.businessProfile', 'creatorProfile.communityProfile', 'roles']);
 
@@ -170,10 +190,20 @@ class MultiKolabEventController extends Controller
 
         $event->load(['creatorProfile.businessProfile', 'creatorProfile.communityProfile', 'roles']);
 
-        $event->viewer_application = MultiKolabRoleApplication::query()
+        // Review item #11: the viewer's full SET of applications across
+        // every role on this event — the canonical, preferred
+        // representation going forward. `viewer_application` (singular,
+        // kept additive for backward compatibility) is derived from this
+        // set deterministically by priority rather than an arbitrary
+        // `first()`.
+        $viewerApplications = MultiKolabRoleApplication::query()
             ->whereIn('multi_kolab_role_id', $event->roles->pluck('id'))
             ->where('applicant_profile_id', $profile->id)
-            ->first();
+            ->latest()
+            ->get();
+
+        $event->viewer_applications = $viewerApplications;
+        $event->viewer_application = $this->resolvePriorityViewerApplication($viewerApplications);
 
         return response()->json([
             'success' => true,
@@ -441,6 +471,40 @@ class MultiKolabEventController extends Controller
             'success' => true,
             'data' => new MultiKolabEventResource($event),
         ]);
+    }
+
+    /**
+     * Clamp to 1..100 — matches {@see \App\Services\DiscoveryOpportunityService::normalizeFilters()}'s
+     * `min(max($perPage, 1), 100)` pattern. `min((int) ..., 100)` alone
+     * (the prior implementation here) let 0 or a negative value through
+     * unclamped (Review item #8).
+     */
+    /**
+     * accepted > shortlisted > pending > declined > withdrawn, then newest
+     * within a tied status — the documented deterministic priority for the
+     * backward-compatible singular `viewer_application` field (Review
+     * item #11). `$viewerApplications` is already ordered newest-first.
+     *
+     * @param  \Illuminate\Support\Collection<int, MultiKolabRoleApplication>  $viewerApplications
+     */
+    private function resolvePriorityViewerApplication($viewerApplications): ?MultiKolabRoleApplication
+    {
+        $priority = [
+            \App\Enums\MultiKolabRoleApplicationStatus::Accepted->value => 0,
+            \App\Enums\MultiKolabRoleApplicationStatus::Shortlisted->value => 1,
+            \App\Enums\MultiKolabRoleApplicationStatus::Pending->value => 2,
+            \App\Enums\MultiKolabRoleApplicationStatus::Declined->value => 3,
+            \App\Enums\MultiKolabRoleApplicationStatus::Withdrawn->value => 4,
+        ];
+
+        return $viewerApplications
+            ->sortBy(fn (MultiKolabRoleApplication $application) => $priority[$application->status->value] ?? 99)
+            ->first();
+    }
+
+    private function normalizePerPage(mixed $value): int
+    {
+        return min(max((int) $value, 1), 100);
     }
 
     private function notOwnerResponse(): JsonResponse
