@@ -247,15 +247,42 @@ class PublicProfilePageTest extends TestCase
         $this->get('http://kolabing.com/p/'.$profile->id)->assertOk()->assertSee('Barcelona Runners');
     }
 
-    public function test_the_sitemap_lists_profiles_with_a_completed_collaboration(): void
+    public function test_the_sitemap_only_lists_profiles_worth_reading(): void
     {
-        $withHistory = $this->community();
-        $withoutHistory = Profile::factory()->community()->create();
+        // "Has a completed collaboration" used to be the bar, which let a seeded
+        // test account into the index and would have published hundreds of empty,
+        // near-identical profiles. The bar is now something a reader comes for.
+        $withReview = $this->community();
+        $reviewer = $this->business();
+        $collaboration = Collaboration::factory()->create([
+            'creator_profile_id' => $reviewer->id,
+            'applicant_profile_id' => $withReview->id,
+            'status' => 'completed',
+        ]);
+        CollaborationReview::factory()->create([
+            'collaboration_id' => $collaboration->id,
+            'reviewer_profile_id' => $reviewer->id,
+            'reviewed_profile_id' => $withReview->id,
+            'rating' => 5,
+        ]);
 
-        $kolab = Kolab::factory()->published()->forCreator($withHistory)->create();
+        $withPhotos = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create(['profile_id' => $withPhotos->id, 'name' => 'Photo Heavy Club']);
+        foreach (range(1, 3) as $i) {
+            ProfileGalleryPhoto::factory()->create([
+                'profile_id' => $withPhotos->id,
+                'url' => "https://cdn.example/gallery-{$i}.jpg",
+            ]);
+        }
+
+        // Nothing to show, even though the collaboration completed — this is the
+        // shape the production test account had.
+        $empty = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create(['profile_id' => $empty->id, 'name' => 'Empty Shell']);
+        $kolab = Kolab::factory()->published()->forCreator($empty)->create();
         Collaboration::factory()->create([
             'kolab_id' => $kolab->id,
-            'creator_profile_id' => $withHistory->id,
+            'creator_profile_id' => $empty->id,
             'applicant_profile_id' => $this->business()->id,
             'status' => 'completed',
         ]);
@@ -263,8 +290,48 @@ class PublicProfilePageTest extends TestCase
         $response = $this->get('http://kolabing.com/sitemap.xml');
 
         $response->assertOk()
-            ->assertSee(url('/p/'.PublicProfileLink::slugFor($withHistory)), false)
-            // An empty profile is a thin page; it stays out of the index.
-            ->assertDontSee(url('/p/'.PublicProfileLink::slugFor($withoutHistory->fresh())), false);
+            ->assertSee(url('/p/'.PublicProfileLink::slugFor($withReview)), false)
+            ->assertSee(url('/p/'.PublicProfileLink::slugFor($withPhotos->fresh())), false)
+            ->assertDontSee(url('/p/'.PublicProfileLink::slugFor($empty->fresh())), false);
+    }
+
+    public function test_an_empty_profile_page_asks_not_to_be_indexed(): void
+    {
+        $empty = $this->community();
+
+        $this->get('http://kolabing.com/p/'.PublicProfileLink::slugFor($empty))
+            ->assertOk()
+            // Still reachable — people share these links — but not indexable.
+            ->assertSee('noindex,follow', false);
+    }
+
+    public function test_a_profile_with_photos_is_indexable(): void
+    {
+        $profile = $this->community();
+        foreach (range(1, 3) as $i) {
+            ProfileGalleryPhoto::factory()->create([
+                'profile_id' => $profile->id,
+                'url' => "https://cdn.example/p{$i}.jpg",
+                'sort_order' => $i,
+            ]);
+        }
+
+        $this->get('http://kolabing.com/p/'.PublicProfileLink::slugFor($profile))
+            ->assertOk()
+            ->assertDontSee('noindex', false);
+    }
+
+    public function test_the_meta_description_says_something_without_a_rating(): void
+    {
+        // A bare name + type was 56 characters on a real production profile.
+        $profile = $this->business('Cafe Luna', 'A neighbourhood cafe on Carrer de Sants that hosts small tastings.');
+
+        $response = $this->get('http://kolabing.com/p/'.PublicProfileLink::slugFor($profile));
+
+        preg_match('/<meta name="description" content="([^"]*)"/', $response->getContent(), $m);
+
+        $this->assertNotEmpty($m, 'no meta description rendered');
+        $this->assertGreaterThan(100, mb_strlen($m[1]), 'meta description is still too thin: '.$m[1]);
+        $this->assertStringContainsString('neighbourhood cafe', $m[1]);
     }
 }

@@ -245,6 +245,16 @@ class Profile extends Authenticatable
      *
      * @return HasMany<ProfileGalleryPhoto, $this>
      */
+    /**
+     * Reviews this profile has RECEIVED (it is the reviewed party).
+     *
+     * @return HasMany<CollaborationReview, $this>
+     */
+    public function receivedReviews(): HasMany
+    {
+        return $this->hasMany(CollaborationReview::class, 'reviewed_profile_id');
+    }
+
     public function galleryPhotos(): HasMany
     {
         return $this->hasMany(ProfileGalleryPhoto::class);

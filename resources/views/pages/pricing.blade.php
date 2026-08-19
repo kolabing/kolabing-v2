@@ -1,6 +1,6 @@
 @php
 
-    $title = 'Pricing';
+    $title = 'Pricing for businesses';
     $description = 'Kolabing Business pricing: €'.(int) config('subscriptions.business.stripe.monthly.price').' per month to publish unlimited Kolabs and partner with local communities. Communities always use Kolabing for free.';
     $canonical = route('pricing');
     $alternates = [

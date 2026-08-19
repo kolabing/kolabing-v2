@@ -47,6 +47,7 @@ class PublicProfilePageController extends Controller
         $canonicalSlug = PublicProfileLink::slugFor($profile);
         $extended = $profile->getExtendedProfile();
         $about = (string) ($extended?->about ?? '');
+        $photos = $this->publicPhotos($detail);
 
         return view('pages.public-profile', [
             'profile' => $profile,
@@ -60,7 +61,14 @@ class PublicProfilePageController extends Controller
             'averageRating' => $reputation['average_rating'] ?? null,
             'reviewCount' => (int) ($reputation['review_count'] ?? 0),
             'completedKolabs' => (int) ($reputation['completed_kolabs_count'] ?? 0),
-            'photos' => $this->publicPhotos($detail),
+            'photos' => $photos,
+            /*
+             * A profile with no review and nothing to look at is a near-duplicate of
+             * every other empty profile. It stays reachable (people share these links)
+             * but asks not to be indexed, so a few hundred of them cannot turn into a
+             * thin-page cluster. The same bar gates the sitemap — see routes/web.php.
+             */
+            'noindex' => ($reputation['review_count'] ?? 0) < 1 && count($photos) < 3,
             'hiddenPhotoCount' => max(0, count($detail->getAttribute('community_public_photos') ?? []) - self::PUBLIC_PHOTO_COUNT),
             'featuredReview' => $this->featuredReview($profile),
             'pastEventCount' => (int) ($stats['past_events_count'] ?? 0),

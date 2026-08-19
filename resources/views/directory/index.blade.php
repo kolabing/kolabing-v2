@@ -8,6 +8,7 @@
     title="The best local communities in every city (2026)"
     description="Kolabing ranks the real community groups in each city — pottery studios, run clubs, supper clubs, AI meetups and more. Find the ones near you, or claim your free listing."
     :canonical="route('directory.index')"
+    :robots="$cities->isEmpty() ? 'noindex,follow' : null"
 >
     <x-slot:head>
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
