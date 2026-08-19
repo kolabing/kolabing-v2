@@ -138,10 +138,23 @@ Three collaborators, each independently testable:
 
 **`PairCandidateFinder`** narrows the pool in SQL before any scoring:
 
-- same city (`profiles.city_id`, widened by `business_profiles.target_city_ids`)
+- same city — read from the **extended** profile (`business_profiles.city_id` /
+  `community_profiles.city_id`), with `profiles.city_id` only as a fallback:
+  that column is attendee-only and has no backfill, so scoping on it alone
+  matches almost nothing in production. Widened by
+  `business_profiles.target_city_ids` for a business **viewer**; widening for a
+  business *counterpart* would need a JSON predicate in SQL and is deliberately
+  not done (BE-FX-12 argues against engine-specific SQL the SQLite suite cannot
+  verify)
 - both profiles active; counterpart not soft-deleted
 - no `user_blocks` row in either direction
-- no open application or active collaboration between the pair
+- no open application or active collaboration between the pair — matched on
+  `collaborations.creator_profile_id` / `applicant_profile_id`, **not** on
+  `business_profile_id` / `community_profile_id`: those are FKs to the *extended*
+  profile tables and are nullable, so comparing them against `profiles.id` would
+  mean the exclusion never fires and we would keep suggesting pairs that are
+  already working together. `applications` has no counterpart column at all and is
+  joined through `kolabs`
 - minimum profile completeness (a counterpart with no `categories` /
   `community_type` and no history is not proposable)
 
