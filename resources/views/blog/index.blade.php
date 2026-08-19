@@ -1,7 +1,8 @@
 <x-layouts.marketing-page
-    title="Blog"
+    title="Local partnership playbooks"
     description="Community Commerce insights for local businesses and communities: turn real-world partnerships into footfall, members, and repeat visits."
     :canonical="route('blog.index')"
+    :robots="$posts->isEmpty() ? 'noindex,follow' : null"
 >
     <section class="mx-auto max-w-6xl px-6 py-16">
         <header class="max-w-2xl">

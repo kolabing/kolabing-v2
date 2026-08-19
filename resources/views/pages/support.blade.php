@@ -1,5 +1,5 @@
 @php
-    $title = 'Support';
+    $title = 'Help with your Kolabing account';
     $description = 'Find Kolabing support details, product guidance, and the fastest way to contact the team about partnerships, onboarding, and account help.';
     $canonical = route('support');
 @endphp

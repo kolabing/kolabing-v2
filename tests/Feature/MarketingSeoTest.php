@@ -27,13 +27,15 @@ class MarketingSeoTest extends TestCase
         // The nav's third slot used to be a "download" anchor to #cta; it now sends
         // visitors to the web app instead (see WebAppFunnelTest).
         $response->assertSee('id="cta"', false);
-        $response->assertSee('/brand/kolabing-logo.png', false);
-        $response->assertSee('uploads/Screenshot 2026-05-16 at 22.47.19.png', false);
-        $response->assertSee('uploads/Gemini_Generated_Image_j3ohygj3ohygj3oh.png', false);
-        $response->assertSee('uploads/Gemini_Generated_Image_rfno1grfno1grfno.png', false);
-        $response->assertSee('uploads/feedback-skincare.png', false);
-        $response->assertSee('uploads/content-dog-walk.png', false);
-        $response->assertSee('uploads/loyalty-wine-book.png', false);
+        $response->assertSee('/brand/kolabing-logo.webp', false);
+        // The kolab-idea polaroids. Renamed and re-encoded to WebP when the page's
+        // 24.6 MB image payload was fixed — see SeoRemediationTest for the budget.
+        $response->assertSee('uploads/kolab-app-preview.webp', false);
+        $response->assertSee('uploads/kolab-run-club-cafe.webp', false);
+        $response->assertSee('uploads/kolab-yoga-studio-brunch.webp', false);
+        $response->assertSee('uploads/kolab-idea-skincare-feedback.webp', false);
+        $response->assertSee('uploads/kolab-idea-dog-walk-content.webp', false);
+        $response->assertSee('uploads/kolab-idea-wine-book-loyalty.webp', false);
     }
 
     public function test_secure_requests_receive_security_headers(): void

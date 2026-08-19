@@ -6,9 +6,14 @@
     'alternates' => null,
     'image' => null,
     'ogType' => 'website',
-    // Overridable so private surfaces (e.g. an invite-only community's join
-    // page) can opt out of indexing without a second layout.
-    'robots' => 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1',
+    /*
+     * Overridable so a surface can opt out of indexing without a second layout:
+     * a private page (an invite-only community's join page) or one that has no
+     * content yet (an empty blog, a directory with no published cities). Null
+     * means the indexable default below, so an opting-out caller passes only
+     * 'noindex,follow' rather than restating the whole string.
+     */
+    'robots' => null,
 ])
 @php
 
@@ -49,7 +54,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $title }} | Kolabing</title>
     <meta name="description" content="{{ $description }}">
-    <meta name="robots" content="{{ $robots }}">
+    <meta name="robots" content="{{ $robots ?? 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1' }}">
     <link rel="canonical" href="{{ $canonical }}">
     @isset($alternates)
         @foreach ($alternates as $alternate)
@@ -102,7 +107,7 @@
     <header class="border-b border-off-black/10 bg-white/90 backdrop-blur">
         <div class="mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-4">
             <a href="{{ route('home') }}" class="flex items-center gap-3 text-off-black">
-                <img src="/brand/kolabing-logo.png" alt="Kolabing" width="2000" height="894" class="h-9 w-auto">
+                <img src="/brand/kolabing-logo.webp" alt="Kolabing" width="560" height="250" fetchpriority="high" class="h-9 w-auto">
             </a>
             {{-- Every marketing page funnels into the web app from here; the legal
                  links stay in the DOM for crawlers but collapse on small screens so

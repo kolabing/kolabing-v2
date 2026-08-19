@@ -1204,10 +1204,13 @@
 <!-- NAV -->
 <header>
   <div class="logo">
-    <img class="logo-mark" src="/brand/kolabing-logo.png" alt="Kolabing"/>
+    <img class="logo-mark" src="/brand/kolabing-logo.webp" alt="Kolabing" width="560" height="250" fetchpriority="high"/>
   </div>
   <nav>
     <span class="nav-links">
+      <a href="{{ route('for-businesses') }}">businesses</a>
+      <a href="{{ route('for-communities') }}">communities</a>
+      <a href="{{ route('pricing') }}">pricing</a>
       <a href="#how-it-works">how it works</a>
       <a href="#faq">questions</a>
     </span>
@@ -1659,7 +1662,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/Screenshot 2026-05-16 at 22.47.19.png" alt="Run club cheers-ing coffee cups after a morning run" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-app-preview.webp" alt="Run club cheers-ing coffee cups after a morning run" width="1600" height="862" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Run club + café</strong><span>Morning run + coffee</span></figcaption>
       </figure>
     </div>
@@ -1670,7 +1673,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/Gemini_Generated_Image_j3ohygj3ohygj3oh.png" alt="Cycling crew on the road testing gear" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-run-club-cafe.webp" alt="Cycling crew on the road testing gear" width="1600" height="872" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Cycling crew + hydration brand</strong><span>Ride test</span></figcaption>
       </figure>
     </div>
@@ -1681,7 +1684,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/Gemini_Generated_Image_rfno1grfno1grfno.png" alt="Yoga class at sunset on a rooftop" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-yoga-studio-brunch.webp" alt="Yoga class at sunset on a rooftop" width="1600" height="872" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Yoga club + activewear brand</strong><span>Try-on flow</span></figcaption>
       </figure>
     </div>
@@ -1692,7 +1695,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/feedback-skincare.png" alt="Women's group testing skincare products together" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-idea-skincare-feedback.webp" alt="Women's group testing skincare products together" width="1600" height="1200" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Women&rsquo;s group + skincare brand</strong><span>Product testing circle</span></figcaption>
       </figure>
     </div>
@@ -1703,7 +1706,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/content-dog-walk.png" alt="Dog community on a city photo walk with their dogs" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-idea-dog-walk-content.webp" alt="Dog community on a city photo walk with their dogs" width="1600" height="1200" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Dog community + pet brand</strong><span>Dog photo walk</span></figcaption>
       </figure>
     </div>
@@ -1714,7 +1717,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/loyalty-wine-book.png" alt="Book club gathered around a table reading with wine in a cellar" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-idea-wine-book-loyalty.webp" alt="Book club gathered around a table reading with wine in a cellar" width="1600" height="1200" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Book club + wine bar</strong><span>Monthly tasting night</span></figcaption>
       </figure>
     </div>
@@ -1785,9 +1788,14 @@ COMMUNITIES GET PERKS.</div>
 <footer>
   <div class="footer-inner">
     <div class="logo">
-      <img class="logo-mark logo-mark--footer" src="/brand/kolabing-logo.png" alt="Kolabing"/>
+      <img class="logo-mark logo-mark--footer" src="/brand/kolabing-logo.webp" alt="Kolabing" width="560" height="250" loading="lazy"/>
     </div>
     <div class="footer-links">
+      <a href="{{ route('for-businesses') }}">businesses</a>
+      <a href="{{ route('for-communities') }}">communities</a>
+      <a href="{{ route('pricing') }}">pricing</a>
+      <a href="{{ route('directory.index') }}">community directory</a>
+      <a href="{{ route('blog.index') }}">blog</a>
       <a href="{{ route('terms') }}">terms</a>
       <a href="{{ route('privacy') }}">privacy</a>
       <a href="{{ route('support') }}">support</a>

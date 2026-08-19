@@ -1,4 +1,6 @@
 @php
+    use Illuminate\Support\Str;
+
     /**
      * Public teaser for a business or community profile.
      *
@@ -43,6 +45,18 @@
         $ratingLabel && $reviewCount > 0 ? ' Rated '.$ratingLabel.'/5 from '.$reviewCount.' verified collaboration '.($reviewCount === 1 ? 'review' : 'reviews').'.' : '',
         $completedKolabs > 0 ? ' '.$completedKolabs.' completed '.($completedKolabs === 1 ? 'Kolab' : 'Kolabs').'.' : ''
     ));
+
+    /*
+     * Without a rating the sentence above collapses to a bare name and type — 56
+     * characters on a real production profile. Top it up from the about text so the
+     * snippet still says something, then fall back to the value proposition.
+     */
+    if (mb_strlen($metaDescription) < 110) {
+        $filler = $aboutPreview !== ''
+            ? $aboutPreview
+            : 'See their past events, photos and partner reviews, and start a collaboration.';
+        $metaDescription = Str::limit($metaDescription.' '.$filler, 155);
+    }
 @endphp
 
 <x-layouts.marketing-page
@@ -51,6 +65,7 @@
     :canonical="$canonicalUrl"
     :image="$avatarUrl"
     og-type="profile"
+    :robots="$noindex ? 'noindex,follow' : null"
 >
     <x-slot:head>
         <script type="application/ld+json">

@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\CollaborationStatus;
 use App\Enums\UserType;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
@@ -32,6 +31,7 @@ use App\Http\Controllers\PasswordResetPageController;
 use App\Http\Controllers\PublicProfilePageController;
 use App\Models\BlogPost;
 use App\Models\Profile;
+use App\Models\RankingPage;
 use App\Support\PublicProfileLink;
 use Illuminate\Support\Facades\Route;
 
@@ -106,7 +106,7 @@ Route::domain(config('webapp.host'))
 
 Route::get('/', function () {
     return view('welcome');
-})->name('home');
+})->name('home')->middleware('cache_marketing');
 
 // Public landing for a community's shareable join link. config('communities.
 // invite_base_url') has always pointed here and Community::inviteUrl() has
@@ -273,27 +273,27 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
 Route::get('/reset-password', [PasswordResetPageController::class, 'show'])->name('password.reset');
 Route::post('/reset-password', [PasswordResetPageController::class, 'update'])->name('password.reset.update');
 
-Route::view('/for-businesses', 'pages.for-businesses')->name('for-businesses');
-Route::view('/for-communities', 'pages.for-communities')->name('for-communities');
-Route::view('/pricing', 'pages.pricing')->name('pricing');
-Route::view('/es/pricing', 'pages.es.pricing')->name('pricing.es');
-Route::view('/support', 'pages.support')->name('support');
-Route::view('/careers', 'pages.careers')->name('careers');
-Route::view('/privacy', 'pages.privacy')->name('privacy');
-Route::view('/terms', 'pages.terms')->name('terms');
-Route::view('/es/privacy', 'pages.es.privacy')->name('privacy.es');
-Route::view('/es/terms', 'pages.es.terms')->name('terms.es');
+Route::view('/for-businesses', 'pages.for-businesses')->name('for-businesses')->middleware('cache_marketing');
+Route::view('/for-communities', 'pages.for-communities')->name('for-communities')->middleware('cache_marketing');
+Route::view('/pricing', 'pages.pricing')->name('pricing')->middleware('cache_marketing');
+Route::view('/es/pricing', 'pages.es.pricing')->name('pricing.es')->middleware('cache_marketing');
+Route::view('/support', 'pages.support')->name('support')->middleware('cache_marketing');
+Route::view('/careers', 'pages.careers')->name('careers')->middleware('cache_marketing');
+Route::view('/privacy', 'pages.privacy')->name('privacy')->middleware('cache_marketing');
+Route::view('/terms', 'pages.terms')->name('terms')->middleware('cache_marketing');
+Route::view('/es/privacy', 'pages.es.privacy')->name('privacy.es')->middleware('cache_marketing');
+Route::view('/es/terms', 'pages.es.terms')->name('terms.es')->middleware('cache_marketing');
 
 // Shareable public profile teaser (marketing host, indexable). The slug is
 // `name-<uuid tail>`; see App\Support\PublicProfileLink.
-Route::get('/p/{slug}', [PublicProfilePageController::class, 'show'])->name('public-profile');
+Route::get('/p/{slug}', [PublicProfilePageController::class, 'show'])->name('public-profile')->middleware('cache_marketing');
 
-Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
-Route::get('/blog/{post}', [BlogController::class, 'show'])->name('blog.show');
+Route::get('/blog', [BlogController::class, 'index'])->name('blog.index')->middleware('cache_marketing');
+Route::get('/blog/{post}', [BlogController::class, 'show'])->name('blog.show')->middleware('cache_marketing');
 
 // Community rankings directory (public GTM lead-magnet pages).
-Route::get('/communities', [DirectoryController::class, 'index'])->name('directory.index');
-Route::get('/communities/how-we-rank', [DirectoryController::class, 'howWeRank'])->name('directory.how-we-rank');
+Route::get('/communities', [DirectoryController::class, 'index'])->name('directory.index')->middleware('cache_marketing');
+Route::get('/communities/how-we-rank', [DirectoryController::class, 'howWeRank'])->name('directory.how-we-rank')->middleware('cache_marketing');
 // Social layer + claim (literal paths before the {city} catch-alls).
 Route::post('/communities/claim', [DirectoryController::class, 'claim'])
     ->middleware('throttle:10,1')->name('directory.claim');
@@ -303,8 +303,8 @@ Route::post('/communities/vouch', [DirectoryController::class, 'vouch'])
 Route::post('/communities/testimonial', [DirectoryController::class, 'testimonial'])
     ->middleware('throttle:10,1')->name('directory.testimonial');
 Route::get('/communities/{city}/badge/{id}', [DirectoryController::class, 'badge'])->name('directory.badge');
-Route::get('/communities/{city}', [DirectoryController::class, 'show'])->name('directory.city');
-Route::get('/communities/{city}/{slug}', [DirectoryController::class, 'topic'])->name('directory.topic');
+Route::get('/communities/{city}', [DirectoryController::class, 'show'])->name('directory.city')->middleware('cache_marketing');
+Route::get('/communities/{city}/{slug}', [DirectoryController::class, 'topic'])->name('directory.topic')->middleware('cache_marketing');
 
 Route::get('/sitemap.xml', function () {
     $urls = [
@@ -319,21 +319,44 @@ Route::get('/sitemap.xml', function () {
         route('terms'),
         route('privacy.es'),
         route('terms.es'),
-        route('blog.index'),
     ];
 
-    foreach (BlogPost::query()->published()->orderByDesc('published_at')->pluck('slug') as $slug) {
-        $urls[] = route('blog.show', $slug);
+    // A hub with nothing in it is a thin page: it stays out of the sitemap and
+    // serves `noindex` (see the marketing layout) until it has something to show.
+    $posts = BlogPost::query()->published()->orderByDesc('published_at')->pluck('slug');
+    if ($posts->isNotEmpty()) {
+        $urls[] = route('blog.index');
+        foreach ($posts as $slug) {
+            $urls[] = route('blog.show', $slug);
+        }
     }
 
-    // Public profile teasers. Only profiles with something to show are listed —
-    // an empty shell is a thin page that dilutes the rest of the site.
-    $completed = fn ($query) => $query->where('status', CollaborationStatus::Completed);
+    $rankingPages = RankingPage::query()->published()->orderBy('sort')->get(['city', 'topic', 'slug']);
+    if ($rankingPages->isNotEmpty()) {
+        $urls[] = route('directory.index');
+        $urls[] = route('directory.how-we-rank');
+        foreach ($rankingPages as $page) {
+            // A hub page is a city; the rest hang off a city as a topic.
+            $urls[] = $page->topic === null
+                ? route('directory.city', $page->slug)
+                : route('directory.topic', [$page->city, $page->slug]);
+        }
+    }
+
+    /*
+     * Public profile teasers, and the bar is deliberately higher than "exists".
+     * A completed collaboration alone let a seeded test account into the index,
+     * and a profile with no review and no photos is a near-duplicate of every
+     * other empty profile — exactly the thin-page cluster that drags a domain
+     * down once there are hundreds of them. Require something a reader would
+     * actually come for: a review, or a real gallery.
+     */
     foreach (Profile::query()
         ->whereIn('user_type', [UserType::Business, UserType::Community])
-        ->where(fn ($query) => $query
-            ->whereHas('createdCollaborations', $completed)
-            ->orWhereHas('appliedCollaborations', $completed))
+        ->whereHas('receivedReviews', fn ($query) => $query->whereNotNull('rating'))
+        ->orWhere(fn ($query) => $query
+            ->whereIn('user_type', [UserType::Business, UserType::Community])
+            ->has('galleryPhotos', '>=', 3))
         ->with(['businessProfile', 'communityProfile'])
         ->limit(500)
         ->get() as $profile) {
@@ -344,7 +367,7 @@ Route::get('/sitemap.xml', function () {
         'urls' => $urls,
         'lastModified' => now()->toDateString(),
     ])->header('Content-Type', 'application/xml; charset=UTF-8');
-})->name('sitemap');
+})->name('sitemap')->middleware('cache_marketing');
 
 Route::get('/llms.txt', function () {
     $lines = [
@@ -376,7 +399,7 @@ Route::get('/llms.txt', function () {
     $lines[] = 'Contact: support@kolabing.com';
 
     return response(implode("\n", $lines), 200)->header('Content-Type', 'text/plain; charset=UTF-8');
-})->name('llms');
+})->name('llms')->middleware('cache_marketing');
 
 Route::get('/.well-known/security.txt', function () {
     $content = implode("\n", [
@@ -388,4 +411,4 @@ Route::get('/.well-known/security.txt', function () {
     ]);
 
     return response($content, 200)->header('Content-Type', 'text/plain; charset=UTF-8');
-})->name('security.txt');
+})->name('security.txt')->middleware('cache_marketing');
