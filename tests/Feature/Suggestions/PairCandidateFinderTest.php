@@ -235,6 +235,55 @@ class PairCandidateFinderTest extends TestCase
         $this->assertContains($available->id, $ids);
     }
 
+    /**
+     * The mirror of the case above, and the *common* direction on a
+     * community-audience pass: the community applied, so the business created the
+     * Kolab and the community is the applicant. Without the second half of the
+     * `orWhere` this pair would be suggested while the two are actively working
+     * together.
+     */
+    public function test_excludes_a_pair_whose_live_collaboration_the_counterpart_created(): void
+    {
+        $city = City::factory()->create();
+        $viewer = $this->community($city);
+
+        $collaborating = $this->business($city);
+        $available = $this->business($city);
+
+        Collaboration::factory()->scheduled()->create([
+            'creator_profile_id' => $collaborating->id,
+            'applicant_profile_id' => $viewer->id,
+        ]);
+
+        $ids = $this->counterpartIds($this->finder()->candidatesFor($viewer, SuggestionAudience::Community));
+
+        $this->assertNotContains($collaborating->id, $ids);
+        $this->assertContains($available->id, $ids);
+    }
+
+    /**
+     * "Both profiles active" is enforced entirely by the `SoftDeletes` global
+     * scope on `Profile`, which means a `withTrashed()` added anywhere in this
+     * chain would silently reopen deleted accounts as suggestion targets with no
+     * other assertion noticing.
+     */
+    public function test_excludes_a_soft_deleted_counterpart(): void
+    {
+        $city = City::factory()->create();
+        $viewer = $this->business($city);
+
+        $deleted = $this->community($city);
+        $active = $this->community($city);
+
+        $deleted->delete();
+
+        $this->assertSoftDeleted('profiles', ['id' => $deleted->id]);
+
+        $ids = $this->counterpartIds($this->finder()->candidatesFor($viewer, SuggestionAudience::Business));
+
+        $this->assertSame([$active->id], $ids);
+    }
+
     public function test_excludes_pairs_dismissed_within_the_cooldown_window(): void
     {
         config()->set('suggestions.dismissal_cooldown_days', 60);
@@ -356,16 +405,25 @@ class PairCandidateFinderTest extends TestCase
         $this->assertCount(6, $contexts);
         $this->assertLessThan(12, $queries, "the finder ran {$queries} queries for 6 candidates");
 
-        // The same pass over a pool of one. The batch count is a function of the
-        // audience, so the two must agree; a per-pair query would put five extra
-        // queries on the six-candidate run.
-        $secondViewer = $this->business($city);
+        // The same pass over a pool of exactly one, in a city of its own — a
+        // second viewer in *this* city would see the same six communities and a
+        // per-pair query would add six to both measurements, leaving the
+        // comparison true and guarding nothing.
+        $otherCity = City::factory()->create();
+        $lonelyViewer = $this->business($otherCity);
+        $onlyCandidate = $this->community($otherCity);
 
-        $onePool = $this->countQueries(function () use ($secondViewer): void {
-            $this->finder()->candidatesFor($secondViewer, SuggestionAudience::Business);
+        $onePool = [];
+        $onePoolQueries = $this->countQueries(function () use ($lonelyViewer, &$onePool): void {
+            $onePool = $this->finder()->candidatesFor($lonelyViewer, SuggestionAudience::Business);
         });
 
-        $this->assertSame($onePool, $queries, 'the query count must not grow with the candidate count');
+        $this->assertSame([$onlyCandidate->id], $this->counterpartIds($onePool));
+        $this->assertSame(
+            $onePoolQueries,
+            $queries,
+            "one candidate cost {$onePoolQueries} queries and six cost {$queries}; the batch count must not grow with the pool"
+        );
 
         $first = $contexts[0];
         $this->assertNotEmpty($first->pastAttendance);

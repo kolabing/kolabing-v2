@@ -467,6 +467,68 @@ class SignalScorerTest extends TestCase
         $this->assertSame(['items' => ['venue']], $signal['reason_params']);
     }
 
+    /**
+     * "other" matching "other" says only that both sides declined to say what
+     * they meant. Counted as coverage it would score a full offer fit and
+     * pre-fill a Kolab asking for `other`.
+     */
+    public function test_offer_need_fit_does_not_treat_other_as_a_match(): void
+    {
+        $result = (new SignalScorer)->score($this->context([
+            'viewerOffers' => ['other'],
+            'counterpartNeeds' => ['other'],
+        ]));
+
+        $this->assertNull($this->signal($result, 'offer_need_fit'));
+    }
+
+    /**
+     * And it is out of the denominator too, so covering the one real ask beside
+     * it is full coverage rather than half.
+     */
+    public function test_offer_need_fit_leaves_other_out_of_the_coverage_denominator(): void
+    {
+        $signal = $this->signal((new SignalScorer)->score($this->context([
+            'viewerOffers' => ['venue'],
+            'counterpartNeeds' => ['venue', 'other'],
+        ])), 'offer_need_fit');
+
+        $this->assertNotNull($signal);
+        $this->assertSame(1.0, $signal['score']);
+        $this->assertSame(['items' => ['venue']], $signal['reason_params']);
+    }
+
+    /**
+     * `(float) config(null)` is 0.0 and PHP 8 throws DivisionByZeroError on it,
+     * which would kill the whole nightly batch rather than one pair. The signal
+     * drops instead — the same degradation `max_distance_km` already has.
+     */
+    public function test_momentum_drops_when_the_active_cadence_is_unusable(): void
+    {
+        config()->set('suggestions.active_cadence', 0);
+
+        $result = (new SignalScorer)->score($this->context([
+            'recentEventCount' => 3,
+            'hasActiveSeries' => true,
+        ]));
+
+        $this->assertNull($this->signal($result, 'momentum'));
+        $this->assertCount(5, $result['signals']);
+    }
+
+    public function test_momentum_scales_with_the_configured_active_cadence(): void
+    {
+        config()->set('suggestions.active_cadence', 2);
+
+        $signal = $this->signal((new SignalScorer)->score($this->context([
+            'recentEventCount' => 1,
+            'hasActiveSeries' => false,
+        ])), 'momentum');
+
+        $this->assertNotNull($signal);
+        $this->assertSame(0.5, $signal['score'], '1 of a cadence of 2, not of the previously hardcoded 4');
+    }
+
     public function test_momentum_persists_the_raw_count_and_the_configured_window(): void
     {
         $signal = $this->signal(

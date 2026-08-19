@@ -49,13 +49,6 @@ class SignalScorer
     private const FULL_COLLABORATION_RECORD = 8.0;
 
     /**
-     * Momentum divisor for both audiences: four things inside the window —
-     * roughly one a fortnight over the shipped 90 days — reads as an active
-     * partner, and more than that adds no further reassurance.
-     */
-    private const ACTIVE_CADENCE = 4.0;
-
-    /**
      * @return array{score: int, confidence: string, signals: array<int, array{key: string, reason_key: string, reason_params: array<string, mixed>, weight: float, score: float}>}
      */
     public function score(PairContext $context): array
@@ -266,11 +259,21 @@ class SignalScorer
     }
 
     /**
+     * How much of what the counterpart asked for the viewer already offers.
+     *
+     * Both sides are reduced to their *informative* canonical slugs first, which
+     * drops `other`: "other" matching "other" is not evidence of a fit, and
+     * counting it would both inflate the coverage ratio and pre-fill a Kolab
+     * asking for `other`. A side left with nothing informative is no data — null,
+     * not a 0.0 that would assert the pair is a bad match.
+     *
      * @return array{0: float, 1: string, 2: array<string, mixed>}|null
      */
     private function offerNeedFit(PairContext $context): ?array
     {
-        if ($context->viewerOffers === [] || $context->counterpartNeeds === []) {
+        $needs = OfferTypeAliases::canonicalSet($context->counterpartNeeds);
+
+        if (OfferTypeAliases::canonicalSet($context->viewerOffers) === [] || $needs === []) {
             return null;
         }
 
@@ -279,8 +282,6 @@ class SignalScorer
         if ($overlap === []) {
             return [0.0, 'offer_need_none', []];
         }
-
-        $needs = OfferTypeAliases::canonicalSet($context->counterpartNeeds);
 
         return [min(1.0, count($overlap) / count($needs)), 'offer_need_overlap', [
             'items' => $overlap,
@@ -402,18 +403,32 @@ class SignalScorer
      * community-audience card a confidence band lower than every business one —
      * a systematic asymmetry rather than honesty about missing data.
      *
+     * The threshold is `suggestions.active_cadence` rather than a constant: it is
+     * window-relative, it pairs with `momentum_window_days`, and it is an
+     * admitted first guess that sets a number a reader sees. Unlike
+     * `FULL_COLLABORATION_RECORD`, which stays a constant precisely so a
+     * gamification tier retune cannot move suggestion scores, this mirrors
+     * nothing. `(float) config(null)` is 0.0 and PHP 8 throws DivisionByZeroError
+     * on it, so a missing or zeroed key drops the signal rather than killing the
+     * whole nightly batch.
+     *
      * @return array{0: float, 1: string, 2: array<string, mixed>}|null
      */
     private function momentum(PairContext $context): ?array
     {
         $days = (int) config('suggestions.momentum_window_days');
+        $cadence = (float) config('suggestions.active_cadence');
+
+        if ($cadence <= 0.0) {
+            return null;
+        }
 
         if ($context->audience === SuggestionAudience::Community) {
             if ($context->recentActivityCount === 0) {
                 return null;
             }
 
-            return [min(1.0, $context->recentActivityCount / self::ACTIVE_CADENCE), 'momentum_business', [
+            return [min(1.0, $context->recentActivityCount / $cadence), 'momentum_business', [
                 'count' => $context->recentActivityCount,
                 'days' => $days,
             ]];
@@ -423,7 +438,7 @@ class SignalScorer
             return null;
         }
 
-        $value = min(1.0, $context->recentEventCount / self::ACTIVE_CADENCE);
+        $value = min(1.0, $context->recentEventCount / $cadence);
 
         if ($context->hasActiveSeries) {
             $value = min(1.0, $value + 0.25);

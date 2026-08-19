@@ -201,7 +201,10 @@ class PairCandidateFinder
     {
         $relation = $counterpartType === UserType::Business ? 'businessProfile' : 'communityProfile';
         $viewerId = (string) $viewer->getKey();
-        $cooldownSince = Carbon::now()->subDays((int) config('suggestions.dismissal_cooldown_days'));
+        // Day granularity, matching every other window in this class: the pass runs
+        // nightly, so a cooldown measured to the second would expire mid-batch
+        // depending on how long the queue took to reach this profile.
+        $cooldownSince = Carbon::today()->subDays((int) config('suggestions.dismissal_cooldown_days'));
 
         return Profile::query()
             ->with($relation)
@@ -345,6 +348,12 @@ class PairCandidateFinder
      * on and the coordinates of its most recent located event — one query, split
      * per profile in PHP.
      *
+     * Ordered by `event_date` *and* `id`: two events on the same day would
+     * otherwise leave "most recent located event" to the engine's whim, and the
+     * nightly pass re-scores each pair in place — so a flapping coordinate is a
+     * flapping distance, a flapping `location_fit` and a score that moves from
+     * night to night with nothing behind it.
+     *
      * Weekdays stay in the `event_series.byweekday` convention (0 = Sunday),
      * which is what `Carbon::dayOfWeek` returns and what FormatSuggester
      * validates. Converting to ISO here would be wrong exactly once a week, on
@@ -365,6 +374,7 @@ class PairCandidateFinder
             ->whereIn('profile_id', $profileIds)
             ->whereBetween('event_date', [$attendanceSince->toDateString(), $today->toDateString()])
             ->orderBy('event_date')
+            ->orderBy('id')
             ->get();
 
         $aggregates = [];
@@ -782,11 +792,6 @@ class PairCandidateFinder
     }
 
     /**
-     * The city a business or community user actually declares, which lives on the
-     * extended profile; `profiles.city_id` is the attendee column and is only a
-     * fallback here.
-     */
-    /**
      * `business_profiles.has_venue`, read from the column rather than derived
      * from a positive capacity: 18 of the 62 live venue businesses have no
      * `capacity` key in `primary_venue`, and inferring the flag would propose a
@@ -800,6 +805,11 @@ class PairCandidateFinder
         return $extended instanceof BusinessProfile && $extended->has_venue;
     }
 
+    /**
+     * The city a business or community user actually declares, which lives on the
+     * extended profile; `profiles.city_id` is the attendee column and is only a
+     * fallback here.
+     */
     private function cityIdFor(Profile $profile): ?string
     {
         return $this->extendedProfile($profile)?->city_id ?? $profile->city_id;

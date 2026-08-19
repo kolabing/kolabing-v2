@@ -58,6 +58,18 @@ final class OfferTypeAliases
     ];
 
     /**
+     * Canonical slugs that carry no information about fit. `other` is a real
+     * option in both the `offering` and `need` taxonomies, but an `other`↔`other`
+     * match says only that both sides declined to say what they meant: counted as
+     * coverage it inflates `offer_need_fit`, and carried into
+     * `suggested_format` it pre-fills a Kolab asking for `other`. Excluded from
+     * matching and from the coverage denominator alike.
+     *
+     * @var array<int, string>
+     */
+    public const UNINFORMATIVE = ['other'];
+
+    /**
      * The slug's canonical form, or the slug itself when it is not in the table.
      * An unknown slug is its own canonical form rather than an error: both
      * taxonomies are admin-editable at runtime, so a new option must compare
@@ -84,7 +96,8 @@ final class OfferTypeAliases
      * Deduplicated by canonical form, first spelling winning: a business that
      * declares both `venue` and `venue_space` offers one thing, and listing it
      * twice would both inflate the coverage ratio and read as two offers in the
-     * reason copy.
+     * reason copy. `UNINFORMATIVE` slugs never match at all — the `$against` set
+     * excludes them, so nothing on the `$keep` side can pair with one.
      *
      * @param  array<int, string>  $keep
      * @param  array<int, string>  $against
@@ -110,9 +123,9 @@ final class OfferTypeAliases
     }
 
     /**
-     * The distinct canonical slugs in a list — the honest denominator for "how
-     * much of what they asked for do you cover", since two spellings of one ask
-     * are one ask.
+     * The distinct *informative* canonical slugs in a list — the honest
+     * denominator for "how much of what they asked for do you cover", since two
+     * spellings of one ask are one ask and `other` is not an ask at all.
      *
      * @param  array<int, string>  $slugs
      * @return array<string, true>
@@ -124,7 +137,7 @@ final class OfferTypeAliases
         foreach ($slugs as $slug) {
             $canonical = self::canonical($slug);
 
-            if ($canonical !== '') {
+            if ($canonical !== '' && ! in_array($canonical, self::UNINFORMATIVE, true)) {
                 $set[$canonical] = true;
             }
         }

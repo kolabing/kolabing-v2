@@ -56,6 +56,24 @@ class OfferTypeAliasesTest extends TestCase
         $this->assertSame([], OfferTypeAliases::intersect(['venue'], []));
     }
 
+    /**
+     * `other` is a live option in both taxonomies, but it carries no information
+     * about fit — so it can neither match nor count toward coverage.
+     */
+    public function test_an_uninformative_slug_never_matches(): void
+    {
+        $this->assertSame([], OfferTypeAliases::intersect(['other'], ['other']));
+        $this->assertSame([], array_keys(OfferTypeAliases::canonicalSet(['other'])));
+    }
+
+    public function test_an_uninformative_slug_does_not_block_the_real_ones(): void
+    {
+        $this->assertSame(
+            ['venue'],
+            OfferTypeAliases::intersect(['venue', 'other'], ['other', 'venue'])
+        );
+    }
+
     public function test_the_canonical_set_counts_distinct_asks_not_spellings(): void
     {
         $this->assertSame(

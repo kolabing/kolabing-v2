@@ -51,6 +51,19 @@ return [
     'max_distance_km' => 60,
 
     /*
+    | How many things inside `momentum_window_days` read as an active partner —
+    | events for a community, published Kolabs plus started collaborations for a
+    | business. One shared threshold rather than one per side: there is no data
+    | yet to justify different bars, and two knobs would drift apart. It is
+    | window-relative (it only means anything against the window above) and it
+    | sets a number a reader sees on a card, so it belongs here with the other
+    | measured inputs — a first guess, to be tuned against the first real batch.
+    | Set to zero or below and the momentum signal drops rather than dividing by
+    | it, which is the correct degradation.
+    */
+    'active_cadence' => 4,
+
+    /*
     | The share of a community's declared size we expect to actually turn up,
     | used only when there are no reported attendance figures to take a median
     | of. It sets a number a user reads on a card ("expect around 30 people"),
