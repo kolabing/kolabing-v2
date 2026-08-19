@@ -15,12 +15,14 @@ use InvalidArgumentException;
  * `kolab_suggestions.suggested_format` payload, which the card renders and
  * which later pre-fills the Kolab create form.
  *
- * Pure, like the scorer: no database access, no clock, no randomness, no
- * localisation. Every field is either derived from real history or absent.
- * There is no "typical" weekday, no rounded-up attendance and no invented
- * headline number anywhere in here: each value on the card is a claim made to
- * a user about a partner, so an unknown is a `null` and the copy degrades to
- * something that stays true (`suggestions.reason.no_history`).
+ * Pure, like the scorer: no database access, no clock, no randomness, and no
+ * rendered copy — the lang catalogue is consulted only to check that a title
+ * key exists, never to turn one into a sentence. Every field is either derived
+ * from real history or absent. There is no "typical" weekday, no rounded-up
+ * attendance and no invented headline number anywhere in here: each value on
+ * the card is a claim made to a user about a partner, so an unknown is a `null`
+ * and the copy degrades to something that stays true
+ * (`suggestions.reason.no_history`).
  *
  * `title_key` + `title_params` rather than a finished title, for the reason
  * SignalScorer stores `reason_key` + `reason_params`: generation runs in a
@@ -41,7 +43,7 @@ class FormatSuggester
     ) {}
 
     /**
-     * @param  int|null  $seriesWeekday  `event_series.byweekday` entry: 0 = Sunday .. 6 = Saturday
+     * @param  array<int, int>  $seriesWeekdays  `event_series.byweekday`: 0 = Sunday .. 6 = Saturday, one or more days
      * @param  string|null  $seriesTime  `event_series.time_of_day` ("HH:MM")
      * @param  array<int, int>  $pastEventWeekdays  weekday of each past event, same 0..6 convention
      * @return array{
@@ -54,18 +56,19 @@ class FormatSuggester
      *     offer: array<int, string>,
      *     expects: array<int, string>,
      *     notes: array<int, array{reason_key: string, reason_params: array<string, mixed>}>,
-     *     evidence: array{basis: string, weekday_basis: string}
+     *     attendance_basis: string,
+     *     weekday_basis: string
      * }
      *
      * @throws InvalidArgumentException
      */
     public function suggest(
         PairContext $context,
-        ?int $seriesWeekday = null,
+        array $seriesWeekdays = [],
         ?string $seriesTime = null,
         array $pastEventWeekdays = [],
     ): array {
-        [$weekday, $weekdayBasis] = $this->weekday($seriesWeekday, $pastEventWeekdays);
+        [$weekday, $weekdayBasis] = $this->weekday($seriesWeekdays, $pastEventWeekdays);
 
         $capacity = $context->venueCapacity !== null && $context->venueCapacity > 0
             ? $context->venueCapacity
@@ -101,10 +104,8 @@ class FormatSuggester
             'offer' => $this->scorer->offerOverlap($context),
             'expects' => $this->expects(),
             'notes' => $notes,
-            'evidence' => [
-                'basis' => $this->attendanceBasis($context, $expected),
-                'weekday_basis' => $weekdayBasis,
-            ],
+            'attendance_basis' => $this->attendanceBasis($context, $expected),
+            'weekday_basis' => $weekdayBasis,
         ];
     }
 
@@ -117,41 +118,62 @@ class FormatSuggester
      * already-ISO weekday would be wrong exactly once a week and silently: hence
      * the range check, which is the only point at which that mistake is visible.
      *
+     * @param  array<int, int>  $seriesWeekdays
      * @param  array<int, int>  $pastEventWeekdays
      * @return array{0: int|null, 1: string}
      */
-    private function weekday(?int $seriesWeekday, array $pastEventWeekdays): array
+    private function weekday(array $seriesWeekdays, array $pastEventWeekdays): array
     {
-        $past = array_map(
-            fn (int $weekday): int => $this->toIsoWeekday($weekday, 'pastEventWeekdays'),
-            array_values($pastEventWeekdays)
-        );
+        $series = $this->toIsoWeekdays($seriesWeekdays, 'seriesWeekdays');
 
-        if ($seriesWeekday !== null) {
-            return [$this->toIsoWeekday($seriesWeekday, 'seriesWeekday'), 'series'];
+        if ($series !== []) {
+            return [$this->pickWeekday($series), 'series'];
         }
+
+        $past = $this->toIsoWeekdays($pastEventWeekdays, 'pastEventWeekdays');
 
         if ($past === []) {
             return [null, 'none'];
         }
 
-        return [$this->modalWeekday($past), 'past_events'];
+        return [$this->pickWeekday($past), 'past_events'];
     }
 
     /**
      * The most frequent weekday, ties resolved to the earliest day of the ISO
      * week. A tie-break has to be deterministic rather than merely reasonable:
-     * the nightly pass re-scores the same pair in place, so a mode that depended
+     * the nightly pass re-scores the same pair in place, so a rule that depended
      * on input order would move the proposed day around from night to night.
+     *
+     * Both callers need that. A multi-day series is stored as
+     * `array_values(array_unique($submitted))` (EventSeriesService), which keeps
+     * whatever order the community typed — so a Tue + Thu series arrives as
+     * `[2,4]` or `[4,2]` for the same cadence. With all counts equal this
+     * reduces to "the earliest day of the week the series runs", which is a
+     * defensible proposal and, more importantly, always the same one.
      *
      * @param  array<int, int>  $isoWeekdays
      */
-    private function modalWeekday(array $isoWeekdays): int
+    private function pickWeekday(array $isoWeekdays): int
     {
         $counts = array_count_values($isoWeekdays);
         ksort($counts);
 
         return (int) array_keys($counts, max($counts), true)[0];
+    }
+
+    /**
+     * @param  array<int, int>  $weekdays
+     * @return array<int, int>
+     *
+     * @throws InvalidArgumentException
+     */
+    private function toIsoWeekdays(array $weekdays, string $field): array
+    {
+        return array_map(
+            fn (int $weekday): int => $this->toIsoWeekday($weekday, $field),
+            array_values($weekdays)
+        );
     }
 
     /**
@@ -240,6 +262,10 @@ class FormatSuggester
      * Which body of evidence the attendance number rests on, so the card and the
      * digest can say how much to trust it. `profile_only` is the honest empty
      * case: no events, no declared size, and therefore no number at all.
+     *
+     * Named `attendance_basis` rather than nested under an `evidence` key: the
+     * row already has an `evidence` column of its own, and Task 7's resource and
+     * Task 15's digest read both.
      */
     private function attendanceBasis(PairContext $context, ?int $expected): string
     {

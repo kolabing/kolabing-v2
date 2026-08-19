@@ -51,6 +51,17 @@ return [
     'max_distance_km' => 60,
 
     /*
+    | The share of a community's declared size we expect to actually turn up,
+    | used only when there are no reported attendance figures to take a median
+    | of. It sets a number a user reads on a card ("expect around 30 people"),
+    | so it belongs here with the other measured inputs rather than in code: a
+    | first guess, to be tuned against the first real batch. Set too low to
+    | round to a whole person and the fallback yields no number at all, which is
+    | the correct degradation — see SignalScorer::expectedAttendance().
+    */
+    'community_size_attendance_fraction' => 0.25,
+
+    /*
     |--------------------------------------------------------------------
     | Generation
     |--------------------------------------------------------------------

@@ -10,6 +10,7 @@ use App\Services\Suggestions\FormatSuggester;
 use App\Services\Suggestions\PairContext;
 use App\Services\Suggestions\SignalReasonRenderer;
 use App\Services\Suggestions\SignalScorer;
+use Database\Factories\KolabSuggestionFactory;
 use Illuminate\Support\Facades\App;
 use InvalidArgumentException;
 use Tests\TestCase;
@@ -84,14 +85,41 @@ class FormatSuggesterTest extends TestCase
     {
         $format = $this->suggester()->suggest(
             $this->context(),
-            seriesWeekday: 0,
+            seriesWeekdays: [0],
             seriesTime: '10:30',
             pastEventWeekdays: [2, 2, 2],
         );
 
         $this->assertSame(7, $format['weekday']);
         $this->assertSame('10:30', $format['time_of_day']);
-        $this->assertSame('series', $format['evidence']['weekday_basis']);
+        $this->assertSame('series', $format['weekday_basis']);
+    }
+
+    /**
+     * `event_series.byweekday` keeps the order the community typed, so the same
+     * Tue + Thu cadence arrives as [2,4] or [4,2]. The proposed day must not
+     * depend on which.
+     */
+    public function test_a_multi_day_series_proposes_the_same_day_in_either_order(): void
+    {
+        $forward = $this->suggester()->suggest($this->context(), seriesWeekdays: [2, 4]);
+        $reversed = $this->suggester()->suggest($this->context(), seriesWeekdays: [4, 2]);
+
+        $this->assertSame(2, $forward['weekday']);
+        $this->assertSame($forward['weekday'], $reversed['weekday']);
+        $this->assertSame('series', $reversed['weekday_basis']);
+    }
+
+    /**
+     * Sunday is 0 in the stored convention and 7 in the ISO one the Kolab form
+     * wants, so a Sunday + Wednesday series must not propose Sunday merely
+     * because 0 sorts first.
+     */
+    public function test_a_multi_day_series_including_sunday_sorts_in_iso_order(): void
+    {
+        $format = $this->suggester()->suggest($this->context(), seriesWeekdays: [0, 3]);
+
+        $this->assertSame(3, $format['weekday']);
     }
 
     public function test_weekday_falls_back_to_the_modal_weekday_of_past_events(): void
@@ -103,7 +131,7 @@ class FormatSuggesterTest extends TestCase
 
         $this->assertSame(6, $format['weekday']);
         $this->assertNull($format['time_of_day']);
-        $this->assertSame('past_events', $format['evidence']['weekday_basis']);
+        $this->assertSame('past_events', $format['weekday_basis']);
     }
 
     public function test_expected_attendance_is_capped_by_venue_capacity(): void
@@ -111,7 +139,7 @@ class FormatSuggesterTest extends TestCase
         $format = $this->suggester()->suggest($this->context(['venueCapacity' => 40]));
 
         $this->assertSame(40, $format['expected_attendance']);
-        $this->assertSame('past_events', $format['evidence']['basis']);
+        $this->assertSame('past_events', $format['attendance_basis']);
 
         $note = $this->note($format, 'scale_fit');
 
@@ -130,7 +158,7 @@ class FormatSuggesterTest extends TestCase
         ]));
 
         $this->assertNull($format['expected_attendance']);
-        $this->assertSame('profile_only', $format['evidence']['basis']);
+        $this->assertSame('profile_only', $format['attendance_basis']);
         $this->assertNotNull($this->note($format, 'no_history'));
         $this->assertNull($this->note($format, 'scale_fit'));
 
@@ -177,7 +205,7 @@ class FormatSuggesterTest extends TestCase
         ]));
 
         $this->assertSame(30, $format['expected_attendance']);
-        $this->assertSame('community_size', $format['evidence']['basis']);
+        $this->assertSame('community_size', $format['attendance_basis']);
         $this->assertNull($this->note($format, 'no_history'));
     }
 
@@ -193,7 +221,7 @@ class FormatSuggesterTest extends TestCase
         ]));
 
         $this->assertNull($format['expected_attendance']);
-        $this->assertSame('profile_only', $format['evidence']['basis']);
+        $this->assertSame('profile_only', $format['attendance_basis']);
     }
 
     public function test_the_title_falls_back_to_a_generic_key_for_an_unmapped_community_type(): void
@@ -264,7 +292,7 @@ class FormatSuggesterTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        $this->suggester()->suggest($this->context(), seriesWeekday: 7);
+        $this->suggester()->suggest($this->context(), seriesWeekdays: [7]);
     }
 
     public function test_a_past_weekday_outside_the_stored_convention_is_rejected(): void
@@ -298,7 +326,7 @@ class FormatSuggesterTest extends TestCase
 
         $this->assertNull($format['weekday']);
         $this->assertNull($format['time_of_day']);
-        $this->assertSame('none', $format['evidence']['weekday_basis']);
+        $this->assertSame('none', $format['weekday_basis']);
     }
 
     public function test_it_proposes_no_ask_it_cannot_derive(): void
@@ -306,5 +334,27 @@ class FormatSuggesterTest extends TestCase
         $format = $this->suggester()->suggest($this->context());
 
         $this->assertSame([], $format['expects']);
+    }
+
+    /**
+     * Tasks 7, 12 and 15 build their fixtures from KolabSuggestionFactory, so a
+     * factory row in a shape the producers cannot write would let the read side
+     * test against a fiction and pass while production rendered blanks. Pin both
+     * jsonb payloads against what actually writes them.
+     */
+    public function test_the_factory_fixture_matches_the_shape_the_producers_write(): void
+    {
+        $context = $this->context();
+        $definition = (new KolabSuggestionFactory)->definition();
+
+        $this->assertSame(
+            array_keys($this->suggester()->suggest($context, seriesWeekdays: [0], seriesTime: '09:00')),
+            array_keys($definition['suggested_format'])
+        );
+
+        $this->assertSame(
+            array_keys((new SignalScorer)->score($context)['signals'][0]),
+            array_keys($definition['signals'][0])
+        );
     }
 }

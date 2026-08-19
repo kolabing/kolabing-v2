@@ -162,6 +162,41 @@ class SignalScorerTest extends TestCase
         $this->assertSame(['expected' => 30, 'capacity' => 30], $signal['reason_params']);
     }
 
+    /**
+     * The fraction sets a number a user reads, so it is tunable config rather
+     * than a literal — and the tuning has to actually reach the reason line.
+     */
+    public function test_the_community_size_fallback_reads_its_fraction_from_config(): void
+    {
+        config(['suggestions.community_size_attendance_fraction' => 0.5]);
+
+        $result = (new SignalScorer)->score($this->context([
+            'pastAttendance' => [],
+            'communitySize' => 120,
+            'venueCapacity' => 60,
+        ]));
+
+        $signal = $this->signal($result, 'scale_fit');
+
+        $this->assertNotNull($signal);
+        $this->assertSame(['expected' => 60, 'capacity' => 60], $signal['reason_params']);
+    }
+
+    /**
+     * A quarter of a one-member community rounds to zero, and "expect around 0
+     * people; the space holds 45" is a claim, not the absence of one. The signal
+     * has to drop out entirely, the way every other signal with no data does.
+     */
+    public function test_a_community_too_small_to_round_to_a_person_has_no_scale_signal(): void
+    {
+        $result = (new SignalScorer)->score($this->context([
+            'pastAttendance' => [],
+            'communitySize' => 1,
+        ]));
+
+        $this->assertNull($this->signal($result, 'scale_fit'));
+    }
+
     public function test_offer_need_fit_scores_the_share_of_needs_covered(): void
     {
         $result = (new SignalScorer)->score($this->context([

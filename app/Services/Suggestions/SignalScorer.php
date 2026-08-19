@@ -411,7 +411,9 @@ class SignalScorer
      * keep a future caller that bypasses the invariant from medianing unreported
      * events into "expect around 0 people". The size fallback needs the same
      * protection for a real reason: a community of one rounds to zero, and
-     * "expect around 0 people" is a claim, not an absence of one.
+     * "expect around 0 people" is a claim, not an absence of one. A fraction
+     * misconfigured to nothing degrades the same way — no number rather than a
+     * zero one.
      */
     public function expectedAttendance(PairContext $context): ?int
     {
@@ -433,9 +435,11 @@ class SignalScorer
             return null;
         }
 
-        $quarter = (int) round($context->communitySize * 0.25);
+        $share = (int) round(
+            $context->communitySize * (float) config('suggestions.community_size_attendance_fraction')
+        );
 
-        return $quarter > 0 ? $quarter : null;
+        return $share > 0 ? $share : null;
     }
 
     /**
