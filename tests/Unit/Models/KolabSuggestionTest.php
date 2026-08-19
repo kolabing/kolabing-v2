@@ -80,9 +80,14 @@ class KolabSuggestionTest extends TestCase
 
         $this->expectException(QueryException::class);
 
+        // A DIFFERENT batch_key on purpose: the constraint deliberately excludes
+        // batch_key, so a later nightly re-score must collide with the existing
+        // row instead of adding a second card for the same pair. With batch_key
+        // still in the key this insert would succeed and the test would fail.
         KolabSuggestion::factory()->create([
             'viewer_profile_id' => $suggestion->viewer_profile_id,
             'counterpart_profile_id' => $suggestion->counterpart_profile_id,
+            'batch_key' => $suggestion->batch_key->copy()->addDay()->toDateString(),
         ]);
     }
 }
