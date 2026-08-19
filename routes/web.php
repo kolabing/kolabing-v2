@@ -175,6 +175,7 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
 
     // CRM (businesses / communities / ambassadors) + Tasks
     Route::get('/crm', [AdminCrmController::class, 'index'])->name('crm.index');
+    Route::get('/crm/board', [AdminCrmController::class, 'board'])->name('crm.board');
     Route::post('/crm/columns', [AdminCrmController::class, 'saveColumns'])->name('crm.columns');
     Route::get('/crm/create', [AdminCrmController::class, 'create'])->name('crm.create');
     Route::post('/crm', [AdminCrmController::class, 'store'])->name('crm.store');

@@ -43,6 +43,9 @@
             </form>
 
             @if ($type === 'community')
+                <a href="{{ route('admin.crm.board') }}" class="btn btn-sm btn-outline-secondary" title="Pipeline board">
+                    <i class="fas fa-columns mr-1"></i> Pipeline
+                </a>
                 <a href="{{ route('admin.crm.index', array_merge(['type' => 'community'], ($workNow ?? false) ? [] : ['work_now' => 1])) }}"
                     class="btn btn-sm {{ ($workNow ?? false) ? 'btn-success' : 'btn-outline-success' }}" title="High/Med confidence, local, fit ≥ 40, not yet contacted">
                     <i class="fas fa-bolt mr-1"></i>{{ ($workNow ?? false) ? 'Work now: ON' : 'Work now' }}

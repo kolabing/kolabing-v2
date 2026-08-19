@@ -10,6 +10,7 @@ use App\Models\CrmAccount;
 use App\Services\CrmPipelineService;
 use App\Services\CrmScoreService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -161,6 +162,50 @@ class CrmController extends Controller
         ]);
     }
 
+    /**
+     * The community pipeline as a Kanban board: one column per stage, cards
+     * grouped by their current stage, drag-and-drop moves persisting via
+     * moveStage(). Honours the same city / owner / confidence / search filters
+     * as the index so a filtered board stays coherent.
+     */
+    public function board(Request $request): View
+    {
+        $query = CrmAccount::query()->where('type', 'community');
+
+        if ($owner = $request->query('owner')) {
+            $query->where('owner', $owner);
+        }
+        if ($city = $request->query('city')) {
+            $query->where('metrics->city', $city);
+        }
+        if ($q = $request->query('q')) {
+            $query->where('name', 'like', "%{$q}%");
+        }
+        if ($conf = $request->query('confidence')) {
+            $query->whereRaw("lower(metrics->>'confidence') like ?", [strtolower($conf).'%']);
+        }
+
+        $accounts = $query->orderByDesc('score')->orderBy('name')->get();
+        $byStage = collect(CrmAccount::COMMUNITY_STAGES)
+            ->mapWithKeys(fn (string $s): array => [$s => collect()])
+            ->merge($accounts->groupBy(fn (CrmAccount $a): string => $a->currentStage()));
+
+        $cityRows = CrmAccount::query()->where('type', 'community')
+            ->whereNotNull('metrics->city')
+            ->selectRaw("metrics->>'city' as city, count(*) as n")
+            ->groupByRaw("metrics->>'city'")->orderByDesc('n')->get();
+
+        return view('admin.crm.board', [
+            'stages' => CrmAccount::COMMUNITY_STAGES,
+            'forward' => CrmAccount::COMMUNITY_FORWARD_STAGES,
+            'byStage' => $byStage,
+            'total' => $accounts->count(),
+            'cities' => $cityRows->pluck('city'),
+            'owners' => CrmAccount::query()->where('type', 'community')->whereNotNull('owner')->distinct()->pluck('owner'),
+            'filters' => $request->only(['owner', 'city', 'q', 'confidence']),
+        ]);
+    }
+
     public function saveColumns(Request $request): RedirectResponse
     {
         $type = in_array($request->input('type'), CrmAccount::TYPES, true) ? $request->input('type') : 'business';
@@ -198,14 +243,21 @@ class CrmController extends Controller
         return view('admin.crm.show', ['account' => $account]);
     }
 
-    /** Move a lead to a pipeline stage (forward, backward, or the Rejected lane). */
-    public function moveStage(Request $request, CrmAccount $account, CrmPipelineService $pipeline): RedirectResponse
+    /**
+     * Move a lead to a pipeline stage (forward, backward, or the Rejected lane).
+     * Answers JSON for the drag-and-drop board, a redirect for the detail page.
+     */
+    public function moveStage(Request $request, CrmAccount $account, CrmPipelineService $pipeline): RedirectResponse|JsonResponse
     {
         $data = $request->validate([
             'stage' => ['required', Rule::in(CrmAccount::COMMUNITY_STAGES)],
         ]);
 
         $pipeline->moveStage($account, $data['stage'], auth('admin')->user()?->name);
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true, 'id' => $account->id, 'stage' => $data['stage']]);
+        }
 
         return redirect()
             ->route('admin.crm.show', $account)
