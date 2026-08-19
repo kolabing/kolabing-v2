@@ -610,6 +610,10 @@ class SignalScorerTest extends TestCase
         $signal = collect($result['signals'])->firstWhere('key', 'category_fit');
 
         $this->assertSame(1.0, $signal['score']);
+        // The reason renders a LOCALISED label, not the raw slug: `cafe` maps
+        // through lang/{en,es,ca}/suggestions.php `vocabulary.business_category.*`.
+        // Never interpolate raw English slugs — the es/ca sentences would read
+        // "los negocios de cafe".
         $this->assertStringContainsString('café', mb_strtolower($signal['reason']));
     }
 }
@@ -903,7 +907,7 @@ class SignalScorer
 9. `test_confidence_is_high_when_every_signal_has_data` — the default context → `'high'`.
 10. `test_a_totally_unknown_pair_scores_zero_rather_than_throwing` — every field null/empty → `score === 0`, `signals === []`.
 
-**Step 7: Add the reason strings.** Create `lang/en/suggestions.php` (plus `es`/`ca` copies — the repo is at 100% es/ca and Task 12 asserts it) with the `signal.*` and `reason.*` keys used above. Example shape:
+**Step 7: Add the reason strings.** Create `lang/en/suggestions.php` (plus `es`/`ca` copies — the repo is at 100% es/ca and Task 12 asserts it) with the `signal.*`, `reason.*` **and `vocabulary.*`** keys used above. The `vocabulary.community_type.*` / `vocabulary.business_category.*` maps cover exactly the row and column keys of `CategoryFitMatrix::MATRIX`, and a `Lang::has()` fallback to the de-underscored slug keeps a future matrix column from rendering an empty reason. Offer/need items stay `str_replace`d rather than mapped: those slugs come from the DB-driven `offer_options` vocabulary (~50 values), so labelling them belongs to the database, not a lang file. Example shape:
 
 ```php
 <?php
