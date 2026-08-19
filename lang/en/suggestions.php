@@ -26,6 +26,7 @@ return [
         'delivery_proof_content' => 'Delivered :content posts across past Kolabs.',
         'delivery_proof_reviews' => ':reviews reviews from past partners.',
         'delivery_proof_rating' => 'Rated :rating by past partners.',
+        'delivery_proof_collaborations' => 'Completed :collaborations Kolabs with past partners.',
         'momentum' => ':count events in the last :days days.',
         'no_history' => 'No past events yet — matched on profile.',
     ],

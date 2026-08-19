@@ -26,6 +26,7 @@ return [
         'delivery_proof_content' => 'Ha publicado :content contenidos en Kolabs anteriores.',
         'delivery_proof_reviews' => ':reviews valoraciones de colaboradores anteriores.',
         'delivery_proof_rating' => 'Con una nota de :rating de colaboradores anteriores.',
+        'delivery_proof_collaborations' => 'Ha completado :collaborations Kolabs con colaboradores anteriores.',
         'momentum' => ':count eventos en los últimos :days días.',
         'no_history' => 'Aún no hay eventos anteriores: la coincidencia es por perfil.',
     ],

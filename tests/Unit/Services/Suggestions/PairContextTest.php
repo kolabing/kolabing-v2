@@ -33,6 +33,7 @@ class PairContextTest extends TestCase
             'averageRating' => 4.6,
             'repeatRatio' => 0.9,
             'contentDelivered' => 5,
+            'completedCollaborations' => 0,
             'reviewCount' => 4,
             'recentEventCount' => 3,
             'hasActiveSeries' => true,

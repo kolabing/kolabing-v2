@@ -26,6 +26,28 @@ use LogicException;
 class SignalScorer
 {
     /**
+     * Volume divisor for the business audience: the deliverables of roughly one
+     * full Kolab (a couple of posts plus a set of stories). A community that has
+     * delivered that much has proved it delivers.
+     */
+    private const FULL_CONTENT_SET = 6.0;
+
+    /**
+     * Volume divisor for the community audience, anchored on a threshold the
+     * product already ships rather than an invented number:
+     * `gamification_business.tiers.community_favourite.min_completed_kolabs` is
+     * 8, the count at which a business earns the top partner tier and wears the
+     * badge on its profile. Saturating there keeps the scorer and the badge
+     * telling the reader the same story: 1 completed Kolab (Active Partner)
+     * scores 0.125, 3 (Trusted Partner) 0.375, 8 or more a full 1.0.
+     *
+     * Deliberately a constant here rather than a read of the gamification
+     * config: a tier retune must not silently shift every suggestion score, the
+     * failure mode this class already guards against for its weights.
+     */
+    private const FULL_COLLABORATION_RECORD = 8.0;
+
+    /**
      * @return array{score: int, confidence: string, signals: array<int, array{key: string, reason_key: string, reason_params: array<string, mixed>, weight: float, score: float}>}
      */
     public function score(PairContext $context): array
@@ -259,30 +281,43 @@ class SignalScorer
     }
 
     /**
-     * Proven delivery. For a business audience: what the community actually
-     * delivered (reels/stories) plus its received ratings. For a community
-     * audience: the business's reliability record. Both come out of real
-     * collaboration history, which is why this is the signal worth selling.
+     * Proven delivery, in one shape across both audiences —
+     * `0.4 x rating + 0.3 x repeat + 0.3 x volume` — but with an
+     * audience-specific `volume`, because the two sides prove delivery with
+     * different artefacts (spec 3.3):
+     *
+     * - business audience: volume is the reels and stories the community
+     *   actually posted for past Kolabs (`contentDelivered`).
+     * - community audience: volume is `completedCollaborations`, from
+     *   `business_partner_statuses.completed_kolabs_count`. A business does not
+     *   deliver posts, so reading content here would score *and* describe the
+     *   wrong subject.
+     *
+     * `PairContext` carries both counts and the arm the audience does not use is
+     * zero. The two are indistinguishable by range, so nothing but this
+     * selection keeps them apart — which is why a test pins that a business
+     * audience never reads `completedCollaborations`.
      *
      * The reason names only the components that are actually non-zero. A
      * completed collaboration with deliverables but no review leaves
-     * `averageRating` null, and the mirror case leaves `contentDelivered` at 0 —
-     * a single sentence naming both would sell "0 reviews from past partners,
-     * rated 0.0" as a reason to collaborate.
-     *
-     * The two audiences are not mirror images. Only the business audience has a
-     * content-only sentence, because content delivered is a *community-side*
-     * metric (spec 3.3: the community audience reads a business's
-     * `business_partner_statuses` plus reviews received, never content output).
-     * A community audience with neither a review nor a rating therefore has no
-     * reliability record to show and the signal is dropped, rather than borrowing
-     * the community sentence and crediting a business with posts it never made.
+     * `averageRating` null, and the mirror case leaves the volume count at 0 — a
+     * single sentence naming both would sell "0 reviews from past partners,
+     * rated 0.0" as a reason to collaborate. The guard below is audience-correct
+     * for the same reason the volume term is, and it guarantees at least one
+     * component is non-zero, which is what makes the fallback arm of each branch
+     * truthful.
      *
      * @return array{0: float, 1: string, 2: array<string, mixed>}|null
      */
     private function deliveryProof(PairContext $context): ?array
     {
-        if ($context->reviewCount === 0 && $context->contentDelivered === 0) {
+        $isBusinessAudience = $context->audience === SuggestionAudience::Business;
+
+        $volumeCount = $isBusinessAudience
+            ? $context->contentDelivered
+            : $context->completedCollaborations;
+
+        if ($context->reviewCount === 0 && $volumeCount === 0) {
             return null;
         }
 
@@ -290,22 +325,22 @@ class SignalScorer
             ? min(1.0, $context->averageRating / 5.0)
             : 0.0;
         $repeatPart = min(1.0, $context->repeatRatio ?? 0.0);
-        $contentPart = min(1.0, $context->contentDelivered / 6.0);
+        $volumePart = $isBusinessAudience
+            ? min(1.0, $volumeCount / self::FULL_CONTENT_SET)
+            : min(1.0, $volumeCount / self::FULL_COLLABORATION_RECORD);
 
-        $value = min(1.0, ($ratingPart * 0.4) + ($repeatPart * 0.3) + ($contentPart * 0.3));
+        $value = min(1.0, ($ratingPart * 0.4) + ($repeatPart * 0.3) + ($volumePart * 0.3));
 
         $rating = (float) ($context->averageRating ?? 0);
         $hasRating = $context->averageRating !== null && $context->averageRating > 0.0;
 
-        if ($context->audience === SuggestionAudience::Business) {
+        if ($isBusinessAudience) {
             return match (true) {
-                $context->contentDelivered > 0 && $hasRating => [$value, 'delivery_proof_community', [
-                    'content' => $context->contentDelivered,
+                $volumeCount > 0 && $hasRating => [$value, 'delivery_proof_community', [
+                    'content' => $volumeCount,
                     'rating' => $rating,
                 ]],
-                $context->contentDelivered > 0 => [$value, 'delivery_proof_content', [
-                    'content' => $context->contentDelivered,
-                ]],
+                $volumeCount > 0 => [$value, 'delivery_proof_content', ['content' => $volumeCount]],
                 $hasRating => [$value, 'delivery_proof_rating', ['rating' => $rating]],
                 default => [$value, 'delivery_proof_reviews', ['reviews' => $context->reviewCount]],
             };
@@ -320,7 +355,7 @@ class SignalScorer
                 'reviews' => $context->reviewCount,
             ]],
             $hasRating => [$value, 'delivery_proof_rating', ['rating' => $rating]],
-            default => null,
+            default => [$value, 'delivery_proof_collaborations', ['collaborations' => $volumeCount]],
         };
     }
 

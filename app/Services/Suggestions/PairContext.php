@@ -20,6 +20,15 @@ use InvalidArgumentException;
  * wrong), `communitySize`/`venueCapacity`, `viewerOffers`/`counterpartNeeds`,
  * and `averageRating`/`repeatRatio` (a swap pushes a 4.6 rating through the
  * repeat term and out the other side as a score above 100).
+ *
+ * `contentDelivered` and `completedCollaborations` are the one pair no invariant
+ * can separate — both are counts, both are `>= 0`. They are the
+ * audience-specific halves of `delivery_proof`'s volume term: the caller
+ * populates the half its audience uses and leaves the other 0. Only the
+ * scorer's audience check keeps them apart, so that selection is pinned by its
+ * own test rather than by a range assertion here. Over-populating both is
+ * harmless (the unused half is ignored); swapping them is not, which is why this
+ * note exists.
  */
 final readonly class PairContext
 {
@@ -28,6 +37,8 @@ final readonly class PairContext
      * @param  array<int, int>  $pastAttendance  attendee_count of the community's past events
      * @param  array<int, string>  $viewerOffers  what the viewer can give
      * @param  array<int, string>  $counterpartNeeds  what the counterpart wants
+     * @param  int  $contentDelivered  posts/stories a community delivered; the business audience's volume term
+     * @param  int  $completedCollaborations  business_partner_statuses.completed_kolabs_count; the community audience's volume term
      * @param  array<string, mixed>  $evidence  ids + aggregates for the audit trail
      *
      * @throws InvalidArgumentException
@@ -49,6 +60,7 @@ final readonly class PairContext
         public ?float $averageRating,
         public ?float $repeatRatio,
         public int $contentDelivered,
+        public int $completedCollaborations,
         public int $reviewCount,
         public int $recentEventCount,
         public bool $hasActiveSeries,
@@ -64,6 +76,7 @@ final readonly class PairContext
             'communitySize' => $communitySize,
             'venueCapacity' => $venueCapacity,
             'contentDelivered' => $contentDelivered,
+            'completedCollaborations' => $completedCollaborations,
             'reviewCount' => $reviewCount,
             'recentEventCount' => $recentEventCount,
         ] as $field => $count) {

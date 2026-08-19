@@ -26,6 +26,7 @@ return [
         'delivery_proof_content' => 'Ha publicat :content continguts en Kolabs anteriors.',
         'delivery_proof_reviews' => ':reviews valoracions de col·laboradors anteriors.',
         'delivery_proof_rating' => 'Amb una nota de :rating de col·laboradors anteriors.',
+        'delivery_proof_collaborations' => 'Ha completat :collaborations Kolabs amb col·laboradors anteriors.',
         'momentum' => ':count esdeveniments en els últims :days dies.',
         'no_history' => 'Encara no hi ha esdeveniments anteriors: la coincidència és per perfil.',
     ],

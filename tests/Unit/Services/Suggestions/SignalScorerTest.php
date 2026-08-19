@@ -34,6 +34,7 @@ class SignalScorerTest extends TestCase
             'averageRating' => 4.6,
             'repeatRatio' => 0.9,
             'contentDelivered' => 5,
+            'completedCollaborations' => 0,
             'reviewCount' => 4,
             'recentEventCount' => 3,
             'hasActiveSeries' => true,
@@ -259,6 +260,7 @@ class SignalScorerTest extends TestCase
             'averageRating' => null,
             'repeatRatio' => null,
             'contentDelivered' => 0,
+            'completedCollaborations' => 0,
             'reviewCount' => 0,
             'recentEventCount' => 0,
             'hasActiveSeries' => false,
@@ -570,21 +572,111 @@ class SignalScorerTest extends TestCase
     }
 
     /**
-     * Content delivered is a community-side metric (spec 3.3), so a community
-     * audience with no review and no rating has no reliability record to show.
-     * Borrowing the community sentence would credit a business with posts it
-     * never made.
+     * The no-data guard is audience-correct, not just the volume term: content
+     * delivered is a community-side metric (spec 3.3), so a business with no
+     * review and no completed Kolab has no reliability record — however much
+     * content sits in the arm its audience does not read.
      */
     public function test_delivery_proof_is_dropped_for_a_community_audience_with_no_reliability_record(): void
     {
         $result = (new SignalScorer)->score($this->context([
             'audience' => SuggestionAudience::Community,
             'contentDelivered' => 6,
+            'completedCollaborations' => 0,
             'reviewCount' => 0,
             'averageRating' => null,
         ]));
 
         $this->assertNull($this->signal($result, 'delivery_proof'));
         $this->assertCount(5, $result['signals']);
+    }
+
+    /**
+     * The community audience's volume term is completed Kolabs, saturating at the
+     * 8 that earns the top partner tier. A business does not deliver posts.
+     */
+    public function test_delivery_proof_reads_completed_collaborations_for_a_community_audience(): void
+    {
+        $signal = $this->signal((new SignalScorer)->score($this->context([
+            'audience' => SuggestionAudience::Community,
+            'contentDelivered' => 0,
+            'completedCollaborations' => 8,
+            'reviewCount' => 0,
+            'averageRating' => null,
+            'repeatRatio' => 0.0,
+        ])), 'delivery_proof');
+
+        $this->assertNotNull($signal);
+        $this->assertSame(0.3, $signal['score']);
+        $this->assertSame('delivery_proof_collaborations', $signal['reason_key']);
+        $this->assertSame(['collaborations' => 8], $signal['reason_params']);
+    }
+
+    public function test_the_community_volume_term_saturates_at_the_top_partner_tier(): void
+    {
+        $scorer = new SignalScorer;
+
+        $overrides = [
+            'audience' => SuggestionAudience::Community,
+            'contentDelivered' => 0,
+            'reviewCount' => 0,
+            'averageRating' => null,
+            'repeatRatio' => 0.0,
+        ];
+
+        $trusted = $this->signal($scorer->score($this->context(
+            array_merge($overrides, ['completedCollaborations' => 3])
+        )), 'delivery_proof');
+
+        $topTier = $this->signal($scorer->score($this->context(
+            array_merge($overrides, ['completedCollaborations' => 8])
+        )), 'delivery_proof');
+
+        $wellPast = $this->signal($scorer->score($this->context(
+            array_merge($overrides, ['completedCollaborations' => 40])
+        )), 'delivery_proof');
+
+        $this->assertNotNull($trusted);
+        $this->assertNotNull($topTier);
+        $this->assertNotNull($wellPast);
+        $this->assertLessThan($topTier['score'], $trusted['score']);
+        $this->assertSame(0.3, $topTier['score']);
+        $this->assertSame($topTier['score'], $wellPast['score']);
+    }
+
+    /**
+     * Task 5 populates the arm its audience uses and leaves the other 0. The two
+     * counts are indistinguishable by range, so nothing but the scorer's audience
+     * check keeps them apart: if a business audience ever read
+     * `completedCollaborations`, business scores would inflate silently.
+     */
+    public function test_a_business_audience_never_reads_completed_collaborations(): void
+    {
+        $scorer = new SignalScorer;
+
+        $overrides = [
+            'audience' => SuggestionAudience::Business,
+            'contentDelivered' => 3,
+            'reviewCount' => 4,
+            'averageRating' => 4.6,
+        ];
+
+        $clean = $scorer->score($this->context(
+            array_merge($overrides, ['completedCollaborations' => 0])
+        ));
+
+        $overPopulated = $scorer->score($this->context(
+            array_merge($overrides, ['completedCollaborations' => 40])
+        ));
+
+        $this->assertSame($clean['score'], $overPopulated['score']);
+        $this->assertSame(
+            $this->signal($clean, 'delivery_proof'),
+            $this->signal($overPopulated, 'delivery_proof')
+        );
+        $this->assertStringNotContainsString(
+            'collaborations',
+            $this->signal($overPopulated, 'delivery_proof')['reason_key']
+        );
     }
 }
