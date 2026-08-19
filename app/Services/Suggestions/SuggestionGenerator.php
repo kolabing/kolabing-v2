@@ -254,13 +254,16 @@ class SuggestionGenerator
      * The city of the proposed event, resolved to the **business** side of the
      * pair with the community side as a fallback.
      *
-     * Two rows describe every pair — one addressed to each side — and they must
-     * agree about where the event would happen, so the resolution cannot be
-     * viewer-relative. The business side is the anchored one: a venue promotion
-     * happens at its venue, and a product promotion ships from its address,
-     * while the community's city is only where it happens to be registered. A
-     * business viewer additionally matches into its `target_city_ids`, so
-     * "counterpart's city" would have moved as the viewer widened its reach.
+     * **Do not "fix" this to viewer-relative.** Two rows describe every pair —
+     * one addressed to each side — and they must agree about where the event
+     * would happen, so the resolution cannot depend on which side is reading:
+     * viewer-relative resolution would store two different cities for one
+     * proposed event, and the digest groups on `(audience, batch_key)`. The
+     * business side is the anchored one: a venue promotion happens at its venue
+     * and a product promotion ships from its address, while the community's city
+     * is only where it happens to be registered. A business viewer additionally
+     * matches into its `target_city_ids`, so "the counterpart's city" would also
+     * have moved as the viewer widened its reach.
      */
     private function cityIdFor(PairContext $context): ?string
     {

@@ -12,6 +12,8 @@ use App\Models\CommunityProfile;
 use App\Models\EventSeries;
 use App\Models\KolabSuggestion;
 use App\Models\Profile;
+use App\Services\OnboardingService;
+use App\Services\ProfileService;
 use App\Services\Suggestions\PairCandidateFinder;
 use App\Services\Suggestions\SuggestionGenerator;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -579,6 +581,147 @@ class SuggestionGenerationTest extends TestCase
         ])->assertCreated();
 
         Queue::assertPushed(GenerateSuggestionsForProfile::class);
+    }
+
+    /**
+     * Completion, not every save, is the trigger. `OnboardingService` is the real
+     * completion point and `Profile::onboardingCompleted()` — the predicate the
+     * onboarding drip already uses for its complete-profile nudge — is the
+     * definition of complete.
+     */
+    public function test_completing_onboarding_queues_exactly_one_pass(): void
+    {
+        Queue::fake();
+
+        $city = City::factory()->create();
+        $profile = Profile::factory()->community()->create();
+        CommunityProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+
+        $profile = $profile->fresh();
+
+        $this->assertFalse($profile->onboardingCompleted());
+
+        app(OnboardingService::class)->completeCommunityOnboarding($profile, [
+            'name' => 'Madrid Runners',
+            'community_type' => 'run_club',
+            'community_size' => 200,
+            'city_id' => $city->id,
+        ]);
+
+        Queue::assertPushed(GenerateSuggestionsForProfile::class, 1);
+    }
+
+    /**
+     * The debounce. A profile that was already complete before the save has not
+     * crossed anything, so a later edit must queue nothing — otherwise every
+     * profile save on the platform puts a full scoring pass on the queue.
+     */
+    public function test_editing_an_already_complete_profile_queues_nothing(): void
+    {
+        Queue::fake();
+
+        $city = City::factory()->create();
+        $viewer = $this->business($city);
+
+        $this->assertTrue($viewer->onboardingCompleted());
+
+        app(ProfileService::class)->updateProfile($viewer, [], ['about' => 'Now with pastries.']);
+        app(ProfileService::class)->updateProfile($viewer->fresh(), [], ['about' => 'And coffee.']);
+
+        Queue::assertNotPushed(GenerateSuggestionsForProfile::class);
+    }
+
+    /**
+     * An edit can finish a profile the onboarding flow left half-done, and that
+     * crossing is a completion like any other.
+     */
+    public function test_an_edit_that_completes_a_profile_queues_one_pass(): void
+    {
+        Queue::fake();
+
+        $city = City::factory()->create();
+        $profile = Profile::factory()->community()->create();
+        CommunityProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+
+        $profile = $profile->fresh();
+
+        app(ProfileService::class)->updateProfile($profile, [], [
+            'name' => 'Barcelona Book Club',
+            'community_type' => 'book_club',
+            'city_id' => $city->id,
+        ]);
+
+        Queue::assertPushed(GenerateSuggestionsForProfile::class, 1);
+    }
+
+    /**
+     * A save that leaves the profile still incomplete has not crossed anything
+     * either. This is the half of the rule that matters at registration: the
+     * OAuth paths create a bare extended profile with no city, and the candidate
+     * finder returns nothing without one, so a pass queued there would provably
+     * write no rows.
+     */
+    public function test_a_save_that_leaves_the_profile_incomplete_queues_nothing(): void
+    {
+        Queue::fake();
+
+        $profile = Profile::factory()->community()->create();
+        CommunityProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+
+        $profile = $profile->fresh();
+
+        app(ProfileService::class)->updateProfile($profile, [], ['about' => 'Still deciding what we are.']);
+
+        $this->assertFalse($profile->fresh()->onboardingCompleted());
+
+        Queue::assertNotPushed(GenerateSuggestionsForProfile::class);
+    }
+
+    /**
+     * An attendee can complete their profile too, and `onboardingCompleted()` is
+     * true when they do — but they are never a suggestion audience, so the
+     * crossing must not queue a pass that provably writes nothing.
+     */
+    public function test_an_attendee_completing_their_profile_queues_nothing(): void
+    {
+        Queue::fake();
+
+        $city = City::factory()->create();
+        $attendee = Profile::factory()->attendee()->create([
+            'handle' => null,
+            'city_id' => null,
+            'interests' => null,
+        ]);
+
+        $this->assertFalse($attendee->onboardingCompleted());
+
+        app(ProfileService::class)->updateProfile($attendee, [
+            'name' => 'Marta',
+            'handle' => 'marta',
+            'city_id' => $city->id,
+            'interests' => ['food'],
+        ], []);
+
+        $this->assertTrue($attendee->fresh()->onboardingCompleted());
+
+        Queue::assertNotPushed(GenerateSuggestionsForProfile::class);
+    }
+
+    /**
+     * The rows themselves cannot multiply either, whatever the trigger does: the
+     * pair is upserted, so five passes leave one row per pair.
+     */
+    public function test_repeated_passes_do_not_multiply_rows(): void
+    {
+        $city = City::factory()->create();
+        $viewer = $this->business($city);
+        $this->community($city, 'food_community');
+
+        for ($run = 0; $run < 5; $run++) {
+            (new GenerateSuggestionsForProfile((string) $viewer->id))->handle($this->generator());
+        }
+
+        $this->assertSame(1, KolabSuggestion::query()->count());
     }
 
     public function test_the_job_generates_for_its_profile(): void

@@ -381,25 +381,18 @@ class AuthService
      * Queue a first suggestion pass for a freshly-registered profile, so the
      * suggestions page is not empty until the 04:00 batch reaches it.
      *
-     * Isolated for the same reason the drip above is: suggestions are a
-     * peripheral concern, and a queue that cannot be reached must never
-     * propagate into (and roll back) account creation. Attendees are never a
-     * suggestion audience, so they are not queued at all.
+     * `false` because a profile that did not exist a moment ago was not
+     * complete. The one-shot register paths hand over a name, a type and a city
+     * and therefore cross straight into complete; the OAuth paths create a bare
+     * extended profile and do not, so nothing is queued for them until
+     * onboarding finishes — an incomplete profile has no city, and the candidate
+     * finder returns nothing without one. The debounce, the completeness
+     * predicate and the failure isolation all live on the job so this and
+     * OnboardingService cannot drift apart.
      */
     private function seedSuggestions(Profile $profile): void
     {
-        if ($profile->isAttendee()) {
-            return;
-        }
-
-        try {
-            GenerateSuggestionsForProfile::dispatch((string) $profile->id);
-        } catch (\Throwable $e) {
-            Log::warning('Failed to queue the first suggestion pass for a new profile', [
-                'profile_id' => $profile->id,
-                'exception' => $e->getMessage(),
-            ]);
-        }
+        GenerateSuggestionsForProfile::dispatchIfJustCompleted($profile, false);
     }
 
     /**

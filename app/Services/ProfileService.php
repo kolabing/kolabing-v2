@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Enums\CollaborationStatus;
 use App\Enums\KolabStatus;
 use App\Enums\NotificationType;
+use App\Jobs\GenerateSuggestionsForProfile;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
 use App\Models\Community;
@@ -79,7 +80,9 @@ class ProfileService
         array $profileData,
         array $extendedProfileData
     ): Profile {
-        return DB::transaction(function () use ($profile, $profileData, $extendedProfileData): Profile {
+        $wasComplete = $profile->onboardingCompleted();
+
+        $profile = DB::transaction(function () use ($profile, $profileData, $extendedProfileData): Profile {
             // Update base profile data
             if (! empty($profileData)) {
                 $profile->update($profileData);
@@ -112,6 +115,14 @@ class ProfileService
 
             return $profile;
         });
+
+        // An edit can finish a profile the onboarding flow left half-done, and a
+        // finished profile is the first one worth scoring. Only the incomplete ->
+        // complete crossing queues a pass: the nightly batch picks up every later
+        // edit, so a profile saved five times must not queue five scoring passes.
+        GenerateSuggestionsForProfile::dispatchIfJustCompleted($profile, $wasComplete);
+
+        return $profile;
     }
 
     /**
