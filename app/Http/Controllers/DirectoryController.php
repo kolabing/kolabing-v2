@@ -123,6 +123,9 @@ class DirectoryController extends Controller
             ];
         }
 
+        // Most-populated first, so the bento hero tile is the biggest scene.
+        usort($cards, fn (array $a, array $b) => $b['count'] <=> $a['count']);
+
         return $cards;
     }
 
