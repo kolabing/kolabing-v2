@@ -7,7 +7,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Pending email invitations to a community (NF-6 / BE-NF-29).
+ * Pending email invitations to a community (NF-6 / BE-NF-34).
  *
  * POST /communities/{id}/members only works for people who already hold a
  * Kolabing account — it 404s otherwise. A leader's real roster lives in a
