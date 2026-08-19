@@ -6,19 +6,26 @@ namespace App\Services\Suggestions;
 
 use App\Enums\SuggestionAudience;
 use App\Support\Matching\CategoryFitMatrix;
-use Illuminate\Support\Facades\Lang;
 
 /**
  * Scores one candidate pair across six signals. Pure: no database access, no
- * randomness, no clock. A signal with no data behind it returns null, is
- * dropped from the weighted sum, and its weight is removed from the
- * denominator — so a cold-start profile is scored fairly on what we do know
- * and labelled with a lower `confidence` instead of being unfairly penalised.
+ * randomness, no clock, and no localisation. A signal with no data behind it
+ * returns null, is dropped from the weighted sum, and its weight is removed
+ * from the denominator — so a cold-start profile is scored fairly on what we do
+ * know and labelled with a lower `confidence` instead of being unfairly
+ * penalised.
+ *
+ * A signal carries a `reason_key` plus raw `reason_params`, never a finished
+ * sentence: generation runs in a nightly command under the app's default
+ * locale, so a rendered reason would reach every reader in that one language.
+ * SignalReasonRenderer turns the keys into a sentence at read time, in the
+ * reader's locale. `reason_key` is separate from `key` because one signal picks
+ * different sentences depending on its data.
  */
 class SignalScorer
 {
     /**
-     * @return array{score: int, confidence: string, signals: array<int, array<string, mixed>>}
+     * @return array{score: int, confidence: string, signals: array<int, array{key: string, reason_key: string, reason_params: array<string, mixed>, weight: float, score: float}>}
      */
     public function score(PairContext $context): array
     {
@@ -42,7 +49,7 @@ class SignalScorer
                 continue;
             }
 
-            [$value, $reason] = $result;
+            [$value, $reasonKey, $reasonParams] = $result;
             $weight = (float) $weights[$key];
 
             $weightedSum += $weight * $value;
@@ -50,10 +57,10 @@ class SignalScorer
 
             $signals[] = [
                 'key' => $key,
-                'label' => $this->label($key),
+                'reason_key' => $reasonKey,
+                'reason_params' => $reasonParams,
                 'weight' => $weight,
                 'score' => round($value, 3),
-                'reason' => $reason,
             ];
         }
 
@@ -74,7 +81,7 @@ class SignalScorer
      * pairing is no data, never a mid-range guess, which is where this policy
      * deliberately parts ways with Explore's ranking fallback.
      *
-     * @return array{0: float, 1: string}|null
+     * @return array{0: float, 1: string, 2: array<string, mixed>}|null
      */
     private function categoryFit(PairContext $context): ?array
     {
@@ -94,14 +101,14 @@ class SignalScorer
             return null;
         }
 
-        return [$best, __('suggestions.reason.category_fit', [
-            'community_type' => $this->vocabulary('community_type', (string) $context->communityType),
-            'business_category' => $this->vocabulary('business_category', (string) $bestCategory),
-        ])];
+        return [$best, 'category_fit', [
+            'community_type' => (string) $context->communityType,
+            'business_category' => (string) $bestCategory,
+        ]];
     }
 
     /**
-     * @return array{0: float, 1: string}|null
+     * @return array{0: float, 1: string, 2: array<string, mixed>}|null
      */
     private function locationFit(PairContext $context): ?array
     {
@@ -109,9 +116,7 @@ class SignalScorer
             $max = (float) config('suggestions.max_distance_km');
             $value = max(0.0, 1.0 - ($context->distanceKm / $max));
 
-            return [$value, __('suggestions.reason.location_distance', [
-                'km' => number_format($context->distanceKm, 1),
-            ])];
+            return [$value, 'location_distance', ['km' => $context->distanceKm]];
         }
 
         if ($context->viewerCityId === null || $context->counterpartCityId === null) {
@@ -119,8 +124,8 @@ class SignalScorer
         }
 
         return $context->viewerCityId === $context->counterpartCityId
-            ? [1.0, __('suggestions.reason.location_same_city')]
-            : [0.0, __('suggestions.reason.location_other_city')];
+            ? [1.0, 'location_same_city', []]
+            : [0.0, 'location_other_city', []];
     }
 
     /**
@@ -128,7 +133,7 @@ class SignalScorer
      * "fills the room without overflowing"; both under-filling and overflowing
      * lose points, and overflow is reported so the copy can name the constraint.
      *
-     * @return array{0: float, 1: string}|null
+     * @return array{0: float, 1: string, 2: array<string, mixed>}|null
      */
     private function scaleFit(PairContext $context): ?array
     {
@@ -145,14 +150,14 @@ class SignalScorer
             default => max(0.0, 1.0 - (($ratio - 1.0) / 2.0)),
         };
 
-        return [$value, __('suggestions.reason.scale_fit', [
+        return [$value, 'scale_fit', [
             'expected' => $expected,
             'capacity' => $context->venueCapacity,
-        ])];
+        ]];
     }
 
     /**
-     * @return array{0: float, 1: string}|null
+     * @return array{0: float, 1: string, 2: array<string, mixed>}|null
      */
     private function offerNeedFit(PairContext $context): ?array
     {
@@ -164,15 +169,10 @@ class SignalScorer
         $value = count($overlap) / count($context->counterpartNeeds);
 
         if ($overlap === []) {
-            return [0.0, __('suggestions.reason.offer_need_none')];
+            return [0.0, 'offer_need_none', []];
         }
 
-        return [min(1.0, $value), __('suggestions.reason.offer_need_overlap', [
-            'items' => implode(', ', array_map(
-                fn (string $item): string => str_replace('_', ' ', $item),
-                $overlap
-            )),
-        ])];
+        return [min(1.0, $value), 'offer_need_overlap', ['items' => $overlap]];
     }
 
     /**
@@ -181,7 +181,7 @@ class SignalScorer
      * audience: the business's reliability record. Both come out of real
      * collaboration history, which is why this is the signal worth selling.
      *
-     * @return array{0: float, 1: string}|null
+     * @return array{0: float, 1: string, 2: array<string, mixed>}|null
      */
     private function deliveryProof(PairContext $context): ?array
     {
@@ -198,20 +198,20 @@ class SignalScorer
         $value = ($ratingPart * 0.4) + ($repeatPart * 0.3) + ($contentPart * 0.3);
 
         if ($context->audience === SuggestionAudience::Business) {
-            return [$value, __('suggestions.reason.delivery_proof_community', [
+            return [$value, 'delivery_proof_community', [
                 'content' => $context->contentDelivered,
-                'rating' => number_format((float) ($context->averageRating ?? 0), 1),
-            ])];
+                'rating' => (float) ($context->averageRating ?? 0),
+            ]];
         }
 
-        return [$value, __('suggestions.reason.delivery_proof_business', [
+        return [$value, 'delivery_proof_business', [
             'reviews' => $context->reviewCount,
-            'rating' => number_format((float) ($context->averageRating ?? 0), 1),
-        ])];
+            'rating' => (float) ($context->averageRating ?? 0),
+        ]];
     }
 
     /**
-     * @return array{0: float, 1: string}|null
+     * @return array{0: float, 1: string, 2: array<string, mixed>}|null
      */
     private function momentum(PairContext $context): ?array
     {
@@ -225,10 +225,10 @@ class SignalScorer
             $value = min(1.0, $value + 0.25);
         }
 
-        return [$value, __('suggestions.reason.momentum', [
+        return [$value, 'momentum', [
             'count' => $context->recentEventCount,
             'days' => (int) config('suggestions.momentum_window_days'),
-        ])];
+        ]];
     }
 
     private function expectedAttendance(PairContext $context): ?int
@@ -257,23 +257,5 @@ class SignalScorer
             $availableWeight >= (float) $thresholds['medium'] => 'medium',
             default => 'low',
         };
-    }
-
-    private function label(string $key): string
-    {
-        return __('suggestions.signal.'.$key);
-    }
-
-    /**
-     * Human label for a matrix slug, falling back to the de-underscored slug
-     * so a matrix that grows a column can never render an empty reason line.
-     */
-    private function vocabulary(string $group, string $value): string
-    {
-        $key = 'suggestions.vocabulary.'.$group.'.'.$value;
-
-        return Lang::has($key)
-            ? (string) __($key)
-            : str_replace('_', ' ', $value);
     }
 }

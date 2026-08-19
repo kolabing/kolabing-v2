@@ -7,9 +7,6 @@ namespace Tests\Unit\Services\Suggestions;
 use App\Enums\SuggestionAudience;
 use App\Services\Suggestions\PairContext;
 use App\Services\Suggestions\SignalScorer;
-use App\Support\Matching\CategoryFitMatrix;
-use Illuminate\Support\Facades\App;
-use Illuminate\Support\Facades\Lang;
 use Tests\TestCase;
 
 class SignalScorerTest extends TestCase
@@ -65,7 +62,11 @@ class SignalScorerTest extends TestCase
 
         $this->assertNotNull($signal);
         $this->assertSame(1.0, $signal['score']);
-        $this->assertStringContainsString('café', mb_strtolower($signal['reason']));
+        $this->assertSame('category_fit', $signal['reason_key']);
+        $this->assertSame([
+            'community_type' => 'food_community',
+            'business_category' => 'cafe',
+        ], $signal['reason_params']);
     }
 
     public function test_location_fit_prefers_near_over_far(): void
@@ -78,6 +79,18 @@ class SignalScorerTest extends TestCase
         $this->assertNotNull($near);
         $this->assertNotNull($far);
         $this->assertGreaterThan($far['score'], $near['score']);
+    }
+
+    public function test_location_fit_persists_the_raw_distance_rather_than_a_formatted_one(): void
+    {
+        $signal = $this->signal(
+            (new SignalScorer)->score($this->context(['distanceKm' => 2.5])),
+            'location_fit'
+        );
+
+        $this->assertNotNull($signal);
+        $this->assertSame('location_distance', $signal['reason_key']);
+        $this->assertSame(['km' => 2.5], $signal['reason_params']);
     }
 
     public function test_location_fit_falls_back_to_city_equality_when_distance_is_unknown(): void
@@ -99,7 +112,9 @@ class SignalScorerTest extends TestCase
         $this->assertNotNull($same);
         $this->assertNotNull($other);
         $this->assertSame(1.0, $same['score']);
+        $this->assertSame('location_same_city', $same['reason_key']);
         $this->assertSame(0.0, $other['score']);
+        $this->assertSame('location_other_city', $other['reason_key']);
     }
 
     public function test_scale_fit_is_perfect_when_expected_attendance_fills_the_venue(): void
@@ -126,8 +141,8 @@ class SignalScorerTest extends TestCase
 
         $this->assertNotNull($signal);
         $this->assertLessThan(0.5, $signal['score']);
-        $this->assertStringContainsString('90', $signal['reason']);
-        $this->assertStringContainsString('30', $signal['reason']);
+        $this->assertSame('scale_fit', $signal['reason_key']);
+        $this->assertSame(['expected' => 90, 'capacity' => 30], $signal['reason_params']);
     }
 
     public function test_scale_fit_falls_back_to_a_quarter_of_community_size_without_event_history(): void
@@ -142,7 +157,7 @@ class SignalScorerTest extends TestCase
 
         $this->assertNotNull($signal);
         $this->assertSame(1.0, $signal['score']);
-        $this->assertStringContainsString('30', $signal['reason']);
+        $this->assertSame(['expected' => 30, 'capacity' => 30], $signal['reason_params']);
     }
 
     public function test_offer_need_fit_scores_the_share_of_needs_covered(): void
@@ -156,7 +171,8 @@ class SignalScorerTest extends TestCase
 
         $this->assertNotNull($signal);
         $this->assertSame(0.5, $signal['score']);
-        $this->assertStringContainsString('venue', $signal['reason']);
+        $this->assertSame('offer_need_overlap', $signal['reason_key']);
+        $this->assertSame(['items' => ['venue']], $signal['reason_params']);
     }
 
     /**
@@ -239,7 +255,7 @@ class SignalScorerTest extends TestCase
 
         $this->assertNotNull($signal);
         $this->assertSame(1.0, $signal['score']);
-        $this->assertStringContainsString('café', mb_strtolower($signal['reason']));
+        $this->assertSame('cafe', $signal['reason_params']['business_category']);
     }
 
     public function test_category_fit_is_dropped_when_no_declared_category_is_in_the_matrix(): void
@@ -264,7 +280,8 @@ class SignalScorerTest extends TestCase
 
         $this->assertNotNull($signal);
         $this->assertSame(0.0, $signal['score']);
-        $this->assertSame(__('suggestions.reason.offer_need_none'), $signal['reason']);
+        $this->assertSame('offer_need_none', $signal['reason_key']);
+        $this->assertSame([], $signal['reason_params']);
     }
 
     public function test_delivery_proof_speaks_about_the_business_for_a_community_audience(): void
@@ -278,10 +295,23 @@ class SignalScorerTest extends TestCase
         $signal = $this->signal($result, 'delivery_proof');
 
         $this->assertNotNull($signal);
-        $this->assertSame(__('suggestions.reason.delivery_proof_business', [
-            'reviews' => 4,
-            'rating' => '4.6',
-        ]), $signal['reason']);
+        $this->assertSame('delivery_proof_business', $signal['reason_key']);
+        $this->assertSame(['reviews' => 4, 'rating' => 4.6], $signal['reason_params']);
+    }
+
+    public function test_delivery_proof_speaks_about_the_community_for_a_business_audience(): void
+    {
+        $result = (new SignalScorer)->score($this->context([
+            'audience' => SuggestionAudience::Business,
+            'contentDelivered' => 5,
+            'averageRating' => 4.6,
+        ]));
+
+        $signal = $this->signal($result, 'delivery_proof');
+
+        $this->assertNotNull($signal);
+        $this->assertSame('delivery_proof_community', $signal['reason_key']);
+        $this->assertSame(['content' => 5, 'rating' => 4.6], $signal['reason_params']);
     }
 
     public function test_expected_attendance_averages_the_two_middle_values_of_an_even_history(): void
@@ -295,55 +325,41 @@ class SignalScorerTest extends TestCase
 
         $this->assertNotNull($signal);
         $this->assertSame(1.0, $signal['score']);
-        $this->assertStringContainsString('25', $signal['reason']);
+        $this->assertSame(['expected' => 25, 'capacity' => 25], $signal['reason_params']);
+    }
+
+    public function test_momentum_persists_the_raw_count_and_the_configured_window(): void
+    {
+        $signal = $this->signal(
+            (new SignalScorer)->score($this->context(['recentEventCount' => 3])),
+            'momentum'
+        );
+
+        $this->assertNotNull($signal);
+        $this->assertSame('momentum', $signal['reason_key']);
+        $this->assertSame([
+            'count' => 3,
+            'days' => (int) config('suggestions.momentum_window_days'),
+        ], $signal['reason_params']);
     }
 
     /**
-     * The vocabulary map covers every matrix key by construction, which is what
-     * makes the scorer's slug fallback unreachable through real data. Assert the
-     * invariant instead of contorting a test to reach the fallback: this fails
-     * the moment a matrix column is added without a translation, which is the
-     * only way that fallback could ever fire in production.
+     * Generation runs in a nightly command under the app's default locale, so a
+     * rendered sentence would reach every reader in that one language. Nothing
+     * the scorer emits may therefore be a finished label or reason — every
+     * signal is keys plus raw params, and SignalReasonRenderer does the rest.
      */
-    public function test_every_matrix_key_has_a_vocabulary_entry_in_every_locale(): void
+    public function test_no_signal_carries_rendered_text(): void
     {
-        $communityTypes = array_keys(CategoryFitMatrix::MATRIX);
-        $businessCategories = array_keys(array_merge(...array_values(CategoryFitMatrix::MATRIX)));
-
-        $this->assertNotEmpty($communityTypes);
-        $this->assertNotEmpty($businessCategories);
-
-        foreach (['en', 'es', 'ca'] as $locale) {
-            foreach ($communityTypes as $communityType) {
-                $key = 'suggestions.vocabulary.community_type.'.$communityType;
-
-                $this->assertTrue(
-                    Lang::has($key, $locale, false),
-                    "Missing translation [{$key}] for locale [{$locale}]."
-                );
-            }
-
-            foreach ($businessCategories as $businessCategory) {
-                $key = 'suggestions.vocabulary.business_category.'.$businessCategory;
-
-                $this->assertTrue(
-                    Lang::has($key, $locale, false),
-                    "Missing translation [{$key}] for locale [{$locale}]."
-                );
-            }
-        }
-    }
-
-    public function test_the_category_fit_reason_is_localised_on_both_sides_of_the_interpolation(): void
-    {
-        App::setLocale('es');
-
         $result = (new SignalScorer)->score($this->context());
 
-        $signal = $this->signal($result, 'category_fit');
+        $this->assertCount(6, $result['signals']);
 
-        $this->assertNotNull($signal);
-        $this->assertStringContainsString('gastronomía', $signal['reason']);
-        $this->assertStringContainsString('cafetería', $signal['reason']);
+        foreach ($result['signals'] as $signal) {
+            $this->assertSame(
+                ['key', 'reason_key', 'reason_params', 'weight', 'score'],
+                array_keys($signal)
+            );
+        }
     }
 }
