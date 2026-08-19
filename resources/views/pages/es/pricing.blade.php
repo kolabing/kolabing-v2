@@ -1,4 +1,5 @@
 @php
+
     $title = 'Precios';
     $description = 'Precios de Kolabing Business: €'.(int) config('subscriptions.business.stripe.monthly.price').' al mes para publicar Kolabs ilimitados y colaborar con comunidades locales. Las comunidades usan Kolabing siempre gratis.';
     $canonical = route('pricing.es');
@@ -46,49 +47,60 @@
         ['q' => '¿Tenéis descuentos?', 'a' => 'Hacemos campañas de vez en cuando. Si tienes un código promocional, puedes introducirlo en la pantalla de pago de Stripe antes de pagar.'],
         ['q' => '¿Puedo usar Kolabing desde el móvil?', 'a' => 'Sí. Todo funciona en el navegador, y la app de Kolabing añade chat, notificaciones y check-in en eventos.'],
     ];
+
+    /**
+     * JSON-LD is built here, NOT inline in the <script> tag. Blade compiles
+     * directives inside `{!! !!}` expressions, and Laravel 12 has an `@context`
+     * directive — so a literal '@context' key written there is replaced by compiled
+     * PHP and the emitted structured data loses its @context entirely. Inside a
+     * @php block the compiler leaves it alone. See PublicProfilePageTest /
+     * MarketingSeoTest for the guard.
+     */
+    $productSchema = json_encode([
+        '@context' => 'https://schema.org',
+        '@type' => 'Product',
+        'name' => 'Kolabing Business',
+        'description' => $description,
+        'brand' => ['@type' => 'Brand', 'name' => 'Kolabing'],
+        'url' => $canonical,
+        'offers' => [
+            [
+                '@type' => 'Offer',
+                'name' => 'Mensual',
+                'price' => (string) (int) config('subscriptions.business.stripe.monthly.price'),
+                'priceCurrency' => 'EUR',
+                'availability' => 'https://schema.org/InStock',
+                'url' => $canonical,
+            ],
+            [
+                '@type' => 'Offer',
+                'name' => '3 meses',
+                'price' => (string) (int) config('subscriptions.business.stripe.three_months.price'),
+                'priceCurrency' => 'EUR',
+                'availability' => 'https://schema.org/InStock',
+                'url' => $canonical,
+            ],
+        ],
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $faqSchema = json_encode([
+        '@context' => 'https://schema.org',
+        '@type' => 'FAQPage',
+        'inLanguage' => 'es',
+        'mainEntity' => array_map(static fn (array $faq): array => [
+            '@type' => 'Question',
+            'name' => $faq['q'],
+            'acceptedAnswer' => ['@type' => 'Answer', 'text' => $faq['a']],
+        ], $faqs),
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 @endphp
 
 <x-layouts.marketing-page :title="$title" :description="$description" :canonical="$canonical" :locale="$locale" :alternates="$alternates">
     <x-slot:head>
         <script type="application/ld+json">
-            {!! json_encode([
-                '@context' => 'https://schema.org',
-                '@type' => 'Product',
-                'name' => 'Kolabing Business',
-                'description' => $description,
-                'brand' => ['@type' => 'Brand', 'name' => 'Kolabing'],
-                'url' => $canonical,
-                'offers' => [
-                    [
-                        '@type' => 'Offer',
-                        'name' => 'Mensual',
-                        'price' => (string) (int) config('subscriptions.business.stripe.monthly.price'),
-                        'priceCurrency' => 'EUR',
-                        'availability' => 'https://schema.org/InStock',
-                        'url' => $canonical,
-                    ],
-                    [
-                        '@type' => 'Offer',
-                        'name' => '3 meses',
-                        'price' => (string) (int) config('subscriptions.business.stripe.three_months.price'),
-                        'priceCurrency' => 'EUR',
-                        'availability' => 'https://schema.org/InStock',
-                        'url' => $canonical,
-                    ],
-                ],
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+            {!! $productSchema !!}
         </script>
         <script type="application/ld+json">
-            {!! json_encode([
-                '@context' => 'https://schema.org',
-                '@type' => 'FAQPage',
-                'inLanguage' => 'es',
-                'mainEntity' => array_map(static fn (array $faq): array => [
-                    '@type' => 'Question',
-                    'name' => $faq['q'],
-                    'acceptedAnswer' => ['@type' => 'Answer', 'text' => $faq['a']],
-                ], $faqs),
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+            {!! $faqSchema !!}
         </script>
     </x-slot:head>
 

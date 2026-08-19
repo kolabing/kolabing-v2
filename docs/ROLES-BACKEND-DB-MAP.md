@@ -688,6 +688,24 @@ All three are additive; no existing key changed shape.
 empty profile is a thin page. JSON-LD is `LocalBusiness` for a business and `Organization` for a community, with
 `aggregateRating` emitted **only** when `review_count > 0`.
 
+### 16.6a Trap: never build JSON-LD inline in a Blade echo (fixed 2026-08-19, BE-FX-17)
+
+Laravel 12 registers an **`@context` Blade directive**, and Blade compiles directives inside `{{ }}` / `{!! !!}` expressions.
+So this — which four marketing templates used — is broken:
+
+```blade
+{!! json_encode(['@context' => 'https://schema.org', '@type' => 'Organization', …]) !!}
+```
+
+The `'@context'` key is replaced by compiled PHP, and the page emits
+`{"<?php $__contextArgs = []; … ?>":"https://schema.org","@type":"Organization",…}`. It still parses as JSON, so there is no
+error and no visible symptom — the structured data simply has no vocabulary and search engines ignore it. It affected
+`Organization` on every marketing page (shared layout), the homepage `@graph`, and `Product` + `FAQPage` on both pricing pages.
+
+Build the array inside a **`@php` block** and echo the encoded string, as `blog/show.blade.php` and `pages/public-profile.blade.php`
+always did — `@php` content is stored raw before directive compilation, so the key survives. `tests/Feature/Marketing/StructuredDataTest.php`
+now parses every ld+json block on ten marketing URLs and fails if `@context` is missing or a key contains raw PHP.
+
 ### 16.7 Tests
 
 `tests/Feature/Marketing/PublicProfilePageTest.php` (14) — renders for both roles, the four withheld categories, the 3-photo

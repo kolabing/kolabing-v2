@@ -1,4 +1,5 @@
 @php
+
     /**
      * Absolute web-app URLs. The app lives on another host (app.kolabing.com), so
      * these cannot be route() calls. `?type=` lands straight on the register form
@@ -9,29 +10,16 @@
     $appLogin = $app.'/login';
     $appRegisterBusiness = $appRegister.'?type=business';
     $appRegisterCommunity = $appRegister.'?type=community';
-@endphp
-<!DOCTYPE html><html lang="en" class="scroll-smooth"><head>
 
-
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="csrf-token" content="{{ csrf_token() }}">
-  <title>Kolabing — Local Business &amp; Community Collaboration</title>
-  <meta name="description" content="Kolabing connects local businesses with nearby communities to plan real-world collaborations that drive footfall, members, and repeat visits. Live in Barcelona.">
-  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
-  <link rel="canonical" href="{{ route('home') }}">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Kolabing">
-  <meta property="og:title" content="Kolabing — Local Business &amp; Community Collaboration">
-  <meta property="og:description" content="Connect with nearby communities to plan real-world collaborations that drive footfall, members, and repeat visits.">
-  <meta property="og:url" content="{{ route('home') }}">
-  <meta property="og:image" content="{{ url('/social-preview.svg') }}">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Kolabing — Local Business &amp; Community Collaboration">
-  <meta name="twitter:description" content="Connect with nearby communities to plan real-world collaborations that drive footfall, members, and repeat visits.">
-  <meta name="twitter:image" content="{{ url('/social-preview.svg') }}">
-  <script type="application/ld+json">
-  {!! json_encode([
+    /**
+     * JSON-LD is built here, NOT inline in the <script> tag. Blade compiles
+     * directives inside `{!! !!}` expressions, and Laravel 12 has an `@context`
+     * directive — so a literal '@context' key written there is replaced by compiled
+     * PHP and the emitted structured data loses its @context entirely. Inside a
+     * @php block the compiler leaves it alone. See PublicProfilePageTest /
+     * MarketingSeoTest for the guard.
+     */
+    $homeSchema = json_encode([
       '@context' => 'https://schema.org',
       '@graph' => [
           [
@@ -58,7 +46,29 @@
               ],
           ],
       ],
-  ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+@endphp
+<!DOCTYPE html><html lang="en" class="scroll-smooth"><head>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>Kolabing — Local Business &amp; Community Collaboration</title>
+  <meta name="description" content="Kolabing connects local businesses with nearby communities to plan real-world collaborations that drive footfall, members, and repeat visits. Live in Barcelona.">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <link rel="canonical" href="{{ route('home') }}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Kolabing">
+  <meta property="og:title" content="Kolabing — Local Business &amp; Community Collaboration">
+  <meta property="og:description" content="Connect with nearby communities to plan real-world collaborations that drive footfall, members, and repeat visits.">
+  <meta property="og:url" content="{{ route('home') }}">
+  <meta property="og:image" content="{{ url('/social-preview.svg') }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Kolabing — Local Business &amp; Community Collaboration">
+  <meta name="twitter:description" content="Connect with nearby communities to plan real-world collaborations that drive footfall, members, and repeat visits.">
+  <meta name="twitter:image" content="{{ url('/social-preview.svg') }}">
+  <script type="application/ld+json">
+  {!! $homeSchema !!}
   </script>
   <link rel="icon" href="/favicon.ico?v=3" sizes="any">
   <link rel="icon" type="image/png" href="/favicon-512.png?v=3">
@@ -1375,8 +1385,6 @@
   })();
 </script>
 
-
-
 <!-- JOURNEY + PHONE SECTION -->
 <section class="section-manifesto" data-screen-label="journey">
   <div class="manifesto-track">
@@ -1832,7 +1840,6 @@ COMMUNITIES GET PERKS.</div>
 
   document.getElementById('yr').textContent = new Date().getFullYear();
 
-
   // Scroll fade-in
   const fadeEls = document.querySelectorAll('.fade');
   const obs = new IntersectionObserver((entries) => {
@@ -1850,7 +1857,6 @@ COMMUNITIES GET PERKS.</div>
     });
   });
 </script>
-
 
 <!-- ============ NEWSLETTER + BOOK-A-CALL POP-UP ============ -->
 <style>
@@ -2045,6 +2051,5 @@ COMMUNITIES GET PERKS.</div>
   }
 })();
 </script>
-
 
 </body></html>

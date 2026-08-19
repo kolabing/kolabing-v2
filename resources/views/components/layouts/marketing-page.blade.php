@@ -8,6 +8,7 @@
     'ogType' => 'website',
 ])
 @php
+
     $ogImage = $image
         ? (str_starts_with($image, 'http') ? $image : url($image))
         : url('/social-preview.svg');
@@ -19,6 +20,24 @@
     $webapp = rtrim(config('webapp.url'), '/');
     $webappLogin = $webapp.'/login';
     $webappRegister = $webapp.'/register';
+
+    /**
+     * JSON-LD is built here, NOT inline in the <script> tag. Blade compiles
+     * directives inside `{!! !!}` expressions, and Laravel 12 has an `@context`
+     * directive — so a literal '@context' key written there is replaced by compiled
+     * PHP and the emitted structured data loses its @context entirely. Inside a
+     * @php block the compiler leaves it alone. See PublicProfilePageTest /
+     * MarketingSeoTest for the guard.
+     */
+    $organizationSchema = json_encode([
+        '@context' => 'https://schema.org',
+        '@type' => 'Organization',
+        'name' => 'Kolabing',
+        'url' => route('home'),
+        'logo' => url('/brand/kolabing-logo.png'),
+        'description' => 'Kolabing helps local businesses and communities plan partnerships that turn events into footfall, member value, and repeat visits.',
+        'email' => 'support@kolabing.com',
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 @endphp
 <!DOCTYPE html>
 <html lang="{{ $locale }}">
@@ -72,15 +91,7 @@
         };
     </script>
     <script type="application/ld+json">
-        {!! json_encode([
-            '@context' => 'https://schema.org',
-            '@type' => 'Organization',
-            'name' => 'Kolabing',
-            'url' => route('home'),
-            'logo' => url('/brand/kolabing-logo.png'),
-            'description' => 'Kolabing helps local businesses and communities plan partnerships that turn events into footfall, member value, and repeat visits.',
-            'email' => 'support@kolabing.com',
-        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+        {!! $organizationSchema !!}
     </script>
     {{ $head ?? '' }}
 </head>
