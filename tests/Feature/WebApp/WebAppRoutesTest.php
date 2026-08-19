@@ -100,6 +100,24 @@ class WebAppRoutesTest extends TestCase
             ->assertSee('x-show="canManageCommunity"', false);
     }
 
+    public function test_no_file_in_public_shadows_a_webapp_route(): void
+    {
+        // public/community/ (a staging copy of an email banner) sat on the
+        // /community URL: nginx found the directory, 301'd to /community/, then
+        // 403'd for want of an index file — Laravel never saw the request.
+        // Any directory or file in public/ whose name matches a first path
+        // segment of a webapp route will do the same thing.
+        $segments = ['community', 'c', 'dashboard', 'feed', 'kolabs', 'account',
+            'notifications', 'subscription', 'applications', 'login', 'register', 'welcome'];
+
+        $shadowed = array_values(array_filter(
+            $segments,
+            fn (string $segment): bool => file_exists(public_path($segment)),
+        ));
+
+        $this->assertSame([], $shadowed, 'public/ entries shadow these routes: '.implode(', ', $shadowed));
+    }
+
     public function test_community_hub_pages_render_under_the_locale_prefixes(): void
     {
         foreach (['es', 'ca'] as $locale) {
