@@ -179,8 +179,11 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::get('/crm/create', [AdminCrmController::class, 'create'])->name('crm.create');
     Route::post('/crm', [AdminCrmController::class, 'store'])->name('crm.store');
     Route::get('/crm/{account}/edit', [AdminCrmController::class, 'edit'])->name('crm.edit');
+    Route::get('/crm/{account}', [AdminCrmController::class, 'show'])->name('crm.show');
     Route::put('/crm/{account}', [AdminCrmController::class, 'update'])->name('crm.update');
     Route::delete('/crm/{account}', [AdminCrmController::class, 'destroy'])->name('crm.destroy');
+    Route::post('/crm/{account}/stage', [AdminCrmController::class, 'moveStage'])->name('crm.stage');
+    Route::post('/crm/{account}/activity', [AdminCrmController::class, 'addActivity'])->name('crm.activity');
 
     // Community-rankings directory: publish/unpublish pages + moderate testimonials.
     // (Re-ranking is done in /admin/crm via score + metrics.rank_override + listed.)

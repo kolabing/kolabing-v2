@@ -7,10 +7,12 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AdminColumnPref;
 use App\Models\CrmAccount;
+use App\Services\CrmPipelineService;
 use App\Services\CrmScoreService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class CrmController extends Controller
 {
@@ -186,6 +188,42 @@ class CrmController extends Controller
     public function edit(CrmAccount $account): View
     {
         return view('admin.crm.edit', ['type' => $account->type, 'account' => $account]);
+    }
+
+    /** Lead detail: contact, pipeline stage, and the activity timeline. */
+    public function show(CrmAccount $account): View
+    {
+        $account->load('activities');
+
+        return view('admin.crm.show', ['account' => $account]);
+    }
+
+    /** Move a lead to a pipeline stage (forward, backward, or the Rejected lane). */
+    public function moveStage(Request $request, CrmAccount $account, CrmPipelineService $pipeline): RedirectResponse
+    {
+        $data = $request->validate([
+            'stage' => ['required', Rule::in(CrmAccount::COMMUNITY_STAGES)],
+        ]);
+
+        $pipeline->moveStage($account, $data['stage'], auth('admin')->user()?->name);
+
+        return redirect()
+            ->route('admin.crm.show', $account)
+            ->with('status', "Stage updated to {$data['stage']}.");
+    }
+
+    /** Log a free-text note onto the lead's timeline. */
+    public function addActivity(Request $request, CrmAccount $account, CrmPipelineService $pipeline): RedirectResponse
+    {
+        $data = $request->validate([
+            'body' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $pipeline->logNote($account, $data['body'], auth('admin')->user()?->name);
+
+        return redirect()
+            ->route('admin.crm.show', $account)
+            ->with('status', 'Note added.');
     }
 
     public function store(Request $request): RedirectResponse
