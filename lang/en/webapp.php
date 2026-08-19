@@ -16,6 +16,7 @@ return [
     'nav' => [
         'home' => 'Home',
         'explore' => 'Explore',
+        'suggestions' => 'Suggestions',
         'my_kolabs' => 'My Kolabs',
         'notifications' => 'Notifications',
         'profile' => 'Profile',
@@ -260,6 +261,41 @@ return [
         'load_more' => 'Load more',
         'load_error' => 'Could not load Kolabs.',
         'a_partner' => 'A partner',
+    ],
+    /*
+     * Suggested partners (BE-NF-28). There is no reason copy here on purpose:
+     * `signals[].reason` and the format title arrive from GET /suggestions as
+     * finished sentences with the real numbers already in them, rendered in the
+     * caller's locale from lang/{locale}/suggestions.php. This block is only the
+     * frame around them.
+     */
+    'suggestions' => [
+        'title' => 'Suggested partners',
+        'subtitle_business' => 'Communities worth a Kolab, and the numbers behind each one',
+        'subtitle_community' => 'Businesses worth a Kolab, and the numbers behind each one',
+        'score_badge' => ':score% fit',
+        'confidence_high' => 'Strong evidence',
+        'confidence_medium' => 'Good evidence',
+        'confidence_low' => 'Early signal',
+        'why_this' => 'Why this partner',
+        'format_title' => 'Suggested format',
+        'weekday_time' => ':weekday at :time',
+        'expected_attendance' => 'Around :count people expected',
+        'offer_title' => 'On the table',
+        'expects_title' => 'What they are looking for',
+        'create_cta' => 'Create this Kolab',
+        'dismiss_cta' => 'Not interested',
+        'blurred_title' => 'Community hidden on the free plan',
+        'blurred_body' => 'The fit score, every reason and the whole proposed format above are real. Only the name and the logo are held back.',
+        'blurred_cta' => 'See who you are targeting',
+        'empty_title' => 'No suggestions yet',
+        'empty_body_business' => 'We match on what your profile says and what you have run before: your venue or product, your area, your past Kolabs. Fill those in and suggested communities start arriving.',
+        'empty_body_community' => 'We match on what your profile says and what you have run before: your community type, your size, your area, your past events. Fill those in and suggested businesses start arriving.',
+        'empty_cta' => 'Complete your profile',
+        'load_more' => 'Load more',
+        'load_error' => 'Could not load your suggestions.',
+        'dismiss_error' => 'Could not dismiss this suggestion.',
+        'dashboard_block_title' => ':count suggestions this week',
     ],
     'kolabs' => [
         'title' => 'My Kolabs',

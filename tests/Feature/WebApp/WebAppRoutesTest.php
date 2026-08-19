@@ -175,6 +175,147 @@ class WebAppRoutesTest extends TestCase
             ->assertSee("myKolabsPage('offers')", false);
     }
 
+    public function test_suggestions_page_renders_the_card_frame_under_every_locale(): void
+    {
+        config(['suggestions.enabled' => true]);
+        $host = $this->host();
+
+        $this->get('http://'.$host.'/suggestions')
+            ->assertOk()
+            ->assertSee('suggestionsPage(', false)
+            ->assertSee('Suggested partners')
+            // The two actions, and where each one goes.
+            ->assertSee('Create this Kolab')
+            ->assertSee('/kolabs/create?suggestion=', false)
+            ->assertSee('Not interested')
+            ->assertSee("/suggestions/' + card.id + '/dismiss", false)
+            // The blur is a sales moment with a route out of it…
+            ->assertSee('Community hidden on the free plan')
+            ->assertSee('/subscription?reason=suggestion', false)
+            // …and it is whatever SuggestionResource decided, never re-derived from
+            // the viewer's role — a community is never blurred (ROLES §3.6).
+            ->assertSee('const blurred = !!s.is_identity_blurred;', false)
+            ->assertSee('blur-sm select-none', false)
+            // The empty state names the fix instead of apologising.
+            ->assertSee('No suggestions yet')
+            ->assertSee('Complete your profile')
+            ->assertSee('/account', false);
+
+        $this->get('http://'.$host.'/es/suggestions')
+            ->assertOk()
+            ->assertSee('lang="es"', false)
+            ->assertSee('Socios sugeridos')
+            ->assertSee('Crear este Kolab')
+            ->assertSee('Comunidad oculta en el plan gratuito')
+            // In-app links keep the locale prefix.
+            ->assertSee('/es/kolabs/create?suggestion=', false)
+            ->assertSee('/es/subscription?reason=suggestion', false);
+
+        $this->get('http://'.$host.'/ca/suggestions')
+            ->assertOk()
+            ->assertSee('lang="ca"', false)
+            ->assertSee('Socis suggerits')
+            ->assertSee('Crea aquest Kolab');
+    }
+
+    public function test_the_suggestions_page_and_its_nav_entry_are_gated_by_the_feature_flag(): void
+    {
+        $host = $this->host();
+
+        // Flag off (the shipped default): the page 404s like the API it reads, and
+        // the shell must not advertise a route that does not answer.
+        config(['suggestions.enabled' => false]);
+        $this->get('http://'.$host.'/suggestions')->assertNotFound();
+        $this->get('http://'.$host.'/es/suggestions')->assertNotFound();
+        $this->get('http://'.$host.'/ca/suggestions')->assertNotFound();
+
+        // The nav label itself is no proof either way: the layout inlines the whole
+        // `webapp` dictionary into window.KB_I18N on every page, so "Suggestions" is
+        // in the HTML regardless. The link is what the flag has to remove.
+        $this->get('http://'.$host.'/dashboard')
+            ->assertOk()
+            ->assertDontSee('href="/suggestions"', false);
+
+        config(['suggestions.enabled' => true]);
+        $this->get('http://'.$host.'/dashboard')
+            ->assertOk()
+            ->assertSee('href="/suggestions"', false)
+            ->assertSee('Suggestions');
+
+        $this->get('http://'.$host.'/es/dashboard')
+            ->assertOk()
+            ->assertSee('href="/es/suggestions"', false);
+    }
+
+    public function test_the_web_app_dictionary_is_complete_and_consistent_in_every_locale(): void
+    {
+        // The web app is at 100% es/ca and stays there: a page shipped with only
+        // English copy would render a raw dotted key to a Spanish reader.
+        $en = $this->flattenTranslations((array) trans('webapp', [], 'en'));
+        $this->assertArrayHasKey('suggestions.title', $en);
+
+        foreach (['es', 'ca'] as $locale) {
+            $translated = $this->flattenTranslations((array) trans('webapp', [], $locale));
+
+            $this->assertSame(
+                [],
+                array_values(array_diff(array_keys($en), array_keys($translated))),
+                "lang/{$locale}/webapp.php is missing keys that lang/en/webapp.php has."
+            );
+            $this->assertSame(
+                [],
+                array_values(array_diff(array_keys($translated), array_keys($en))),
+                "lang/{$locale}/webapp.php has keys lang/en/webapp.php does not."
+            );
+
+            foreach ($en as $key => $english) {
+                // A translation that drops or renames a :placeholder ships a sentence
+                // with a hole in it, or a leaked ":count", to that locale only.
+                $this->assertSame(
+                    $this->placeholders($english),
+                    $this->placeholders($translated[$key]),
+                    "lang/{$locale}/webapp.php [{$key}] does not carry the same :params as English."
+                );
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $lines
+     * @return array<string, string>
+     */
+    private function flattenTranslations(array $lines, string $prefix = ''): array
+    {
+        $flat = [];
+
+        foreach ($lines as $key => $value) {
+            $dotted = $prefix === '' ? (string) $key : $prefix.'.'.$key;
+
+            if (is_array($value)) {
+                $flat += $this->flattenTranslations($value, $dotted);
+
+                continue;
+            }
+
+            $flat[$dotted] = (string) $value;
+        }
+
+        return $flat;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function placeholders(string $line): array
+    {
+        preg_match_all('/:([A-Za-z_][A-Za-z0-9_]*)/', $line, $matches);
+
+        $found = array_unique($matches[1]);
+        sort($found);
+
+        return array_values($found);
+    }
+
     public function test_localized_public_pages_render_with_lang_and_hreflang(): void
     {
         $host = $this->host();

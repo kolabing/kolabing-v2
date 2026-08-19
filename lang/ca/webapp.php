@@ -16,6 +16,7 @@ return [
     'nav' => [
         'home' => 'Inici',
         'explore' => 'Explora',
+        'suggestions' => 'Suggeriments',
         'my_kolabs' => 'Els meus Kolabs',
         'notifications' => 'Notificacions',
         'profile' => 'Perfil',
@@ -260,6 +261,41 @@ return [
         'load_more' => 'Carrega’n més',
         'load_error' => 'No hem pogut carregar els Kolabs.',
         'a_partner' => 'Un soci',
+    ],
+    /*
+     * Socis suggerits (BE-NF-28). Aquí no hi ha copy de motius a propòsit:
+     * `signals[].reason` i el títol del format arriben de GET /suggestions ja com
+     * a frases completes amb els números reals a dins, traduïdes a l'idioma de qui
+     * crida des de lang/{locale}/suggestions.php. Aquest bloc només és el marc
+     * que els envolta.
+     */
+    'suggestions' => [
+        'title' => 'Socis suggerits',
+        'subtitle_business' => 'Comunitats que valen un Kolab, amb els números que ho sostenen',
+        'subtitle_community' => 'Negocis que valen un Kolab, amb els números que ho sostenen',
+        'score_badge' => ':score% d’afinitat',
+        'confidence_high' => 'Evidència sòlida',
+        'confidence_medium' => 'Bona evidència',
+        'confidence_low' => 'Senyal inicial',
+        'why_this' => 'Per què aquest soci',
+        'format_title' => 'Format suggerit',
+        'weekday_time' => ':weekday a les :time',
+        'expected_attendance' => 'S’esperen unes :count persones',
+        'offer_title' => 'Què hi ha damunt la taula',
+        'expects_title' => 'Què estan buscant',
+        'create_cta' => 'Crea aquest Kolab',
+        'dismiss_cta' => 'No m’interessa',
+        'blurred_title' => 'Comunitat oculta en el pla gratuït',
+        'blurred_body' => 'L’afinitat, tots els motius i el format proposat de dalt són reals. Només es reserven el nom i el logotip.',
+        'blurred_cta' => 'Mira a qui t’adreces',
+        'empty_title' => 'Encara no hi ha suggeriments',
+        'empty_body_business' => 'Creuem el que diu el teu perfil amb el que ja has fet: el teu local o producte, la teva zona, els teus Kolabs anteriors. Completa-ho i començaran a arribar comunitats suggerides.',
+        'empty_body_community' => 'Creuem el que diu el teu perfil amb el que ja has fet: el tipus de comunitat, la mida, la teva zona, els teus esdeveniments anteriors. Completa-ho i començaran a arribar negocis suggerits.',
+        'empty_cta' => 'Completa el meu perfil',
+        'load_more' => 'Carrega’n més',
+        'load_error' => 'No hem pogut carregar els teus suggeriments.',
+        'dismiss_error' => 'No hem pogut descartar aquest suggeriment.',
+        'dashboard_block_title' => ':count suggeriments aquesta setmana',
     ],
     'kolabs' => [
         'title' => 'Els meus Kolabs',

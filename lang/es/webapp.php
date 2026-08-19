@@ -16,6 +16,7 @@ return [
     'nav' => [
         'home' => 'Inicio',
         'explore' => 'Explorar',
+        'suggestions' => 'Sugerencias',
         'my_kolabs' => 'Mis Kolabs',
         'notifications' => 'Notificaciones',
         'profile' => 'Perfil',
@@ -260,6 +261,41 @@ return [
         'load_more' => 'Cargar más',
         'load_error' => 'No pudimos cargar los Kolabs.',
         'a_partner' => 'Un socio',
+    ],
+    /*
+     * Socios sugeridos (BE-NF-28). Aquí no hay copy de motivos a propósito:
+     * `signals[].reason` y el título del formato llegan de GET /suggestions ya
+     * como frases completas con los números reales dentro, traducidas al idioma
+     * de quien llama desde lang/{locale}/suggestions.php. Este bloque es solo el
+     * marco que los rodea.
+     */
+    'suggestions' => [
+        'title' => 'Socios sugeridos',
+        'subtitle_business' => 'Comunidades que merecen un Kolab, con los números que lo respaldan',
+        'subtitle_community' => 'Negocios que merecen un Kolab, con los números que lo respaldan',
+        'score_badge' => ':score% de afinidad',
+        'confidence_high' => 'Evidencia sólida',
+        'confidence_medium' => 'Buena evidencia',
+        'confidence_low' => 'Señal inicial',
+        'why_this' => 'Por qué este socio',
+        'format_title' => 'Formato sugerido',
+        'weekday_time' => ':weekday a las :time',
+        'expected_attendance' => 'Se esperan unas :count personas',
+        'offer_title' => 'Lo que hay sobre la mesa',
+        'expects_title' => 'Qué están buscando',
+        'create_cta' => 'Crear este Kolab',
+        'dismiss_cta' => 'No me interesa',
+        'blurred_title' => 'Comunidad oculta en el plan gratuito',
+        'blurred_body' => 'La afinidad, todos los motivos y el formato propuesto de arriba son reales. Solo se reservan el nombre y el logo.',
+        'blurred_cta' => 'Ver a quién te diriges',
+        'empty_title' => 'Aún no hay sugerencias',
+        'empty_body_business' => 'Cruzamos lo que dice tu perfil con lo que ya has hecho: tu local o producto, tu zona, tus Kolabs anteriores. Complétalo y empezarán a llegar comunidades sugeridas.',
+        'empty_body_community' => 'Cruzamos lo que dice tu perfil con lo que ya has hecho: tu tipo de comunidad, su tamaño, tu zona, tus eventos anteriores. Complétalo y empezarán a llegar negocios sugeridos.',
+        'empty_cta' => 'Completar mi perfil',
+        'load_more' => 'Cargar más',
+        'load_error' => 'No pudimos cargar tus sugerencias.',
+        'dismiss_error' => 'No pudimos descartar esta sugerencia.',
+        'dashboard_block_title' => ':count sugerencias esta semana',
     ],
     'kolabs' => [
         'title' => 'Mis Kolabs',
