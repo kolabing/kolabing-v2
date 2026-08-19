@@ -31,6 +31,28 @@ class CrmAdminTest extends TestCase
         }
     }
 
+    public function test_city_filter_and_map_narrow_community_results(): void
+    {
+        CrmAccount::query()->create(['type' => 'community', 'name' => 'Madrid Runners XT', 'metrics' => ['city' => 'Madrid']]);
+        CrmAccount::query()->create(['type' => 'community', 'name' => 'Berlin Runners XT', 'metrics' => ['city' => 'Berlin']]);
+        $admin = $this->maintainer();
+
+        // The city dropdown + map surface both cities.
+        $this->actingAs($admin, 'admin')
+            ->get(route('admin.crm.index', ['type' => 'community']))
+            ->assertOk()
+            ->assertSee('All cities')
+            ->assertSee('Madrid')
+            ->assertSee('Berlin');
+
+        // Filtering by city narrows the table to that city's accounts.
+        $this->actingAs($admin, 'admin')
+            ->get(route('admin.crm.index', ['type' => 'community', 'city' => 'Madrid']))
+            ->assertOk()
+            ->assertSee('Madrid Runners XT')
+            ->assertDontSee('Berlin Runners XT');
+    }
+
     public function test_create_and_edit_pages_render_for_each_type(): void
     {
         (new CrmSeeder)->run();

@@ -98,6 +98,9 @@ class CrmController extends Controller
         $type = in_array($request->query('type'), CrmAccount::TYPES, true)
             ? $request->query('type') : 'business';
 
+        // City lives in the metrics JSON: communities key it as `city`, businesses as `source_city`.
+        $cityKey = $type === 'business' ? 'source_city' : 'city';
+
         $query = CrmAccount::query()->where('type', $type);
         if ($owner = $request->query('owner')) {
             $query->where('owner', $owner);
@@ -105,11 +108,22 @@ class CrmController extends Controller
         if ($status = $request->query('status')) {
             $query->where('status', $status);
         }
+        if ($city = $request->query('city')) {
+            $query->where("metrics->{$cityKey}", $city);
+        }
         if ($q = $request->query('q')) {
             $query->where('name', 'like', "%{$q}%");
         }
 
         $accounts = $query->orderByDesc('score')->orderBy('name')->paginate(50)->withQueryString();
+
+        // Cities present for this type + their counts — powers the city filter dropdown and the map.
+        $cityRows = CrmAccount::query()->where('type', $type)
+            ->whereNotNull("metrics->{$cityKey}")
+            ->selectRaw("metrics->>'{$cityKey}' as city, count(*) as n")
+            ->groupByRaw("metrics->>'{$cityKey}'")
+            ->orderByDesc('n')
+            ->get();
 
         return view('admin.crm.index', [
             'type' => $type,
@@ -118,7 +132,9 @@ class CrmController extends Controller
             'visible' => $this->visibleColumns($type),
             'owners' => CrmAccount::query()->where('type', $type)->whereNotNull('owner')->distinct()->pluck('owner'),
             'statuses' => CrmAccount::query()->where('type', $type)->whereNotNull('status')->distinct()->pluck('status'),
-            'filters' => $request->only(['owner', 'status', 'q']),
+            'cities' => $cityRows->pluck('city'),
+            'cityCounts' => $cityRows->pluck('n', 'city'),
+            'filters' => $request->only(['owner', 'status', 'q', 'city']),
         ]);
     }
 

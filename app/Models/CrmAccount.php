@@ -24,7 +24,7 @@ class CrmAccount extends Model
     protected $fillable = [
         'type', 'name', 'status', 'owner', 'email', 'phone',
         'instagram_handle', 'whatsapp', 'next_action', 'notes',
-        'score', 'metrics', 'linked_profile_id', 'last_activity_at',
+        'score', 'listed', 'metrics', 'linked_profile_id', 'last_activity_at',
     ];
 
     /**

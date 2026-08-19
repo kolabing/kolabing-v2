@@ -23,6 +23,7 @@ use App\Http\Controllers\Admin\TypeController as AdminTypeController;
 use App\Http\Controllers\Admin\XpEarnRuleController as AdminXpEarnRuleController;
 use App\Http\Controllers\Admin\XpLevelController as AdminXpLevelController;
 use App\Http\Controllers\BlogController;
+use App\Http\Controllers\DirectoryController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\PasswordResetPageController;
 use App\Models\BlogPost;
@@ -248,6 +249,14 @@ Route::view('/es/terms', 'pages.es.terms')->name('terms.es');
 
 Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
 Route::get('/blog/{post}', [BlogController::class, 'show'])->name('blog.show');
+
+// Community rankings directory (public GTM lead-magnet pages).
+Route::get('/communities', [DirectoryController::class, 'index'])->name('directory.index');
+Route::get('/communities/how-we-rank', [DirectoryController::class, 'howWeRank'])->name('directory.how-we-rank');
+Route::post('/communities/claim', [DirectoryController::class, 'claim'])
+    ->middleware('throttle:10,1')->name('directory.claim');
+Route::get('/communities/{city}', [DirectoryController::class, 'show'])->name('directory.city');
+Route::get('/communities/{city}/{slug}', [DirectoryController::class, 'topic'])->name('directory.topic');
 
 Route::get('/sitemap.xml', function () {
     $urls = [
