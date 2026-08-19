@@ -133,7 +133,7 @@ The web app (`app.kolabing.com`) is the full sales surface. Nothing here changes
 
 **Communities never see any of this.** `/subscription` renders "Communities never pay" for a community viewer, and the public `/pricing` page states it explicitly with a free-signup CTA. Do not add a community plan, a community upsell, or a community-facing price anywhere.
 
-**Paywall redirects carry a reason.** Every client-side paywall hop passes `?reason=publish|accept|apply|create|welcome` so the plan page can say which action was blocked. This is presentation only — the gate itself is still backend-enforced (§2.7, backend map §3).
+**Paywall redirects carry a reason.** Every client-side paywall hop passes `?reason=publish|accept|apply|create|welcome|suggestion` so the plan page can say which action was blocked. This is presentation only — the gate itself is still backend-enforced (§2.7, backend map §3).
 
 **Failed payment is a surfaced state, not a silent lock-out.** A business whose subscription is `past_due` sees a persistent alert in the app shell with a link to the Stripe Billing Portal to update the card. `cancel_at_period_end` shows the end date on the plan page. `GET /auth/me` carries `subscription_status` + `subscription_cancel_at_period_end` for business profiles so any client can render the same warning. **`past_due` is NOT active** — the paywall still bites (§2.8 re-gating is unchanged).
 

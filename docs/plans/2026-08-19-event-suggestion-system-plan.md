@@ -1362,7 +1362,7 @@ Commit: `feat(suggestions): /suggestions page, sidebar entry and locale routes`
 ### Task 12: Pre-filled create + paywall reason
 
 **Files:**
-- Modify: `resources/views/webapp/kolab-form.blade.php` (read `?suggestion=`, `GET /suggestions/{id}`, prefill `title`/`intent_type`/`offer`/`expects`/date, keep `suggestion_id` in the POST body)
+- Modify: `resources/views/webapp/kolab-form.blade.php` (read `?suggestion=`, `GET /suggestions/{id}`, prefill, keep `suggestion_id` in the POST body). Note what the payload does **not** contain: there is no date — only `weekday` (ISO 1-7) and `time_of_day` (`H:i`) — and the web wizard has no field for a business's `expects`, so that one stays unfilled rather than hidden. Map only what `CreateKolabRequest` accepts, intersected with the loaded `/lookup/*` vocabularies, and leave a field blank rather than pre-filling a value the validator will reject.
 - Modify: wherever the `?reason=` banner copy is resolved (the `/subscription` page) — add `suggestion`
 - Test: extend `tests/Feature/WebApp/WebAppRoutesTest.php`
 
