@@ -24,6 +24,7 @@ _Planned backend work that does not exist yet._
 
 | # | Feature | Notes | Status |
 |---|---------|-------|--------|
+| BE-NF-30 | **Admin CRM: verified community leads** | Challenge A replaced the 2026-08-18 first-pass 140 community leads with a VERIFIED set (145 across 7 cities): identity/status/plausibility gates + blind independent recount; global-brand/dead/wrong-city/handle-mismatch rows removed (reject ledger in-repo). `KolabingVerifiedLeadsSeeder` + prod-guarded migration. | PR open |
 | BE-NF-5 | **Admin-managed gamification economy** | Server-owned reward economy so the app stops hardcoding XP/badges. `GET /gamification/config` + `xp_earn_rules` (drives `point_ledger` + display), badge requirements, referral/withdrawal economics. Prompts: `docs/tickets/2026-06-01-admin-challenges-prompt.md`, `docs/tickets/2026-06-01-admin-xp-economy-prompt.md`. | Not started |
 | BE-NF-29 | **Admin CRM: city filter + map** | `/admin/crm` gained a city filter (from `metrics.city`/`source_city`) + an inline-SVG map of communities-by-city (bubbles link to the filter), for the 7-city supply-side lead set. Read-only, no role/paywall/API change. | PR open (feat/crm-city-filter-map) |
 | BE-NF-10 | **SMS notification channel** | Transactional SMS (Twilio/Vonage) alongside push: application accepted, kolab scheduled/reminder, check-in. Needs provider integration + per-user phone capture/verify + channel preference. **[VERIFY with Daniel]:** provider, trigger events, opt-in, cost ceiling. | Not started |
