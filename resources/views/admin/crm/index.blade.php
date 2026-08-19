@@ -94,9 +94,9 @@
                         ({{ $cityCounts->count() }} cities, {{ $cityCounts->sum() }} total). Click a marker to filter.
                     </summary>
                     @if (count($mapData))
-                        <link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}">
+                        <link rel="stylesheet" href="{{ asset('webapp-assets/leaflet/leaflet.css') }}">
                         <div id="crm-map" style="height:420px; border-radius:8px; z-index:0"></div>
-                        <script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
+                        <script src="{{ asset('webapp-assets/leaflet/leaflet.js') }}"></script>
                         <script>
                             (function () {
                                 var pts = @json($mapData, JSON_UNESCAPED_SLASHES);
