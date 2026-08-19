@@ -55,10 +55,10 @@
             <div class="flex p-1 bg-white border border-ink/[.12] rounded-pill mb-3">
                 <button type="button" @click="userType = 'business'"
                         class="flex-1 h-8 rounded-pill text-xs font-bold tracking-wide transition"
-                        :class="kb-on-yellow userType === 'business' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.login.business') }}</button>
+                        :class="userType === 'business' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.login.business') }}</button>
                 <button type="button" @click="userType = 'community'"
                         class="flex-1 h-8 rounded-pill text-xs font-bold tracking-wide transition"
-                        :class="kb-on-yellow userType === 'community' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.login.community') }}</button>
+                        :class="userType === 'community' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.login.community') }}</button>
             </div>
 
             <div x-show="hasGoogle" x-cloak class="w-full max-w-[400px] mx-auto">

@@ -79,10 +79,10 @@
                     <div class="flex p-1 bg-white border border-ink/[.12] rounded-pill">
                         <button type="button" @click="setReqSub('sent')"
                                 class="min-w-[100px] h-8 rounded-pill text-[12.5px] font-bold tracking-[.4px] transition"
-                                :class="kb-on-yellow reqSub === 'sent' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.applications.tab_sent') }}</button>
+                                :class="reqSub === 'sent' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.applications.tab_sent') }}</button>
                         <button type="button" @click="setReqSub('received')"
                                 class="min-w-[100px] h-8 rounded-pill text-[12.5px] font-bold tracking-[.4px] transition"
-                                :class="kb-on-yellow reqSub === 'received' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.applications.tab_received') }}</button>
+                                :class="reqSub === 'received' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.applications.tab_received') }}</button>
                     </div>
                 </div>
 

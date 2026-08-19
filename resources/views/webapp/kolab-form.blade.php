@@ -54,7 +54,7 @@
             <div class="mt-[22px]">
                 <div class="flex gap-1.5">
                     <template x-for="(s, i) in visibleSteps" :key="s.key">
-                        <div class="flex-1 h-1 rounded-sm transition" :class="kb-on-yellow i <= stepIndex ? 'kb-on-yellow bg-primary' : 'bg-ink/10'"></div>
+                        <div class="flex-1 h-1 rounded-sm transition" :class="i <= stepIndex ? 'kb-on-yellow bg-primary' : 'bg-ink/10'"></div>
                     </template>
                 </div>
 
@@ -71,7 +71,7 @@
                                         class="text-left flex items-center gap-3 p-4 rounded-xl border transition"
                                         :class="form[step.field] === op.value ? 'bg-primary-tint border-primary' : 'bg-white border-ink/10'">
                                     <span class="w-6 h-6 rounded-full shrink-0 flex items-center justify-center border-[1.5px]"
-                                          :class="kb-on-yellow form[step.field] === op.value ? 'kb-on-yellow bg-primary border-primary' : 'border-ink/20'">
+                                          :class="form[step.field] === op.value ? 'kb-on-yellow bg-primary border-primary' : 'border-ink/20'">
                                         <template x-if="form[step.field] === op.value">
                                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                                         </template>
@@ -179,7 +179,7 @@
                                     <template x-for="(d, i) in dayLabels" :key="d">
                                         <button type="button" @click="toggleArray('recurring_days', i + 1)"
                                                 class="w-[42px] h-[42px] rounded-full text-xs font-bold border transition"
-                                                :class="kb-on-yellow form.recurring_days.includes(i + 1) ? 'kb-on-yellow bg-primary border-primary text-ink' : 'bg-white border-ink/[.12] text-ink'"
+                                                :class="form.recurring_days.includes(i + 1) ? 'kb-on-yellow bg-primary border-primary text-ink' : 'bg-white border-ink/[.12] text-ink'"
                                                 x-text="d"></button>
                                     </template>
                                 </div>
@@ -211,7 +211,7 @@
                             class="h-12 px-6 rounded-pill bg-white border border-line text-ink text-sm font-bold hover:border-ink transition">{{ __('webapp.common.back') }}</button>
                     <button type="button" @click="next()" :disabled="busy"
                             class="flex-1 h-12 rounded-pill text-sm font-bold shadow-btn hover:-translate-y-px transition disabled:opacity-50"
-                            :class="kb-on-yellow isReview ? 'bg-inverse text-on-inverse' : 'kb-on-yellow bg-primary text-ink'"
+                            :class="isReview ? 'bg-inverse text-on-inverse' : 'kb-on-yellow bg-primary text-ink'"
                             x-text="busy ? t('form.saving') : nextLabel"></button>
                 </div>
             </div>
