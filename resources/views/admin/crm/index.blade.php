@@ -42,6 +42,13 @@
                 <button class="btn btn-sm btn-outline-secondary">Filter</button>
             </form>
 
+            @if ($type === 'community')
+                <a href="{{ route('admin.crm.index', array_merge(['type' => 'community'], ($workNow ?? false) ? [] : ['work_now' => 1])) }}"
+                    class="btn btn-sm {{ ($workNow ?? false) ? 'btn-success' : 'btn-outline-success' }}" title="High/Med confidence, local, fit ≥ 40, not yet contacted">
+                    <i class="fas fa-bolt mr-1"></i>{{ ($workNow ?? false) ? 'Work now: ON' : 'Work now' }}
+                </a>
+            @endif
+
             {{-- Column picker — native <details> (no JS dependency), saved per admin --}}
             <details class="ml-auto" style="position:relative">
                 <summary class="btn btn-sm btn-outline-secondary" style="list-style:none">

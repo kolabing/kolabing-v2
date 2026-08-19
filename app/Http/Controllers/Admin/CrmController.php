@@ -122,6 +122,18 @@ class CrmController extends Controller
         if ($q = $request->query('q')) {
             $query->where('name', 'like', "%{$q}%");
         }
+        // "Work now": the operator's daily queue — high/med confidence, locality-confirmed,
+        // real fit, not yet contacted. The single most useful supply-side surface.
+        $workNow = $request->boolean('work_now') && $type === 'community';
+        if ($workNow) {
+            $query->where('metrics->locality_confirmed', true)
+                ->where('score', '>=', 40)
+                ->where('status', 'Target')
+                ->where(function ($q2) {
+                    $q2->whereRaw("lower(metrics->>'confidence') like 'high%'")
+                        ->orWhereRaw("lower(metrics->>'confidence') like 'med%'");
+                });
+        }
 
         $accounts = $query->orderByDesc('score')->orderBy('name')->paginate(50)->withQueryString();
 
@@ -142,6 +154,7 @@ class CrmController extends Controller
             'statuses' => CrmAccount::query()->where('type', $type)->whereNotNull('status')->distinct()->pluck('status'),
             'cities' => $cityRows->pluck('city'),
             'cityCounts' => $cityRows->pluck('n', 'city'),
+            'workNow' => $workNow,
             'filters' => $request->only(['owner', 'status', 'q', 'city']),
         ]);
     }
