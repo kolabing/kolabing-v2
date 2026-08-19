@@ -1051,6 +1051,12 @@ public function candidatesFor(Profile $viewer, SuggestionAudience $audience): ar
   Plus `event_series` existence for `hasActiveSeries`.
 - Distance: only when both sides have `location_lat`/`location_lng` available (business `primary_venue`, community's last event) — otherwise leave `distanceKm` null and let the scorer fall back to city equality. **Compute the Haversine in PHP**, not in SQL (SQLite/Postgres divergence).
 
+**Category values need an alias map before they reach the matrix.** Verified against the production database (read-only), 2026-08-19:
+
+- `community_type` holds hyphen/underscore twins throughout — `wellness-community` alongside `wellness_community`, `food-community` alongside `food_community`, `run-club`, `tech-startup-community`, `fitness-community`, `photography-community`, `sustainability-community`. `CategoryFitMatrix::normalize()` (Task 3) already collapses these, which is why that method is load-bearing rather than cosmetic.
+- `business_profiles.categories` additionally holds **Spanish slugs that normalisation cannot rescue**: `restaurante` (2 rows), `cafeteria` (1), `gimnasio` (1), `tienda-de-deportes` (2), `centro-de-belleza` (1). Add a canonicalising alias map — `restaurante → restaurant`, `cafeteria → cafe`, `gimnasio → gym`, `centro-de-belleza → health_beauty`, `tienda-de-deportes → sports_facility` — applied after `normalize()` and before the matrix lookup. Put it next to the matrix (`CategoryFitMatrix::canonicalise()`), not in the finder, so Explore can adopt it later.
+- Known and deliberately **not** solved here: the matrix has no row for `art_creative_community`, `sustainability_community`, `photography_community`, `hobby_community`, `dance_community` or `other` — about 23% of live community profiles. Those cards lose the `category_fit` signal honestly (it drops, weights renormalise, confidence falls a band) rather than inventing a mid-range score. Extending the matrix is 6 rows × 16 columns of product judgement and is its own decision, pending with the human.
+
 **Step 4: Run** — Expected: PASS, 7 tests.
 
 **Step 5: Commit**
@@ -1205,7 +1211,10 @@ Laravel 12 auto-discovers `App\Policies\KolabSuggestionPolicy` for `App\Models\K
 `SuggestionResource` — the blur lives here, and it renders the persisted signal
 keys into sentences in the **caller's** locale via `SignalReasonRenderer` (Task 3).
 Never emit the stored `reason_key` / `reason_params` raw to a client, and never
-assume the stored row carries a rendered string — it deliberately does not:
+assume the stored row carries a rendered string — it deliberately does not. **Drop
+any signal whose rendered label or reason comes back blank**: the renderer returns
+empty strings for a stale row written by an older deploy (a signal key that no
+longer exists), and a blank line must never reach a card:
 
 ```php
 /**
