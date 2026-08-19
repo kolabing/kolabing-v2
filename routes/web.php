@@ -176,6 +176,7 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     // CRM (businesses / communities / ambassadors) + Tasks
     Route::get('/crm', [AdminCrmController::class, 'index'])->name('crm.index');
     Route::get('/crm/board', [AdminCrmController::class, 'board'])->name('crm.board');
+    Route::get('/crm/export', [AdminCrmController::class, 'export'])->name('crm.export');
     Route::post('/crm/columns', [AdminCrmController::class, 'saveColumns'])->name('crm.columns');
     Route::get('/crm/create', [AdminCrmController::class, 'create'])->name('crm.create');
     Route::post('/crm', [AdminCrmController::class, 'store'])->name('crm.store');
@@ -185,6 +186,7 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::delete('/crm/{account}', [AdminCrmController::class, 'destroy'])->name('crm.destroy');
     Route::post('/crm/{account}/stage', [AdminCrmController::class, 'moveStage'])->name('crm.stage');
     Route::post('/crm/{account}/activity', [AdminCrmController::class, 'addActivity'])->name('crm.activity');
+    Route::post('/crm/{account}/first-touch', [AdminCrmController::class, 'firstTouch'])->name('crm.first-touch');
 
     // Community-rankings directory: publish/unpublish pages + moderate testimonials.
     // (Re-ranking is done in /admin/crm via score + metrics.rank_override + listed.)

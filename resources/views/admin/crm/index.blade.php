@@ -4,6 +4,11 @@
 @section('page_subtitle', 'Businesses · Communities · Ambassadors — sales pipeline & scoring.')
 
 @section('page_actions')
+    @if ($type === 'community')
+        <a href="{{ route('admin.crm.export', request()->only(['city', 'status', 'owner', 'q'])) }}" class="btn btn-outline-secondary">
+            <i class="fas fa-download mr-1"></i> Export CSV
+        </a>
+    @endif
     <a href="{{ route('admin.crm.create', ['type' => $type]) }}" class="btn btn-primary">
         <i class="fas fa-plus mr-1"></i> New {{ ucfirst($type) }}
     </a>
@@ -18,6 +23,35 @@
             </li>
         @endforeach
     </ul>
+
+    {{-- Funnel counters (community): leads per stage + Target→Onboarded conversion. --}}
+    @if ($type === 'community' && ($stageCounts ?? null))
+        @php
+            $stageColors = [
+                'Target' => '#6c757d', 'Contacted' => '#3d7fd6', 'Interested' => '#8b3fd0',
+                'Negotiating' => '#e07b00', 'Onboarded' => '#1f9d57', 'Rejected' => '#c0392b',
+            ];
+            $totalLeads = $stageCounts->sum();
+            $conv = $totalLeads > 0 ? round($stageCounts['Onboarded'] / $totalLeads * 100) : 0;
+        @endphp
+        <div class="d-flex flex-wrap mb-3" style="gap:.5rem">
+            @foreach ($stageCounts as $stage => $n)
+                <a href="{{ route('admin.crm.index', ['type' => 'community', 'status' => $stage]) }}"
+                    class="card mb-0 flex-grow-1 text-decoration-none" style="min-width:120px;border-top:3px solid {{ $stageColors[$stage] }}">
+                    <div class="card-body py-2 px-3">
+                        <div class="h4 mb-0" style="font-variant-numeric:tabular-nums">{{ $n }}</div>
+                        <small class="text-muted text-uppercase">{{ $stage }}</small>
+                    </div>
+                </a>
+            @endforeach
+            <div class="card mb-0 flex-grow-1" style="min-width:120px;border-top:3px solid #111826">
+                <div class="card-body py-2 px-3">
+                    <div class="h4 mb-0">{{ $conv }}%</div>
+                    <small class="text-muted text-uppercase">Onboarded rate</small>
+                </div>
+            </div>
+        </div>
+    @endif
 
     <div class="card">
         <div class="card-header d-flex flex-wrap align-items-center" style="gap:.5rem">
@@ -52,28 +86,60 @@
                 </a>
             @endif
 
-            {{-- Column picker — native <details> (no JS dependency), saved per admin --}}
+            {{-- Column picker — toggle visibility AND reorder (▲▼); saved per admin.
+                 Rows render in the saved order first; submit order = DOM order. --}}
+            @php
+                $orderedCols = collect($visible)->filter(fn ($k) => isset($catalog[$k]))
+                    ->merge(collect(array_keys($catalog))->reject(fn ($k) => in_array($k, $visible, true)))
+                    ->values();
+            @endphp
             <details class="ml-auto" style="position:relative">
                 <summary class="btn btn-sm btn-outline-secondary" style="list-style:none">
                     <i class="fas fa-table-columns mr-1"></i> Columns
                 </summary>
                 <div class="card card-body p-2 shadow"
-                    style="position:absolute; right:0; z-index:1030; min-width:240px; max-height:60vh; overflow:auto">
+                    style="position:absolute; right:0; z-index:1030; min-width:270px; max-height:60vh; overflow:auto">
+                    <small class="text-muted d-block mb-1">Check to show; ▲▼ to reorder.</small>
                     <form method="POST" action="{{ route('admin.crm.columns') }}">
                         @csrf
                         <input type="hidden" name="type" value="{{ $type }}">
-                        @foreach ($catalog as $key => [$label, $def, $isMetric])
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="columns[]" value="{{ $key }}"
-                                    id="col-{{ $key }}" @checked(in_array($key, $visible, true)) @disabled($key === 'name')>
-                                <label class="form-check-label" for="col-{{ $key }}">{{ $label }}</label>
-                            </div>
-                        @endforeach
+                        <div class="crm-col-list">
+                            @foreach ($orderedCols as $key)
+                                @php [$label, $def, $isMetric] = $catalog[$key]; @endphp
+                                <div class="crm-col-row d-flex align-items-center py-1" data-key="{{ $key }}">
+                                    <input class="form-check-input position-static ml-0 mr-2" type="checkbox" name="columns[]"
+                                        value="{{ $key }}" id="col-{{ $key }}" @checked(in_array($key, $visible, true)) @disabled($key === 'name')>
+                                    <label class="mb-0 flex-grow-1" for="col-{{ $key }}">{{ $label }}@if ($key === 'name') <span class="text-muted small">(locked)</span>@endif</label>
+                                    @unless ($key === 'name')
+                                        <button type="button" class="btn btn-xs btn-outline-secondary crm-col-up" title="Move up" style="padding:0 .35rem">▲</button>
+                                        <button type="button" class="btn btn-xs btn-outline-secondary crm-col-down ml-1" title="Move down" style="padding:0 .35rem">▼</button>
+                                    @endunless
+                                </div>
+                            @endforeach
+                        </div>
                         <button class="btn btn-sm btn-primary btn-block mt-2">Apply</button>
                     </form>
                 </div>
             </details>
         </div>
+
+        <script>
+            (function () {
+                var list = document.querySelector('.crm-col-list');
+                if (!list) { return; }
+                list.addEventListener('click', function (e) {
+                    var up = e.target.closest('.crm-col-up');
+                    var down = e.target.closest('.crm-col-down');
+                    if (!up && !down) { return; }
+                    var row = e.target.closest('.crm-col-row');
+                    if (up && row.previousElementSibling && row.previousElementSibling.dataset.key !== 'name') {
+                        list.insertBefore(row, row.previousElementSibling);
+                    } else if (down && row.nextElementSibling) {
+                        list.insertBefore(row.nextElementSibling, row);
+                    }
+                });
+            })();
+        </script>
 
         @if ($cityCounts->isNotEmpty())
             @php

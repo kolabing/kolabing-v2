@@ -37,6 +37,35 @@ class CrmPipelineService
         );
     }
 
+    /**
+     * A personalised first-touch outreach draft built from the lead's own
+     * fields. Deterministic (no LLM) so it renders instantly and is copy-ready;
+     * the operator edits before sending.
+     */
+    public function firstTouchMessage(CrmAccount $account): string
+    {
+        $m = $account->metrics ?? [];
+        $city = $m['city'] ?? 'your city';
+        $audience = $m['audience'] ?? 'engaged';
+        $collabRaw = $m['collab_businesses'] ?? ($m['collabs'] ?? '');
+        $collab = trim((string) preg_split('/[(,]/', (string) $collabRaw)[0]);
+        $collabLine = $collab !== '' && stripos($collab, 'n/f') === false
+            ? " Loved seeing your work with {$collab}."
+            : '';
+
+        return implode("\n", [
+            "Hola {$account->name} 👋",
+            '',
+            "I look after community partnerships at Kolabing — we connect {$city} communities with local brands for paid collaborations (venue, product, or a fee), fully handled through the app.".$collabLine,
+            '',
+            "With your {$audience} following you'd be a strong fit. Would you be open to a quick chat about running paid Kolabs for your members?",
+            '',
+            'No cost to join — you only ever say yes to collabs you like.',
+            '',
+            '— Neil, Kolabing',
+        ]);
+    }
+
     /** Record a free-text note against the account and refresh last activity. */
     public function logNote(CrmAccount $account, string $body, ?string $actor = null): CrmActivity
     {
