@@ -36,7 +36,9 @@
     </div>
 </div>
 
-<div class="flex p-1 bg-white border border-ink/[.12] rounded-pill shadow-card mt-[18px] overflow-x-auto kb-scroll">
+{{-- The tabs are meaningless until a community exists — every one would be empty. --}}
+<div x-show="canManageCommunity" x-cloak
+     class="flex p-1 bg-white border border-ink/[.12] rounded-pill shadow-card mt-[18px] overflow-x-auto kb-scroll">
     @foreach ($tabs as $key => [$path, $label])
         <a href="{{ $base.$path }}"
            class="flex-1 min-w-[92px] h-[34px] rounded-pill text-[12.5px] font-bold tracking-[.4px] transition whitespace-nowrap flex items-center justify-center gap-1.5 {{ $current === $key ? 'bg-ink text-white' : 'text-muted hover:text-ink' }}">
@@ -50,8 +52,38 @@
     @endforeach
 </div>
 
-{{-- Nothing to manage: the account owns no community and holds no can_manage grant. --}}
-<template x-if="shellReady && !canManageCommunity">
+{{--
+    No community yet.
+
+    A community user lands here to CREATE one — this is the only web path to
+    becoming a leader, so it must be a real form, not a dead end. Anyone else
+    (an attendee who lost their can_manage grant) gets the plain explanation.
+--}}
+<template x-if="shellReady && !canManageCommunity && isCommunity">
+    <div class="mt-8 max-w-[520px] mx-auto bg-white border border-ink/[.08] rounded-2xl p-8 shadow-card">
+        <p class="font-anton text-[21px] tracking-[.5px] text-ink">{{ __('webapp.community.create.title') }}</p>
+        <p class="mt-2 text-sm text-muted">{{ __('webapp.community.create.body') }}</p>
+
+        <label class="block mt-5 text-[12px] font-bold text-body" for="kb-new-community-name">{{ __('webapp.community.create.name_label') }}</label>
+        <input id="kb-new-community-name" type="text" x-model="newCommunityName" maxlength="100"
+               @keydown.enter="createCommunity()"
+               placeholder="{{ __('webapp.community.create.name_placeholder') }}"
+               class="mt-1.5 w-full h-11 px-4 rounded-2xl bg-white border border-ink/[.12] text-sm">
+
+        <template x-if="createCommunityError">
+            <div class="mt-4 rounded-2xl bg-bad-surface text-bad-ink text-sm px-4 py-3" x-text="createCommunityError"></div>
+        </template>
+
+        <button type="button" @click="createCommunity()" :disabled="creatingCommunity || newCommunityName.trim().length < 2"
+                class="mt-5 h-11 px-6 rounded-pill bg-primary text-ink text-sm font-bold shadow-btn hover:bg-primary-dark transition disabled:opacity-50"
+                x-text="creatingCommunity ? '{{ __('webapp.common.saving') }}' : '{{ __('webapp.community.create.submit') }}'"></button>
+
+        <p class="mt-4 text-[11px] text-muted">{{ __('webapp.community.create.after') }}</p>
+    </div>
+</template>
+
+{{-- Not a community account and no can_manage grant — nothing to manage. --}}
+<template x-if="shellReady && !canManageCommunity && !isCommunity">
     <div class="mt-8 bg-white border border-ink/[.08] rounded-2xl p-8 text-center shadow-card">
         <p class="font-bold text-ink">{{ __('webapp.community.none_title') }}</p>
         <p class="mt-2 text-sm text-muted">{{ __('webapp.community.none_body') }}</p>

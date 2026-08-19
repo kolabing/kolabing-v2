@@ -68,6 +68,38 @@ class WebAppRoutesTest extends TestCase
         }
     }
 
+    public function test_the_hub_is_reachable_by_a_community_user_who_owns_no_community_yet(): void
+    {
+        // The nav gate is canSeeCommunityHub (canManageCommunity OR isCommunity),
+        // not canManageCommunity — otherwise a community user with no community
+        // has no web path to becoming a leader at all.
+        $page = $this->get('http://'.$this->host().'/community/members')->assertOk();
+
+        $page->assertSee('canSeeCommunityHub', false)
+            ->assertSee('createCommunity()', false)
+            ->assertSee('Create your community');
+    }
+
+    public function test_the_create_community_form_is_localised(): void
+    {
+        $this->get('http://'.$this->host().'/es/community')
+            ->assertOk()
+            ->assertSee('Crea tu comunidad');
+
+        $this->get('http://'.$this->host().'/ca/community')
+            ->assertOk()
+            ->assertSee('Crea la teva comunitat');
+    }
+
+    public function test_the_hub_tabs_are_hidden_until_a_community_exists(): void
+    {
+        // Every tab would be empty without one, so the strip is gated on
+        // canManageCommunity even though the entry itself is not.
+        $this->get('http://'.$this->host().'/community')
+            ->assertOk()
+            ->assertSee('x-show="canManageCommunity"', false);
+    }
+
     public function test_community_hub_pages_render_under_the_locale_prefixes(): void
     {
         foreach (['es', 'ca'] as $locale) {

@@ -556,6 +556,13 @@
                  */
                 communities: [], communityPending: 0,
                 get canManageCommunity() { return this.communities.length > 0; },
+                /**
+                 * Whether the Hub is reachable at all. A community user with no
+                 * community yet still gets in — the Hub is where they create one
+                 * (otherwise the entry is invisible and there is no web path to
+                 * becoming a leader). Managers reach it via the grant.
+                 */
+                get canSeeCommunityHub() { return this.canManageCommunity || this.isCommunity; },
                 get activeCommunity() {
                     const saved = localStorage.getItem('kolabing_active_community');
                     return this.communities.find(c => c.id === saved) || this.communities[0] || null;
@@ -579,6 +586,38 @@
                     [...mine, ...managed].forEach(c => { if (c && c.id) byId[c.id] = c; });
                     this.communities = Object.values(byId);
                     return this.communities;
+                },
+                /*
+                 | Creating the first community, from the panel.
+                 |
+                 | POST /communities does the rest: default tier, main chat thread,
+                 | is_primary. The owner is a leader from that moment — CommunityPolicy
+                 | @manage passes on ownership, so no membership row is needed.
+                 */
+                newCommunityName: '', creatingCommunity: false, createCommunityError: '',
+                async createCommunity() {
+                    const name = this.newCommunityName.trim();
+                    if (name.length < 2) { this.createCommunityError = window.t('community.create.name_too_short'); return; }
+
+                    this.creatingCommunity = true;
+                    this.createCommunityError = '';
+
+                    const res = await window.kb.api('/communities', { method: 'POST', body: { name } });
+                    this.creatingCommunity = false;
+
+                    if (res.ok) {
+                        await this.loadManagedCommunities();
+                        const created = res.json?.data;
+                        if (created?.id) { localStorage.setItem('kolabing_active_community', created.id); }
+                        window.nav('/community/members');
+                        return;
+                    }
+
+                    // The one-free-community cap is its own gate, NOT the business
+                    // paywall — surface it honestly instead of hiding the button.
+                    this.createCommunityError = res.json?.error === 'community_limit_reached'
+                        ? window.t('community.create.limit_reached')
+                        : window.kb.errorText(res, window.t('community.create.error'));
                 },
                 async loadCommunityPending() {
                     const community = this.activeCommunity;
