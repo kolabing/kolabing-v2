@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AddSecurityHeaders;
 use App\Http\Middleware\EnsureAdminUserIsMaintainer;
+use App\Http\Middleware\EnsureFeatureEnabled;
 use App\Http\Middleware\EnsureUserType;
 use App\Http\Middleware\LogAuthTokenFirstUse;
 use App\Http\Middleware\TouchProfileActivity;
@@ -47,6 +48,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'ability' => CheckForAnyAbility::class,
             'log_auth_token_first_use' => LogAuthTokenFirstUse::class,
             'user_type' => EnsureUserType::class,
+            // feature:{name} -> config("{name}.enabled"); 404s a flag that is off.
+            'feature' => EnsureFeatureEnabled::class,
             'maintainer' => EnsureAdminUserIsMaintainer::class,
             'touch_profile_activity' => TouchProfileActivity::class,
         ]);
