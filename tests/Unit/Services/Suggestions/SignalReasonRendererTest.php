@@ -8,6 +8,7 @@ use App\Services\Suggestions\SignalReasonRenderer;
 use App\Support\Matching\CategoryFitMatrix;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Lang;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class SignalReasonRendererTest extends TestCase
@@ -111,6 +112,64 @@ class SignalReasonRendererTest extends TestCase
         $rendered = (new SignalReasonRenderer)->render(['weight' => 0.25, 'score' => 1.0]);
 
         $this->assertSame(['label' => '', 'reason' => ''], $rendered);
+    }
+
+    /**
+     * The realistic stale shape is not an absent key but an *unknown* one: a row
+     * written by an older deploy whose signal this code no longer has. Rendering
+     * it would put the literal "suggestions.reason.vibe_fit_great" on the web
+     * card and into both digest emails.
+     */
+    public function test_an_unknown_key_renders_nothing_and_is_logged(): void
+    {
+        Log::spy();
+
+        $rendered = (new SignalReasonRenderer)->render($this->signal([
+            'key' => 'vibe_fit',
+            'reason_key' => 'vibe_fit_great',
+            'reason_params' => [],
+        ]));
+
+        $this->assertSame(['label' => '', 'reason' => ''], $rendered);
+
+        Log::shouldHaveReceived('warning')
+            ->withArgs(fn (string $message, array $context): bool => ($context['signal_key'] ?? null) === 'vibe_fit')
+            ->once();
+
+        Log::shouldHaveReceived('warning')
+            ->withArgs(fn (string $message, array $context): bool => ($context['reason_key'] ?? null) === 'vibe_fit_great')
+            ->once();
+    }
+
+    /**
+     * A sentence reworded to need a param the stored row never carried would
+     * otherwise leak ":community_type" onto the card.
+     */
+    public function test_a_missing_param_renders_nothing_rather_than_leaking_the_placeholder(): void
+    {
+        Log::spy();
+
+        $rendered = (new SignalReasonRenderer)->render($this->signal([
+            'reason_params' => ['business_category' => 'cafe'],
+        ]));
+
+        $this->assertSame(__('suggestions.signal.category_fit'), $rendered['label']);
+        $this->assertSame('', $rendered['reason']);
+
+        Log::shouldHaveReceived('warning')
+            ->withArgs(fn (string $message, array $context): bool => ($context['missing_params'] ?? null) === ['community_type'])
+            ->once();
+    }
+
+    public function test_a_legitimate_colon_in_the_copy_is_not_read_as_a_placeholder(): void
+    {
+        $rendered = (new SignalReasonRenderer)->render($this->signal([
+            'reason_key' => 'no_history',
+            'reason_params' => [],
+        ]));
+
+        $this->assertNotSame('', $rendered['reason']);
+        $this->assertSame(__('suggestions.reason.no_history'), $rendered['reason']);
     }
 
     /**

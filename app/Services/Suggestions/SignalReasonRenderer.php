@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Suggestions;
 
 use Illuminate\Support\Facades\Lang;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Number;
 
 /**
@@ -19,6 +20,14 @@ use Illuminate\Support\Number;
  * Slugs are mapped through `suggestions.vocabulary.*` and numbers through
  * Number::format() with the *current* locale, so a stored `cafe` reads "café"
  * in English and "cafetería" in Spanish, and a stored 2.5 reads "2.5" or "2,5".
+ *
+ * Rows outlive deploys: a signal written last night can name a key this code no
+ * longer has, or omit a param a reworded sentence now needs. Both are rendered
+ * as an empty string and logged — never as the literal
+ * `"suggestions.reason.vibe_fit_great"` or a leaked `:community_type`, which is
+ * what the web card and both digest templates would otherwise show. An empty
+ * reason is a contract: SuggestionResource drops the signal rather than render
+ * a blank line.
  */
 class SignalReasonRenderer
 {
@@ -45,11 +54,90 @@ class SignalReasonRenderer
         $params = is_array($signal['reason_params'] ?? null) ? $signal['reason_params'] : [];
 
         return [
-            'label' => $key === '' ? '' : (string) __('suggestions.signal.'.$key),
-            'reason' => $reasonKey === ''
-                ? ''
-                : (string) __('suggestions.reason.'.$reasonKey, $this->renderParams($params)),
+            'label' => $this->label($key),
+            'reason' => $this->reason($reasonKey, $params),
         ];
+    }
+
+    private function label(string $key): string
+    {
+        if ($key === '') {
+            return '';
+        }
+
+        $langKey = 'suggestions.signal.'.$key;
+
+        if (! Lang::has($langKey)) {
+            Log::warning('Persisted suggestion signal names a key this code no longer has.', [
+                'signal_key' => $key,
+                'lang_key' => $langKey,
+            ]);
+
+            return '';
+        }
+
+        return (string) __($langKey);
+    }
+
+    /**
+     * @param  array<string, mixed>  $params
+     */
+    private function reason(string $reasonKey, array $params): string
+    {
+        if ($reasonKey === '') {
+            return '';
+        }
+
+        $langKey = 'suggestions.reason.'.$reasonKey;
+
+        if (! Lang::has($langKey)) {
+            Log::warning('Persisted suggestion reason names a key this code no longer has.', [
+                'reason_key' => $reasonKey,
+                'lang_key' => $langKey,
+            ]);
+
+            return '';
+        }
+
+        $rendered = $this->renderParams($params);
+        $missing = $this->missingPlaceholders($langKey, $rendered);
+
+        if ($missing !== []) {
+            Log::warning('Persisted suggestion reason is missing params its sentence needs.', [
+                'reason_key' => $reasonKey,
+                'missing_params' => $missing,
+            ]);
+
+            return '';
+        }
+
+        return (string) __($langKey, $rendered);
+    }
+
+    /**
+     * Placeholders the *template* declares but the persisted params do not carry.
+     * Comparing against the template rather than scanning the rendered sentence
+     * keeps a legitimate colon in the copy from reading as a leaked placeholder.
+     *
+     * @param  array<string, string>  $params
+     * @return array<int, string>
+     */
+    private function missingPlaceholders(string $langKey, array $params): array
+    {
+        $template = __($langKey);
+
+        if (! is_string($template)) {
+            return [];
+        }
+
+        preg_match_all('/:([A-Za-z_][A-Za-z0-9_]*)/', $template, $matches);
+
+        $required = array_unique(array_map(
+            static fn (string $placeholder): string => mb_strtolower($placeholder),
+            $matches[1]
+        ));
+
+        return array_values(array_diff($required, array_keys($params)));
     }
 
     /**

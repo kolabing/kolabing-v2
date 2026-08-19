@@ -519,4 +519,72 @@ class SignalScorerTest extends TestCase
 
         (new SignalScorer)->score($this->context());
     }
+
+    public function test_a_weights_config_that_is_not_an_array_names_the_problem(): void
+    {
+        config()->set('suggestions.weights', null);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('config(suggestions.weights) must be an array');
+
+        (new SignalScorer)->score($this->context());
+    }
+
+    /**
+     * The sibling of the weights failure, and worse: `(float) null` makes every
+     * threshold 0.0, so every suggestion in the batch would be labelled `high`.
+     */
+    public function test_a_missing_confidence_threshold_is_an_error_rather_than_a_silent_high(): void
+    {
+        $thresholds = config('suggestions.confidence_thresholds');
+        unset($thresholds['medium']);
+        config()->set('suggestions.confidence_thresholds', $thresholds);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('missing [medium]');
+
+        (new SignalScorer)->score($this->context());
+    }
+
+    public function test_an_unrecognised_confidence_threshold_is_an_error(): void
+    {
+        config()->set('suggestions.confidence_thresholds', array_merge(
+            config('suggestions.confidence_thresholds'),
+            ['certain' => 0.95]
+        ));
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('unexpected [certain]');
+
+        (new SignalScorer)->score($this->context());
+    }
+
+    public function test_a_confidence_thresholds_config_that_is_not_an_array_names_the_problem(): void
+    {
+        config()->set('suggestions.confidence_thresholds', null);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('config(suggestions.confidence_thresholds) must be an array');
+
+        (new SignalScorer)->score($this->context());
+    }
+
+    /**
+     * Content delivered is a community-side metric (spec 3.3), so a community
+     * audience with no review and no rating has no reliability record to show.
+     * Borrowing the community sentence would credit a business with posts it
+     * never made.
+     */
+    public function test_delivery_proof_is_dropped_for_a_community_audience_with_no_reliability_record(): void
+    {
+        $result = (new SignalScorer)->score($this->context([
+            'audience' => SuggestionAudience::Community,
+            'contentDelivered' => 6,
+            'reviewCount' => 0,
+            'averageRating' => null,
+        ]));
+
+        $this->assertNull($this->signal($result, 'delivery_proof'));
+        $this->assertCount(5, $result['signals']);
+    }
 }
