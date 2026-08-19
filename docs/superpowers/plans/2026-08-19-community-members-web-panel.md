@@ -1,4 +1,4 @@
-# Community Members & Tiers Web Panel (BE-NF-28) — Implementation Plan
+# Community Members & Tiers Web Panel (BE-NF-29) — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -1420,7 +1420,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Pending email invitations to a community (NF-6 / BE-NF-28).
+ * Pending email invitations to a community (NF-6 / BE-NF-29).
  *
  * POST /communities/{id}/members only works for people who already hold a
  * Kolabing account — it 404s otherwise. A leader's real roster lives in a
@@ -2934,7 +2934,7 @@ Add `communityPending: 0` to `kbShell()` and set it from `/communities/{id}/stat
 In `routes/web.php`, inside `$webappRoutes` (so they get both the root and the `/es` `/ca` registrations):
 
 ```php
-    // Community Hub — the members & tiers surface (BE-NF-28). Order matters:
+    // Community Hub — the members & tiers surface (BE-NF-29). Order matters:
     // every literal sits under /community, no catch-all segment.
     Route::view('/community', 'webapp.community');
     Route::view('/community/members', 'webapp.community-members');
@@ -3239,7 +3239,7 @@ ROLES §6 names paywalling a community as the single most-repeated regression in
 ```php
     /**
      * ROLES §8.4 — the community members & tiers surface is NEVER paywalled.
-     * Every endpoint in BE-NF-28, exercised by an owner with no subscription
+     * Every endpoint in BE-NF-29, exercised by an owner with no subscription
      * and by a can_manage attendee with no subscription.
      */
     public function test_no_endpoint_in_the_community_hub_is_subscription_gated(): void
@@ -3303,7 +3303,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 - [ ] **Step 2: Backend map §12** — add: the `community_invitations` table (every column), the new endpoints with their auth and error codes, the roster's new query params, **the roster default-status behaviour change** (removed members now excluded; `?status=all` opts back in), the roster's new manage gate, the claim-on-register hook and its guard contract, and the `/c/{slug}` route. Bump *Last updated*.
 
-- [ ] **Step 3: `BACKLOG.md`** — add BE-NF-28 under *Incomplete Features* with what shipped and what is pending (prod migrate, `COMMUNITIES_INVITATION_TTL_DAYS`, queue worker for the invitation mail). Bump *Last updated*.
+- [ ] **Step 3: `BACKLOG.md`** — add BE-NF-29 under *Incomplete Features* with what shipped and what is pending (prod migrate, `COMMUNITIES_INVITATION_TTL_DAYS`, queue worker for the invitation mail). Bump *Last updated*.
 
 - [ ] **Step 4: Full suite + pint**
 
