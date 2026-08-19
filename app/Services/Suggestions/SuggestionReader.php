@@ -19,6 +19,10 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
  */
 class SuggestionReader
 {
+    public function __construct(
+        private readonly SuggestionTelemetry $telemetry,
+    ) {}
+
     /**
      * Live suggestions addressed to one profile, best first, with `shown_at`
      * stamped on whatever this page actually served.
@@ -57,7 +61,7 @@ class SuggestionReader
             ->orderByDesc('created_at')
             ->paginate($perPage);
 
-        $this->markShown($paginator->getCollection()->all());
+        $this->telemetry->shown($viewer, $this->markShown($paginator->getCollection()->all()));
 
         return $paginator;
     }
@@ -86,12 +90,18 @@ class SuggestionReader
      * the page to reconcile it would buy nothing. Only rows that were null are
      * touched, so a re-served card keeps its real first impression.
      *
+     * Returns the rows this serve stamped — the cards reaching a human for the
+     * first time, and therefore exactly the ones the `suggestion_shown` event
+     * should fire for. The caller cannot recompute that set afterwards: every row
+     * carries a `shown_at` once this returns.
+     *
      * @param  array<int, KolabSuggestion>  $suggestions
+     * @return array<int, KolabSuggestion>
      */
-    private function markShown(array $suggestions): void
+    private function markShown(array $suggestions): array
     {
         if ($suggestions === []) {
-            return;
+            return [];
         }
 
         $now = now();
@@ -101,6 +111,8 @@ class SuggestionReader
             ->whereNull('shown_at')
             ->update(['shown_at' => $now]);
 
+        $newlyShown = [];
+
         foreach ($suggestions as $suggestion) {
             if ($suggestion->shown_at !== null) {
                 continue;
@@ -108,7 +120,11 @@ class SuggestionReader
 
             $suggestion->setAttribute('shown_at', $now);
             $suggestion->syncOriginalAttribute('shown_at');
+
+            $newlyShown[] = $suggestion;
         }
+
+        return $newlyShown;
     }
 
     /**
@@ -135,6 +151,7 @@ class SuggestionReader
     {
         if ($suggestion->clicked_at === null) {
             $suggestion->forceFill(['clicked_at' => now()])->save();
+            $this->telemetry->clicked($suggestion);
         }
 
         return $suggestion->load([
@@ -165,5 +182,6 @@ class SuggestionReader
         }
 
         $suggestion->forceFill(['dismissed_at' => now()])->save();
+        $this->telemetry->dismissed($suggestion);
     }
 }

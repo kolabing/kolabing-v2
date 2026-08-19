@@ -13,6 +13,7 @@ use App\Models\Kolab;
 use App\Models\KolabSuggestion;
 use App\Models\PointLedger;
 use App\Models\Profile;
+use App\Services\Suggestions\SuggestionTelemetry;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -27,6 +28,7 @@ class KolabService
         private readonly GamificationWalletService $walletService,
         private readonly MissionService $missionService,
         private readonly NotificationService $notificationService,
+        private readonly SuggestionTelemetry $suggestionTelemetry,
     ) {}
 
     /**
@@ -257,6 +259,8 @@ class KolabService
         }
 
         $suggestion->forceFill(['converted_kolab_id' => $kolab->id])->save();
+
+        $this->suggestionTelemetry->converted($creator, $suggestion, $kolab);
     }
 
     /**
