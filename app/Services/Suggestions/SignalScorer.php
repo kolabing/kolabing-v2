@@ -141,7 +141,6 @@ class SignalScorer
         $ratio = $expected / $context->venueCapacity;
 
         $value = match (true) {
-            $ratio <= 0.0 => 0.0,
             $ratio <= 1.0 => $ratio,
             default => max(0.0, 1.0 - (($ratio - 1.0) / 2.0)),
         };

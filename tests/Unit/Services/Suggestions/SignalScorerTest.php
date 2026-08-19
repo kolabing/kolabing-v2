@@ -7,6 +7,9 @@ namespace Tests\Unit\Services\Suggestions;
 use App\Enums\SuggestionAudience;
 use App\Services\Suggestions\PairContext;
 use App\Services\Suggestions\SignalScorer;
+use App\Support\Matching\CategoryFitMatrix;
+use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Lang;
 use Tests\TestCase;
 
 class SignalScorerTest extends TestCase
@@ -178,7 +181,7 @@ class SignalScorerTest extends TestCase
         $result = (new SignalScorer)->score($this->context($this->coldStartOverrides()));
 
         $this->assertCount(2, $result['signals']);
-        $this->assertGreaterThan(0, $result['score']);
+        $this->assertSame(100, $result['score']);
         $this->assertSame(
             ['scale_fit', 'offer_need_fit'],
             array_column($result['signals'], 'key')
@@ -293,5 +296,54 @@ class SignalScorerTest extends TestCase
         $this->assertNotNull($signal);
         $this->assertSame(1.0, $signal['score']);
         $this->assertStringContainsString('25', $signal['reason']);
+    }
+
+    /**
+     * The vocabulary map covers every matrix key by construction, which is what
+     * makes the scorer's slug fallback unreachable through real data. Assert the
+     * invariant instead of contorting a test to reach the fallback: this fails
+     * the moment a matrix column is added without a translation, which is the
+     * only way that fallback could ever fire in production.
+     */
+    public function test_every_matrix_key_has_a_vocabulary_entry_in_every_locale(): void
+    {
+        $communityTypes = array_keys(CategoryFitMatrix::MATRIX);
+        $businessCategories = array_keys(array_merge(...array_values(CategoryFitMatrix::MATRIX)));
+
+        $this->assertNotEmpty($communityTypes);
+        $this->assertNotEmpty($businessCategories);
+
+        foreach (['en', 'es', 'ca'] as $locale) {
+            foreach ($communityTypes as $communityType) {
+                $key = 'suggestions.vocabulary.community_type.'.$communityType;
+
+                $this->assertTrue(
+                    Lang::has($key, $locale, false),
+                    "Missing translation [{$key}] for locale [{$locale}]."
+                );
+            }
+
+            foreach ($businessCategories as $businessCategory) {
+                $key = 'suggestions.vocabulary.business_category.'.$businessCategory;
+
+                $this->assertTrue(
+                    Lang::has($key, $locale, false),
+                    "Missing translation [{$key}] for locale [{$locale}]."
+                );
+            }
+        }
+    }
+
+    public function test_the_category_fit_reason_is_localised_on_both_sides_of_the_interpolation(): void
+    {
+        App::setLocale('es');
+
+        $result = (new SignalScorer)->score($this->context());
+
+        $signal = $this->signal($result, 'category_fit');
+
+        $this->assertNotNull($signal);
+        $this->assertStringContainsString('gastronomía', $signal['reason']);
+        $this->assertStringContainsString('cafetería', $signal['reason']);
     }
 }
