@@ -932,7 +932,8 @@
               "luma_url": "https://luma.com/thecommonthread",
               "instagram_url": "https://instagram.com/thecommonthreadclub",
               "confidence": "high",
-              "needs_verify": true
+              "needs_verify": true,
+              "photo_url": "/photos/the-common-thread-club.jpg"
             },
             {
               "rank": 2,
@@ -942,7 +943,8 @@
               "venue": "C/ Salvador Espriu 63, Barcelona (near the sea)",
               "instagram_url": "https://instagram.com/rudisdiningclub",
               "confidence": "high",
-              "needs_verify": true
+              "needs_verify": true,
+              "photo_url": "/photos/rudi-s-dining-club.png"
             }
           ],
           "host_venues": [
@@ -992,7 +994,8 @@
               "venue": "Restaurante Pasa Tapas, C/ Doctor Aiguader 6-8 (metro Barceloneta)",
               "meetup_url": "https://www.meetup.com/board-games-bcn/",
               "confidence": "high",
-              "needs_verify": true
+              "needs_verify": true,
+              "photo_url": "/photos/board-games-bcn.jpg"
             },
             {
               "rank": 2,
@@ -1002,7 +1005,8 @@
               "members": "8,385 members (from public Meetup profile)",
               "meetup_url": "https://www.meetup.com/barcelona-board-games/",
               "confidence": "high",
-              "needs_verify": true
+              "needs_verify": true,
+              "photo_url": "/photos/bcn-board-games-juegos-de-mesa.jpg"
             },
             {
               "rank": 3,
@@ -1012,7 +1016,8 @@
               "cadence": "Weekly, mostly Wednesdays 19:00",
               "meetup_url": "https://www.meetup.com/kleff-bcn/",
               "confidence": "med",
-              "needs_verify": true
+              "needs_verify": true,
+              "photo_url": "/photos/kleff-board-games-juegos-de-mesa-barcelona.jpg"
             },
             {
               "rank": 4,
@@ -1021,7 +1026,8 @@
               "summary": "English-first tabletop RPG and board-game community (with some Spanish); runs a Discord to match players and gamemasters. Best for role-playing rather than pure board games.",
               "meetup_url": "https://www.meetup.com/barcelona-role-playing-games-rpgs-meetup-in-english/",
               "confidence": "med",
-              "needs_verify": true
+              "needs_verify": true,
+              "photo_url": "/photos/barcelona-role-playing-games-rpgs-meetup-in-englis.jpg"
             },
             {
               "rank": 5,
@@ -1030,7 +1036,8 @@
               "summary": "Language-exchange group that uses board games as the activity to practice English and Spanish; newcomer-friendly and casual rather than hardcore gaming.",
               "meetup_url": "https://www.meetup.com/english-spanish-language-exchange-in-barcelona/",
               "confidence": "med",
-              "needs_verify": true
+              "needs_verify": true,
+              "photo_url": "/photos/english-spanish-language-exchange-and-board-games.jpg"
             }
           ],
           "host_venues": [
@@ -1080,7 +1087,8 @@
               "venue": "Rotating Barcelona cafes/bars",
               "meetup_url": "https://www.meetup.com/barcelona-book-club/",
               "confidence": "high",
-              "needs_verify": true
+              "needs_verify": true,
+              "photo_url": "/photos/barcelona-book-club.jpg"
             },
             {
               "rank": 2,
@@ -1092,7 +1100,8 @@
               "venue": "Parc de la Ciutadella, Parc del Nord (outdoor)",
               "meetup_url": "https://www.meetup.com/thebookclubbcn/",
               "confidence": "high",
-              "needs_verify": true
+              "needs_verify": true,
+              "photo_url": "/photos/thebookclub-bcn.jpg"
             },
             {
               "rank": 3,
@@ -1101,7 +1110,8 @@
               "summary": "City library network runs 80+ reading clubs each year, monthly 60-90 minute sessions led by experts, running October to May. Includes general and thematic clubs (cinema, comic, philosophy, poetry, foreign languages, all ages); conducted mainly in Spanish and Catalan.",
               "cadence": "Monthly sessions, October to May",
               "confidence": "high",
-              "needs_verify": true
+              "needs_verify": true,
+              "photo_url": "/photos/biblioteques-de-barcelona-reading-clubs.png"
             },
             {
               "rank": 4,
@@ -1109,7 +1119,8 @@
               "handle": "",
               "summary": "Bookshop-and-cafe in Barcelona hosting reading clubs, sometimes including author meetings; discussions in Spanish/Catalan. Cafe-hosted, culture-focused space.",
               "confidence": "med",
-              "needs_verify": true
+              "needs_verify": true,
+              "photo_url": "/photos/libreria-bernat-reading-clubs.jpg"
             },
             {
               "rank": 5,
@@ -1117,7 +1128,8 @@
               "handle": "",
               "summary": "English book club hosted at Babelia Books & Coffee, a bookshop-cafe at Villarroel 27 in Sant Antoni. Cafe-hosted format.",
               "confidence": "med",
-              "needs_verify": true
+              "needs_verify": true,
+              "photo_url": "/photos/babelia-books-coffee-english-book-club.jpg"
             }
           ],
           "host_venues": [
@@ -1172,7 +1184,8 @@
               "venue": "Antilla Salsa Barcelona (fixed club)",
               "instagram_url": "https://antillasalsa.com/en/",
               "confidence": "high",
-              "needs_verify": true
+              "needs_verify": true,
+              "photo_url": "/photos/antilla-salsa-barcelona.jpg"
             },
             {
               "rank": 2,
@@ -1183,7 +1196,8 @@
               "cadence": "Weekly Thursday party",
               "instagram_url": "https://instagram.com/bcnsensualfamily_official",
               "confidence": "high",
-              "needs_verify": true
+              "needs_verify": true,
+              "photo_url": "/photos/bcn-sensual-family.jpg"
             },
             {
               "rank": 3,
@@ -1193,7 +1207,8 @@
               "cadence": "1st and 3rd Sundays monthly (seasonal times)",
               "venue": "Parc de la Ciutadella bandstand (outdoor)",
               "confidence": "med",
-              "needs_verify": true
+              "needs_verify": true,
+              "photo_url": "/photos/lindy-al-parc-bcnswing.jpg"
             },
             {
               "rank": 4,
@@ -1203,7 +1218,8 @@
               "cadence": "Weekly, Thursday-Sunday",
               "venue": "Dio Club (fixed floor)",
               "confidence": "med",
-              "needs_verify": true
+              "needs_verify": true,
+              "photo_url": "/photos/dio-club-latin-socials.webp"
             },
             {
               "rank": 5,
@@ -1212,7 +1228,8 @@
               "summary": "Barcelona Lindy Hop community running social dances with live music, classes and cultural talks. Swing scene, welcomes newcomers.",
               "instagram_url": "https://instagram.com/lindyhoppersdelight",
               "confidence": "med",
-              "needs_verify": true
+              "needs_verify": true,
+              "photo_url": "/photos/lindy-hopper-s-delight.jpg"
             }
           ],
           "host_venues": [
