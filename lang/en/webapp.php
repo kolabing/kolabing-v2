@@ -314,7 +314,13 @@ return [
         'load_more' => 'Load more',
         'load_error' => 'Could not load your suggestions.',
         'dismiss_error' => 'Could not dismiss this suggestion.',
+        /*
+         * The dashboard entry point. Two forms because ":count suggestions" reads
+         * as "1 suggestions" for the single-card case, which is the common one for
+         * a new profile — the same reason `kolabs.application_count` has a pair.
+         */
         'dashboard_block_title' => ':count suggestions this week',
+        'dashboard_block_title_one' => ':count suggestion this week',
     ],
     'kolabs' => [
         'title' => 'My Kolabs',
@@ -378,6 +384,11 @@ return [
     'form' => [
         'create_title' => 'Create a Kolab',
         'edit_title' => 'Edit Kolab',
+        /*
+         * Shown only when a prefill from a suggestion card actually landed, and it
+         * says the one thing a prefill has to say: none of it is binding.
+         */
+        'from_suggestion' => 'Pre-filled from a suggested partner. Change anything — nothing here is locked in.',
         'free' => 'FREE',
         'headline' => 'Headline',
         'typical_attendance' => 'Typical attendance',
@@ -568,6 +579,13 @@ return [
             'apply' => 'Applying to a Kolab needs an active plan. Pick one below to continue.',
             'create' => 'Creating a Kolab needs an active plan. Pick one below to continue.',
             'welcome' => 'Your account is ready. Pick a plan to start publishing Kolabs.',
+            /*
+             * The blurred counterpart on a suggestion card (BE-NF-28). It names
+             * what was held back and the two actions a plan unlocks — ROLES §2.7
+             * has exactly two, and the blur is a downstream effect of them, not a
+             * third gate. Nothing here may read as a community being charged.
+             */
+            'suggestion' => 'The community name and logo behind a suggestion stay hidden on the free plan, exactly as in Explore. A plan reveals them, and unlocks the two actions it gates: accepting an application and applying to a Kolab.',
         ],
         'success' => [
             'confirming' => 'Confirming your payment…',

@@ -215,9 +215,20 @@
 @push('scripts')
 <script>
     function dashboardPage() {
+        /*
+         * BE-NF-28. Server-side, like the sidebar entry and the route itself: with
+         * suggestions off the API 404s, so the dashboard does not ask. The block in
+         * dashboard-widgets.blade.php is gated on the same config value, so with the
+         * flag off there is neither markup nor a request.
+         */
+        const suggestionsEnabled = @json((bool) config('suggestions.enabled'));
+
         return {
             loading: true, loadingExtras: true, greeting: '', d: {}, upcoming: [],
             recommended: [], activity: [], savedCount: 0,
+            // Null until there is a real suggestion to name — the block renders
+            // nothing rather than saying "0 suggestions".
+            suggestionTop: null, suggestionCount: 0,
             get dashTitle() { return this.isBusiness ? t('dashboard.title_business') : t('dashboard.title_community'); },
             get commStats() {
                 const a = this.d.applications_sent || {}, c = this.d.collaborations || {};
@@ -285,6 +296,13 @@
             get recommendedTitle() {
                 return this.isBusiness ? t('dashboard.rec_business') : t('dashboard.rec_community');
             },
+            /** Singular form for the one-card case, which is the common one. */
+            get suggestionCountLabel() {
+                const key = this.suggestionCount === 1
+                    ? 'suggestions.dashboard_block_title_one'
+                    : 'suggestions.dashboard_block_title';
+                return t(key, { count: this.suggestionCount });
+            },
             get bizStats() {
                 const a = this.d.applications_received || {}, c = this.d.collaborations || {};
                 return [
@@ -324,15 +342,42 @@
             },
 
             async loadExtras() {
-                const [rec, notes, saved] = await Promise.all([
+                const [rec, notes, saved, sugg] = await Promise.all([
                     window.kb.api('/discovery/opportunities?feed=recommended&page=1&per_page=3'),
                     window.kb.api('/me/notifications?per_page=4'),
                     this.isCommunity ? window.kb.api('/kolabs?saved=1&per_page=100') : Promise.resolve(null),
+                    // One card is all the block shows; `meta.total` carries the count,
+                    // so there is no reason to fetch a page to count it.
+                    suggestionsEnabled ? window.kb.api('/suggestions?per_page=1') : Promise.resolve(null),
                 ]);
                 if (rec?.ok) this.recommended = window.kb.rows(rec).map(k => this.recCard(k));
                 if (notes?.ok) this.activity = window.kb.rows(notes);
                 if (saved?.ok) this.savedCount = window.kb.rows(saved).length;
+                if (sugg?.ok) {
+                    const rows = window.kb.rows(sugg);
+                    this.suggestionTop = rows.length ? this.suggestionCard(rows[0]) : null;
+                    this.suggestionCount = window.kb.meta(sugg).total || rows.length;
+                }
                 this.loadingExtras = false;
+            },
+            /**
+             * The top suggestion, reduced to what the dashboard shows. Same rules as
+             * the /suggestions card: `blurred` is SuggestionResource's
+             * `is_identity_blurred` and is never re-derived from the viewer's role (a
+             * community is never blurred), the identity fields are read only when it
+             * is false, and the reason is already a sentence in the reader's locale.
+             */
+            suggestionCard(s) {
+                const blurred = !!s.is_identity_blurred;
+                const name = s.counterpart?.name || '';
+                return {
+                    blurred,
+                    name: blurred ? '' : (name || t('feed.a_partner')),
+                    initial: blurred ? '' : window.kbInitial(name || t('feed.a_partner')),
+                    avatar: blurred ? '' : (s.counterpart?.avatar_url || ''),
+                    scoreLabel: t('suggestions.score_badge', { score: s.score ?? 0 }),
+                    reason: (s.signals || []).find(g => g && g.reason)?.reason || '',
+                };
             },
             recCard(k) {
                 return {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\WebApp;
 
+use Illuminate\Support\Facades\Lang;
 use Tests\TestCase;
 
 class WebAppRoutesTest extends TestCase
@@ -255,6 +256,167 @@ class WebAppRoutesTest extends TestCase
         $this->get('http://'.$host.'/es/dashboard')
             ->assertOk()
             ->assertSee('href="/es/suggestions"', false);
+    }
+
+    /**
+     * The pre-filled create form (BE-NF-28).
+     *
+     * A route-render test cannot execute Alpine, so these are **source**
+     * assertions: they prove each rule is written, and written the one way that
+     * keeps it safe — not that it runs. What actually runs is covered where it
+     * can be: `suggestion_id` by CreateKolabRequest's own tests, and the payload
+     * shape this maps from by SuggestionApiTest.
+     */
+    public function test_the_create_form_prefills_from_a_suggestion_and_carries_the_id_to_the_post(): void
+    {
+        config(['suggestions.enabled' => true]);
+        $host = $this->host();
+
+        $this->get('http://'.$host.'/kolabs/create')
+            ->assertOk()
+            // The flag is resolved server-side, so the form never chases a prefill
+            // the API would 404.
+            ->assertSee('const suggestionsEnabled = true;', false)
+            // ?suggestion={id} → GET /suggestions/{id}
+            ->assertSee("new URLSearchParams(location.search).get('suggestion')", false)
+            ->assertSee("window.kb.api('/suggestions/' + encodeURIComponent(this.suggestionId))", false)
+            // A broken suggestion is silent and never blocks creation: no error is
+            // set on the failure path, and the id is dropped with it so a bad link
+            // cannot turn into a 422 on `exists` at submit.
+            ->assertSee("if (!res.ok) { this.suggestionId = ''; return; }", false)
+            // What closes the funnel: the id survives every edit, to the POST.
+            ->assertSee('if (!this.isEdit && this.suggestionId) body.suggestion_id = this.suggestionId;', false)
+            // Mapped field by field. The weekday goes in as the ISO 1..7 that
+            // `recurring_days` stores — no shifting, since the two conventions
+            // differ only on Sunday and a shift would be wrong once a week…
+            ->assertSee('Number.isInteger(weekday) && weekday >= 1 && weekday <= 7', false)
+            ->assertSee('this.form.recurring_days = [weekday];', false)
+            // …a time only in the H:i shape `selected_time` validates…
+            ->assertSee('/^([01]\d|2[0-3]):[0-5]\d$/.test(', false)
+            // …a title clamped to what the column takes…
+            ->assertSee('String(fmt.title).slice(0, 255)', false)
+            // …attendance only where it means the same thing (a community's turnout,
+            // never a business `capacity`, which is a fact about a venue)…
+            ->assertSee('this.form.typical_attendance = attendance;', false)
+            // …and each chip list in the viewer's own vocabulary, filtered against
+            // the options actually on screen, so anything pre-filled is also
+            // something the user can un-pick.
+            ->assertSee("this.form.offers_in_return = this.knownOptions('deliverables', fmt.offer);", false)
+            ->assertSee("this.form.needs = this.knownOptions('needs', fmt.expects);", false)
+            ->assertSee("this.form.offering = this.knownOptions('offerings', fmt.offer);", false)
+            ->assertSee('return (Array.isArray(values) ? values : []).filter(v => known.has(v));', false)
+            // Built from `suggested_format` alone: a blurred card (a free business —
+            // name, avatar and counterpart id all null) pre-fills identically.
+            ->assertSee('res.json?.data?.suggested_format || {}', false)
+            // Only an intent this account may actually post.
+            ->assertSee("const allowed = this.isCommunity ? ['community'] : ['venue', 'product'];", false)
+            // And the banner says the one thing a prefill has to say — bound to the
+            // prefill having landed, never to the URL parameter.
+            ->assertSee('x-if="suggestionApplied"', false)
+            ->assertSee('Pre-filled from a suggested partner. Change anything');
+
+        $this->get('http://'.$host.'/es/kolabs/create')
+            ->assertOk()
+            ->assertSee('Rellenado desde un socio sugerido. Cambia lo que quieras');
+
+        $this->get('http://'.$host.'/ca/kolabs/create')
+            ->assertOk()
+            ->assertSee('soci suggerit. Canvia el que vulguis');
+    }
+
+    public function test_creating_a_kolab_never_depends_on_the_suggestion_flag(): void
+    {
+        config(['suggestions.enabled' => false]);
+        $host = $this->host();
+
+        // Kolab creation is not a suggestions feature. With the flag off the form
+        // renders exactly as before and simply stops asking for a prefill.
+        $this->get('http://'.$host.'/kolabs/create')
+            ->assertOk()
+            ->assertSee('Create a Kolab')
+            ->assertSee('const suggestionsEnabled = false;', false);
+
+        $this->get('http://'.$host.'/es/kolabs/create')->assertOk()->assertSee('Crear un Kolab');
+    }
+
+    public function test_the_plan_page_explains_a_blurred_suggestion_as_the_existing_gate(): void
+    {
+        $host = $this->host();
+
+        $this->get('http://'.$host.'/subscription')
+            ->assertOk()
+            // The reason the suggestions card already sends is on the allowlist. It
+            // was not, so the banner rendered nothing at all.
+            ->assertSee("['publish', 'accept', 'apply', 'create', 'welcome', 'suggestion'].includes(reason)", false)
+            // The copy names what was held back, and names the two actions ROLES
+            // §2.7 gates rather than inventing a third paywall.
+            ->assertSee('The community name and logo behind a suggestion stay hidden on the free plan', false)
+            ->assertSee('accepting an application and applying to a Kolab', false);
+
+        $this->get('http://'.$host.'/es/subscription')
+            ->assertOk()
+            ->assertSee('aceptar una solicitud y aplicar a un Kolab', false);
+
+        $this->get('http://'.$host.'/ca/subscription')
+            ->assertOk()
+            ->assertSee('i aplicar a un Kolab', false);
+    }
+
+    public function test_every_allowlisted_paywall_reason_has_copy_in_every_locale(): void
+    {
+        // The banner reads `t('subscription.reason.' + reason)`, and t() falls back
+        // to the key — so a reason allowlisted without copy prints the raw dotted
+        // path onto the plan page. The allowlist is read out of the view itself so
+        // this keeps holding for reasons added after this test was written.
+        $view = (string) file_get_contents(resource_path('views/webapp/subscription.blade.php'));
+
+        $this->assertSame(1, preg_match('/\[([^\]]*)\]\.includes\(reason\)/', $view, $matches));
+        $this->assertGreaterThan(0, preg_match_all("/'([a-z_]+)'/", $matches[1], $found));
+
+        $reasons = $found[1];
+        $this->assertContains('suggestion', $reasons);
+
+        foreach ($reasons as $reason) {
+            foreach (['en', 'es', 'ca'] as $locale) {
+                $key = 'webapp.subscription.reason.'.$reason;
+
+                // `fallback: false` — an English sentence shown to a Catalan reader
+                // is a missing translation, not a pass.
+                $this->assertTrue(
+                    Lang::has($key, $locale, false),
+                    "?reason={$reason} is allowlisted but has no [{$locale}] copy."
+                );
+            }
+        }
+    }
+
+    public function test_the_dashboard_suggestion_block_shows_the_top_card_or_nothing(): void
+    {
+        $host = $this->host();
+        config(['suggestions.enabled' => true]);
+
+        $this->get('http://'.$host.'/dashboard')
+            ->assertOk()
+            ->assertSee("suggestionsEnabled ? window.kb.api('/suggestions?per_page=1') : Promise.resolve(null)", false)
+            // An empty list shows no block at all: the wrapper is bound to the top
+            // card, which stays null, rather than to a count that would read "0".
+            ->assertSee('this.suggestionTop = rows.length ? this.suggestionCard(rows[0]) : null;', false)
+            ->assertSee('x-show="!loadingExtras && suggestionTop"', false)
+            // The count is the paginator's total, not the one row fetched for the card.
+            ->assertSee('this.suggestionCount = window.kb.meta(sugg).total || rows.length;', false)
+            ->assertSee('suggestions this week')
+            ->assertSee('suggestion this week')
+            // The blur is whatever SuggestionResource decided — never re-derived
+            // from the viewer's role, because a community is never blurred.
+            ->assertSee('const blurred = !!s.is_identity_blurred;', false)
+            ->assertSee('href="/suggestions"', false);
+
+        // Flag off: no block, and no request either.
+        config(['suggestions.enabled' => false]);
+        $this->get('http://'.$host.'/dashboard')
+            ->assertOk()
+            ->assertSee('const suggestionsEnabled = false;', false)
+            ->assertDontSee('x-show="!loadingExtras && suggestionTop"', false);
     }
 
     public function test_the_web_app_dictionary_is_complete_and_consistent_in_every_locale(): void

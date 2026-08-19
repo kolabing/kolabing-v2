@@ -315,6 +315,7 @@ return [
         'load_error' => 'No pudimos cargar tus sugerencias.',
         'dismiss_error' => 'No pudimos descartar esta sugerencia.',
         'dashboard_block_title' => ':count sugerencias esta semana',
+        'dashboard_block_title_one' => ':count sugerencia esta semana',
     ],
     'kolabs' => [
         'title' => 'Mis Kolabs',
@@ -377,6 +378,7 @@ return [
     'form' => [
         'create_title' => 'Crear un Kolab',
         'edit_title' => 'Editar Kolab',
+        'from_suggestion' => 'Rellenado desde un socio sugerido. Cambia lo que quieras: nada queda fijado.',
         'free' => 'GRATIS',
         'headline' => 'Titular',
         'typical_attendance' => 'Asistencia habitual',
@@ -567,6 +569,7 @@ return [
             'apply' => 'Aplicar a un Kolab requiere un plan activo. Elige uno abajo para continuar.',
             'create' => 'Crear un Kolab requiere un plan activo. Elige uno abajo para continuar.',
             'welcome' => 'Tu cuenta está lista. Elige un plan para empezar a publicar Kolabs.',
+            'suggestion' => 'El nombre y el logo de la comunidad detrás de una sugerencia siguen ocultos en el plan gratuito, igual que en Explorar. Un plan los revela y desbloquea las dos acciones que limita: aceptar una solicitud y aplicar a un Kolab.',
         ],
         'success' => [
             'confirming' => 'Confirmando tu pago…',

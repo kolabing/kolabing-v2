@@ -315,6 +315,7 @@ return [
         'load_error' => 'No hem pogut carregar els teus suggeriments.',
         'dismiss_error' => 'No hem pogut descartar aquest suggeriment.',
         'dashboard_block_title' => ':count suggeriments aquesta setmana',
+        'dashboard_block_title_one' => ':count suggeriment aquesta setmana',
     ],
     'kolabs' => [
         'title' => 'Els meus Kolabs',
@@ -377,6 +378,7 @@ return [
     'form' => [
         'create_title' => 'Crea un Kolab',
         'edit_title' => 'Edita el Kolab',
+        'from_suggestion' => 'Omplert des d’un soci suggerit. Canvia el que vulguis: res no queda fixat.',
         'free' => 'GRATIS',
         'headline' => 'Titular',
         'typical_attendance' => 'Assistència habitual',
@@ -567,6 +569,7 @@ return [
             'apply' => 'Aplicar a un Kolab requereix un pla actiu. Tria’n un a sota per continuar.',
             'create' => 'Crear un Kolab requereix un pla actiu. Tria’n un a sota per continuar.',
             'welcome' => 'El teu compte és a punt. Tria un pla per començar a publicar Kolabs.',
+            'suggestion' => 'El nom i el logo de la comunitat que hi ha darrere d’un suggeriment queden ocults en el pla gratuït, igual que a Explora. Un pla els revela i desbloqueja les dues accions que limita: acceptar una sol·licitud i aplicar a un Kolab.',
         ],
         'success' => [
             'confirming' => 'Confirmant el teu pagament…',
