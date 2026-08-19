@@ -77,7 +77,13 @@
                                 x-text="isSaved(cd.id) ? '★' : '☆'"></button>
                     </div>
                     <div class="p-3.5">
-                        <p class="text-base font-bold tracking-[-.3px] text-ink truncate" x-text="cd.name"></p>
+                        <template x-if="cd.profileId">
+                            <a :href="window.kbPath('/profiles/' + cd.profileId)" @click.stop
+                               class="block text-base font-bold tracking-[-.3px] text-ink truncate hover:underline" x-text="cd.name"></a>
+                        </template>
+                        <template x-if="!cd.profileId">
+                            <p class="text-base font-bold tracking-[-.3px] text-ink truncate" x-text="cd.name"></p>
+                        </template>
                         <div class="flex items-center gap-1 text-[12.5px] text-muted mt-[3px] min-w-0">
                             <span class="truncate" x-text="cd.meta"></span>
                             <template x-if="cd.city">
@@ -197,6 +203,8 @@
                 const creator = k.creator_profile || {};
                 return {
                     id: k.id,
+                    // Lets the card title double as a link to whoever posted it.
+                    profileId: creator.id || null,
                     name: creator.display_name || t('feed.a_partner'),
                     img: k.cover_photo_url || k.offer_photo || (k.media || [])[0]?.url || '',
                     meta: this.metaLabel(k, source),

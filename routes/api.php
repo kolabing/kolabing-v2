@@ -656,6 +656,10 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.profiles.reviews');
 
         // View public-facing community profile
+        // Rich public profile for either role (business or community).
+        Route::get('profiles/{profile}/public-profile', [ProfileController::class, 'publicProfileDetail'])
+            ->name('api.v1.profiles.public-profile');
+
         Route::get('communities/{community}/public-profile', [ProfileController::class, 'communityPublicProfile'])
             ->name('api.v1.communities.public-profile');
 

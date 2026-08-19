@@ -51,7 +51,7 @@ class ChatThreadResource extends JsonResource
     }
 
     /**
-     * @return array<int, array{name: string|null, avatar_url: string|null}>
+     * @return array<int, array{id: string, name: string|null, avatar_url: string|null}>
      */
     private function participantSummary(): array
     {
@@ -70,6 +70,9 @@ class ChatThreadResource extends JsonResource
         foreach ($participants as $profile) {
             if ($profile instanceof Profile) {
                 $summary[] = [
+                    // Additive: the id lets a client link a chat header to the
+                    // counterpart's public profile.
+                    'id' => $profile->id,
                     'name' => $this->profileName($profile),
                     'avatar_url' => $profile->avatar_url,
                 ];

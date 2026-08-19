@@ -203,6 +203,22 @@ class ProfileController extends Controller
      *
      * GET /api/v1/communities/{community}/public-profile
      */
+    /**
+     * GET /api/v1/profiles/{profile}/public-profile — the rich public profile
+     * (gallery, photos, past events, past collaborations, headline stats) for a
+     * business OR a community. The community-scoped route below is the same shape
+     * restricted to communities, kept for existing clients.
+     */
+    public function publicProfileDetail(Profile $profile): JsonResponse
+    {
+        $profile = $this->profileService->getPublicProfileDetail($profile);
+
+        return response()->json([
+            'success' => true,
+            'data' => new CommunityPublicProfileResource($profile),
+        ]);
+    }
+
     public function communityPublicProfile(Profile $community): JsonResponse
     {
         $community = $this->profileService->getCommunityPublicProfile($community);
