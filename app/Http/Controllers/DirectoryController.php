@@ -38,13 +38,25 @@ class DirectoryController extends Controller
         $cities = RankingPage::query()->published()->whereNull('topic')
             ->orderBy('sort')->orderBy('city')->get();
         $listed = $this->listedCommunities();
+        $topics = RankingPage::query()->published()->whereNotNull('topic')
+            ->orderBy('sort')->get()->groupBy('city');
 
         return view('directory.index', [
             'cities' => $cities->map(fn (RankingPage $p) => [
                 'page' => $p,
                 'count' => $this->projection->forCity($listed, $p->city)->count(),
+                'categories' => ($topics->get($p->city) ?? collect())
+                    ->map(fn (RankingPage $t) => ['slug' => $t->slug, 'label' => self::topicLabel($t->topic)]),
             ]),
         ]);
+    }
+
+    /** Human label for a topic slug (shared by the index + category views). */
+    public static function topicLabel(?string $topic): string
+    {
+        return $topic
+            ? (string) Str::of($topic)->replace('-', ' ')->title()->replace(' And ', ' & ')
+            : 'Community';
     }
 
     public function show(string $city): View

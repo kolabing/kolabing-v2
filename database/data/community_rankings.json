@@ -114,7 +114,8 @@
           "cta": "If your community is on this list, you can claim your listing and let Barcelona venues host your next event; if you run a venue, these are the groups worth hosting.",
           "topic": null,
           "verticals": null,
-          "wave": 1
+          "wave": 1,
+          "spotlight": true
         },
         {
           "title": "The 8 Best AI & Tech Communities in Barcelona (2026)",
@@ -641,7 +642,8 @@
               "a": "Yes. BCN Clay Studio, El Torn and 137º all provide kiln access as part of co-working or membership, and El Torn advertises 4 kilns and 40 studio glazes. Confirm current firing schedules and co-working fees directly with each studio."
             }
           ],
-          "cta": "Run a community like these in Barcelona? Claim your free listing."
+          "cta": "Run a community like these in Barcelona? Claim your free listing.",
+          "spotlight": true
         },
         {
           "title": "The 4 Best Art & Creative Collectives in Barcelona (2026)",

@@ -34,6 +34,7 @@ return new class extends Migration
             $table->json('faq')->nullable();               // [{q,a}, ...]
             $table->string('editor_name', 80)->nullable(); // named editor byline (E-E-A-T)
             $table->boolean('published')->default(false);  // progressive-rollout guard
+            $table->boolean('spotlight_top')->default(false); // admin: feature #1 as a hero panel
             $table->integer('sort')->default(0);
             $table->timestamps();
 

@@ -63,8 +63,13 @@ class ExportRankingPreview extends Command
         $written = 0;
 
         if (View::exists('directory.index')) {
-            $hubs = $pages->filter(fn ($p) => $p->topic === null)
-                ->map(fn ($p) => ['page' => $p, 'count' => $projection->forCity($communities, $p->city)->count()]);
+            $hubs = $pages->filter(fn ($p) => $p->topic === null)->map(fn ($p) => [
+                'page' => $p,
+                'count' => $projection->forCity($communities, $p->city)->count(),
+                'categories' => $pages->filter(fn ($t) => $t->city === $p->city && $t->topic !== null)
+                    ->map(fn ($t) => ['slug' => $t->slug, 'label' => \App\Http\Controllers\DirectoryController::topicLabel($t->topic)])
+                    ->values(),
+            ]);
             $this->emit($out.'/communities/index.html', view('directory.index', ['cities' => $hubs])->render(), $site);
             $written++;
         }

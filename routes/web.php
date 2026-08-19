@@ -157,6 +157,7 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     // (Re-ranking is done in /admin/crm via score + metrics.rank_override + listed.)
     Route::get('/rankings', [AdminRankingController::class, 'index'])->name('rankings.index');
     Route::post('/rankings/{page}/publish', [AdminRankingController::class, 'togglePublish'])->name('rankings.publish');
+    Route::post('/rankings/{page}/spotlight', [AdminRankingController::class, 'toggleSpotlight'])->name('rankings.spotlight');
     Route::post('/rankings/testimonials/{testimonial}/{decision}', [AdminRankingController::class, 'moderate'])->name('rankings.testimonials.moderate');
 
     Route::get('/tasks', [AdminTaskController::class, 'index'])->name('tasks.index');

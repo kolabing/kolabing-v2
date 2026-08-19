@@ -115,7 +115,12 @@
             </div>
         @endif
 
-        @include('directory.partials.ranked-list', ['ranked' => $ranked])
+        @if ($page->spotlight_top && $ranked->isNotEmpty())
+            @include('directory.partials.community-spotlight', ['a' => $ranked->first()])
+            @include('directory.partials.ranked-list', ['ranked' => $ranked->skip(1), 'counts' => $counts ?? []])
+        @else
+            @include('directory.partials.ranked-list', ['ranked' => $ranked, 'counts' => $counts ?? []])
+        @endif
 
         @if ($page->how_ranked)
             <div class="mt-8 rounded-2xl border border-off-black/10 bg-off-black/[0.03] p-6">

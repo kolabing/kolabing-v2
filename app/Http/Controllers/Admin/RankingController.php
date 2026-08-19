@@ -33,6 +33,13 @@ class RankingController extends Controller
         return back()->with('status', $page->published ? "Published: {$page->title}" : "Unpublished: {$page->title}");
     }
 
+    public function toggleSpotlight(RankingPage $page): RedirectResponse
+    {
+        $page->update(['spotlight_top' => ! $page->spotlight_top]);
+
+        return back()->with('status', ($page->spotlight_top ? 'Spotlight on' : 'Spotlight off').": {$page->title}");
+    }
+
     public function moderate(ListingTestimonial $testimonial, string $decision): RedirectResponse
     {
         abort_unless(in_array($decision, ['approve', 'reject'], true), 404);

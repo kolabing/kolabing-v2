@@ -139,6 +139,7 @@ class RankingPageSeeder extends Seeder
             'faq' => $piece['faq'] ?? [],
             'editor_name' => $editor,
             'published' => (int) ($piece['wave'] ?? 3) === 1,
+            'spotlight_top' => (bool) ($piece['spotlight'] ?? false),
             'sort' => $sort,
         ];
     }

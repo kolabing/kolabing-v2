@@ -22,12 +22,12 @@ return [
     // Accountable human byline + author entity (E-E-A-T / GEO citation). Rendered as
     // "Ranked and reviewed by {author}, {author_title}" and emitted as schema.org Person
     // with sameAs, so answer engines have a real author to attribute the list to.
-    'author_name' => env('RANKINGS_AUTHOR_NAME', 'Daniel Martinez'),
-    'author_title' => env('RANKINGS_AUTHOR_TITLE', 'founder of Kolabing'),
-    'author_url' => env('RANKINGS_AUTHOR_URL', 'https://www.linkedin.com/in/daniel-martinez-serra/'),
+    'author_name' => env('RANKINGS_AUTHOR_NAME', 'Maria Perez'),
+    'author_title' => env('RANKINGS_AUTHOR_TITLE', 'founder & CMO'),
+    'author_url' => env('RANKINGS_AUTHOR_URL', null),
 
     // Per-city human verifier named in the methodology (checkable-facts review).
-    'reviewer_name' => env('RANKINGS_REVIEWER_NAME', 'Maria'),
+    'reviewer_name' => env('RANKINGS_REVIEWER_NAME', 'our editorial team'),
 
     // Max curated entries shown on a city hub page (>= the largest hub so the full
     // curated list renders; topic-only communities are already excluded from the hub).

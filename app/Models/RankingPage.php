@@ -24,7 +24,7 @@ class RankingPage extends Model
 
     protected $fillable = [
         'city', 'topic', 'slug', 'title', 'meta_description',
-        'intro', 'how_ranked', 'verticals', 'host_venues', 'faq', 'editor_name', 'published', 'sort',
+        'intro', 'how_ranked', 'verticals', 'host_venues', 'faq', 'editor_name', 'published', 'spotlight_top', 'sort',
     ];
 
     protected function casts(): array
@@ -34,6 +34,7 @@ class RankingPage extends Model
             'host_venues' => 'array',
             'faq' => 'array',
             'published' => 'boolean',
+            'spotlight_top' => 'boolean',
             'sort' => 'integer',
         ];
     }

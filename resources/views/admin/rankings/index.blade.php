@@ -23,6 +23,10 @@
                                 </td>
                                 <td>{{ $page->topic ?? 'hub' }}</td>
                                 <td class="text-right pr-3">
+                                    <form method="POST" action="{{ route('admin.rankings.spotlight', $page) }}" class="d-inline">
+                                        @csrf
+                                        <button class="btn btn-sm {{ $page->spotlight_top ? 'btn-warning' : 'btn-outline-secondary' }}" title="Feature the #1 community as a hero panel">{{ $page->spotlight_top ? '★ Spotlight' : '☆ Spotlight' }}</button>
+                                    </form>
                                     <form method="POST" action="{{ route('admin.rankings.publish', $page) }}" class="d-inline">
                                         @csrf
                                         <button class="btn btn-sm {{ $page->published ? 'btn-outline-secondary' : 'btn-primary' }}">{{ $page->published ? 'Unpublish' : 'Publish' }}</button>

@@ -45,7 +45,12 @@
     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-black {{ $i < 3 ? 'bg-primary text-off-black' : 'bg-off-black text-primary' }}">{{ $i + 1 }}</div>
 
     <div class="shrink-0">
-        <div class="flex h-14 w-14 items-center justify-center rounded-2xl font-montserrat text-lg font-black text-off-black {{ $handle ? 'ring-2 ring-primary' : 'ring-1 ring-off-black/10' }}" style="background: {{ $tile }}">{{ $initials }}</div>
+        @if (! empty($m['photo_url']))
+            <img src="{{ $m['photo_url'] }}" alt="{{ $a->name }}" loading="lazy" width="64" height="64"
+                 class="h-16 w-16 rounded-2xl object-cover {{ $handle ? 'ring-2 ring-primary' : 'ring-1 ring-off-black/10' }}">
+        @else
+            <div class="flex h-16 w-16 items-center justify-center rounded-2xl font-montserrat text-lg font-black text-off-black {{ $handle ? 'ring-2 ring-primary' : 'ring-1 ring-off-black/10' }}" style="background: {{ $tile }}">{{ $initials }}</div>
+        @endif
     </div>
 
     <div class="min-w-0 flex-1">
