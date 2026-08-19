@@ -62,6 +62,10 @@ class SuggestionController extends Controller
 
     /**
      * GET /api/v1/suggestions/{suggestion}
+     *
+     * Ownership first, liveness second: an intruder must learn nothing from the
+     * difference between "expired" and "not yours", so the 403 is decided before
+     * the row's state is looked at.
      */
     public function show(Request $request, KolabSuggestion $suggestion): JsonResponse
     {
@@ -75,6 +79,16 @@ class SuggestionController extends Controller
             ], 403);
         }
 
+        if (! $this->suggestionReader->isLive($suggestion)) {
+            return response()->json([
+                'success' => false,
+                'message' => __('Resource not found'),
+                'errors' => [
+                    'resource' => [__('The requested resource was not found')],
+                ],
+            ], 404);
+        }
+
         return response()->json([
             'success' => true,
             'data' => new SuggestionResource($this->suggestionReader->markClicked($suggestion)),
@@ -83,6 +97,10 @@ class SuggestionController extends Controller
 
     /**
      * POST /api/v1/suggestions/{suggestion}/dismiss
+     *
+     * No liveness check here, unlike show(): a client holding a stale page must
+     * be able to dismiss without an error, and the write feeds the cooldown. See
+     * SuggestionReader::dismiss().
      */
     public function dismiss(Request $request, KolabSuggestion $suggestion): Response|JsonResponse
     {

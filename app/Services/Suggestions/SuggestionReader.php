@@ -77,9 +77,14 @@ class SuggestionReader
      * simultaneous serves of the same page cannot overwrite each other's first
      * impression, which a read-then-write in PHP would allow.
      *
-     * The in-memory models are stamped with the same value so the response the
-     * caller receives agrees with the row that was just written; only the ones
-     * that were null are touched, so a re-served card keeps its real timestamp.
+     * The in-memory models are stamped with the same value so the response
+     * carries a `shown_at` rather than a null the row no longer has. It is the
+     * value *this* request proposed, not necessarily the one that won: if a
+     * concurrent serve stamped first, the `whereNull` above matched nothing and
+     * the stored timestamp is the other request's, a few milliseconds earlier.
+     * The field is a funnel marker read to the second at best, so re-selecting
+     * the page to reconcile it would buy nothing. Only rows that were null are
+     * touched, so a re-served card keeps its real first impression.
      *
      * @param  array<int, KolabSuggestion>  $suggestions
      */
@@ -107,9 +112,24 @@ class SuggestionReader
     }
 
     /**
+     * Whether a row is still worth rendering, using the same `live()` scope the
+     * list uses so the two definitions cannot drift. One indexed primary-key
+     * lookup, deliberately rather than re-deriving "not expired, not dismissed,
+     * not converted" in PHP: two implementations of that rule would eventually
+     * let the detail serve a card the list had already retired.
+     */
+    public function isLive(KolabSuggestion $suggestion): bool
+    {
+        return $suggestion->newQuery()->live()->whereKey($suggestion->getKey())->exists();
+    }
+
+    /**
      * Detail view. `clicked_at` records the first open for the same reason
      * `shown_at` records the first impression: the funnel measures conversion
      * from a card to a Kolab, not how often a card was revisited.
+     *
+     * Reads are gated on isLive() by the controller; dismissal deliberately is
+     * not. See dismiss() for why the two differ.
      */
     public function markClicked(KolabSuggestion $suggestion): KolabSuggestion
     {
@@ -128,6 +148,15 @@ class SuggestionReader
      * Idempotent: a second dismissal keeps the first timestamp, because
      * `dismissal_cooldown_days` is measured from it — re-stamping would silently
      * extend the suppression window every time a client retried.
+     *
+     * Deliberately **not** gated on isLive(), unlike the detail read, and the
+     * asymmetry is the intended behaviour rather than an oversight. A read of an
+     * expired row is noise: it renders a card the list has already retired and
+     * stamps `clicked_at`, corrupting the funnel this feature is judged on. A
+     * *write* to one is useful: a client holding a page fetched minutes ago
+     * should be able to say "not interested" without an error, and the
+     * `dismissed_at` it lands feeds the cooldown that keeps the pair from being
+     * proposed again — worth strictly more than a 404 would be.
      */
     public function dismiss(KolabSuggestion $suggestion): void
     {

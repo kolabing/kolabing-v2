@@ -16,6 +16,13 @@ use Symfony\Component\HttpFoundation\Response;
  * caller the endpoint exists and they merely lack access, which is exactly the
  * fact a flag that ships `false` is hiding. An unknown feature name resolves to
  * null and therefore closes the route rather than opening it.
+ *
+ * The flag is a **staged-rollout gate, not a secret.** On a route that also has
+ * `auth:sanctum`, Laravel runs the group's middleware first, so an
+ * unauthenticated probe gets 401 and thereby learns the path is routed. That is
+ * accepted, not a bug: reordering would mean lifting the routes out of the
+ * authenticated group and repeating its middleware for a disclosure worth
+ * nothing. Do not rely on this middleware to hide a route's existence.
  */
 class EnsureFeatureEnabled
 {

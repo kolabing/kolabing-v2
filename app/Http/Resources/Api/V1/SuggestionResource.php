@@ -86,17 +86,36 @@ class SuggestionResource extends JsonResource
      * filtered out of the list, but a row already in a client's hands can still
      * be opened, and that must render rather than 500.
      *
+     * `id` is withheld along with the identity, not merely alongside it. A masked
+     * name plus a usable profile id is not a mask: GET /api/v1/profiles/{id}
+     * returns `display_name`, `avatar_url`, `handle` and the social links to any
+     * authenticated caller, so a blurred card carrying a lookup key would hand a
+     * free business the identity in one extra request — and ROLES §2.5 lists
+     * opening a community's full profile among the things it cannot do. A blurred
+     * card therefore carries no means of resolving who the partner is; it still
+     * carries the score, every reason and the whole proposed format, which is
+     * what makes this a blur and not a block.
+     *
      * @return array{id: string|null, user_type: string|null, name: string|null, avatar_url: string|null}
      */
     private function counterpart(bool $blurred): array
     {
         $profile = $this->resource->counterpartProfile;
 
+        if ($blurred) {
+            return [
+                'id' => null,
+                'user_type' => $profile?->user_type?->value,
+                'name' => null,
+                'avatar_url' => null,
+            ];
+        }
+
         return [
             'id' => $profile?->id,
             'user_type' => $profile?->user_type?->value,
-            'name' => $blurred ? null : $this->displayName($profile),
-            'avatar_url' => $blurred ? null : $profile?->avatar_url,
+            'name' => $this->displayName($profile),
+            'avatar_url' => $profile?->avatar_url,
         ];
     }
 

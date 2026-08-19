@@ -143,6 +143,7 @@ class SuggestionApiTest extends TestCase
             ->assertJsonPath('data.data.0.is_identity_blurred', true)
             ->assertJsonPath('data.data.0.counterpart.name', null)
             ->assertJsonPath('data.data.0.counterpart.avatar_url', null)
+            ->assertJsonPath('data.data.0.counterpart.id', null)
             ->assertJsonPath('data.data.0.score', $suggestion->score);
     }
 
@@ -157,7 +158,53 @@ class SuggestionApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.data.0.is_identity_blurred', false)
             ->assertJsonPath('data.data.0.counterpart.name', 'Barcelona Run Club')
-            ->assertJsonPath('data.data.0.counterpart.avatar_url', $counterpart->avatar_url);
+            ->assertJsonPath('data.data.0.counterpart.avatar_url', $counterpart->avatar_url)
+            ->assertJsonPath('data.data.0.counterpart.id', $counterpart->id);
+    }
+
+    /**
+     * A masked name next to a usable profile id is not a mask: GET
+     * /api/v1/profiles/{id} hands `display_name` and `avatar_url` to any
+     * authenticated caller (recorded as BE-FX-15), so the blurred card must not
+     * carry the lookup key that resolves it.
+     */
+    public function test_a_blurred_card_does_not_carry_the_counterpart_id(): void
+    {
+        $counterpart = $this->community('Findable Club');
+
+        $free = $this->business(name: 'Free Cafe');
+        $this->suggestion($free, $counterpart);
+
+        $this->actingAs($free)
+            ->getJson(route('api.v1.suggestions.index'))
+            ->assertOk()
+            ->assertJsonPath('data.data.0.is_identity_blurred', true)
+            ->assertJsonPath('data.data.0.counterpart.id', null)
+            // The counterpart's ROLE is not identity: the card still says a
+            // community is being proposed, it just does not say which one.
+            ->assertJsonPath('data.data.0.counterpart.user_type', 'community');
+
+        $paying = $this->business(subscribed: true, name: 'Paying Cafe');
+        $this->suggestion($paying, $counterpart);
+
+        $this->actingAs($paying)
+            ->getJson(route('api.v1.suggestions.index'))
+            ->assertOk()
+            ->assertJsonPath('data.data.0.is_identity_blurred', false)
+            ->assertJsonPath('data.data.0.counterpart.id', $counterpart->id);
+    }
+
+    public function test_the_blurred_detail_also_withholds_the_counterpart_id(): void
+    {
+        $viewer = $this->business();
+        $suggestion = $this->suggestion($viewer, $this->community());
+
+        $this->actingAs($viewer)
+            ->getJson(route('api.v1.suggestions.show', $suggestion))
+            ->assertOk()
+            ->assertJsonPath('data.is_identity_blurred', true)
+            ->assertJsonPath('data.counterpart.id', null)
+            ->assertJsonPath('data.counterpart.name', null);
     }
 
     public function test_community_identity_is_never_blurred_for_a_community_viewer(): void
@@ -473,6 +520,71 @@ class SuggestionApiTest extends TestCase
             ->assertJsonPath('data.id', $suggestion->id);
 
         $this->assertNotNull($suggestion->fresh()->clicked_at);
+    }
+
+    public function test_an_expired_suggestion_detail_is_not_found_and_stamps_nothing(): void
+    {
+        $viewer = $this->business(subscribed: true);
+        $suggestion = KolabSuggestion::factory()
+            ->forPair($viewer, $this->community())
+            ->expired()
+            ->create();
+
+        $this->actingAs($viewer)
+            ->getJson(route('api.v1.suggestions.show', $suggestion))
+            ->assertNotFound()
+            ->assertJsonPath('success', false);
+
+        $this->assertNull($suggestion->fresh()->clicked_at);
+    }
+
+    public function test_a_dismissed_suggestion_detail_is_not_found(): void
+    {
+        $viewer = $this->business(subscribed: true);
+        $suggestion = KolabSuggestion::factory()
+            ->forPair($viewer, $this->community())
+            ->dismissed()
+            ->create();
+
+        $this->actingAs($viewer)
+            ->getJson(route('api.v1.suggestions.show', $suggestion))
+            ->assertNotFound();
+
+        $this->assertNull($suggestion->fresh()->clicked_at);
+    }
+
+    /**
+     * The deliberate asymmetry with show(): a client holding a page fetched
+     * before the row aged out must still be able to say "not interested", and
+     * the timestamp it writes feeds the dismissal cooldown.
+     */
+    public function test_a_stale_client_can_still_dismiss_an_expired_suggestion(): void
+    {
+        $viewer = $this->business(subscribed: true);
+        $suggestion = KolabSuggestion::factory()
+            ->forPair($viewer, $this->community())
+            ->expired()
+            ->create();
+
+        $this->actingAs($viewer)
+            ->postJson(route('api.v1.suggestions.dismiss', $suggestion))
+            ->assertNoContent();
+
+        $this->assertNotNull($suggestion->fresh()->dismissed_at);
+    }
+
+    public function test_an_intruder_gets_403_not_404_on_an_expired_row(): void
+    {
+        $owner = $this->business(subscribed: true);
+        $intruder = $this->business(subscribed: true, name: 'Nosy Bakery');
+        $suggestion = KolabSuggestion::factory()
+            ->forPair($owner, $this->community())
+            ->expired()
+            ->create();
+
+        $this->actingAs($intruder)
+            ->getJson(route('api.v1.suggestions.show', $suggestion))
+            ->assertForbidden();
     }
 
     public function test_dismiss_stamps_dismissed_at_and_is_idempotent(): void
