@@ -82,6 +82,16 @@ $webappRoutes = function (): void {
     // Public profile of any business/community, seen from inside the app.
     Route::view('/profiles/{profile}', 'webapp.profile');
     Route::view('/account', 'webapp.account');
+
+    // Community Hub — the members & tiers surface (BE-NF-29). All literals
+    // under /community; no catch-all segment, so order is not load-bearing.
+    Route::view('/community', 'webapp.community');
+    Route::view('/community/members', 'webapp.community-members');
+    Route::view('/community/requests', 'webapp.community-requests');
+    Route::view('/community/tiers', 'webapp.community-tiers');
+    Route::view('/community/economy', 'webapp.community-economy');
+    Route::view('/community/leaderboard', 'webapp.community-leaderboard');
+    Route::view('/community/settings', 'webapp.community-settings');
 };
 
 Route::domain(config('webapp.host'))
@@ -97,6 +107,13 @@ Route::domain(config('webapp.host'))
 Route::get('/', function () {
     return view('welcome');
 })->name('home');
+
+// Public landing for a community's shareable join link. config('communities.
+// invite_base_url') has always pointed here and Community::inviteUrl() has
+// always emitted /c/{slug}, but the route did not exist until now — every
+// invite link ever shared 404'd.
+Route::get('/c/{slug}', [\App\Http\Controllers\CommunityJoinPageController::class, 'show'])
+    ->name('communities.join-page');
 
 Route::post('/newsletter', [NewsletterController::class, 'store'])
     ->middleware('throttle:10,1')

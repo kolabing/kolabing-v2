@@ -90,6 +90,7 @@ class AuthService
         private readonly FileUploadService $fileUploadService,
         private readonly OnboardingService $onboardingService,
         private readonly OnboardingDripService $onboardingDripService,
+        private readonly CommunityInvitationService $communityInvitationService,
         private readonly \App\Services\Admin\CompanySettingService $companySettings,
     ) {}
 
@@ -202,7 +203,7 @@ class AuthService
 
         $this->loadProfileRelationships($profile);
 
-        $this->startOnboardingDrip($profile);
+        $this->afterRegistration($profile);
 
         return [
             'profile' => $profile,
@@ -328,7 +329,7 @@ class AuthService
         // Load relationships
         $this->loadProfileRelationships($profile);
 
-        $this->startOnboardingDrip($profile);
+        $this->afterRegistration($profile);
 
         return [
             'profile' => $profile,
@@ -352,15 +353,16 @@ class AuthService
     }
 
     /**
-     * Enrol a freshly-registered profile into the onboarding email drip.
+     * Peripheral work for a freshly-registered profile: the onboarding email
+     * drip, and claiming any community invitations addressed to their email.
      *
-     * Runs after the registration transaction has committed and is fully
-     * isolated: the drip is a peripheral concern, so a failure to seed its
-     * state must never propagate into (and roll back) account creation. Mirrors
-     * the "email failures never break the triggering request" rule in
+     * Runs after the registration transaction has committed and each step is
+     * fully isolated: these are peripheral concerns, so a failure must never
+     * propagate into (and roll back) account creation. Mirrors the "email
+     * failures never break the triggering request" rule in
      * {@see \App\Jobs\SendTransactionalEmail}.
      */
-    private function startOnboardingDrip(Profile $profile): void
+    private function afterRegistration(Profile $profile): void
     {
         try {
             $this->onboardingDripService->startForProfile($profile);
@@ -370,6 +372,11 @@ class AuthService
                 'exception' => $e->getMessage(),
             ]);
         }
+
+        // A leader may have invited this email before the person had an
+        // account; the pending invitation becomes a membership now. Guarded
+        // inside the service.
+        $this->communityInvitationService->claimForSafely($profile);
     }
 
     /**
@@ -502,7 +509,7 @@ class AuthService
         // Load relationships
         $this->loadProfileRelationships($profile);
 
-        $this->startOnboardingDrip($profile);
+        $this->afterRegistration($profile);
 
         return [
             'profile' => $profile,
@@ -598,7 +605,7 @@ class AuthService
         // Load relationships
         $this->loadProfileRelationships($profile);
 
-        $this->startOnboardingDrip($profile);
+        $this->afterRegistration($profile);
 
         return [
             'profile' => $profile,
@@ -632,7 +639,7 @@ class AuthService
 
         $this->loadProfileRelationships($profile);
 
-        $this->startOnboardingDrip($profile);
+        $this->afterRegistration($profile);
 
         return [
             'profile' => $profile,

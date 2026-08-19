@@ -19,10 +19,12 @@ use App\Http\Controllers\Api\V1\CollaborationQrCodeController;
 use App\Http\Controllers\Api\V1\CommunityBadgeController;
 use App\Http\Controllers\Api\V1\CommunityController;
 use App\Http\Controllers\Api\V1\CommunityGoalController;
+use App\Http\Controllers\Api\V1\CommunityInvitationController;
 use App\Http\Controllers\Api\V1\CommunityJoinRequestController;
 use App\Http\Controllers\Api\V1\CommunityMemberController;
 use App\Http\Controllers\Api\V1\CommunityRewardController;
 use App\Http\Controllers\Api\V1\CommunityRewardsHubController;
+use App\Http\Controllers\Api\V1\CommunityStatsController;
 use App\Http\Controllers\Api\V1\CommunityTierController;
 use App\Http\Controllers\Api\V1\ConsentController;
 use App\Http\Controllers\Api\V1\DashboardController;
@@ -494,12 +496,30 @@ Route::prefix('v1')->group(function (): void {
 
         Route::get('communities/{community}/members', [CommunityMemberController::class, 'index'])
             ->name('api.v1.communities.members.index');
+        Route::patch('communities/{community}/members', [CommunityMemberController::class, 'bulkUpdate'])
+            ->name('api.v1.communities.members.bulk-update');
+        Route::get('communities/{community}/members/{member}', [CommunityMemberController::class, 'show'])
+            ->name('api.v1.communities.members.show');
         Route::post('communities/{community}/members', [CommunityMemberController::class, 'store'])
             ->name('api.v1.communities.members.store');
         Route::patch('communities/{community}/members/{member}', [CommunityMemberController::class, 'update'])
             ->name('api.v1.communities.members.update');
         Route::delete('communities/{community}/members/{member}', [CommunityMemberController::class, 'destroy'])
             ->name('api.v1.communities.members.destroy');
+
+        Route::get('communities/{community}/stats', [CommunityStatsController::class, 'show'])
+            ->name('api.v1.communities.stats');
+
+        Route::get('communities/{community}/invitations', [CommunityInvitationController::class, 'index'])
+            ->name('api.v1.communities.invitations.index');
+        Route::post('communities/{community}/invitations', [CommunityInvitationController::class, 'store'])
+            ->name('api.v1.communities.invitations.store');
+        Route::post('invitations/{invitation}/resend', [CommunityInvitationController::class, 'resend'])
+            ->name('api.v1.invitations.resend');
+        Route::delete('invitations/{invitation}', [CommunityInvitationController::class, 'destroy'])
+            ->name('api.v1.invitations.destroy');
+        Route::post('invitations/accept/{token}', [CommunityInvitationController::class, 'accept'])
+            ->name('api.v1.invitations.accept');
 
         /*
         |--------------------------------------------------------------------------

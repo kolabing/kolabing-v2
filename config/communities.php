@@ -44,4 +44,15 @@ return [
         'name' => env('COMMUNITIES_DEFAULT_TIER_NAME', 'Member'),
         'rank' => 1,
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Invitation lifetime
+    |--------------------------------------------------------------------------
+    |
+    | How long a pending community_invitations row stays claimable. A leader can
+    | always resend, which refreshes the window.
+    |
+    */
+    'invitation_ttl_days' => env('COMMUNITIES_INVITATION_TTL_DAYS', 30),
 ];

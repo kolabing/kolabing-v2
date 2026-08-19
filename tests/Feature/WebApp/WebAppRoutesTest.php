@@ -57,6 +57,46 @@ class WebAppRoutesTest extends TestCase
             ->assertSee('Create your account');
     }
 
+    public function test_community_hub_pages_render_on_the_app_host(): void
+    {
+        // Public shells; auth + the manage gate are enforced client-side and by
+        // the API. Each page must render its own tab strip.
+        foreach (['', '/members', '/requests', '/tiers', '/economy', '/leaderboard', '/settings'] as $path) {
+            $this->get('http://'.$this->host().'/community'.$path)
+                ->assertOk()
+                ->assertSee('canManageCommunity', false);
+        }
+    }
+
+    public function test_community_hub_pages_render_under_the_locale_prefixes(): void
+    {
+        foreach (['es', 'ca'] as $locale) {
+            $this->get('http://'.$this->host().'/'.$locale.'/community/members')->assertOk();
+        }
+    }
+
+    public function test_the_community_roster_page_is_localised(): void
+    {
+        $this->get('http://'.$this->host().'/es/community/members')
+            ->assertOk()
+            ->assertSee('Invitar por email');
+
+        $this->get('http://'.$this->host().'/ca/community/members')
+            ->assertOk()
+            ->assertSee('Convida per correu');
+    }
+
+    public function test_the_api_client_reads_keyed_list_envelopes(): void
+    {
+        // The community roster returns its rows at data.members, next to
+        // data.pagination. kb.rows() used to read only data / data.data and
+        // silently returned [] — the same class of bug BE-NF-21 shipped.
+        $this->get('http://'.$this->host().'/community/members')
+            ->assertOk()
+            ->assertSee('rows(res, key = null)', false)
+            ->assertSee('Object.values(d).find(v => Array.isArray(v))', false);
+    }
+
     public function test_subscription_page_renders_on_the_app_host(): void
     {
         // Public shell; auth + data are enforced client-side against /api/v1.

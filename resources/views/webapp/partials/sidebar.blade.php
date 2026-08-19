@@ -43,6 +43,7 @@
         @foreach ($items as $key => [$path, $label, $icon])
             <a href="{{ $base.$path }}" class="py-2.5 px-2 rounded-xl {{ $activeKey === $key ? 'bg-primary-tint font-bold' : 'text-body' }}">{{ $label }}</a>
         @endforeach
+        <a href="{{ $base }}/community" x-show="canManageCommunity" x-cloak class="py-2.5 px-2 rounded-xl {{ $activeKey === 'community' ? 'bg-primary-tint font-bold' : 'text-body' }}">{{ __('webapp.nav.community') }}</a>
         <a href="{{ $base }}/subscription" x-show="isBusiness" x-cloak class="py-2.5 px-2 rounded-xl {{ $activeKey === 'subscription' ? 'bg-primary-tint font-bold' : 'text-body' }}">{{ __('webapp.nav.plan') }}</a>
         <div class="flex items-center gap-3 pt-3 mt-1 border-t border-ink/10">
             @foreach ($localePaths as $l => $href)
@@ -89,6 +90,15 @@
                 @endif
             </a>
         @endforeach
+        {{-- Community Hub: shown to anyone who owns or can_manage a community
+             (ROLES §8.1 / §8.3 D1 — managers are attendee accounts). --}}
+        <a href="{{ $base }}/community" x-show="canManageCommunity" x-cloak
+           class="flex items-center gap-3 px-3 py-[11px] rounded-xl text-sm transition {{ $activeKey === 'community' ? 'bg-primary-tint font-bold text-ink' : 'font-medium text-body hover:bg-cream-low' }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            {{ __('webapp.nav.community') }}
+            <span class="ml-auto min-w-[20px] h-5 px-1.5 rounded-pill bg-ink text-primary text-[11px] font-bold flex items-center justify-center"
+                  x-show="communityPending > 0" x-text="communityPending" x-cloak></span>
+        </a>
         <a href="{{ $base }}/subscription" x-show="isBusiness" x-cloak
            class="flex items-center gap-3 px-3 py-[11px] rounded-xl text-sm transition {{ $activeKey === 'subscription' ? 'bg-primary-tint font-bold text-ink' : 'font-medium text-body hover:bg-cream-low' }}">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{!! $planIcon !!}</svg>
