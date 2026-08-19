@@ -70,7 +70,11 @@ class ExportRankingPreview extends Command
                     ->map(fn ($t) => ['slug' => $t->slug, 'label' => \App\Http\Controllers\DirectoryController::topicLabel($t->topic)])
                     ->values(),
             ]);
-            $this->emit($out.'/communities/index.html', view('directory.index', ['cities' => $hubs])->render(), $site);
+            $cityNames = $hubs->pluck('page.city')->all();
+            $this->emit($out.'/communities/index.html', view('directory.index', [
+                'cities' => $hubs,
+                'map' => \App\Http\Controllers\DirectoryController::mapData($communities, $cityNames),
+            ])->render(), $site);
             $written++;
         }
 
@@ -120,6 +124,10 @@ class ExportRankingPreview extends Command
     {
         if (File::isDirectory(public_path('brand'))) {
             File::copyDirectory(public_path('brand'), $out.'/brand');
+        }
+        // Real community photos (staged; served at /photos/<slug>.jpg in the preview).
+        if (File::isDirectory(storage_path('app/ranking-photos'))) {
+            File::copyDirectory(storage_path('app/ranking-photos'), $out.'/photos');
         }
         foreach (['favicon.ico', 'favicon-512.png', 'favicon-32x32.png', 'favicon-16x16.png', 'social-preview.svg', 'site.webmanifest'] as $asset) {
             if (File::exists(public_path($asset))) {

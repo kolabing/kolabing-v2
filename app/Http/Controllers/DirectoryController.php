@@ -48,7 +48,50 @@ class DirectoryController extends Controller
                 'categories' => ($topics->get($p->city) ?? collect())
                     ->map(fn (RankingPage $t) => ['slug' => $t->slug, 'label' => self::topicLabel($t->topic)]),
             ]),
+            'map' => self::mapData($listed, $cities->pluck('city')->all()),
         ]);
+    }
+
+    /**
+     * Map markers for the active cities: centre, community count, city URL, and (where
+     * we curate neighbourhood centres) the per-neighbourhood counts derived from the
+     * communities' venue field. Shared by the live index and the preview exporter.
+     *
+     * @param  Collection<int, CrmAccount>  $communities
+     * @param  list<string>  $cityNames
+     * @return list<array<string, mixed>>
+     */
+    public static function mapData(Collection $communities, array $cityNames): array
+    {
+        $coords = (array) config('rankings.map.cities', []);
+        $hoods = (array) config('rankings.map.neighbourhoods', []);
+        $flatten = fn (string $s) => strtr(mb_strtolower($s), ['à' => 'a', 'á' => 'a', 'í' => 'i', 'é' => 'e', 'è' => 'e', 'ó' => 'o', 'ç' => 'c', 'ñ' => 'n']);
+
+        $out = [];
+        foreach ($cityNames as $city) {
+            if (! isset($coords[$city])) {
+                continue;
+            }
+            $cityComms = $communities->filter(fn (CrmAccount $a) => ($a->metrics['city'] ?? null) === $city);
+            $entry = [
+                'name' => $city,
+                'lat' => $coords[$city][0],
+                'lng' => $coords[$city][1],
+                'count' => $cityComms->count(),
+                'url' => route('directory.city', $city),
+                'neighbourhoods' => [],
+            ];
+            foreach (($hoods[$city] ?? []) as $hName => $hc) {
+                $needle = $flatten($hName);
+                $n = $cityComms->filter(fn (CrmAccount $a) => ! empty($a->metrics['venue']) && str_contains($flatten($a->metrics['venue']), $needle))->count();
+                if ($n > 0) {
+                    $entry['neighbourhoods'][] = ['name' => $hName, 'lat' => $hc[0], 'lng' => $hc[1], 'count' => $n];
+                }
+            }
+            $out[] = $entry;
+        }
+
+        return $out;
     }
 
     /** Human label for a topic slug (shared by the index + category views). */

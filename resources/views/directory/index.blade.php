@@ -9,6 +9,10 @@
     description="Kolabing ranks the real community groups in each city — pottery studios, run clubs, supper clubs, AI meetups and more. Find the ones near you, or claim your free listing."
     :canonical="route('directory.index')"
 >
+    <x-slot:head>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    </x-slot:head>
+
     {{-- Hero --}}
     <section class="border-b border-off-black/10 bg-off-black text-white">
         <div class="mx-auto max-w-6xl px-6 py-20">
@@ -23,6 +27,21 @@
             @endif
         </div>
     </section>
+
+    {{-- Map of active cities --}}
+    @if (! empty($map))
+        <section class="border-b border-off-black/10">
+            <div class="mx-auto max-w-6xl px-6 py-14">
+                <p class="text-sm font-bold uppercase tracking-[0.24em] text-off-black/50">Where the communities are</p>
+                <h2 class="mt-2 font-montserrat text-3xl font-black uppercase tracking-tight">Explore the map</h2>
+                <p class="mt-2 max-w-2xl text-off-black/60">Tap a city to zoom into its neighbourhoods. More cities are coming online.</p>
+                <div class="relative mt-6">
+                    <div id="rankmap" class="h-[440px] w-full overflow-hidden rounded-[2rem] border border-off-black/10 bg-off-black/5"></div>
+                    <button id="rankmap-reset" class="absolute right-4 top-4 z-[500] hidden rounded-full bg-white px-4 py-2 text-xs font-bold text-off-black shadow ring-1 ring-off-black/10">&larr; All cities</button>
+                </div>
+            </div>
+        </section>
+    @endif
 
     {{-- Featured city: the deep one, with its categories --}}
     @if ($featured && $featured['categories']->isNotEmpty())
@@ -77,4 +96,58 @@
             <a href="{{ route('directory.how-we-rank') }}" class="mt-6 inline-block shrink-0 rounded-full bg-off-black px-7 py-3 font-bold text-primary transition hover:bg-off-black/90 md:mt-0">How it works</a>
         </div>
     </section>
+
+    @if (! empty($map))
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script>
+            (function () {
+                var data = @json($map);
+                var el = document.getElementById('rankmap');
+                if (!window.L || !el || !data.length) { return; }
+
+                var map = L.map('rankmap', { scrollWheelZoom: false, zoomControl: true }).setView([48.5, 6.5], 4);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; OpenStreetMap &copy; CARTO', subdomains: 'abcd', maxZoom: 19,
+                }).addTo(map);
+
+                function chip(count, size) {
+                    return L.divIcon({
+                        className: '',
+                        html: '<div style="display:flex;align-items:center;justify-content:center;width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:#FFD560;color:#1B1F1C;font-weight:800;font-family:Montserrat,system-ui,sans-serif;font-size:' + (size > 36 ? 14 : 12) + 'px;box-shadow:0 4px 14px rgba(27,31,28,.28);border:2px solid #1B1F1C">' + count + '</div>',
+                        iconSize: [size, size], iconAnchor: [size / 2, size / 2],
+                    });
+                }
+
+                var cityLayer = L.layerGroup().addTo(map);
+                var hoodLayer = L.layerGroup();
+                var resetBtn = document.getElementById('rankmap-reset');
+
+                function showCities() {
+                    map.removeLayer(hoodLayer);
+                    cityLayer.addTo(map);
+                    resetBtn.style.display = 'none';
+                    map.flyTo([48.5, 6.5], 4);
+                }
+                function showCity(c) {
+                    map.removeLayer(cityLayer);
+                    hoodLayer.clearLayers();
+                    (c.neighbourhoods || []).forEach(function (n) {
+                        L.marker([n.lat, n.lng], { icon: chip(n.count, 34) }).addTo(hoodLayer)
+                            .bindPopup('<strong>' + n.name + '</strong><br>' + n.count + ' communit' + (n.count === 1 ? 'y' : 'ies') + '<br><a href="' + c.url + '">See ' + c.name + ' ranking &rarr;</a>');
+                    });
+                    hoodLayer.addTo(map);
+                    map.flyTo([c.lat, c.lng], 12);
+                    resetBtn.style.display = 'block';
+                }
+                resetBtn.addEventListener('click', showCities);
+
+                data.forEach(function (c) {
+                    var m = L.marker([c.lat, c.lng], { icon: chip(c.count, 44) }).addTo(cityLayer);
+                    var hasHoods = c.neighbourhoods && c.neighbourhoods.length;
+                    m.bindPopup('<strong>' + c.name + '</strong><br>' + c.count + ' communities<br><a href="' + c.url + '">See ranking &rarr;</a>' + (hasHoods ? '<br><a href="#" data-zoom="1">Explore neighbourhoods &rarr;</a>' : ''));
+                    m.on('click', function () { if (hasHoods) { showCity(c); } else { m.openPopup(); } });
+                });
+            })();
+        </script>
+    @endif
 </x-layouts.marketing-page>
