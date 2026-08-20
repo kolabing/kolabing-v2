@@ -2,10 +2,14 @@
 @section('title', __('webapp.account.gallery.title'))
 
 @section('body')
-<div class="min-h-screen md:flex" x-data="kbMerge(kbShell(), accountGalleryPage())" x-init="init()">
+<div class="min-h-screen md:flex" x-data="kbMerge(kbShell(), kbPhonePreview(), accountGalleryPage())" x-init="init()">
     @include('webapp.partials.sidebar', ['active' => 'account'])
 
     <main class="flex-1 min-w-0 overflow-x-hidden">
+    {{-- The phone preview sits beside the tab from xl up; below that the
+         tab keeps its full-width layout. --}}
+    <div class="xl:flex xl:items-start xl:gap-8 xl:pr-10">
+    <div class="flex-1 min-w-0">
     <div class="max-w-[880px] mx-auto px-5 md:px-10 py-8 md:py-10 pb-20 kb-fade-up">
 
         @include('webapp.partials.account-nav', ['accountActive' => 'gallery'])
@@ -86,6 +90,10 @@
             </template>
         </div>
     </div>
+    </div>
+
+    @include('webapp.partials.phone-preview')
+    </div>
     </main>
 </div>
 @endsection
@@ -110,6 +118,7 @@
             async init() {
                 await this.loadShell();
                 await this.load();
+                this.initPreview();
             },
 
             async load() {
@@ -144,6 +153,7 @@
                 this.busy = false;
                 if (failures.length) this.error = failures.join('\n');
                 await this.load();
+                this.refreshPreview();
             },
 
             startEditing(photo) {
@@ -161,14 +171,14 @@
                 const res = await window.kb.api('/me/gallery/' + photo.id, {
                     method: 'PATCH', body: { caption },
                 });
-                if (res.ok) photo.caption = res.json?.data?.caption ?? null;
+                if (res.ok) { photo.caption = res.json?.data?.caption ?? null; this.refreshPreview(); }
                 else this.error = window.kb.errorText(res, window.t('account.gallery.save_error'));
             },
 
             async remove(photo) {
                 this.confirmDelete = null;
                 const res = await window.kb.api('/me/gallery/' + photo.id, { method: 'DELETE' });
-                if (res.ok) await this.load();
+                if (res.ok) { await this.load(); this.refreshPreview(); }
                 else this.error = window.kb.errorText(res, window.t('account.gallery.delete_error'));
             },
 
@@ -187,6 +197,7 @@
                 });
                 if (res.ok) {
                     this.photos = window.kb.rows(res);
+                    this.refreshPreview();
                 } else {
                     this.error = window.kb.errorText(res, window.t('account.gallery.order_error'));
                     await this.load();

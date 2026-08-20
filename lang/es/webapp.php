@@ -408,6 +408,18 @@ return [
         'withdraw_error' => 'No pudimos retirar esta solicitud.',
     ],
     'account' => [
+        'phone' => [
+            'title' => 'En el móvil',
+            'about' => 'Sobre',
+            'gallery' => 'Galería',
+            'past_events' => 'Eventos pasados',
+            'collaborations' => 'Colaboraciones',
+            'links' => 'Enlaces',
+            'reviews' => ':count reseñas',
+            'completed' => ':count completadas',
+            'error' => 'No se ha podido cargar la vista previa.',
+            'note' => 'Una réplica de solo lectura de la pantalla de perfil de la app. Se actualiza mientras editas.',
+        ],
         'tabs' => [
             'details' => 'Perfil',
             'gallery' => 'Galería',

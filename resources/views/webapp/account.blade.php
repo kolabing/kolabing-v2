@@ -2,10 +2,14 @@
 @section('title', __('webapp.account.title'))
 
 @section('body')
-<div class="min-h-screen md:flex" x-data="kbMerge(kbShell(), accountPage())" x-init="init()">
+<div class="min-h-screen md:flex" x-data="kbMerge(kbShell(), kbPhonePreview(), accountPage())" x-init="init()">
     @include('webapp.partials.sidebar', ['active' => 'account'])
 
     <main class="flex-1 min-w-0 overflow-x-hidden">
+    {{-- The phone preview sits beside the tab from xl up; below that the
+         tab keeps its full-width layout. --}}
+    <div class="xl:flex xl:items-start xl:gap-8 xl:pr-10">
+    <div class="flex-1 min-w-0">
     <div class="max-w-[640px] mx-auto px-5 md:px-10 py-8 md:py-10 pb-20 kb-fade-up">
 
         @include('webapp.partials.account-nav', ['accountActive' => 'details'])
@@ -188,6 +192,10 @@
             </div>
         </template>
     </div>
+    </div>
+
+    @include('webapp.partials.phone-preview')
+    </div>
     </main>
 </div>
 
@@ -230,6 +238,7 @@
                 this.prefill();
                 this.loading = false;
                 if (new URLSearchParams(location.search).get('edit') === '1') this.editing = true;
+                this.initPreview();
             },
             async loadLookups() {
                 const [bt, ct, ci] = await Promise.all([
@@ -281,6 +290,7 @@
                 if (res.ok) {
                     this.me = res.json?.data || this.me;
                     this.saved = true; this.editing = false;
+                    this.refreshPreview();
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                     return;
                 }
@@ -298,7 +308,7 @@
                 fd.append('profile_photo', file);
                 const res = await window.kb.upload('/me/profile', fd);
                 this.uploadingPhoto = false;
-                if (res.ok) { this.me = res.json?.data || this.me; this.saved = true; return; }
+                if (res.ok) { this.me = res.json?.data || this.me; this.saved = true; this.refreshPreview(); return; }
                 this.error = window.kb.errorText(res, t('account.photo_error'));
             },
             async toggleNotifPrefs() {

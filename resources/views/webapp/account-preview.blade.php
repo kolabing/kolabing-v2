@@ -2,10 +2,14 @@
 @section('title', __('webapp.account.preview.title'))
 
 @section('body')
-<div class="min-h-screen md:flex" x-data="kbMerge(kbShell(), accountPreviewPage())" x-init="init()">
+<div class="min-h-screen md:flex" x-data="kbMerge(kbShell(), kbPhonePreview(), accountPreviewPage())" x-init="init()">
     @include('webapp.partials.sidebar', ['active' => 'account'])
 
     <main class="flex-1 min-w-0 overflow-x-hidden">
+    {{-- The phone preview sits beside the tab from xl up; below that the
+         tab keeps its full-width layout. --}}
+    <div class="xl:flex xl:items-start xl:gap-8 xl:pr-10">
+    <div class="flex-1 min-w-0">
     <div class="max-w-[880px] mx-auto px-5 md:px-10 py-8 md:py-10 pb-20 kb-fade-up">
 
         @include('webapp.partials.account-nav', ['accountActive' => 'preview'])
@@ -108,6 +112,10 @@
         </div>
         </template>
     </div>
+    </div>
+
+    @include('webapp.partials.phone-preview')
+    </div>
     </main>
 </div>
 @endsection
@@ -131,6 +139,7 @@
                 await this.loadShell();
                 if (!this.me?.id) { this.loading = false; return; }
                 await this.load();
+                this.initPreview();
             },
 
             async load() {

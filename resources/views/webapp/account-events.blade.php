@@ -2,10 +2,14 @@
 @section('title', __('webapp.account.events.title'))
 
 @section('body')
-<div class="min-h-screen md:flex" x-data="kbMerge(kbShell(), accountEventsPage())" x-init="init()">
+<div class="min-h-screen md:flex" x-data="kbMerge(kbShell(), kbPhonePreview(), accountEventsPage())" x-init="init()">
     @include('webapp.partials.sidebar', ['active' => 'account'])
 
     <main class="flex-1 min-w-0 overflow-x-hidden">
+    {{-- The phone preview sits beside the tab from xl up; below that the
+         tab keeps its full-width layout. --}}
+    <div class="xl:flex xl:items-start xl:gap-8 xl:pr-10">
+    <div class="flex-1 min-w-0">
     <div class="max-w-[880px] mx-auto px-5 md:px-10 py-8 md:py-10 pb-20 kb-fade-up">
 
         @include('webapp.partials.account-nav', ['accountActive' => 'events'])
@@ -172,6 +176,10 @@
             </template>
         </div>
     </div>
+    </div>
+
+    @include('webapp.partials.phone-preview')
+    </div>
     </main>
 </div>
 @endsection
@@ -205,6 +213,7 @@
             async init() {
                 await this.loadShell();
                 await this.load();
+                this.initPreview();
             },
 
             async load() {
@@ -241,7 +250,7 @@
                 const res = await window.kb.upload('/events', fd);
                 this.busy = false;
 
-                if (res.ok) { this.form = null; await this.load(); return; }
+                if (res.ok) { this.form = null; await this.load(); this.refreshPreview(); return; }
                 this.error = window.kb.errorText(res, window.t('account.events.save_error'));
             },
 
@@ -270,14 +279,14 @@
                     },
                 });
                 this.busy = false;
-                if (res.ok) await this.load();
+                if (res.ok) { await this.load(); this.refreshPreview(); }
                 else this.error = window.kb.errorText(res, window.t('account.events.save_error'));
             },
 
             async destroy(event) {
                 this.confirmDelete = null;
                 const res = await window.kb.api('/events/' + event.id, { method: 'DELETE' });
-                if (res.ok) { this.openId = null; await this.load(); }
+                if (res.ok) { this.openId = null; await this.load(); this.refreshPreview(); }
                 else this.error = window.kb.errorText(res, window.t('account.events.delete_error'));
             },
 
@@ -302,11 +311,12 @@
                 this.busy = false;
                 if (failures.length) this.error = failures.join('\n');
                 await this.load();
+                this.refreshPreview();
             },
 
             async removePhoto(event, photo) {
                 const res = await window.kb.api('/events/' + event.id + '/photos/' + photo.id, { method: 'DELETE' });
-                if (res.ok) await this.load();
+                if (res.ok) { await this.load(); this.refreshPreview(); }
                 else this.error = window.kb.errorText(res, window.t('account.events.photo_error'));
             },
 
@@ -323,7 +333,7 @@
                 const res = await window.kb.api('/events/' + event.id + '/photos/order', {
                     method: 'PUT', body: { ids: (event.photos || []).map(p => p.id) },
                 });
-                if (res.ok) event.photos = window.kb.rows(res);
+                if (res.ok) { event.photos = window.kb.rows(res); this.refreshPreview(); }
                 else { this.error = window.kb.errorText(res, window.t('account.events.photo_error')); await this.load(); }
             },
         };
