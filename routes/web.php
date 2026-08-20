@@ -81,6 +81,12 @@ $webappRoutes = function (): void {
     Route::view('/applications', 'webapp.kolabs', ['initialTab' => 'requests']);
     // Public profile of any business/community, seen from inside the app.
     Route::view('/profiles/{profile}', 'webapp.profile');
+    // Public invitation landing page. On the APP host because Alpine needs
+    // 'unsafe-eval' and Google Sign-In needs accounts.google.com — the CSP grants
+    // both only here. Not auth-gated: it IS the front door for a new member.
+    Route::get('/c/{slug}', [\App\Http\Controllers\CommunityJoinPageController::class, 'show'])
+        ->name('communities.join-page');
+
     Route::view('/account', 'webapp.account');
     // Profile section tabs (BE-NF-35). Settings stay inside the Details page's
     // existing accordion — splitting them would be churn with no user benefit.
@@ -113,12 +119,17 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home')->middleware('cache_marketing');
 
-// Public landing for a community's shareable join link. config('communities.
-// invite_base_url') has always pointed here and Community::inviteUrl() has
-// always emitted /c/{slug}, but the route did not exist until now — every
-// invite link ever shared 404'd.
-Route::get('/c/{slug}', [\App\Http\Controllers\CommunityJoinPageController::class, 'show'])
-    ->name('communities.join-page');
+// Legacy invite links still point at the marketing host. The page itself moved
+// to the app host, where the CSP allows Alpine ('unsafe-eval') and Google
+// Sign-In — under the marketing policy it could not run at all (BE-NF-38).
+Route::get('/c/{slug}', function (string $slug) {
+    $query = request()->getQueryString();
+
+    return redirect()->away(
+        rtrim(config('webapp.url'), '/').'/c/'.$slug.($query ? '?'.$query : ''),
+        301,
+    );
+})->name('communities.join-page.legacy');
 
 Route::post('/newsletter', [NewsletterController::class, 'store'])
     ->middleware('throttle:10,1')
