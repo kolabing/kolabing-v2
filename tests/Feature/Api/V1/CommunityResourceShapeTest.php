@@ -33,7 +33,7 @@ class CommunityResourceShapeTest extends TestCase
         ], array_keys($array));
         $this->assertSame('greek', $array['type']);
         $this->assertSame('open', $array['join_policy']);
-        $this->assertSame('https://kolabing.com/c/'.$community->slug, $array['invite_url']);
+        $this->assertSame(rtrim(config('communities.invite_base_url'), '/').'/'.$community->slug, $array['invite_url']);
         $this->assertIsInt($array['member_count']);
         // Unauthenticated viewer (no request user) → null-safe CTA defaults.
         $this->assertFalse($array['is_member']);

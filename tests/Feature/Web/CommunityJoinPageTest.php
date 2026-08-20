@@ -10,11 +10,18 @@ use App\Models\CommunityMember;
 use App\Models\CommunityTier;
 use App\Models\Event;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 class CommunityJoinPageTest extends TestCase
 {
     use LazilyRefreshDatabase;
+
+    /** The page lives on the app host: only there does the CSP allow Alpine + Google. */
+    private function joinPage(string $slug, string $query = ''): TestResponse
+    {
+        return $this->get('http://'.config('webapp.host').'/c/'.$slug.$query);
+    }
 
     public function test_the_join_page_renders_for_a_known_slug(): void
     {
@@ -25,7 +32,7 @@ class CommunityJoinPageTest extends TestCase
         ]);
         CommunityMember::factory()->count(3)->create(['community_id' => $community->id]);
 
-        $this->get('/c/barcelona-run-club')
+        $this->joinPage('barcelona-run-club')
             ->assertOk()
             ->assertSee('Barcelona Run Club')
             ->assertSee('We run every Tuesday.')
@@ -34,17 +41,56 @@ class CommunityJoinPageTest extends TestCase
 
     public function test_an_unknown_slug_is_404(): void
     {
-        $this->get('/c/does-not-exist')->assertNotFound();
+        $this->joinPage('does-not-exist')->assertNotFound();
     }
 
-    public function test_the_invite_url_the_backend_hands_out_now_resolves(): void
+    /**
+     * The defect this file exists to prevent: the page used to render its CTA
+     * inside <template x-if> blocks on a layout that loaded no Alpine at all, so
+     * a browser painted nothing. Asserting the markup is present was not enough —
+     * assert the page can actually RUN it.
+     */
+    public function test_the_page_can_actually_run_its_alpine(): void
     {
-        // Community::inviteUrl() has always emitted this path; it used to 404.
+        Community::factory()->create(['slug' => 'runnable']);
+
+        $this->joinPage('runnable')
+            ->assertOk()
+            ->assertSee('alpine-3.14.1.min.js', false)
+            ->assertSee('[x-cloak]', false)
+            ->assertSee('communityJoinPage()', false);
+    }
+
+    public function test_the_invite_url_the_backend_hands_out_points_at_this_page(): void
+    {
         $community = Community::factory()->create();
 
-        $path = parse_url($community->inviteUrl(), PHP_URL_PATH);
+        $this->assertStringStartsWith(
+            rtrim(config('webapp.url'), '/').'/c/',
+            $community->inviteUrl(),
+        );
 
-        $this->get($path)->assertOk();
+        $this->joinPage($community->slug)->assertOk();
+    }
+
+    public function test_a_legacy_marketing_link_redirects_and_keeps_the_token(): void
+    {
+        Community::factory()->create(['slug' => 'legacy-link']);
+
+        $this->get('http://kolabing.com/c/legacy-link?i=abc123')
+            ->assertRedirect(rtrim(config('webapp.url'), '/').'/c/legacy-link?i=abc123');
+    }
+
+    public function test_a_signed_out_visitor_gets_the_google_button_and_the_form(): void
+    {
+        Community::factory()->create(['slug' => 'form-check']);
+
+        $this->joinPage('form-check')
+            ->assertOk()
+            ->assertSee('kbGoogle', false)
+            ->assertSee('Full name')
+            ->assertSee('Phone number (optional)')
+            ->assertSee('Add a photo');
     }
 
     public function test_removed_members_are_not_counted(): void
@@ -56,7 +102,7 @@ class CommunityJoinPageTest extends TestCase
             'status' => CommunityMemberStatus::Removed->value,
         ]);
 
-        $this->get('/c/count-check')->assertOk()->assertSee('1 member');
+        $this->joinPage('count-check')->assertOk()->assertSee('1 member');
     }
 
     public function test_the_tier_ladder_renders_highest_rank_first(): void
@@ -65,7 +111,7 @@ class CommunityJoinPageTest extends TestCase
         CommunityTier::factory()->forCommunity($community)->create(['name' => 'Pledge', 'rank' => 1]);
         CommunityTier::factory()->forCommunity($community)->create(['name' => 'Exec', 'rank' => 5]);
 
-        $content = $this->get('/c/tiers-check')->assertOk()->getContent();
+        $content = $this->joinPage('tiers-check')->assertOk()->getContent();
 
         $this->assertLessThan(
             strpos($content, 'Pledge'),
@@ -102,7 +148,7 @@ class CommunityJoinPageTest extends TestCase
             'visibility' => 'public',
         ]);
 
-        $this->get('/c/events-check')
+        $this->joinPage('events-check')
             ->assertOk()
             ->assertSee('Tuesday Run')
             ->assertDontSee('Members Only Social')
@@ -115,26 +161,30 @@ class CommunityJoinPageTest extends TestCase
         Community::factory()->inviteOnly()->create(['slug' => 'private-one']);
         Community::factory()->create(['slug' => 'open-one']);
 
-        $this->get('/c/private-one')->assertOk()->assertSee('noindex,nofollow', false);
-        $this->get('/c/open-one')->assertOk()->assertDontSee('noindex', false);
+        $this->joinPage('private-one')->assertOk()->assertSee('noindex,nofollow', false);
+        $this->joinPage('open-one')->assertOk()->assertDontSee('noindex', false);
     }
 
     public function test_the_invitation_token_reaches_the_cta_state(): void
     {
         Community::factory()->create(['slug' => 'token-check']);
 
-        $this->get('/c/token-check?i=abc123')
+        $this->joinPage('token-check', '?i=abc123')
             ->assertOk()
             ->assertSee('abc123', false)
             ->assertSee('Accept invitation');
     }
 
-    public function test_an_open_community_offers_join_and_an_invite_only_one_offers_a_request(): void
+    public function test_the_page_is_localised(): void
     {
-        Community::factory()->create(['slug' => 'cta-open']);
-        Community::factory()->inviteOnly()->create(['slug' => 'cta-private']);
+        Community::factory()->create(['slug' => 'locale-check']);
 
-        $this->get('/c/cta-open')->assertOk()->assertSee('Sign in to join');
-        $this->get('/c/cta-private')->assertOk()->assertSee('Request to join');
+        $this->get('http://'.config('webapp.host').'/es/c/locale-check')
+            ->assertOk()
+            ->assertSee('Sobre ti');
+
+        $this->get('http://'.config('webapp.host').'/ca/c/locale-check')
+            ->assertOk()
+            ->assertSee('Sobre tu');
     }
 }
