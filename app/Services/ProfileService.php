@@ -429,6 +429,28 @@ class ProfileService
     }
 
     /**
+     * Hydrate ONLY the portfolio block (gallery + merged past events) for the
+     * light `GET /profiles/{id}` endpoint.
+     *
+     * Deliberately narrower than getPublicProfileDetail(): that method also runs
+     * collaboration/kolab count queries for `public_stats`, which the light
+     * endpoint neither emits nor should pay for.
+     */
+    public function hydratePublicPortfolio(Profile $profile): Profile
+    {
+        if (! $profile->isBusiness() && ! $profile->isCommunity()) {
+            return $profile;
+        }
+
+        $profile->loadMissing('galleryPhotos');
+
+        $profile->setAttribute('community_public_past_events', $this->buildCommunityPastEvents($profile));
+        $profile->setAttribute('community_public_gallery', $this->buildCommunityGallery($profile));
+
+        return $profile;
+    }
+
+    /**
      * Get or create notification preferences for a profile.
      */
     public function getOrCreateNotificationPreferences(Profile $profile): NotificationPreference
