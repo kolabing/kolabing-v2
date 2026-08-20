@@ -68,6 +68,46 @@ class WebAppRoutesTest extends TestCase
         }
     }
 
+    public function test_the_phone_preview_renders_on_every_profile_tab(): void
+    {
+        // A read-only replica of the app's profile screen, beside each tab, so a
+        // leader reordering a gallery can see which photo leads on a phone.
+        foreach (['', '/gallery', '/events', '/preview'] as $path) {
+            $this->get('http://'.$this->host().'/account'.$path)
+                ->assertOk()
+                ->assertSee('kbPhonePreview()', false)
+                ->assertSee('On a phone');
+        }
+    }
+
+    public function test_the_phone_preview_is_gated_to_wide_screens(): void
+    {
+        // Rendering a phone frame on a phone-width browser is nonsense; the tab
+        // keeps its full-width layout below xl.
+        $this->get('http://'.$this->host().'/account/gallery')
+            ->assertOk()
+            ->assertSee('hidden xl:block w-[360px]', false);
+    }
+
+    public function test_the_preview_refreshes_after_an_edit(): void
+    {
+        // The phone must never be stale relative to what the tab just did.
+        $this->get('http://'.$this->host().'/account/gallery')
+            ->assertOk()
+            ->assertSee('refreshPreview()', false);
+    }
+
+    public function test_the_phone_preview_is_localised(): void
+    {
+        $this->get('http://'.$this->host().'/es/account/gallery')
+            ->assertOk()
+            ->assertSee('En el móvil');
+
+        $this->get('http://'.$this->host().'/ca/account/gallery')
+            ->assertOk()
+            ->assertSee('Al mòbil');
+    }
+
     public function test_profile_section_tabs_render_under_the_locale_prefixes(): void
     {
         foreach (['es', 'ca'] as $locale) {

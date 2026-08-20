@@ -512,6 +512,60 @@
             },
         };
 
+        /**
+         * Phone-frame preview state, shared by every Profile-section tab.
+         *
+         * Spread into the page's x-data next to kbShell(); call initPreview()
+         * from the page's init() and refreshPreview() after any successful
+         * mutation, so the phone is never stale relative to what the tab did.
+         *
+         * The markup lives in webapp/partials/phone-preview.blade.php, which
+         * mirrors kolabing-app's public_profile_screen.dart.
+         */
+        window.kbPhonePreview = function () {
+            return {
+                previewProfile: null,
+                previewLoading: true,
+                previewError: '',
+
+                get previewAvatar() {
+                    return this.previewProfile?.avatar_url || this.previewProfile?.profile_photo || '';
+                },
+                get previewGallery() { return this.previewProfile?.gallery || []; },
+                get previewPastEvents() { return this.previewProfile?.past_events || []; },
+                get previewCollaborations() { return this.previewProfile?.past_collaborations || []; },
+                get previewRating() {
+                    const rating = this.previewProfile?.reputation?.average_rating;
+                    return rating ? Number(rating).toFixed(1) : '—';
+                },
+                get previewSocials() {
+                    const p = this.previewProfile || {};
+                    return [p.instagram, p.tiktok, p.website].filter(Boolean);
+                },
+
+                previewEventCover(event) {
+                    const first = (event?.media || [])[0];
+                    return first ? (first.url || first) : null;
+                },
+
+                async initPreview() { await this.refreshPreview(); },
+
+                async refreshPreview() {
+                    if (!this.me?.id) { this.previewLoading = false; return; }
+
+                    this.previewError = '';
+                    const res = await window.kb.api('/profiles/' + this.me.id + '/public-profile');
+                    this.previewLoading = false;
+
+                    if (!res.ok) {
+                        this.previewError = window.kb.errorText(res, window.t('account.phone.error'));
+                        return;
+                    }
+                    this.previewProfile = res.json?.data || null;
+                },
+            };
+        };
+
         // Shared shell state: viewer identity + unread notification count + theme.
         // kbMerge (never object spread) so kbThemeState's `isDark` getter stays lazy.
         function kbShell() {

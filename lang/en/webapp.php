@@ -409,6 +409,18 @@ return [
         'withdraw_error' => 'Could not withdraw this application.',
     ],
     'account' => [
+        'phone' => [
+            'title' => 'On a phone',
+            'about' => 'About',
+            'gallery' => 'Gallery',
+            'past_events' => 'Past events',
+            'collaborations' => 'Collaborations',
+            'links' => 'Links',
+            'reviews' => ':count reviews',
+            'completed' => ':count completed',
+            'error' => 'Could not load the preview.',
+            'note' => 'A read-only replica of the Kolabing app profile screen. It updates as you edit.',
+        ],
         'tabs' => [
             'details' => 'Profile',
             'gallery' => 'Gallery',
