@@ -82,6 +82,11 @@ $webappRoutes = function (): void {
     // Public profile of any business/community, seen from inside the app.
     Route::view('/profiles/{profile}', 'webapp.profile');
     Route::view('/account', 'webapp.account');
+    // Profile section tabs (BE-NF-35). Settings stay inside the Details page's
+    // existing accordion — splitting them would be churn with no user benefit.
+    Route::view('/account/gallery', 'webapp.account-gallery');
+    Route::view('/account/events', 'webapp.account-events');
+    Route::view('/account/preview', 'webapp.account-preview');
 
     // Community Hub — the members & tiers surface (BE-NF-29). All literals
     // under /community; no catch-all segment, so order is not load-bearing.

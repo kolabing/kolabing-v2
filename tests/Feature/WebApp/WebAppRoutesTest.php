@@ -57,6 +57,35 @@ class WebAppRoutesTest extends TestCase
             ->assertSee('Create your account');
     }
 
+    public function test_profile_section_tabs_render(): void
+    {
+        foreach (['', '/gallery', '/events', '/preview'] as $path) {
+            // The tab strip renders on every tab, so each page links to the others.
+            $this->get('http://'.$this->host().'/account'.$path)
+                ->assertOk()
+                ->assertSee('/account/gallery', false)
+                ->assertSee('Past events');
+        }
+    }
+
+    public function test_profile_section_tabs_render_under_the_locale_prefixes(): void
+    {
+        foreach (['es', 'ca'] as $locale) {
+            $this->get('http://'.$this->host().'/'.$locale.'/account/gallery')->assertOk();
+        }
+    }
+
+    public function test_the_profile_section_is_localised(): void
+    {
+        $this->get('http://'.$this->host().'/es/account/events')
+            ->assertOk()
+            ->assertSee('Registrar un evento pasado');
+
+        $this->get('http://'.$this->host().'/ca/account/events')
+            ->assertOk()
+            ->assertSee('Registra un esdeveniment passat');
+    }
+
     public function test_community_hub_pages_render_on_the_app_host(): void
     {
         // Public shells; auth + the manage gate are enforced client-side and by

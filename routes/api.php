@@ -315,6 +315,10 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.me.gallery.store');
 
         // Delete gallery photo
+        Route::put('me/gallery/order', [GalleryController::class, 'reorder'])
+            ->name('api.v1.me.gallery.reorder');
+        Route::patch('me/gallery/{photo}', [GalleryController::class, 'update'])
+            ->name('api.v1.me.gallery.update');
         Route::delete('me/gallery/{photo}', [GalleryController::class, 'destroy'])
             ->name('api.v1.me.gallery.destroy');
 
@@ -367,6 +371,8 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.events.chat.store');
 
         // NF-16 — add/remove photos on an existing event (creator / can_manage)
+        Route::put('events/{event}/photos/order', [EventPhotoController::class, 'reorder'])
+            ->name('api.v1.events.photos.reorder');
         Route::post('events/{event}/photos', [EventPhotoController::class, 'store'])
             ->name('api.v1.events.photos.store');
         Route::delete('events/{event}/photos/{photo}', [EventPhotoController::class, 'destroy'])
