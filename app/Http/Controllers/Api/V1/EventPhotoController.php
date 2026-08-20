@@ -5,16 +5,20 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\ReorderEventPhotosRequest;
 use App\Http\Requests\Api\V1\StoreEventPhotosRequest;
+use App\Http\Resources\Api\V1\EventPhotoResource;
 use App\Http\Resources\Api\V1\EventResource;
 use App\Models\Community;
 use App\Models\Event;
 use App\Models\EventPhoto;
 use App\Models\Profile;
 use App\Services\EventService;
+use App\Services\PhotoOrderingService;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class EventPhotoController extends Controller
 {
@@ -74,6 +78,38 @@ class EventPhotoController extends Controller
         return response()->json([
             'success' => true,
             'data' => null,
+        ]);
+    }
+
+    /**
+     * PUT /api/v1/events/{event}/photos/order — set the display order
+     * (creator / community can_manage).
+     */
+    public function reorder(
+        ReorderEventPhotosRequest $request,
+        Event $event,
+        PhotoOrderingService $ordering,
+    ): JsonResponse {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        if (! $this->canManageEvent($profile, $event)) {
+            return $this->forbidden();
+        }
+
+        $owned = $event->photos()->pluck('id')->all();
+        $ordered = $ordering->resolve($request->validated('ids'), $owned);
+
+        DB::transaction(function () use ($ordered): void {
+            foreach ($ordered as $index => $id) {
+                EventPhoto::query()->whereKey($id)->update(['sort_order' => $index]);
+            }
+        });
+
+        // Event::photos() already orders by sort_order.
+        return response()->json([
+            'success' => true,
+            'data' => EventPhotoResource::collection($event->photos()->get()),
         ]);
     }
 

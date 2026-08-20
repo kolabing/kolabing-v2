@@ -371,6 +371,8 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.events.chat.store');
 
         // NF-16 — add/remove photos on an existing event (creator / can_manage)
+        Route::put('events/{event}/photos/order', [EventPhotoController::class, 'reorder'])
+            ->name('api.v1.events.photos.reorder');
         Route::post('events/{event}/photos', [EventPhotoController::class, 'store'])
             ->name('api.v1.events.photos.store');
         Route::delete('events/{event}/photos/{photo}', [EventPhotoController::class, 'destroy'])
