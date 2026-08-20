@@ -315,6 +315,10 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.me.gallery.store');
 
         // Delete gallery photo
+        Route::put('me/gallery/order', [GalleryController::class, 'reorder'])
+            ->name('api.v1.me.gallery.reorder');
+        Route::patch('me/gallery/{photo}', [GalleryController::class, 'update'])
+            ->name('api.v1.me.gallery.update');
         Route::delete('me/gallery/{photo}', [GalleryController::class, 'destroy'])
             ->name('api.v1.me.gallery.destroy');
 
