@@ -10,6 +10,7 @@ use App\Http\Resources\Api\V1\EventCheckinResource;
 use App\Models\Event;
 use App\Models\Profile;
 use App\Services\CheckinService;
+use App\Support\CheckinLink;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -37,11 +38,18 @@ class CheckinController extends Controller
         }
 
         $token = $this->checkinService->generateCheckinToken($event);
+        $event->refresh();
 
         return response()->json([
             'success' => true,
             'data' => [
                 'checkin_token' => $token,
+                // The typable twin, and the URL the QR should carry. Building the
+                // URL here keeps every client — web, mobile, a printed sheet — from
+                // inventing its own shape.
+                'checkin_code' => $event->checkin_code,
+                'checkin_url' => CheckinLink::urlFor($event),
+                'checkin_expires_at' => $event->checkin_token_expires_at?->toIso8601String(),
             ],
         ]);
     }

@@ -123,7 +123,8 @@
                 this.loginLoading = false;
                 if (res.ok && res.json?.data?.token) {
                     window.kb.setSession(res.json.data);
-                    window.nav('/dashboard');
+                    // A QR sends people here mid-task; ?next= takes them back to it.
+                    window.nav(window.kbPostAuthTarget('/dashboard'));
                     return;
                 }
                 this.loginError = window.kb.errorText(res, t('login.error'));
@@ -173,7 +174,9 @@
                 if (res.ok && res.json?.data?.token) {
                     window.kb.setSession(res.json.data);
                     // A brand-new business lands on the plan; everyone else on the dashboard.
-                    window.nav(res.json.data.is_new_user && this.userType === 'business' ? '/subscription?reason=welcome' : '/dashboard');
+                    window.nav(window.kbPostAuthTarget(
+                        res.json.data.is_new_user && this.userType === 'business' ? '/subscription?reason=welcome' : '/dashboard'
+                    ));
                     return;
                 }
                 this.loginError = window.kb.errorText(res, t('login.google_error'));

@@ -71,6 +71,15 @@ $webappRoutes = function (): void {
     // client-side, and ?thread= / ?application= / ?collaboration= deep-link into
     // one (resolved against GET /chats, so no extra endpoint is needed).
     Route::view('/chats', 'webapp.chats');
+    /*
+     * Events and the door. `/checkin/{token}` is what a QR points at: it accepts
+     * either the short code or the long token, signs the visitor in if they are not
+     * already, and then performs the check-in. Order matters — the literal /create
+     * must be declared before the {event} catch-all.
+     */
+    Route::view('/events', 'webapp.events');
+    Route::view('/events/{event}', 'webapp.event-detail');
+    Route::view('/checkin/{token}', 'webapp.checkin');
     // Kolabs — order matters: literal + edit before the {kolab} catch-all.
     Route::view('/kolabs', 'webapp.kolabs');
     Route::view('/kolabs/create', 'webapp.kolab-form');

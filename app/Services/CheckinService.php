@@ -12,11 +12,15 @@ use App\Models\Event;
 use App\Models\EventCheckin;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class CheckinService
 {
+    /** How long a door stays open at minimum, measured from the host opening it. */
+    private const MINIMUM_DOOR_HOURS = 4;
+
     public function __construct(
         private readonly BadgeService $badgeService,
         private readonly TierAssignmentService $tierAssignmentService,
@@ -30,8 +34,13 @@ class CheckinService
     public function generateCheckinToken(Event $event): string
     {
         $token = Str::random(64);
+
         $event->update([
             'checkin_token' => $token,
+            'checkin_code' => $this->uniqueCheckinCode(),
+            // Opening the door is deliberate (is_active), but closing it must not
+            // depend on anyone remembering: the token dies with the event window.
+            'checkin_token_expires_at' => $this->checkinWindowEndsAt($event),
             'is_active' => true,
         ]);
 
@@ -39,11 +48,63 @@ class CheckinService
     }
 
     /**
+     * When the door closes.
+     *
+     * Anchored on the moment the host opened it, because opening is a deliberate
+     * act: pressing the button must always give you a door, even for an event whose
+     * recorded date is wrong or which only ever had a date and no times. The event's
+     * own end can only ever *extend* that window, never cut it short — the first
+     * version of this shortened it, and a legacy date-only event slammed shut the
+     * instant it was opened.
+     *
+     * It still expires, which is the point: a QR photographed at one event cannot
+     * manufacture attendance weeks later. A host who suspects a leaked code re-opens
+     * the door, which mints a fresh token and code.
+     */
+    private function checkinWindowEndsAt(Event $event): Carbon
+    {
+        $floor = now()->addHours(self::MINIMUM_DOOR_HOURS);
+
+        $fromEvent = match (true) {
+            $event->ends_at !== null => $event->ends_at->copy()->addHour(),
+            $event->starts_at !== null => $event->starts_at->copy()->addHours(6),
+            default => null,
+        };
+
+        return $fromEvent !== null && $fromEvent->isAfter($floor) ? $fromEvent : $floor;
+    }
+
+    /**
+     * A short code someone can read off a screen and type. The alphabet drops the
+     * characters people confuse out loud — O/0, I/1/L — because this gets shouted
+     * across a room.
+     */
+    private function uniqueCheckinCode(): string
+    {
+        $alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+        do {
+            $code = '';
+            for ($i = 0; $i < 8; $i++) {
+                $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+            }
+        } while (Event::query()->where('checkin_code', $code)->exists());
+
+        return $code;
+    }
+
+    /**
      * Check in an attendee using a QR token.
      */
     public function checkin(Profile $profile, string $token): EventCheckin
     {
-        $event = Event::query()->where('checkin_token', $token)->first();
+        // The QR carries the long token; the typed fallback carries the short code.
+        // Both are the same permission, so both are accepted here.
+        $event = Event::query()
+            ->where(fn ($query) => $query
+                ->where('checkin_token', $token)
+                ->orWhere('checkin_code', strtoupper($token)))
+            ->first();
 
         if (! $event) {
             throw new \InvalidArgumentException('Invalid check-in token.');
@@ -51,6 +112,10 @@ class CheckinService
 
         if (! $event->is_active) {
             throw new \LogicException('This event is not currently accepting check-ins.');
+        }
+
+        if ($event->checkin_token_expires_at !== null && $event->checkin_token_expires_at->isPast()) {
+            throw new \LogicException('Check-in for this event has closed.');
         }
 
         $existing = EventCheckin::query()
