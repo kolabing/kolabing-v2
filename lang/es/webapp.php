@@ -279,6 +279,14 @@ return [
         'back_to_explore' => 'Volver a Explorar',
     ],
     'form' => [
+        'past_events' => [
+            'title' => 'Eventos pasados',
+            'help' => 'Eventos que hiciste para este Kolab. Aparecen en tu perfil público junto a los eventos pasados que registres.',
+            'name' => 'Nombre del evento',
+            'partner' => 'Partner (opcional)',
+            'add' => 'Añadir un evento pasado',
+            'photo_error' => 'No se ha podido subir la foto.',
+        ],
         'create_title' => 'Crear un Kolab',
         'edit_title' => 'Editar Kolab',
         'free' => 'GRATIS',

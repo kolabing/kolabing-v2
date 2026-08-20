@@ -280,6 +280,14 @@ return [
         'back_to_explore' => 'Back to Explore',
     ],
     'form' => [
+        'past_events' => [
+            'title' => 'Past events',
+            'help' => 'Events you ran for this Kolab. They appear on your public profile alongside your logged past events.',
+            'name' => 'Event name',
+            'partner' => 'Partner (optional)',
+            'add' => 'Add a past event',
+            'photo_error' => 'Could not upload the photo.',
+        ],
         'create_title' => 'Create a Kolab',
         'edit_title' => 'Edit Kolab',
         'free' => 'FREE',

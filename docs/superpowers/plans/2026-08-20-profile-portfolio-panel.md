@@ -1,4 +1,4 @@
-# Profile & Portfolio Panel (BE-NF-35) — Implementation Plan
+# Profile & Portfolio Panel (BE-NF-36) — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -1414,7 +1414,7 @@ Expected: `es: complete` / `ca: complete`.
 - [ ] **`docs/ROLES-BACKEND-DB-MAP.md`** — the three new endpoints; the two-store merge
   with its item shape, ordering, and dedup rule; the light-profile portfolio and the
   attendee guard; the gallery ordering guarantee. Bump *Last updated*.
-- [ ] **`BACKLOG.md`** — BE-NF-35 entry. Bump *Last updated*. **Confirm the id is still
+- [ ] **`BACKLOG.md`** — BE-NF-36 entry. Bump *Last updated*. **Confirm the id is still
   free first** — ids get claimed by parallel sessions:
 
 ```bash

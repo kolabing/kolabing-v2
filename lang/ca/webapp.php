@@ -279,6 +279,14 @@ return [
         'back_to_explore' => 'Torna a Explora',
     ],
     'form' => [
+        'past_events' => [
+            'title' => 'Esdeveniments passats',
+            'help' => 'Esdeveniments que vas fer per a aquest Kolab. Apareixen al teu perfil públic al costat dels esdeveniments passats que registris.',
+            'name' => 'Nom de l\'esdeveniment',
+            'partner' => 'Partner (opcional)',
+            'add' => 'Afegeix un esdeveniment passat',
+            'photo_error' => 'No s\'ha pogut pujar la foto.',
+        ],
         'create_title' => 'Crea un Kolab',
         'edit_title' => 'Edita el Kolab',
         'free' => 'GRATIS',

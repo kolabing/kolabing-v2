@@ -206,6 +206,58 @@
                     </template>
                 </div>
 
+                {{-- ── Past events (edit mode, review step) ─────────────────
+                     Free-form entries stored on kolabs.past_events. They join the
+                     events-table rows in the public profile's past-events block. --}}
+                <div x-show="isEdit && isReview" x-cloak class="mt-7 pt-6 border-t border-ink/[.08]">
+                    <p class="text-sm font-bold text-ink">{{ __('webapp.form.past_events.title') }}</p>
+                    <p class="mt-1 text-[12px] text-muted">{{ __('webapp.form.past_events.help') }}</p>
+
+                    <div class="mt-4 flex flex-col gap-3">
+                        <template x-for="(pe, index) in pastEvents" :key="index">
+                            <div class="rounded-2xl border border-ink/[.12] bg-white p-4">
+                                <div class="grid sm:grid-cols-3 gap-2.5">
+                                    <input type="text" x-model="pe.name" maxlength="255"
+                                           placeholder="{{ __('webapp.form.past_events.name') }}"
+                                           class="h-11 px-3 rounded-xl bg-white border border-ink/[.12] text-sm">
+                                    <input type="date" x-model="pe.date" :max="new Date().toISOString().slice(0,10)"
+                                           class="h-11 px-3 rounded-xl bg-white border border-ink/[.12] text-sm">
+                                    <input type="text" x-model="pe.partner_name" maxlength="255"
+                                           placeholder="{{ __('webapp.form.past_events.partner') }}"
+                                           class="h-11 px-3 rounded-xl bg-white border border-ink/[.12] text-sm">
+                                </div>
+
+                                <div class="mt-3 flex flex-wrap items-center gap-2">
+                                    <template x-for="(url, photoIndex) in pe.photos" :key="photoIndex">
+                                        <div class="relative">
+                                            <img :src="url" alt="" class="w-14 h-14 rounded-lg object-cover border border-ink/[.08]">
+                                            <button type="button" @click="removePastEventPhoto(index, photoIndex)"
+                                                    class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-ink text-white text-[12px] leading-none flex items-center justify-center"
+                                                    aria-label="{{ __('webapp.common.delete') }}">&times;</button>
+                                        </div>
+                                    </template>
+
+                                    <label x-show="pe.photos.length < 3" x-cloak
+                                           class="w-14 h-14 rounded-lg border border-dashed border-ink/25 flex items-center justify-center cursor-pointer text-muted text-xl"
+                                           :class="pastEventBusy ? 'opacity-50 pointer-events-none' : ''">
+                                        <input type="file" accept="image/*" class="hidden" @change="addPastEventPhoto(index, $event)">
+                                        +
+                                    </label>
+
+                                    <div class="flex-1"></div>
+                                    <button type="button" @click="removePastEvent(index)"
+                                            class="text-[12px] font-bold text-bad-ink">{{ __('webapp.common.remove') }}</button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <button type="button" @click="addPastEvent()"
+                            class="mt-3 h-10 px-4 rounded-pill bg-white border border-ink/[.12] text-[13px] font-bold hover:border-ink/30 transition">
+                        {{ __('webapp.form.past_events.add') }}
+                    </button>
+                </div>
+
                 <div class="flex gap-2.5 mt-7">
                     <button type="button" @click="back()"
                             class="h-12 px-6 rounded-pill bg-white border border-line text-ink text-sm font-bold hover:border-ink transition">{{ __('webapp.common.back') }}</button>
@@ -243,6 +295,7 @@
         return {
             loading: true, busy: false, uploading: false, error: '',
             isEdit: !!editId, editId,
+            pastEvents: [], pastEventBusy: false,
             intent: null, stepIndex: 0, doneOpen: false, doneTitle: '', doneBody: '',
             cities: [],
             lookups: { needs: [], deliverables: [], offerings: [], goals: [], product_types: [], community_types: [] },
@@ -436,6 +489,50 @@
                     if (Array.isArray(k[f])) this.form[f] = [...k[f]];
                 }
                 if (Array.isArray(k.media)) this.form.media = k.media.map((m, i) => ({ url: m.url, type: m.type || 'image', sort_order: i }));
+                // past_events is a free-form JSON array on the Kolab; it feeds
+                // the public profile's past-events block alongside the events table.
+                if (Array.isArray(k.past_events)) {
+                    this.pastEvents = k.past_events.map(e => ({
+                        name: e.name || '',
+                        date: (e.date || '').slice(0, 10),
+                        partner_name: e.partner_name || '',
+                        photos: Array.isArray(e.photos) ? [...e.photos] : [],
+                    }));
+                }
+            },
+
+            /* ── Past events (edit mode only — it goes out on PUT) ─────── */
+
+            addPastEvent() {
+                this.pastEvents.push({ name: '', date: '', partner_name: '', photos: [] });
+            },
+            removePastEvent(index) { this.pastEvents.splice(index, 1); },
+
+            async addPastEventPhoto(index, domEvent) {
+                const file = (domEvent.target.files || [])[0];
+                domEvent.target.value = '';
+                // The API caps a past event at 3 photo URLs.
+                if (!file || this.pastEvents[index].photos.length >= 3) return;
+
+                this.pastEventBusy = true;
+                const res = await window.kb.uploadFile(file, 'kolabs');
+                this.pastEventBusy = false;
+
+                if (res.ok && res.json?.data?.url) this.pastEvents[index].photos.push(res.json.data.url);
+                else this.error = window.kb.errorText(res, t('form.past_events.photo_error'));
+            },
+            removePastEventPhoto(index, photoIndex) { this.pastEvents[index].photos.splice(photoIndex, 1); },
+
+            /** Drop rows the API would reject: name and date are both required. */
+            cleanPastEvents() {
+                return this.pastEvents
+                    .filter(e => e.name.trim() && e.date)
+                    .map(e => ({
+                        name: e.name.trim(),
+                        date: e.date,
+                        partner_name: e.partner_name.trim() || null,
+                        photos: e.photos,
+                    }));
             },
 
             pickIntent(v) { this.intent = v; this.stepIndex = 0; this.error = ''; },
@@ -551,7 +648,7 @@
             async submit() {
                 this.busy = true;
                 const res = this.isEdit
-                    ? await window.kb.api('/kolabs/' + this.editId, { method: 'PUT', body: this.payload() })
+                    ? await window.kb.api('/kolabs/' + this.editId, { method: 'PUT', body: { ...this.payload(), past_events: this.cleanPastEvents() } })
                     : await window.kb.api('/kolabs', { method: 'POST', body: this.payload() });
 
                 if (!res.ok) {

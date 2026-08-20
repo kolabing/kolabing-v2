@@ -1,4 +1,4 @@
-# Profile & Portfolio Panel — past events, photos, gallery (BE-NF-35)
+# Profile & Portfolio Panel — past events, photos, gallery (BE-NF-36)
 
 > Design spec. Date: 2026-08-20. **Revision 2** — revision 1 mis-diagnosed the
 > public-profile gap; corrected below against the live schema and prod data.
@@ -199,7 +199,7 @@ per-chunk failures — rather than rejecting the drop or silently truncating it.
   work; free for both roles. Bump *Last updated*.
 - `docs/ROLES-BACKEND-DB-MAP.md` — the three new endpoints, the two-store merge and its
   item shape, the light-profile portfolio, and the attendee guard. Bump *Last updated*.
-- `BACKLOG.md` — BE-NF-35. Bump *Last updated*.
+- `BACKLOG.md` — BE-NF-36. Bump *Last updated*.
 - PR **Mobile impact is required**: `past_events` items gain `source`,
   `source_event_id`, `attendee_count` and the array grows; `GET /profiles/{id}` gains
   three fields; three new endpoints are available to adopt.
