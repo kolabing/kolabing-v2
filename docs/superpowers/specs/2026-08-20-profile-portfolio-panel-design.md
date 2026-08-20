@@ -1,6 +1,7 @@
 # Profile & Portfolio Panel — past events, photos, gallery (BE-NF-35)
 
-> Design spec. Date: 2026-08-20.
+> Design spec. Date: 2026-08-20. **Revision 2** — revision 1 mis-diagnosed the
+> public-profile gap; corrected below against the live schema and prod data.
 > Governed by `docs/ROLES-AND-PERMISSIONS.md` and `docs/ROLES-BACKEND-DB-MAP.md`.
 > Applies to **business and community** accounts. Nothing here is paywalled.
 
@@ -8,153 +9,210 @@
 
 ## 1. Why this exists
 
-A community or business builds credibility on **what they have already done** — the
-events they ran, who they ran them with, and the photographs. The backend has carried
-that concept from the start:
+A business or community earns trust on **what they have already done** — the events
+they ran, who they ran them with, and the photographs. The backend has carried that
+concept from the start; none of it is reachable from the web.
 
-- **Past events** are first-class. `POST /events` has a retrospective branch
-  (`name`, `partner_name`, `partner_type`, `date`, `attendee_count`, `photos[]`) that
-  is distinct from the upcoming-community-event branch. `PUT`/`DELETE` work on them,
-  and `GET /events?time=past&profile_id=…` lists them.
-- **Event photos** have their own store (`event_photos`), endpoints
-  (`POST|DELETE /events/{event}/photos`) and a cap of 20 per event, 5 per request.
-- **Profile gallery** has its own store (`profile_gallery_photos`), endpoints
-  (`GET|POST|DELETE /me/gallery`) and a cap of 20, 5 per request.
-- `CommunityPublicProfileResource` **already publishes** `gallery`, `photos`,
-  `past_events`, `past_events_count` and `past_collaborations`.
+`grep` over `resources/views/webapp/` finds no call to `/events` or `/me/gallery`.
+The only profile surface is `/account`, which edits text fields and notification
+preferences.
 
-**None of it is reachable from the web.** There is no events UI and no gallery UI
-anywhere in `resources/views/webapp/`. The only profile surface is `/account`, which
-edits text fields and notification preferences. So a leader can publish a portfolio
-that the public profile renders, but only from a mobile app that has not shipped the
-screens either.
+## 2. The finding that shapes this design: there are TWO past-event stores
 
-## 2. The three defects this closes
+This is the correction to revision 1, and it drives everything below.
+
+| Store | What it is | Written by | Prod volume | Rendered on the public profile? |
+|---|---|---|---|---|
+| **`events` table** (rows with `event_date` in the past) | Real rows with `partner_name`, `partner_type`, `attendee_count`, and their own `event_photos` (≤20 each) | the retrospective branch of `POST /events` | **60 events, 173 photos** — business 26/76, community 34/97 | **No** |
+| **`kolabs.past_events`** | A free-form JSON array on each Kolab: `{name, date, partner_name, photos[≤3 urls]}` | `PUT /kolabs/{id}` (`UpdateKolabRequest` accepts it) | **7 kolabs** | **Yes** — `ProfileService::buildCommunityPastEvents()` reads only this |
+
+So the store almost nobody uses is the one on show, and **173 photographs that
+businesses and communities already uploaded are invisible to the public.** That is
+the single highest-value fix in this spec, and it is a service-layer change, not a
+migration.
+
+**Revision 1 was wrong about two things**, both corrected here:
+- It claimed businesses have no public portfolio. They do:
+  `GET /profiles/{profile}/public-profile` serves **business or community** the rich
+  payload (`CommunityPublicProfileResource`), and `getPublicProfileDetail()` explicitly
+  accepts both. Only the *light* `GET /profiles/{profile}` lacks it.
+- It assumed "past events" meant the `events` table. The public profile has never
+  read that table.
+
+## 3. The three defects this closes
 
 | # | Defect | Evidence |
 |---|--------|----------|
-| D1 | **No web UI for past events or their photos at all.** | `grep` over `resources/views/webapp/` finds no `/events` or `/me/gallery` call |
-| D2 | **The gallery cannot actually be *managed*.** `profile_gallery_photos` has `caption` and `sort_order`, but no endpoint writes either after upload — there is no reorder and no caption edit. `event_photos.sort_order` is likewise set only at insert. | `routes/api.php`: gallery has only index/store/destroy |
-| D3 | **Business accounts have no public portfolio.** `CommunityPublicProfileResource` emits `gallery` / `photos` / `past_events`; `PublicProfileResource` (business + attendee) emits none of them. A business can create past events today — `EventPolicy@create` returns `true` for everyone — and nothing ever renders them. | both resources compared |
+| D1 | **No web UI for past events, event photos, or the gallery.** | no `/events` or `/me/gallery` call anywhere in `resources/views/webapp/` |
+| D2 | **The gallery cannot be *managed*.** `profile_gallery_photos` carries `caption` and `sort_order`, but no endpoint writes either after upload — no reorder, no caption edit. `event_photos.sort_order` is likewise only set at insert. | `routes/api.php`: gallery has index/store/destroy only; `EventService` writes `sort_order` at insert only |
+| D3 | **The `events` store is publicly invisible.** 60 past events and 173 photos exist; the public profile reads only `kolabs.past_events` (7 kolabs). | `ProfileService::buildCommunityPastEvents()` queries `Kolab` only |
 
-## 3. Locked scope decisions
+## 4. Locked scope decisions
 
 | Decision | Choice |
 |---|---|
-| Release scope | **Portfolio only** — past events + their photos + the profile gallery. Upcoming community events (capacity, tier gate, visibility, recurrence, signups, check-in QR, challenges, rewards) are a separate subsystem and get their own spec. |
-| Roles | **Business and community at full parity**, including extending `PublicProfileResource` so a business portfolio is actually visible. |
-| Placement | `/account` becomes a **tabbed Profile section** in the sidebar: Details · Gallery · Past events · Preview · Settings. Same place for both roles. |
-| Photo model | **Kept separate, in their natural homes.** The gallery is its own tab; an event's photos are edited inside that event. No unified "Media" view — it would put two different tables behind one ambiguous uploader. |
+| Which past events | **Both stores.** Manage `events`-table past events in the panel, make `kolabs.past_events` editable on web, and **merge both into the public `past_events`** so the 173 photos surface. |
+| Roles | **Business and community at parity.** |
+| Light endpoint | `GET /profiles/{profile}` gains the **full portfolio** (`gallery`, `past_events`, `past_events_count`). Safe: `PublicProfileResource` is instantiated in exactly one place, for a single profile — never in a collection — so there is no list-payload cost. (Revision 1 warned about list bloat; that warning was unfounded.) |
+| Placement | `/account` becomes a **tabbed Profile section**: Details · Gallery · Past events · Preview · Settings. Same for both roles. |
+| Photo model | **Separate, in their natural homes.** Gallery in its own tab; an event's photos inside that event. No unified "Media" view — it would put three different stores behind one ambiguous uploader. |
 
-**Out of scope by decision:** upcoming/recurring events, signups, check-in QR,
-event challenges and rewards, blocks, account deletion, gamification views.
+**Out of scope by decision:** upcoming/recurring community events, signups, check-in
+QR, event challenges and rewards, blocks, account deletion, gamification views.
 
-## 4. Backend
+## 5. Backend
 
-### 4.1 Gallery becomes manageable (D2)
+### 5.1 Merge both past-event stores (D3)
 
-Two new endpoints. Both are self-scoped (`/me/…`), so authorization is ownership of
-the row — the existing `destroy` already enforces exactly that and is the pattern to
-follow.
+`ProfileService::buildCommunityPastEvents()` currently returns Kolab-sourced items:
 
-```
-PATCH /me/gallery/{photo}        { caption?: string|null }         → 200
-PUT   /me/gallery/order          { ids: [uuid, …] }                → 200
+```php
+['source_kolab_id' => …, 'name' => …, 'date' => …, 'partner_name' => …, 'media' => [...]]
 ```
 
-- `PATCH` edits the caption only. `caption` is `nullable|string|max:500`, matching the
-  column.
-- `PUT …/order` takes the full ordered list of the caller's photo ids and writes
-  `sort_order = index`. Ids that do not belong to the caller are **ignored, not
-  written** — the same rule the community bulk-update follows. Any of the caller's
-  photos missing from the list keep their relative order after the supplied ones, so a
-  partial list can never silently hide a photo.
-- Both run in one transaction; the response is the caller's full ordered gallery, so
-  the client never has to guess the resulting order.
+It gains a second source — the caller's own past `events` rows with their
+`event_photos` — and returns the union, newest first.
 
-`GET /me/gallery` must order by `sort_order` (then `created_at`) — verify it does, and
-fix it if not, otherwise reordering has no visible effect.
+**Unified item shape** (additive; every existing key is preserved so no client breaks):
 
-### 4.2 Event photos become orderable (D2)
+```php
+[
+    'source'          => 'kolab'|'event',   // NEW discriminator
+    'source_kolab_id' => string|null,       // null for event-sourced items
+    'source_event_id' => string|null,       // NEW, null for kolab-sourced items
+    'name'            => string|null,
+    'date'            => string|null,
+    'partner_name'    => string|null,
+    'attendee_count'  => int|null,          // NEW, only ever set for event-sourced
+    'media'           => array,             // same normalizeMediaCollection shape
+]
+```
+
+Rules:
+- **Source query:** `events` where `profile_id = <profile>` and `event_date < today`,
+  eager-loading `photos` ordered by `sort_order`. One query plus one for the photos —
+  never per-event.
+- **Ordering:** by `date` descending across the merged set; items with a null date sort
+  last, so a malformed Kolab entry can never take the top slot.
+- **Dedup:** two items with the same case-insensitive `name` **and** the same `date`
+  collapse to one, keeping the **event-sourced** copy (it carries `attendee_count` and
+  a real photo store). This stops a Kolab entry that describes the same evening from
+  showing twice.
+- `past_events_count` in `community_public_stats` follows the merged list.
+- `buildCommunityPhotos()` already folds past-event `media` into `photos`, so the newly
+  surfaced images flow into that block with no change.
+
+**Mobile impact:** additive keys on an existing array, plus more items in it.
+
+### 5.2 The light public profile gains the portfolio
+
+`ProfileController@publicProfile` hydrates via `getPublicProfileDetail()` for
+`business` and `community` profiles, and `PublicProfileResource` emits `gallery`,
+`past_events` and `past_events_count`.
+
+`getPublicProfileDetail()` throws `ModelNotFoundException` for an attendee, so the
+attendee path must **not** call it: attendees keep exactly the payload they have today,
+and their gallery stays private to their own account. This is a guard, not an
+afterthought — getting it wrong turns every attendee profile into a 404.
+
+### 5.3 Gallery becomes manageable (D2)
+
+Two new self-scoped endpoints; authorization is ownership of the row, matching the
+existing `destroy`.
 
 ```
-PUT /events/{event}/photos/order  { ids: [uuid, …] }               → 200
+PATCH /me/gallery/{photo}   { caption?: string|null }   → 200, the updated photo
+PUT   /me/gallery/order      { ids: [uuid, …] }         → 200, the full ordered gallery
 ```
 
-Same semantics and same guard as the existing photo endpoints (creator, or
-`can_manage` on the event's community). Ids not belonging to `{event}` are ignored.
+- `caption`: `nullable|string|max:500`, matching the column.
+- `order`: writes `sort_order = index` for the supplied ids. Ids not belonging to the
+  caller are **ignored, never written**. Any of the caller's photos absent from the list
+  keep their relative order *after* the supplied ones — a partial list can never hide a
+  photo. One transaction; the response is the full ordered gallery so the client never
+  guesses.
 
-### 4.3 Business public portfolio (D3)
+`GET /me/gallery` already orders by `sort_order` then `created_at desc` — verified, no
+change needed.
 
-`PublicProfileResource` gains `gallery`, `past_events` and `past_events_count`, built
-the same way `CommunityPublicProfileResource` builds them — via preloaded attributes
-set by the controller, never a query per row inside the resource.
+### 5.4 Event photos become orderable (D2)
 
-**This is an additive mobile contract change** and must be recorded as such. Nothing is
-removed or renamed.
+```
+PUT /events/{event}/photos/order   { ids: [uuid, …] }   → 200, the ordered photos
+```
 
-Attendees keep the current payload: the portfolio block is emitted for `business` and
-`community` profiles only. An attendee's gallery stays private to their own account.
+Same guard as the existing photo endpoints — `EventPhotoController::canManageEvent()`
+(creator, or `can_manage` on the event's community). Ids not belonging to `{event}` are
+ignored.
 
-### 4.4 What is deliberately NOT changed
+### 5.5 What is deliberately NOT changed
 
-- `POST /events` keeps both branches exactly as they are. The retrospective branch
-  already requires 1–5 photo **files** at create; the web form matches that rather than
-  inventing a photo-less draft state.
-- `EventPolicy` is untouched: `create` is open, `update`/`delete` are owner-only. The
-  panel only ever lists and edits the caller's own events.
-- No new table. No migration.
+- `POST /events` keeps both branches. The retrospective branch already requires 1–5
+  photo **files** at create; the web form matches that rather than inventing a
+  photo-less draft.
+- `UpdateKolabRequest` already accepts `past_events` (name/date/partner_name/≤3 photo
+  URLs) — the web Kolab form simply starts sending it. No request change.
+- `EventPolicy` untouched: `create` open, `update`/`delete` owner-only.
+- **No new table, no migration.**
 
-## 5. Frontend — `app.kolabing.com`
+## 6. Frontend — `app.kolabing.com`
 
-`/account` is promoted from a single page to a section with a tab strip, following the
-Community Hub's pattern (`community-nav.blade.php`) so the two read as one system.
+`/account` is promoted to a section with a tab strip, following
+`community-nav.blade.php` so the two panels read as one system.
 
 | Route | Tab | Contents |
 |---|---|---|
-| `/account` | **Details** | today's profile form, unchanged — name, about, type, categories, city, socials, logo/photo |
-| `/account/gallery` | **Gallery** | grid of up to 20 photos; multi-select upload (≤5 per request, chunked so a 12-photo drop works); drag-to-reorder writing `PUT /me/gallery/order`; inline caption edit; delete with in-page confirm; a live "N/20" counter |
-| `/account/events` | **Past events** | list of `GET /events?time=past&profile_id=<me>`, newest first; "Log a past event" form (name, partner name, partner type, date, attendee count, 1–5 photos); per-event editor with its own photo manager (add / delete / reorder, 20 cap) |
-| `/account/preview` | **Preview** | the public profile exactly as others see it, from `GET /profiles/{me}/public-profile` — the answer to "where does this show up?" |
-| `/account/settings` | **Settings** | notification preferences, already built, moved under the tab |
+| `/account` | **Details** | today's profile form, moved across unchanged |
+| `/account/gallery` | **Gallery** | grid of ≤20; multi-select upload chunked at 5/request; drag-to-reorder → `PUT /me/gallery/order`; inline caption edit → `PATCH /me/gallery/{photo}`; delete with in-page confirm; live "N/20" counter |
+| `/account/events` | **Past events** | `GET /events?time=past&profile_id=<me>`, newest first. "Log a past event" form (name, partner name, partner type, date, attendee count, 1–5 photos). Per-event editor with its own photo manager: add (≤5/request, ≤20 total), delete, drag-to-reorder |
+| `/account/preview` | **Preview** | the public profile as others see it, from `GET /profiles/{me}/public-profile` — the answer to "where does this show up?" |
+| `/account/settings` | **Settings** | notification preferences, moved across unchanged |
 
-Conventions carried over from the Hub: Blade + Alpine + the existing `window.kb`
-client, no npm change; `kb.uploadFile`-style multipart via `kb.upload`; no
-`window.confirm` anywhere; empty states whose primary CTA is the upload; es/ca at 100%
-key parity.
+Plus one addition outside the section: **`kolab-form.blade.php` gains a "Past events"
+repeater** (name, date, partner name, up to 3 photo URLs via `kb.uploadFile`), sending
+`past_events` on `PUT /kolabs/{id}`. This is the other authoring path for the same
+public block, and leaving it app-only would keep half the feature unreachable.
 
-**Upload UX detail that matters:** both stores cap a request at 5 files but allow 20
-total. The uploader therefore chunks a larger selection into sequential requests and
-reports per-chunk failures, rather than rejecting the drop or silently truncating it.
+Conventions carried over: Blade + Alpine + the existing `window.kb` client, no npm
+change; no `window.confirm`; purposeful empty states whose CTA is the upload; es/ca at
+100% key parity.
 
-## 6. Testing
+**Upload detail that matters:** every store caps a request at 5 files but allows 20
+total, so the uploader chunks a larger selection into sequential requests and reports
+per-chunk failures — rather than rejecting the drop or silently truncating it.
+
+## 7. Testing
 
 `LazilyRefreshDatabase`, PHPUnit, factories.
 
 | File | Covers |
 |---|---|
-| `tests/Feature/Api/V1/GalleryManageTest.php` | caption edit; caption cleared with `null`; reorder writes `sort_order`; foreign ids ignored, never written; omitted photos keep relative order; non-owner 403; `GET /me/gallery` returns in `sort_order` |
+| `tests/Feature/Api/V1/GalleryManageTest.php` | caption set and cleared with `null`; reorder writes `sort_order`; foreign ids ignored and unwritten; omitted photos keep relative order; non-owner 403; `GET /me/gallery` returns in `sort_order` |
 | `tests/Feature/Api/V1/EventPhotoOrderTest.php` | reorder; ids from another event ignored; creator and `can_manage` both allowed; a stranger 403 |
-| `tests/Feature/Api/V1/BusinessPublicPortfolioTest.php` | a business public profile emits `gallery` + `past_events` + `past_events_count`; an attendee's does not; **a query-count assertion** proving the block is O(1) in photos/events |
-| `tests/Feature/WebApp/WebAppRoutesTest.php` (extend) | the five `/account/*` routes render at `/`, `/es`, `/ca`; the new tabs are localised; the `public/` shadow check already added covers `account` |
+| `tests/Feature/Api/V1/PastEventsMergeTest.php` | both sources appear; `source`/`source_event_id`/`attendee_count` correct per source; ordering by date desc with nulls last; same name+date dedupes to the event-sourced copy; `past_events_count` matches; **a query-count assertion** proving the merge is O(1) in events |
+| `tests/Feature/Api/V1/PublicProfilePortfolioTest.php` | business and community `GET /profiles/{id}` emit `gallery` + `past_events` + `past_events_count`; **an attendee profile still returns 200** with the old payload and no portfolio |
+| `tests/Feature/WebApp/WebAppRoutesTest.php` (extend) | the five `/account/*` routes render at `/`, `/es`, `/ca`; new tabs localised |
 
-## 7. Docs
+## 8. Docs
 
-- `docs/ROLES-AND-PERMISSIONS.md` — a short section: what a business/community may
-  publish about past work, and that it is free for both roles. Bump *Last updated*.
-- `docs/ROLES-BACKEND-DB-MAP.md` — the three new endpoints, the `PublicProfileResource`
-  addition, and the gallery ordering guarantee. Bump *Last updated*.
+- `docs/ROLES-AND-PERMISSIONS.md` — what a business/community may publish about past
+  work; free for both roles. Bump *Last updated*.
+- `docs/ROLES-BACKEND-DB-MAP.md` — the three new endpoints, the two-store merge and its
+  item shape, the light-profile portfolio, and the attendee guard. Bump *Last updated*.
 - `BACKLOG.md` — BE-NF-35. Bump *Last updated*.
-- PR: **Mobile impact is required** — `PublicProfileResource` gains three additive
-  fields, and three new endpoints are available for the app to adopt.
+- PR **Mobile impact is required**: `past_events` items gain `source`,
+  `source_event_id`, `attendee_count` and the array grows; `GET /profiles/{id}` gains
+  three fields; three new endpoints are available to adopt.
 
-## 8. Build order
+## 9. Build order
 
 1. Gallery manage endpoints + tests *(D2)*
 2. Event photo order endpoint + tests *(D2)*
-3. `PublicProfileResource` portfolio block + tests *(D3)*
-4. `/account` → tabbed section; Details + Settings moved across unchanged
-5. Gallery tab *(D1)*
-6. Past events tab, including the per-event photo manager *(D1)*
-7. Preview tab
-8. es/ca, docs, pint, full suite
+3. Past-events merge in `ProfileService` + tests *(D3 — the highest-value change)*
+4. Light public profile portfolio + attendee guard + tests
+5. `/account` → tabbed section; Details + Settings moved across unchanged
+6. Gallery tab *(D1)*
+7. Past events tab incl. the per-event photo manager *(D1)*
+8. Preview tab
+9. Kolab form past-events repeater
+10. es/ca, docs, pint, full suite
