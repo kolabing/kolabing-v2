@@ -1,4 +1,4 @@
-# Event Suggestion System Implementation Plan (BE-NF-28)
+# Event Suggestion System Implementation Plan (BE-NF-39)
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -1136,7 +1136,7 @@ protected $signature = 'app:generate-suggestions
 `routes/console.php`, following the commented style of its neighbours:
 
 ```php
-// Generate two-sided collaboration suggestions (BE-NF-28). Scores candidate
+// Generate two-sided collaboration suggestions (BE-NF-39). Scores candidate
 // pairs in PHP and writes the top N per profile; idempotent per batch_key so
 // re-runs are safe. 04:00 is the only free nightly slot (02:00 tiers,
 // 03:00 auto-complete, 08:00/09:00 reminders, 14:20 partner statuses).
@@ -1259,7 +1259,7 @@ Routes, inside the existing `auth:sanctum` group:
 ```php
 /*
 |--------------------------------------------------------------------------
-| Suggestions (BE-NF-28)
+| Suggestions (BE-NF-39)
 |--------------------------------------------------------------------------
 */
 Route::middleware('feature:suggestions')->group(function (): void {
@@ -1418,7 +1418,7 @@ Render each suggestion's signals through `SignalReasonRenderer` **in the recipie
 Schedule:
 
 ```php
-// Weekly suggestion digest (BE-NF-28). 09:30 Monday — after the 09:00
+// Weekly suggestion digest (BE-NF-39). 09:30 Monday — after the 09:00
 // reactivation pass so the two nudges never land together. Dedup via the
 // notifications table, so a re-run is safe.
 Schedule::command('app:send-suggestion-digest')
@@ -1449,11 +1449,11 @@ Create `suggestion-digest-business` and `suggestion-digest-community` in the Pos
 **Files:**
 - Modify: `docs/ROLES-AND-PERMISSIONS.md` — new **§2.13**: the suggestion surface, the blur rule and an explicit statement that it is **not** a new paywall, that communities see it free and unmasked, and the new `?reason=suggestion`. Bump *Last updated* at the top.
 - Modify: `docs/ROLES-BACKEND-DB-MAP.md` — new **§15**: table + columns, the four services, three endpoints, the policy, both commands + schedule slots, config keys, feature flag. Bump *Last updated*.
-- Modify: `BACKLOG.md` — add **BE-NF-28** under *Incomplete Features* while in flight; update *Last updated*.
+- Modify: `BACKLOG.md` — add **BE-NF-39** under *Incomplete Features* while in flight; update *Last updated*.
 - Mirror §2.13 / §15 into the `kolabing-app` copies of both role docs.
 - Open the GitHub Projects item on **Kolabing Engineering** with `.github/ISSUE_TEMPLATE/ticket.yml`.
 
-Commit: `docs(suggestions): ROLES 2.13, backend map 15, BACKLOG BE-NF-28`
+Commit: `docs(suggestions): ROLES 2.13, backend map 15, BACKLOG BE-NF-39`
 
 ---
 

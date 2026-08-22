@@ -1,7 +1,7 @@
 # Event suggestion system (two-sided Kolab suggestions)
 
 > Design spec — 2026-08-19
-> Backlog item: **BE-NF-28**. Builds on the existing role-aware discovery match
+> Backlog item: **BE-NF-39**. Builds on the existing role-aware discovery match
 > engine (`DiscoveryOpportunityService`, spec
 > `2026-05-09-role-aware-discovery-backend-contract.md`) and the web app
 > (BE-NF-20…26, `app.kolabing.com`).
@@ -372,7 +372,7 @@ pasted into the PR template's Testing section.
   communities see it free and unmasked, `?reason=suggestion`. Bump *Last updated*.
 - `docs/ROLES-BACKEND-DB-MAP.md` — new **§15**: table/columns, services,
   endpoints, policy, command + schedule, and the config keys. Bump *Last updated*.
-- `BACKLOG.md` — add **BE-NF-28**, move to *Incomplete Features* when started,
+- `BACKLOG.md` — add **BE-NF-39**, move to *Incomplete Features* when started,
   update *Last updated*.
 - GitHub Projects item on **Kolabing Engineering** using
   `.github/ISSUE_TEMPLATE/ticket.yml`; PR uses the repo template with every
