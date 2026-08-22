@@ -69,8 +69,15 @@ class CollaborationQrCodeTest extends TestCase
         $data = $response->json('data');
         $this->assertNotNull($data['event_id']);
         $this->assertNotNull($data['qr_code_url']);
-        $this->assertStringContains('/api/v1/events/', $data['qr_code_url']);
-        $this->assertStringContains('token=', $data['qr_code_url']);
+        /*
+         * This used to assert the URL contained '/api/v1/events/' and 'token=' —
+         * pinning a link that 404s. That path is not a route, it was built in GET
+         * form for a POST endpoint, and it carried the secret in a query string.
+         * The QR now points at the panel page that performs the check-in.
+         */
+        $this->assertStringStartsWith(rtrim(config('webapp.url'), '/').'/checkin/', $data['qr_code_url']);
+        $this->assertStringNotContainsString('/api/v1/', $data['qr_code_url']);
+        $this->assertStringNotContainsString('token=', $data['qr_code_url']);
 
         // Collaboration should be updated
         $collaboration->refresh();
