@@ -738,7 +738,7 @@ Route::prefix('v1')->group(function (): void {
 
         /*
         |--------------------------------------------------------------------------
-        | Suggestions (BE-NF-28)
+        | Suggestions (BE-NF-39)
         |--------------------------------------------------------------------------
         |
         | Generated pairings, one side at a time. Behind `feature:suggestions`

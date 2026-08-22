@@ -27,7 +27,7 @@ use Illuminate\Support\Str;
  * This class is the lookup **table** only. Aggregation policy belongs to each
  * caller and deliberately differs: Explore takes max() across a Kolab's
  * categories, floors at 0.25 when it has none, adds a seeking bonus, and maps
- * unmapped pairs onto a 0.4–0.65 fallback so it can always rank something. The
+ * unmapped pairs onto a 0.35–0.65 fallback so it can always rank something. The
  * suggestion scorer instead treats an unmapped pair as *no data*, drops the
  * signal and renormalises the remaining weights, because a suggestion must say
  * "we don't know" rather than invent a mid-range score. Do not move either

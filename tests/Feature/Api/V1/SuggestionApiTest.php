@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * The read side of BE-NF-28. Two rules dominate this file and are asserted from
+ * The read side of BE-NF-39. Two rules dominate this file and are asserted from
  * both directions rather than once:
  *
  * 1. IDOR — a suggestion names who was matched with whom, so a row may only ever

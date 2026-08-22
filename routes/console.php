@@ -37,7 +37,7 @@ Schedule::command('app:send-business-reactivation-reminders')->dailyAt('09:00');
 // recalculation. Idempotent (updateOrCreate) — safe to run daily.
 Schedule::command('app:recalculate-partner-statuses')->dailyAt('14:20');
 
-// Generate two-sided collaboration suggestions (BE-NF-28). Scores candidate
+// Generate two-sided collaboration suggestions (BE-NF-39). Scores candidate
 // pairs in PHP and refreshes each profile's top N rows in place — the unique key
 // is (viewer, counterpart) and excludes batch_key, so re-runs never accumulate
 // cards. 04:00 is the only free nightly slot (02:00 tiers, 03:00 auto-complete,

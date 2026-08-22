@@ -15,7 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 /**
- * The suggestion feed (BE-NF-28). Thin by design: which rows are live lives in
+ * The suggestion feed (BE-NF-39). Thin by design: which rows are live lives in
  * SuggestionReader, the identity blur and the locale-aware copy live in
  * SuggestionResource, and ownership lives in KolabSuggestionPolicy.
  *

@@ -217,7 +217,7 @@ class KolabService
     }
 
     /**
-     * Close the suggestion funnel (BE-NF-28 §3.9): the row this Kolab came from
+     * Close the suggestion funnel (BE-NF-39 §3.9): the row this Kolab came from
      * records which Kolab it produced, which is the only link between a card
      * being shown and a real collaboration existing.
      *

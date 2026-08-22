@@ -301,6 +301,10 @@ there are none.
 - **Stale counterparts.** A suggestion whose counterpart was deleted or
   deactivated after generation is filtered at read time by joining on the
   counterpart's active state — stale rows are invisible, never a 500.
+- **A converted suggestion leaves the feed.** `scopeLive()` excludes rows with a
+  `converted_kolab_id`, so once a suggestion becomes a Kolab its card disappears
+  rather than inviting a duplicate. The row itself is kept forever — it is the
+  funnel evidence, and the retention prune never collects it.
 - **Expiry.** `expires_at` (last score + 14 days) keeps the page from showing a
   three-week-old "this Saturday" proposal once a pair stops being refreshed.
 - **Idempotence.** The `(viewer, counterpart)` unique key makes every re-run —
@@ -370,7 +374,7 @@ pasted into the PR template's Testing section.
 - `docs/ROLES-AND-PERMISSIONS.md` — new **§2.13**: the suggestion surface, the
   blur rule (and that it is not a new paywall), the explicit restatement that
   communities see it free and unmasked, `?reason=suggestion`. Bump *Last updated*.
-- `docs/ROLES-BACKEND-DB-MAP.md` — new **§15**: table/columns, services,
+- `docs/ROLES-BACKEND-DB-MAP.md` — new **§18** (§15 was claimed by the chat-panel work while this branch sat unmerged): table/columns, services,
   endpoints, policy, command + schedule, and the config keys. Bump *Last updated*.
 - `BACKLOG.md` — add **BE-NF-39**, move to *Incomplete Features* when started,
   update *Last updated*.
@@ -381,7 +385,7 @@ pasted into the PR template's Testing section.
   new optional field on `POST /kolabs`. No existing payload changes. A
   `kolabing-app` ticket is opened for the mobile suggestion surface; v1 does not
   block on it.
-- Mirror §2.13 / §15 into the `kolabing-app` copies of both role docs.
+- Mirror §2.13 / §18 into the `kolabing-app` copies of both role docs.
 
 ## 7. Assumptions to validate
 

@@ -63,7 +63,7 @@ class CreateKolabRequest extends FormRequest
             'preferred_city' => ['required_unless:intent_type,venue_promotion', 'nullable', 'string', 'max:100'],
 
             /*
-             * The end of the suggestion funnel (BE-NF-28). Optional and additive:
+             * The end of the suggestion funnel (BE-NF-39). Optional and additive:
              * every existing client keeps working, and a client that sends it
              * gets `converted_kolab_id` written on the row (KolabService::create).
              *

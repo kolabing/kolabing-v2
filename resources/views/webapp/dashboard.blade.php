@@ -216,7 +216,7 @@
 <script>
     function dashboardPage() {
         /*
-         * BE-NF-28. Server-side, like the sidebar entry and the route itself: with
+         * BE-NF-39. Server-side, like the sidebar entry and the route itself: with
          * suggestions off the API 404s, so the dashboard does not ask. The block in
          * dashboard-widgets.blade.php is gated on the same config value, so with the
          * flag off there is neither markup nor a request.

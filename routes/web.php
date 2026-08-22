@@ -66,7 +66,7 @@ $webappRoutes = function (): void {
     Route::view('/subscription/success', 'webapp.subscription-success');
     Route::view('/welcome', 'webapp.welcome');
     Route::view('/feed', 'webapp.feed');
-    // Suggested partners (BE-NF-28). Behind the same `feature:suggestions` gate as
+    // Suggested partners (BE-NF-39). Behind the same `feature:suggestions` gate as
     // the three endpoints it reads, so with the flag off the page 404s instead of
     // rendering an empty state over an API that is answering 404 — see
     // EnsureFeatureEnabled, which aborts(404) for a non-JSON request.

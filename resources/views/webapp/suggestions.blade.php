@@ -2,7 +2,7 @@
 @section('title', __('webapp.suggestions.title'))
 
 {{--
-    Suggested partners (BE-NF-28) — the first human-facing surface of the nightly
+    Suggested partners (BE-NF-39) — the first human-facing surface of the nightly
     pairing batch. Reads GET /api/v1/suggestions; every sentence on a card
     (`signals[].reason`, `suggested_format.title`) already arrives rendered in the
     caller's locale from SuggestionResource, so this page never touches a signal

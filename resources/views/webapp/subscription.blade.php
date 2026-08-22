@@ -215,7 +215,7 @@
                 // would print the dotted path straight onto the page.
                 //
                 // `suggestion` is the blurred counterpart on a suggestion card
-                // (BE-NF-28). It is not a third gate — ROLES §2.7 has exactly two,
+                // (BE-NF-39). It is not a third gate — ROLES §2.7 has exactly two,
                 // and the blur is a downstream effect of them, which is what the
                 // copy for it has to say.
                 const reason = params.get('reason');

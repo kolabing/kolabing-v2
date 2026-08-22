@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * The nightly two-sided suggestion pass (BE-NF-28). Scheduled at 04:00 in
+ * The nightly two-sided suggestion pass (BE-NF-39). Scheduled at 04:00 in
  * `routes/console.php`.
  *
  * Attendees are excluded at the query rather than left to the generator: they

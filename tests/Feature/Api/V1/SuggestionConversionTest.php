@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
- * The end of the suggestion funnel (BE-NF-28, Task 8): `POST /api/v1/kolabs`
+ * The end of the suggestion funnel (BE-NF-39, Task 8): `POST /api/v1/kolabs`
  * gains an optional `suggestion_id`, and a successful create writes
  * `converted_kolab_id` on that row.
  *

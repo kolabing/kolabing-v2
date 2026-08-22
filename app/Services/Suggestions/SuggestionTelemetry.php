@@ -10,7 +10,7 @@ use App\Models\Profile;
 use App\Services\PostHog\PostHogService;
 
 /**
- * The suggestion funnel, as PostHog sees it (BE-NF-28 §3.9).
+ * The suggestion funnel, as PostHog sees it (BE-NF-39 §3.9).
  *
  * `suggestion_shown → suggestion_clicked → suggestion_converted`, with
  * `suggestion_dismissed` as the negative branch. This exists as one class rather
@@ -18,7 +18,7 @@ use App\Services\PostHog\PostHogService;
  * because two invariants have to hold for *every* event, and an invariant spread
  * over four call sites is an invariant that will be broken by the fifth:
  *
- * **1. `audience` is always tagged.** BE-NF-28 launches on both sides at once. A
+ * **1. `audience` is always tagged.** BE-NF-39 launches on both sides at once. A
  * business-side win and a community-side flop average into one meaningless
  * number without it, so the tag is not a nice-to-have breakdown — it is the
  * reason the launch is measurable at all.

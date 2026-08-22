@@ -25,7 +25,7 @@
             <div class="mt-5 rounded-2xl bg-bad-surface text-bad-ink text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
         </template>
 
-        {{-- Arrived from a suggestion card (BE-NF-28), and the prefill landed.
+        {{-- Arrived from a suggestion card (BE-NF-39), and the prefill landed.
              Bound to `suggestionApplied`, never to the `?suggestion=` parameter:
              a suggestion that 404s or 403s leaves a blank working form and says
              nothing at all. What it does say is the only thing that matters
@@ -306,7 +306,7 @@
 
         /*
          * /kolabs/create?suggestion={id} — the end of the suggestion funnel
-         * (BE-NF-28). Read once, here, so nothing downstream re-parses the URL.
+         * (BE-NF-39). Read once, here, so nothing downstream re-parses the URL.
          *
          * The flag is resolved server-side: with `suggestions.enabled` off the
          * API 404s, so there is no prefill to chase and the form does not ask
@@ -565,7 +565,7 @@
             },
 
             /**
-             * Pre-fill from `GET /suggestions/{id}` (BE-NF-28).
+             * Pre-fill from `GET /suggestions/{id}` (BE-NF-39).
              *
              * Two rules govern everything in here.
              *
@@ -741,7 +741,7 @@
                     body.availability_mode = f.recurring_days.length ? 'recurring' : 'flexible';
                 }
                 /*
-                 * What closes the funnel (BE-NF-28): KolabService::create writes
+                 * What closes the funnel (BE-NF-39): KolabService::create writes
                  * `converted_kolab_id` from this and the telemetry emits
                  * `suggestion_converted`. It goes even if the user rewrote every
                  * other field — the Kolab still came from that card. And it is

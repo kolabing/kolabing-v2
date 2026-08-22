@@ -3,7 +3,7 @@
      `statusPill()`, `fmtDate()`, `initialOf()`. --}}
 
 @if (config('suggestions.enabled'))
-{{-- ── Suggested partners (BE-NF-28) ──────────────────────────────────────
+{{-- ── Suggested partners (BE-NF-39) ──────────────────────────────────────
      The entry point to /suggestions: the top card plus how many are waiting.
 
      Two ways this renders nothing at all, and both matter. The flag is checked

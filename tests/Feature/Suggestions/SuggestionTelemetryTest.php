@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 /**
- * The funnel telemetry (BE-NF-28 §3.9). The chain the business case rests on is
+ * The funnel telemetry (BE-NF-39 §3.9). The chain the business case rests on is
  * `suggestion_shown → suggestion_clicked → suggestion_converted`, plus
  * `suggestion_dismissed` as the negative branch, and it is only readable if two
  * things hold:
