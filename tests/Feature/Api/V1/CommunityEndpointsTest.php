@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Enums\CommunityMemberStatus;
 use App\Models\Community;
 use App\Models\CommunityMember;
 use App\Models\CommunityTier;
 use App\Models\Profile;
 use App\Services\CommunityService;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class CommunityEndpointsTest extends TestCase
@@ -60,7 +63,175 @@ class CommunityEndpointsTest extends TestCase
 
         $this->actingAs($leader)->getJson('/api/v1/me/communities')
             ->assertStatus(200)
-            ->assertJsonCount(1, 'data');
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.my_can_manage', true);
+    }
+
+    /*
+     |-------------------------------------------------------------------------
+     | BE-FX-15 — managed-but-not-owned communities must be listable
+     |-------------------------------------------------------------------------
+     */
+
+    private function addMember(Community $community, Profile $profile, bool $canManage, ?CommunityMemberStatus $status = null): CommunityMember
+    {
+        $factory = CommunityMember::factory()->forCommunity($community);
+
+        if ($canManage) {
+            $factory = $factory->manager();
+        }
+
+        return $factory->create([
+            'profile_id' => $profile->id,
+            'tier_id' => $community->defaultTier->id,
+            'status' => ($status ?? CommunityMemberStatus::Active)->value,
+        ]);
+    }
+
+    public function test_me_communities_includes_a_community_the_viewer_manages_but_does_not_own(): void
+    {
+        $owner = Profile::factory()->community()->create();
+        $community = $this->makeCommunity($owner);
+
+        $manager = Profile::factory()->attendee()->create();
+        $this->addMember($community, $manager, canManage: true);
+
+        $this->actingAs($manager)->getJson('/api/v1/me/communities')
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $community->id)
+            ->assertJsonPath('data.0.owner_profile_id', $owner->id)
+            ->assertJsonPath('data.0.my_can_manage', true);
+    }
+
+    public function test_me_communities_excludes_a_plain_member_and_an_inactive_manager(): void
+    {
+        $owner = Profile::factory()->community()->create();
+        $community = $this->makeCommunity($owner);
+
+        $plainMember = Profile::factory()->attendee()->create();
+        $this->addMember($community, $plainMember, canManage: false);
+
+        $removedManager = Profile::factory()->attendee()->create();
+        $this->addMember($community, $removedManager, canManage: true, status: CommunityMemberStatus::Removed);
+
+        $this->actingAs($plainMember)->getJson('/api/v1/me/communities')
+            ->assertStatus(200)
+            ->assertJsonCount(0, 'data');
+
+        $this->actingAs($removedManager)->getJson('/api/v1/me/communities')
+            ->assertStatus(200)
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_me_communities_lists_owned_and_managed_together_without_duplicates(): void
+    {
+        $viewer = Profile::factory()->community()->create();
+        $own = $this->makeCommunity($viewer, ['name' => 'My own']);
+
+        $otherOwner = Profile::factory()->community()->create();
+        $managed = $this->makeCommunity($otherOwner, ['name' => 'Co-run']);
+        $this->addMember($managed, $viewer, canManage: true);
+
+        // A membership row on a community the viewer ALSO owns must not duplicate it.
+        $this->addMember($own, Profile::factory()->attendee()->create(), canManage: true);
+
+        $response = $this->actingAs($viewer)->getJson('/api/v1/me/communities')
+            ->assertStatus(200)
+            ->assertJsonCount(2, 'data');
+
+        $ids = collect($response->json('data'))->pluck('id')->sort()->values()->all();
+        $this->assertSame(collect([$own->id, $managed->id])->sort()->values()->all(), $ids);
+
+        foreach ($response->json('data') as $row) {
+            $this->assertTrue($row['my_can_manage'], 'Every row in /me/communities is manageable by the viewer.');
+        }
+    }
+
+    public function test_me_communities_does_not_run_a_query_per_community(): void
+    {
+        $viewer = Profile::factory()->community()->create();
+        $own = $this->makeCommunity($viewer, ['name' => 'Own']);
+        $this->addMember($own, Profile::factory()->attendee()->create(), canManage: false);
+
+        foreach (['Alpha', 'Beta', 'Gamma'] as $name) {
+            $otherOwner = Profile::factory()->community()->create();
+            $managed = $this->makeCommunity($otherOwner, ['name' => $name]);
+            $this->addMember($managed, $viewer, canManage: true);
+        }
+
+        $canManageQueries = 0;
+        DB::listen(function (QueryExecuted $event) use (&$canManageQueries): void {
+            if (str_contains($event->sql, 'can_manage')) {
+                $canManageQueries++;
+            }
+        });
+
+        $this->actingAs($viewer)->getJson('/api/v1/me/communities')
+            ->assertStatus(200)
+            ->assertJsonCount(4, 'data');
+
+        // The can_manage set must be read in bulk, not once per listed community —
+        // a per-row lookup would make this 4 (and grow with the list).
+        $this->assertLessThanOrEqual(
+            1,
+            $canManageQueries,
+            "GET /me/communities ran {$canManageQueries} can_manage queries for 4 communities — that is an N+1."
+        );
+    }
+
+    public function test_my_can_manage_separates_owner_manager_and_plain_member(): void
+    {
+        $owner = Profile::factory()->community()->create();
+        $community = $this->makeCommunity($owner);
+
+        $manager = Profile::factory()->attendee()->create();
+        $this->addMember($community, $manager, canManage: true);
+
+        $plainMember = Profile::factory()->attendee()->create();
+        $this->addMember($community, $plainMember, canManage: false);
+
+        $outsider = Profile::factory()->attendee()->create();
+
+        // GET /communities/{id} uses the resource's per-viewer lazy path.
+        $this->actingAs($owner)->getJson("/api/v1/communities/{$community->id}")
+            ->assertStatus(200)->assertJsonPath('data.my_can_manage', true);
+        $this->actingAs($manager)->getJson("/api/v1/communities/{$community->id}")
+            ->assertStatus(200)->assertJsonPath('data.my_can_manage', true);
+        $this->actingAs($plainMember)->getJson("/api/v1/communities/{$community->id}")
+            ->assertStatus(200)->assertJsonPath('data.my_can_manage', false);
+        $this->actingAs($outsider)->getJson("/api/v1/communities/{$community->id}")
+            ->assertStatus(200)->assertJsonPath('data.my_can_manage', false);
+
+        // GET /me/memberships uses the bulk-hydrated path — same answer.
+        $this->actingAs($manager)->getJson('/api/v1/me/memberships')
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.community.my_can_manage', true);
+        $this->actingAs($plainMember)->getJson('/api/v1/me/memberships')
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.community.my_can_manage', false);
+    }
+
+    public function test_my_can_manage_is_additive_and_leaves_the_existing_keys_untouched(): void
+    {
+        $owner = Profile::factory()->community()->create();
+        $community = $this->makeCommunity($owner);
+
+        $response = $this->actingAs($owner)->getJson('/api/v1/me/communities')
+            ->assertStatus(200);
+
+        $row = $response->json('data.0');
+
+        $this->assertArrayHasKey('my_can_manage', $row);
+        $this->assertSame($community->id, $row['id']);
+        $this->assertSame($owner->id, $row['owner_profile_id']);
+        $this->assertSame($community->name, $row['name']);
+        $this->assertSame('open', $row['join_policy']);
+        $this->assertSame(0, $row['member_count']);
+        $this->assertTrue($row['is_member']);
+        $this->assertNull($row['my_join_request_status']);
+        $this->assertSame(0, $row['my_points']);
+        $this->assertNull($row['my_tier']);
     }
 
     public function test_tier_crud_over_http(): void

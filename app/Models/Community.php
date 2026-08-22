@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\CommunityMemberStatus;
 use App\Enums\JoinPolicy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -91,6 +93,30 @@ class Community extends Model
     public function communityProfile(): BelongsTo
     {
         return $this->belongsTo(CommunityProfile::class);
+    }
+
+    /**
+     * Communities the profile may administer: the ones it OWNS plus the ones it
+     * co-runs as an active member with `can_manage = true`.
+     *
+     * This is the query form of `CommunityPolicy::manage()` / `ChatService::
+     * canManageCommunity()`, and the set `GET /me/communities` lists (BE-FX-15) —
+     * a manager who cannot see the community id cannot reach any of the
+     * management actions it is otherwise authorised for.
+     *
+     * @param  Builder<Community>  $query
+     * @return Builder<Community>
+     */
+    public function scopeManageableBy(Builder $query, Profile $profile): Builder
+    {
+        return $query->where(function (Builder $scoped) use ($profile): void {
+            $scoped->where('owner_profile_id', $profile->id)
+                ->orWhereHas('members', function (Builder $member) use ($profile): void {
+                    $member->where('profile_id', $profile->id)
+                        ->where('can_manage', true)
+                        ->where('status', CommunityMemberStatus::Active->value);
+                });
+        });
     }
 
     /**

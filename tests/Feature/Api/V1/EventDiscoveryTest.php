@@ -7,7 +7,9 @@ namespace Tests\Feature\Api\V1;
 use App\Models\BusinessProfile;
 use App\Models\Event;
 use App\Models\Profile;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class EventDiscoveryTest extends TestCase
@@ -286,5 +288,157 @@ class EventDiscoveryTest extends TestCase
     {
         $this->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686')
             ->assertStatus(401);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | BE-FX-20 — one distance implementation, and CI runs the production one
+    |--------------------------------------------------------------------------
+    | The service used to branch on the driver: SQLite got a bounding box plus a
+    | PHP calculation, Postgres got trigonometry in SQL. `phpunit.xml` pins the
+    | suite to SQLite, so the branch that runs in production had no test at all —
+    | structurally the same blind spot as BE-FX-12. These tests execute the
+    | production expression, so there is only one path left to get wrong.
+    */
+
+    public function test_the_distance_is_computed_in_sql_not_in_php(): void
+    {
+        $attendee = Profile::factory()->attendee()->create();
+        $this->createEventAt(41.3900, 2.1700);
+
+        /** @var list<string> $statements */
+        $statements = [];
+        DB::listen(function (QueryExecuted $event) use (&$statements): void {
+            $statements[] = $event->sql;
+        });
+
+        $this->actingAs($attendee)
+            ->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686')
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data.events');
+
+        $trig = array_values(array_filter(
+            $statements,
+            static fn (string $sql): bool => str_contains($sql, 'radians(') && str_contains($sql, 'location_lat'),
+        ));
+
+        $this->assertNotEmpty(
+            $trig,
+            'The great-circle distance must be computed in SQL on EVERY driver — otherwise CI never executes the production path.',
+        );
+
+        // And nothing may fall back to a bounding box: that was the second,
+        // untested implementation, and it paginated before it filtered.
+        $boxed = array_values(array_filter(
+            $statements,
+            static fn (string $sql): bool => str_contains($sql, 'location_lat') && str_contains($sql, 'between'),
+        ));
+        $this->assertSame([], $boxed, 'The bounding-box branch must be gone — one implementation only.');
+    }
+
+    public function test_distance_km_matches_the_haversine_reference(): void
+    {
+        $attendee = Profile::factory()->attendee()->create();
+
+        // Exactly 0.1 degrees due north of the query point: 6371 * radians(0.1) km.
+        $this->createEventAt(41.4874, 2.1686);
+        $expected = 6371.0 * deg2rad(0.1);
+
+        $response = $this->actingAs($attendee)
+            ->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686')
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data.events');
+
+        $this->assertEqualsWithDelta($expected, $response->json('data.events.0.distance_km'), 0.01);
+    }
+
+    public function test_a_zero_distance_event_does_not_blow_up_the_expression(): void
+    {
+        $attendee = Profile::factory()->attendee()->create();
+
+        // The law-of-cosines form computes cos²+sin², which floats to 1+ε and makes
+        // Postgres `acos()` raise "input is out of range" for an event AT the query
+        // point. The atan2 form is unconditionally in range.
+        $this->createEventAt(41.3874, 2.1686);
+
+        $response = $this->actingAs($attendee)
+            ->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686')
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data.events');
+
+        $this->assertEqualsWithDelta(0.0, $response->json('data.events.0.distance_km'), 0.001);
+    }
+
+    public function test_results_are_ordered_by_distance_across_the_whole_set_not_within_a_page(): void
+    {
+        $attendee = Profile::factory()->attendee()->create();
+
+        // Inserted farthest-first, so insertion order is the WRONG answer.
+        $far = $this->createEventAt(41.7500, 2.1686);   // ~40km
+        $mid = $this->createEventAt(41.6600, 2.1686);   // ~30km
+        $near = $this->createEventAt(41.5700, 2.1686);  // ~20km
+        $nearest = $this->createEventAt(41.4800, 2.1686); // ~10km
+
+        $response = $this->actingAs($attendee)
+            ->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686&limit=2')
+            ->assertStatus(200)
+            ->assertJsonCount(2, 'data.events')
+            ->assertJsonPath('data.pagination.total_count', 4);
+
+        // Page 1 must be the two globally nearest — not the first two rows the
+        // database happened to return, re-sorted among themselves.
+        $this->assertSame(
+            [$nearest->id, $near->id],
+            collect($response->json('data.events'))->pluck('id')->all(),
+        );
+
+        $page2 = $this->actingAs($attendee)
+            ->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686&limit=2&page=2')
+            ->assertStatus(200)
+            ->assertJsonCount(2, 'data.events');
+
+        $this->assertSame(
+            [$mid->id, $far->id],
+            collect($page2->json('data.events'))->pluck('id')->all(),
+        );
+    }
+
+    public function test_the_total_counts_only_events_inside_the_radius(): void
+    {
+        $attendee = Profile::factory()->attendee()->create();
+
+        $inside = $this->createEventAt(41.3900, 2.1700); // ~0.3km
+
+        // A bounding-box CORNER: within ±(50/111)° lat and ±(50/(111·cos φ))° lng of
+        // the query point, but ~69km away as the crow flies. The box-then-paginate
+        // implementation counted it in `total_count` and then dropped it from the
+        // page, so the count and the list disagreed.
+        $this->createEventAt(41.3874 + 0.44, 2.1686 + 0.59);
+
+        $this->actingAs($attendee)
+            ->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686&radius_km=50')
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data.events')
+            ->assertJsonPath('data.events.0.id', $inside->id)
+            ->assertJsonPath('data.pagination.total_count', 1);
+    }
+
+    public function test_an_event_just_outside_the_radius_is_excluded_and_just_inside_is_kept(): void
+    {
+        $attendee = Profile::factory()->attendee()->create();
+
+        // 0.1 degrees north ≈ 11.1207 km. A 11.2 km radius keeps it, 11.0 km does not.
+        $this->createEventAt(41.4874, 2.1686);
+
+        $this->actingAs($attendee)
+            ->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686&radius_km=11.2')
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data.events');
+
+        $this->actingAs($attendee)
+            ->getJson('/api/v1/events/discover?lat=41.3874&lng=2.1686&radius_km=11')
+            ->assertStatus(200)
+            ->assertJsonCount(0, 'data.events')
+            ->assertJsonPath('data.pagination.total_count', 0);
     }
 }
