@@ -115,7 +115,8 @@
             <nav class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium text-off-black/70">
                 <a href="{{ route('for-businesses') }}" class="hover:text-off-black">Businesses</a>
                 <a href="{{ route('for-communities') }}" class="hover:text-off-black">Communities</a>
-                <a href="{{ route('public-events') }}" class="hover:text-off-black">What's on</a>
+                {{-- Header: Kolabs only. `/events` is a footer link until BE-NF-40
+                     retargets it at confirmed Kolabs (ROLES §7.5). --}}
                 <a href="{{ route('public-kolabs') }}" class="hover:text-off-black">Kolabs</a>
                 <a href="{{ route('pricing') }}" class="hover:text-off-black">Pricing</a>
                 <a href="{{ route('blog.index') }}" class="hover:text-off-black">Blog</a>

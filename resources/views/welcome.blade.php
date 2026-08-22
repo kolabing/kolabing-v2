@@ -1242,10 +1242,13 @@
     <span class="nav-links">
       <a href="{{ route('for-businesses') }}">businesses</a>
       <a href="{{ route('for-communities') }}">communities</a>
-      <a href="{{ route('public-events') }}">what's on</a>
+      {{-- The header teaches one model: Kolabs. `/events` stays reachable from the
+           footer so the page is not orphaned, but the primary nav does not offer a
+           parallel calendar — see ROLES §7.5 and BACKLOG BE-NF-40. --}}
       <a href="{{ route('public-kolabs') }}">kolabs</a>
       <a href="{{ route('pricing') }}">pricing</a>
       <a href="#how-it-works">how it works</a>
+      <a href="#faq">questions</a>
     </span>
     <a class="nav-login" href="{{ $appLogin }}">log in</a>
     <a class="btn-nav" href="{{ $appRegister }}">get started free</a>
