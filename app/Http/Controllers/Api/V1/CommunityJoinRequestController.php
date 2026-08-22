@@ -45,14 +45,34 @@ class CommunityJoinRequestController extends Controller
             ], 422);
         }
 
+        $validated = $request->validate([
+            'answers' => ['sometimes', 'array'],
+            'answers.*.question_id' => ['required_with:answers', 'uuid'],
+            'answers.*.answer' => ['required_with:answers', 'string', 'max:2000'],
+        ]);
+
         try {
             $alreadyPending = $community->joinRequests()
                 ->where('profile_id', $profile->id)
                 ->where('status', \App\Enums\JoinRequestStatus::Pending->value)
                 ->exists();
 
-            $joinRequest = $this->service->request($community, $profile);
+            $joinRequest = $this->service->request(
+                $community,
+                $profile,
+                $validated['answers'] ?? [],
+            );
         } catch (DomainException $e) {
+            // Two distinct refusals, so the client can tell "use /join instead"
+            // apart from "you left a required question blank".
+            if ($e->getMessage() === 'missing_required_answers') {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'missing_required_answers',
+                    'message' => __('Please answer every required question.'),
+                ], 422);
+            }
+
             return response()->json([
                 'success' => false,
                 'error' => 'community_is_open',

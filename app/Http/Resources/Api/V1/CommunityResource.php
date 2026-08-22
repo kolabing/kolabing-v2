@@ -54,6 +54,15 @@ class CommunityResource extends JsonResource
             // owned community from a co-run one and show the management surface.
             'my_can_manage' => $viewer !== null && $this->resolveViewerCanManage($viewer),
             'my_join_request_status' => $viewer !== null ? $this->resolveViewerJoinRequestStatus($viewer) : null,
+            // Additive (kolabing-app#138): the follower axis, which is separate
+            // from membership. `is_member` above stays the member answer; a
+            // client shows "Member" when that is true and "Following" only when
+            // it is not.
+            'is_following' => $viewer !== null && $this->resolveViewerIsFollowing($viewer),
+            'follower_count' => $this->followers()->count(),
+            // How many questions this community asks before admitting a member.
+            // 0 means the join is not gated by an application.
+            'join_question_count' => $this->joinQuestions()->where('is_active', true)->count(),
             // Viewer's per-community POINTS balance + tier (null when not a member).
             'my_points' => $viewer !== null ? $this->resolveViewerPoints($viewer) : 0,
             'my_tier' => $viewer !== null ? $this->resolveViewerTier($viewer) : null,
@@ -169,6 +178,17 @@ class CommunityResource extends JsonResource
         return $this->hasPreloaded('viewer_can_manage')
             ? (bool) $this->preloaded('viewer_can_manage')
             : $this->viewerCanManage($viewer);
+    }
+
+    /**
+     * Whether the viewer follows this community.
+     *
+     * Deliberately independent of [resolveViewerIsMember]: a member need not
+     * follow, and following grants none of what membership grants.
+     */
+    private function resolveViewerIsFollowing(Profile $viewer): bool
+    {
+        return $this->followers()->where('profile_id', $viewer->id)->exists();
     }
 
     private function resolveViewerJoinRequestStatus(Profile $viewer): ?string

@@ -486,6 +486,9 @@ Route::prefix('v1')->group(function (): void {
         Route::post('communities/{community}/join', [CommunityController::class, 'join'])
             ->name('api.v1.communities.join');
 
+        Route::get('me/community-follows', [CommunityFollowController::class, 'mine'])
+            ->name('api.v1.me.community-follows');
+
         // Following: interest without membership (kolabing-app#138). One tap,
         // no approval, grants none of what membership grants.
         Route::post('communities/{community}/follow', [CommunityFollowController::class, 'store'])

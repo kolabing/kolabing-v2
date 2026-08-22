@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Api\V1\CommunityResource;
 use App\Models\Community;
 use App\Models\Profile;
 use App\Services\CommunityFollowService;
@@ -48,6 +49,39 @@ class CommunityFollowController extends Controller
                 'followers_count' => $community->followers()->count(),
             ],
         ], $created ? 201 : 200);
+    }
+
+    /**
+     * GET /api/v1/me/community-follows
+     *
+     * The communities the viewer follows.
+     *
+     * A separate endpoint rather than a section inside `/me/memberships`: that
+     * one returns `data` as a flat array of memberships, so adding a sibling key
+     * would mean turning `data` into an object and breaking every app build
+     * already installed.
+     */
+    public function mine(Request $request): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        $follows = $profile->communityFollows()
+            ->with(['community.communityProfile'])
+            ->orderByDesc('followed_at')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $follows
+                ->filter(fn ($follow) => $follow->community !== null)
+                ->map(fn ($follow) => [
+                    'community' => new CommunityResource($follow->community),
+                    'followed_at' => $follow->followed_at?->toIso8601String(),
+                ])
+                ->values()
+                ->all(),
+        ]);
     }
 
     /**
