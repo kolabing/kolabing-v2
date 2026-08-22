@@ -294,6 +294,17 @@ class Profile extends Authenticatable
     }
 
     /**
+     * Communities this profile follows. Distinct from
+     * [communityMemberships] — following is interest, membership is belonging.
+     *
+     * @return HasMany<CommunityFollower, $this>
+     */
+    public function communityFollows(): HasMany
+    {
+        return $this->hasMany(CommunityFollower::class);
+    }
+
+    /**
      * Community memberships this profile holds (as a Community Member).
      *
      * @return HasMany<CommunityMember, $this>
