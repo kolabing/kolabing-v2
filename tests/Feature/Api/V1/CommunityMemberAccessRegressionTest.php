@@ -200,22 +200,36 @@ class CommunityMemberAccessRegressionTest extends TestCase
     // The two axes, as the app will read them
     // -------------------------------------------------------------------------
 
-    public function test_the_community_payload_separates_member_from_follower(): void
+    /**
+     * The community payload still answers the MEMBER question and is otherwise
+     * unchanged — follower state is served by its own endpoints, because a
+     * per-row count in a resource that gets serialized in lists is an N+1
+     * (MeRewardsOverviewNPlusOneTest catches it).
+     */
+    public function test_the_community_payload_still_answers_the_member_question(): void
     {
         $asMember = $this->actingAs($this->member)
             ->getJson("/api/v1/communities/{$this->community->id}")
             ->json('data');
 
         $this->assertTrue($asMember['is_member'], 'the member should read as a member');
-        $this->assertFalse($asMember['is_following'], 'a member who never followed is not following');
 
         $asFollower = $this->actingAs($this->follower)
             ->getJson("/api/v1/communities/{$this->community->id}")
             ->json('data');
 
         $this->assertFalse($asFollower['is_member'], 'a follower is not a member');
-        $this->assertTrue($asFollower['is_following']);
-        $this->assertSame(1, $asFollower['follower_count']);
+    }
+
+    public function test_the_follow_response_is_the_authority_on_follower_state(): void
+    {
+        $response = $this->actingAs($this->member)
+            ->postJson("/api/v1/communities/{$this->community->id}/follow");
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.is_following', true)
+            // The follower from setUp, plus this one.
+            ->assertJsonPath('data.followers_count', 2);
     }
 
     public function test_my_follows_lists_only_what_i_follow(): void
