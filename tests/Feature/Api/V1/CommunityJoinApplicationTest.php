@@ -276,6 +276,110 @@ class CommunityJoinApplicationTest extends TestCase
             ->assertJsonPath('error', 'already_member');
     }
 
+    // -------------------------------------------------------------------------
+    // Backwards compatibility and prompt history (code review, 2026-08-22)
+    // -------------------------------------------------------------------------
+
+    /**
+     * The shipped app posts no `answers` key at all
+     * (CommunityService::requestToJoin sends an empty body). Holding it to the
+     * required-question rules would lock every installed build out of joining
+     * the moment a leader adds a required question.
+     */
+    public function test_a_client_that_sends_no_answers_key_can_still_apply(): void
+    {
+        $community = $this->community(JoinPolicy::InviteOnly);
+        $this->ask($community, 'Required for new clients', true, 1);
+
+        // No `answers` key — exactly what the shipped app sends.
+        $this->actingAs($this->applicant())
+            ->postJson("/api/v1/communities/{$community->id}/join-requests")
+            ->assertStatus(201);
+    }
+
+    /**
+     * A client that DOES know about answers is held to the rules, even when it
+     * sends an empty list.
+     */
+    public function test_a_client_that_sends_an_empty_answers_key_is_held_to_the_rules(): void
+    {
+        $community = $this->community(JoinPolicy::InviteOnly);
+        $this->ask($community, 'Required', true, 1);
+
+        $this->actingAs($this->applicant())
+            ->postJson("/api/v1/communities/{$community->id}/join-requests", ['answers' => []])
+            ->assertStatus(422)
+            ->assertJsonPath('error', 'missing_required_answers');
+    }
+
+    /**
+     * Retiring is not enough on its own: a leader can reword a LIVE question,
+     * and an application must keep reading as the applicant saw it.
+     */
+    public function test_rewording_a_question_does_not_rewrite_an_old_application(): void
+    {
+        $community = $this->community(JoinPolicy::InviteOnly);
+        $q = $this->ask($community, 'Original wording', true, 1);
+
+        $this->actingAs($this->applicant())
+            ->postJson("/api/v1/communities/{$community->id}/join-requests", [
+                'answers' => [['question_id' => $q->id, 'answer' => 'My answer.']],
+            ])
+            ->assertStatus(201);
+
+        $this->actingAs($this->leader)
+            ->patchJson("/api/v1/communities/{$community->id}/join-questions/{$q->id}", [
+                'prompt' => 'Completely different wording',
+            ])
+            ->assertStatus(200);
+
+        $response = $this->actingAs($this->leader)
+            ->getJson("/api/v1/communities/{$community->id}/join-requests");
+
+        $this->assertSame(
+            'Original wording',
+            $response->json('data.0.answers.0.prompt'),
+            'the leader must see the question as it was actually asked'
+        );
+    }
+
+    /**
+     * A retired question keeps its position, so a replacement must not land on
+     * top of a live one — and the order has to be deterministic either way.
+     */
+    public function test_a_replacement_question_does_not_collide_with_a_live_one(): void
+    {
+        $community = $this->community(JoinPolicy::InviteOnly);
+        $ids = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $ids[] = $this->actingAs($this->leader)->postJson(
+                "/api/v1/communities/{$community->id}/join-questions",
+                ['prompt' => "Q$i"]
+            )->json('data.id');
+        }
+
+        // Retire the second, then add a replacement.
+        $this->actingAs($this->leader)
+            ->deleteJson("/api/v1/communities/{$community->id}/join-questions/{$ids[1]}");
+
+        $replacement = $this->actingAs($this->leader)->postJson(
+            "/api/v1/communities/{$community->id}/join-questions",
+            ['prompt' => 'Replacement']
+        );
+
+        $replacement->assertStatus(201);
+        // Past the highest live position (5), not back onto the retired 2.
+        $this->assertSame(6, $replacement->json('data.position'));
+
+        $set = collect(
+            $this->actingAs($this->applicant())
+                ->getJson("/api/v1/communities/{$community->id}/join-questions")
+                ->json('data.questions')
+        )->pluck('prompt')->all();
+
+        $this->assertSame(['Q1', 'Q3', 'Q4', 'Q5', 'Replacement'], $set);
+    }
+
     public function test_answers_are_length_validated(): void
     {
         $community = $this->community(JoinPolicy::InviteOnly);

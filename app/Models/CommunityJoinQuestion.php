@@ -67,7 +67,12 @@ class CommunityJoinQuestion extends Model
      */
     public function scopeActiveOrdered(Builder $query): Builder
     {
-        return $query->where('is_active', true)->orderBy('position');
+        // created_at breaks the tie: a retired question keeps its position, so
+        // a replacement can legitimately reuse the same number and the order
+        // between them would otherwise be undefined.
+        return $query->where('is_active', true)
+            ->orderBy('position')
+            ->orderBy('created_at');
     }
 
     /**

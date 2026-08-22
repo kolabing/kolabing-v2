@@ -45,7 +45,8 @@ class CommunityJoinRequestService
     public function request(
         Community $community,
         Profile $profile,
-        array $answers = []
+        array $answers = [],
+        bool $answersProvided = false
     ): CommunityJoinRequest {
         $questions = CommunityJoinQuestion::query()
             ->where('community_id', $community->id)
@@ -76,7 +77,16 @@ class CommunityJoinRequestService
             return $pending;
         }
 
-        $this->assertRequiredAnswered($questions, $answers);
+        // Only enforce the required questions when the client actually took
+        // part in the questions flow. Every app build already installed posts
+        // no `answers` at all (CommunityService::requestToJoin sends an empty
+        // body), and 422-ing those would leave existing users unable to join
+        // the moment a leader adds a required question. A client that knows
+        // about answers sends the key — even as an empty array — and is held to
+        // the rules.
+        if ($answersProvided) {
+            $this->assertRequiredAnswered($questions, $answers);
+        }
 
         return DB::transaction(function () use ($community, $profile, $questions, $answers, $isOpen): CommunityJoinRequest {
             $joinRequest = $community->joinRequests()->create([
@@ -157,9 +167,16 @@ class CommunityJoinRequestService
                 continue;
             }
 
+            $question = $questions->firstWhere('id', $questionId);
+
             CommunityJoinAnswer::query()->updateOrCreate(
                 ['join_request_id' => $joinRequest->id, 'question_id' => $questionId],
-                ['answer' => $text],
+                [
+                    'answer' => $text,
+                    // Snapshot the wording: the question may be reworded later,
+                    // and this application must keep reading as it was asked.
+                    'prompt_snapshot' => $question?->prompt,
+                ],
             );
         }
     }

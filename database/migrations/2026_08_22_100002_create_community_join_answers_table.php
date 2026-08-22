@@ -24,6 +24,10 @@ return new class extends Migration
             $table->foreignUuid('question_id')
                 ->constrained('community_join_questions')
                 ->cascadeOnDelete();
+            // The prompt as it stood when this was answered. A leader may
+            // later reword the question, and an old application must not
+            // re-render its answer under wording the applicant never saw.
+            $table->string('prompt_snapshot', 280)->nullable();
             $table->text('answer');
             $table->timestamps();
 

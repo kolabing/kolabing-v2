@@ -50,9 +50,17 @@ class CommunityJoinQuestionService
             throw new DomainException('too_many_questions');
         }
 
+        // Next free slot AFTER the highest active position, not activeCount+1:
+        // retiring #2 of five and adding a replacement must not collide with
+        // the live #5.
+        $nextPosition = $position ?? (int) (CommunityJoinQuestion::query()
+            ->where('community_id', $community->id)
+            ->where('is_active', true)
+            ->max('position') ?? 0) + 1;
+
         return CommunityJoinQuestion::query()->create([
             'community_id' => $community->id,
-            'position' => $position ?? ($activeCount + 1),
+            'position' => $nextPosition,
             'prompt' => $prompt,
             'required' => $required,
             'is_active' => true,

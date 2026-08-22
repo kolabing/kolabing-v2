@@ -168,7 +168,9 @@ class Community extends Model
      */
     public function joinQuestions(): HasMany
     {
-        return $this->hasMany(CommunityJoinQuestion::class)->orderBy('position');
+        return $this->hasMany(CommunityJoinQuestion::class)
+            ->orderBy('position')
+            ->orderBy('created_at');
     }
 
     /**

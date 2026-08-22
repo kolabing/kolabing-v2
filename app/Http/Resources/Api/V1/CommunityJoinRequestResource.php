@@ -39,7 +39,10 @@ class CommunityJoinRequestResource extends JsonResource
             'answers' => $this->whenLoaded('answers', fn () => $this->answers
                 ->map(fn ($answer) => [
                     'question_id' => $answer->question_id,
-                    'prompt' => $answer->question?->prompt,
+                    // The wording the applicant saw, falling back to the
+                    // question's current prompt for rows written before the
+                    // snapshot existed.
+                    'prompt' => $answer->prompt_snapshot ?? $answer->question?->prompt,
                     'answer' => $answer->answer,
                 ])
                 ->values()

@@ -61,6 +61,10 @@ class CommunityJoinRequestController extends Controller
                 $community,
                 $profile,
                 $validated['answers'] ?? [],
+                // Whether the CLIENT knows about the questions flow at all.
+                // An older build sends no `answers` key; holding it to the
+                // required-question rules would lock it out of joining.
+                $request->has('answers'),
             );
         } catch (DomainException $e) {
             // Two distinct refusals, so the client can tell "use /join instead"
