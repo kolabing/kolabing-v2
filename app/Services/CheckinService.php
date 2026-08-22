@@ -148,6 +148,24 @@ class CheckinService
             throw new \LogicException('Check-in for this event has closed.');
         }
 
+        return $this->record($event, $profile);
+    }
+
+    /**
+     * Record someone as present, with every consequence that carries.
+     *
+     * Extracted because there are two doors into the same room and they must agree
+     * on what happens once someone is through it. In {@see checkin()} the attendee
+     * scans a code the host is displaying; in {@see TicketService::admit()} the host
+     * scans a code the attendee is carrying. Different proof, different party
+     * authenticated — identical outcome: one `event_checkins` row, arrivals
+     * broadcast, `total_events_attended` incremented, badges re-checked, community
+     * points awarded, tiers re-evaluated, missions progressed.
+     *
+     * @throws \LogicException already present
+     */
+    public function record(Event $event, Profile $profile): EventCheckin
+    {
         $existing = EventCheckin::query()
             ->where('event_id', $event->id)
             ->where('profile_id', $profile->id)
