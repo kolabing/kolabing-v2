@@ -198,11 +198,15 @@ Route::get('/', function (\App\Services\PublicKolabFeedService $kolabFeed) {
      * a page whose whole subject is the listings should fail loudly rather than render
      * an empty one and imply nothing is open.
      */
-    try {
-        $activeKolabs = $kolabFeed->highlights(6);
-    } catch (\Throwable $exception) {
-        report($exception);
-        $activeKolabs = collect();
+    $activeKolabs = collect();
+
+    // Nothing to show, and nothing to ask the database, while the surface is off.
+    if (config('kolabing.public_kolabs.enabled')) {
+        try {
+            $activeKolabs = $kolabFeed->highlights(6);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     return view('welcome', ['activeKolabs' => $activeKolabs]);
@@ -481,7 +485,7 @@ Route::get('/sitemap.xml', function () {
      * `noindex` under the same flag (BE-FX-20), and a sitemap that advertises URLs the
      * page asks Google to ignore is a contradiction, so both read one config value.
      */
-    if (config('kolabing.public_kolabs.indexable')) {
+    if (config('kolabing.public_kolabs.enabled') && config('kolabing.public_kolabs.indexable')) {
         $publicKolabs = app(\App\Services\PublicKolabFeedService::class)
             ->publishable()
             ->orderByDesc('published_at')
