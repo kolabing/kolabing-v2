@@ -67,7 +67,7 @@ class EventDiscoveryService
      * Find events near a given latitude/longitude within a radius (km), nearest
      * first, with a transient `distance_km` on every row.
      *
-     * ONE implementation, on every driver (BE-FX-20). The service used to branch:
+     * ONE implementation, on every driver (BE-FX-23). The service used to branch:
      * SQLite got a bounding box plus a PHP calculation, Postgres got trigonometry
      * in SQL — and because `phpunit.xml` pins the suite to SQLite, the branch that
      * runs in production was never executed by CI. That is the same blind spot

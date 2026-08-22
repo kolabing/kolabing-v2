@@ -292,7 +292,7 @@ class EventDiscoveryTest extends TestCase
 
     /*
     |--------------------------------------------------------------------------
-    | BE-FX-20 — one distance implementation, and CI runs the production one
+    | BE-FX-23 — one distance implementation, and CI runs the production one
     |--------------------------------------------------------------------------
     | The service used to branch on the driver: SQLite got a bounding box plus a
     | PHP calculation, Postgres got trigonometry in SQL. `phpunit.xml` pins the

@@ -18,6 +18,7 @@ return [
         'community' => 'Comunitat',
         'home' => 'Inici',
         'explore' => 'Explora',
+        'suggestions' => 'Suggeriments',
         'my_kolabs' => 'Els meus Kolabs',
         'events' => 'Esdeveniments',
         'messages' => 'Missatges',
@@ -232,6 +233,61 @@ return [
         'load_error' => 'No hem pogut carregar els Kolabs.',
         'a_partner' => 'Un soci',
     ],
+    /*
+     * Socis suggerits (BE-NF-28). Aquí no hi ha copy de motius a propòsit:
+     * `signals[].reason` i el títol del format arriben de GET /suggestions ja com
+     * a frases completes amb els números reals a dins, traduïdes a l'idioma de qui
+     * crida des de lang/{locale}/suggestions.php. Aquest bloc només és el marc
+     * que els envolta.
+     */
+    'suggestions' => [
+        'title' => 'Socis suggerits',
+        'subtitle_business' => 'Comunitats que valen un Kolab, amb els números que ho sostenen',
+        'subtitle_community' => 'Negocis que valen un Kolab, amb els números que ho sostenen',
+        'score_badge' => ':score% d’afinitat',
+        'confidence_high' => 'Evidència sòlida',
+        'confidence_medium' => 'Bona evidència',
+        'confidence_low' => 'Senyal inicial',
+        'why_this' => 'Per què aquest soci',
+        'format_title' => 'Format suggerit',
+        'weekday_time' => ':weekday a les :time',
+        'expected_attendance' => 'S’esperen unes :count persones',
+        /*
+         * D'on surt un número de la targeta. El motor no s'inventa mai una xifra, i
+         * aquí és on això es veu a la pantalla: «unes 45 persones» mereix una
+         * confiança diferent si és la mediana d'esdeveniments reals que si és una
+         * fracció del nombre de membres que la comunitat mateixa declara.
+         *
+         * La clau és `{camp}_{base}` perquè el peu encaixi amb el número que
+         * acompanya: `past_events` no diu el mateix de l'assistència que del dia de
+         * la setmana. Hi falten a propòsit `attendance_profile_only` i
+         * `weekday_none`, les dues bases buides. La targeta els busca amb tOr(), així
+         * que una clau que no existeix — o una base que afegeixi un desplegament
+         * posterior de l'API — no mostra cap peu en lloc d'una clau en cru.
+         */
+        'basis' => [
+            'attendance_past_events' => 'Segons l’assistència als seus esdeveniments anteriors',
+            'attendance_community_size' => 'Estimat a partir dels membres que declaren',
+            'weekday_series' => 'El dia en què es repeteix la seva sèrie',
+            'weekday_past_events' => 'El dia en què van caure la majoria dels seus esdeveniments',
+        ],
+        'offer_title' => 'Què oferiries',
+        'expects_title' => 'Què demanaries',
+        'create_cta' => 'Crea aquest Kolab',
+        'dismiss_cta' => 'No m’interessa',
+        'blurred_title' => 'Comunitat oculta en el pla gratuït',
+        'blurred_body' => 'L’afinitat, tots els motius i el format proposat de dalt són reals. Només es reserven el nom i el logotip.',
+        'blurred_cta' => 'Mira a qui t’adreces',
+        'empty_title' => 'Encara no hi ha suggeriments',
+        'empty_body_business' => 'Creuem el que diu el teu perfil amb el que ja has fet: el teu local o producte, la teva zona, els teus Kolabs anteriors. Completa-ho i començaran a arribar comunitats suggerides.',
+        'empty_body_community' => 'Creuem el que diu el teu perfil amb el que ja has fet: el tipus de comunitat, la mida, la teva zona, els teus esdeveniments anteriors. Completa-ho i començaran a arribar negocis suggerits.',
+        'empty_cta' => 'Completa el meu perfil',
+        'load_more' => 'Carrega’n més',
+        'load_error' => 'No hem pogut carregar els teus suggeriments.',
+        'dismiss_error' => 'No hem pogut descartar aquest suggeriment.',
+        'dashboard_block_title' => ':count suggeriments aquesta setmana',
+        'dashboard_block_title_one' => ':count suggeriment aquesta setmana',
+    ],
     'kolabs' => [
         'title' => 'Els meus Kolabs',
         'tab_offers' => 'OFERTES',
@@ -301,6 +357,7 @@ return [
         ],
         'create_title' => 'Crea un Kolab',
         'edit_title' => 'Edita el Kolab',
+        'from_suggestion' => 'Omplert des d’un soci suggerit. Canvia el que vulguis: res no queda fixat.',
         'free' => 'GRATIS',
         'headline' => 'Titular',
         'typical_attendance' => 'Assistència habitual',
@@ -713,6 +770,7 @@ return [
             'apply' => 'Aplicar a un Kolab requereix un pla actiu. Tria’n un a sota per continuar.',
             'create' => 'Crear un Kolab requereix un pla actiu. Tria’n un a sota per continuar.',
             'welcome' => 'El teu compte és a punt. Tria un pla per començar a publicar Kolabs.',
+            'suggestion' => 'El nom i el logo de la comunitat que hi ha darrere d’un suggeriment queden ocults en el pla gratuït, igual que a Explora. Un pla els revela i desbloqueja les dues accions que limita: acceptar una sol·licitud i aplicar a un Kolab.',
         ],
         'success' => [
             'confirming' => 'Confirmant el teu pagament…',

@@ -18,6 +18,7 @@ return [
         'community' => 'Community',
         'home' => 'Home',
         'explore' => 'Explore',
+        'suggestions' => 'Suggestions',
         'my_kolabs' => 'My Kolabs',
         'events' => 'Events',
         'messages' => 'Messages',
@@ -232,6 +233,66 @@ return [
         'load_error' => 'Could not load Kolabs.',
         'a_partner' => 'A partner',
     ],
+    /*
+     * Suggested partners (BE-NF-28). There is no reason copy here on purpose:
+     * `signals[].reason` and the format title arrive from GET /suggestions as
+     * finished sentences with the real numbers already in them, rendered in the
+     * caller's locale from lang/{locale}/suggestions.php. This block is only the
+     * frame around them.
+     */
+    'suggestions' => [
+        'title' => 'Suggested partners',
+        'subtitle_business' => 'Communities worth a Kolab, and the numbers behind each one',
+        'subtitle_community' => 'Businesses worth a Kolab, and the numbers behind each one',
+        'score_badge' => ':score% fit',
+        'confidence_high' => 'Strong evidence',
+        'confidence_medium' => 'Good evidence',
+        'confidence_low' => 'Early signal',
+        'why_this' => 'Why this partner',
+        'format_title' => 'Suggested format',
+        'weekday_time' => ':weekday at :time',
+        'expected_attendance' => 'Around :count people expected',
+        /*
+         * Where a number on the card came from. The engine never invents a figure,
+         * and this is where that shows on screen: "around 45 people" deserves
+         * different trust when it is a median of real past events than when it is a
+         * fraction of a self-reported member count.
+         *
+         * Keyed `{field}_{basis}` so the caption reads correctly for the number it
+         * sits under — `past_events` means two different things about attendance and
+         * about a weekday. Deliberately absent: `attendance_profile_only` and
+         * `weekday_none`, the two "no basis" slugs. The card looks these up with
+         * tOr(), so a missing key — or a basis value a later API deploy adds —
+         * renders no caption at all rather than a raw key.
+         */
+        'basis' => [
+            'attendance_past_events' => 'From attendance at their past events',
+            'attendance_community_size' => 'Estimated from their declared member count',
+            'weekday_series' => 'The day their recurring series runs',
+            'weekday_past_events' => 'The day most of their past events fell on',
+        ],
+        'offer_title' => "What you'd offer",
+        'expects_title' => "What you'd ask for",
+        'create_cta' => 'Create this Kolab',
+        'dismiss_cta' => 'Not interested',
+        'blurred_title' => 'Community hidden on the free plan',
+        'blurred_body' => 'The fit score, every reason and the whole proposed format above are real. Only the name and the logo are held back.',
+        'blurred_cta' => 'See who you are targeting',
+        'empty_title' => 'No suggestions yet',
+        'empty_body_business' => 'We match on what your profile says and what you have run before: your venue or product, your area, your past Kolabs. Fill those in and suggested communities start arriving.',
+        'empty_body_community' => 'We match on what your profile says and what you have run before: your community type, your size, your area, your past events. Fill those in and suggested businesses start arriving.',
+        'empty_cta' => 'Complete your profile',
+        'load_more' => 'Load more',
+        'load_error' => 'Could not load your suggestions.',
+        'dismiss_error' => 'Could not dismiss this suggestion.',
+        /*
+         * The dashboard entry point. Two forms because ":count suggestions" reads
+         * as "1 suggestions" for the single-card case, which is the common one for
+         * a new profile — the same reason `kolabs.application_count` has a pair.
+         */
+        'dashboard_block_title' => ':count suggestions this week',
+        'dashboard_block_title_one' => ':count suggestion this week',
+    ],
     'kolabs' => [
         'title' => 'My Kolabs',
         'tab_offers' => 'OFFERS',
@@ -302,6 +363,11 @@ return [
         ],
         'create_title' => 'Create a Kolab',
         'edit_title' => 'Edit Kolab',
+        /*
+         * Shown only when a prefill from a suggestion card actually landed, and it
+         * says the one thing a prefill has to say: none of it is binding.
+         */
+        'from_suggestion' => 'Pre-filled from a suggested partner. Change anything — nothing here is locked in.',
         'free' => 'FREE',
         'headline' => 'Headline',
         'typical_attendance' => 'Typical attendance',
@@ -714,6 +780,13 @@ return [
             'apply' => 'Applying to a Kolab needs an active plan. Pick one below to continue.',
             'create' => 'Creating a Kolab needs an active plan. Pick one below to continue.',
             'welcome' => 'Your account is ready. Pick a plan to start publishing Kolabs.',
+            /*
+             * The blurred counterpart on a suggestion card (BE-NF-28). It names
+             * what was held back and the two actions a plan unlocks — ROLES §2.7
+             * has exactly two, and the blur is a downstream effect of them, not a
+             * third gate. Nothing here may read as a community being charged.
+             */
+            'suggestion' => 'The community name and logo behind a suggestion stay hidden on the free plan, exactly as in Explore. A plan reveals them, and unlocks the two actions it gates: accepting an application and applying to a Kolab.',
         ],
         'success' => [
             'confirming' => 'Confirming your payment…',

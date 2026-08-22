@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * BE-FX-20 — the contract that lets `EventDiscoveryService` keep ONE distance
+ * BE-FX-23 — the contract that lets `EventDiscoveryService` keep ONE distance
  * implementation for every driver.
  *
  * The great-circle expression is computed in SQL so that filtering and ordering
@@ -20,7 +20,7 @@ use Tests\TestCase;
  *
  * If this file is the one that fails, the driver is missing a math function —
  * that is the message, not a discovery bug. Do NOT "fix" it by reintroducing a
- * PHP fallback branch: a second implementation is what BE-FX-20 removed.
+ * PHP fallback branch: a second implementation is what BE-FX-23 removed.
  */
 class EventDiscoverySqlDialectTest extends TestCase
 {
