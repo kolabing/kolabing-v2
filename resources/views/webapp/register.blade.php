@@ -295,8 +295,12 @@
             },
             /** Where a freshly registered account lands: businesses go straight to the offer. */
             postAuthPath() {
-                if (this.role !== 'business') return '/dashboard';
-                return '/subscription?reason=welcome' + (this.plan ? '&plan=' + this.plan : '');
+                // Someone who registered to get through a door goes back to that door.
+                const fallback = this.role !== 'business'
+                    ? '/dashboard'
+                    : '/subscription?reason=welcome' + (this.plan ? '&plan=' + this.plan : '');
+
+                return window.kbPostAuthTarget(fallback);
             },
             async loadLookups() {
                 const [bt, ct, vt, ci] = await Promise.all([

@@ -33,6 +33,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $max_challenges_per_attendee
  * @property bool $is_active
  * @property string|null $checkin_token
+ * @property string|null $checkin_code
+ * @property \Illuminate\Support\Carbon|null $checkin_token_expires_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Profile $profile
@@ -75,17 +77,33 @@ class Event extends Model
         'max_challenges_per_attendee',
         'is_active',
         'checkin_token',
+        'checkin_code',
+        'checkin_token_expires_at',
     ];
 
     /**
      * @return array<string, string>
      */
+    /**
+     * Whether a profile hosts this event.
+     *
+     * The single rule behind three gates: who may open the door, who may read the
+     * check-in list, and who may watch arrivals on the broadcast channel. Holding
+     * the token or the code is permission to be recorded as present, so these three
+     * must never drift apart.
+     */
+    public function isHostedBy(?Profile $profile): bool
+    {
+        return $profile !== null && $profile->id === $this->profile_id;
+    }
+
     protected function casts(): array
     {
         return [
             'event_date' => 'date',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
+            'checkin_token_expires_at' => 'datetime',
             'attendee_count' => 'integer',
             'occurrence_index' => 'integer',
             'location_lat' => 'decimal:7',
