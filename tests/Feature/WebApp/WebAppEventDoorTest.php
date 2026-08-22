@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\WebApp;
 
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
 /**
@@ -17,6 +18,9 @@ use Tests\TestCase;
  */
 class WebAppEventDoorTest extends TestCase
 {
+    // The public feed assertion below queries events; the rest are shell renders.
+    use LazilyRefreshDatabase;
+
     private function host(): string
     {
         return config('webapp.host');
@@ -139,9 +143,19 @@ class WebAppEventDoorTest extends TestCase
             ->assertSee('retires the current code everywhere');
     }
 
-    public function test_the_panel_event_routes_do_not_leak_onto_the_marketing_host(): void
+    public function test_the_two_hosts_serve_different_things_at_the_same_path(): void
     {
-        $this->get('http://kolabing.com/events')->assertNotFound();
+        /*
+         * `/events` now exists on both hosts and that is deliberate: the marketing
+         * host serves the public "what's on" feed, the app host serves the
+         * organiser's list. What must not leak is the door — check-in belongs to the
+         * panel, where a session exists.
+         */
+        $this->get('http://kolabing.com/events')->assertOk()->assertSee('on near you');
         $this->get('http://kolabing.com/checkin/ABCD1234')->assertNotFound();
+
+        // And the marketing event page resolves public events only, so a panel-style
+        // id does not become a way in.
+        $this->get('http://kolabing.com/events/01a0-some-uuid')->assertNotFound();
     }
 }

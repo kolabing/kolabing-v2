@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\EventVisibility;
 use App\Enums\UserType;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
@@ -28,10 +29,13 @@ use App\Http\Controllers\BlogController;
 use App\Http\Controllers\DirectoryController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\PasswordResetPageController;
+use App\Http\Controllers\PublicEventPageController;
 use App\Http\Controllers\PublicProfilePageController;
 use App\Models\BlogPost;
+use App\Models\Event;
 use App\Models\Profile;
 use App\Models\RankingPage;
+use App\Support\PublicEventLink;
 use App\Support\PublicProfileLink;
 use Illuminate\Support\Facades\Route;
 
@@ -369,6 +373,11 @@ Route::view('/es/terms', 'pages.es.terms')->name('terms.es')->middleware('cache_
 // `name-<uuid tail>`; see App\Support\PublicProfileLink.
 Route::get('/p/{slug}', [PublicProfilePageController::class, 'show'])->name('public-profile')->middleware('cache_marketing');
 
+// What's on — the attendee's front door: public events, no account needed to read.
+// Only EventVisibility::Public reaches these pages (see PublicEventPageController).
+Route::get('/events', [PublicEventPageController::class, 'index'])->name('public-events')->middleware('cache_marketing');
+Route::get('/events/{slug}', [PublicEventPageController::class, 'show'])->name('public-event')->middleware('cache_marketing');
+
 Route::get('/blog', [BlogController::class, 'index'])->name('blog.index')->middleware('cache_marketing');
 Route::get('/blog/{post}', [BlogController::class, 'show'])->name('blog.show')->middleware('cache_marketing');
 
@@ -409,6 +418,26 @@ Route::get('/sitemap.xml', function () {
         $urls[] = route('blog.index');
         foreach ($posts as $slug) {
             $urls[] = route('blog.show', $slug);
+        }
+    }
+
+    /*
+     * Public events. Only upcoming ones, and only `visibility = public` — the same
+     * gate the pages themselves use, so the sitemap can never advertise a
+     * members-only event's URL.
+     */
+    $publicEvents = Event::query()
+        ->where('visibility', EventVisibility::Public)
+        ->where(fn ($query) => $query
+            ->where('starts_at', '>=', now())
+            ->orWhere('event_date', '>=', now()->toDateString()))
+        ->orderByRaw('COALESCE(starts_at, event_date) ASC')
+        ->limit(500)
+        ->get();
+    if ($publicEvents->isNotEmpty()) {
+        $urls[] = route('public-events');
+        foreach ($publicEvents as $publicEvent) {
+            $urls[] = PublicEventLink::urlFor($publicEvent);
         }
     }
 

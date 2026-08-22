@@ -31,9 +31,49 @@
                     <template x-if="ev.location"><span> · <span x-text="ev.location"></span></span></template>
                 </p>
 
-                {{-- Not the host: no door, no numbers. --}}
+                {{-- Not the host: no door and no numbers, but this is where an
+                     attendee lands from the public page, so it is their RSVP. --}}
                 <template x-if="!isHost">
-                    <p class="mt-6 text-sm text-muted">{{ __('webapp.events.host_only') }}</p>
+                    <div>
+                        <section class="mt-6 rounded-[22px] border border-ink/[.08] bg-white p-6">
+                            <template x-if="going">
+                                <div class="text-center py-2">
+                                    <div class="w-14 h-14 mx-auto rounded-full bg-ok-surface text-ok-ink flex items-center justify-center">
+                                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                    </div>
+                                    <p class="mt-3 font-bold text-[17px] text-ink">{{ __('webapp.events.you_are_going') }}</p>
+                                    <p class="mt-1 text-[13px] text-body max-w-[40ch] mx-auto">{{ __('webapp.events.going_hint') }}</p>
+                                    <button type="button" @click="cancelRsvp()" :disabled="busy"
+                                            class="mt-4 h-9 px-4 rounded-pill bg-white border border-line text-[12.5px] font-bold text-danger hover:border-danger transition disabled:opacity-50">{{ __('webapp.events.cancel_rsvp') }}</button>
+                                </div>
+                            </template>
+
+                            <template x-if="waitlisted">
+                                <div class="text-center py-2">
+                                    <p class="font-bold text-[17px] text-ink">{{ __('webapp.events.waitlisted') }}</p>
+                                    <p class="mt-1 text-[13px] text-body"
+                                       x-text="t('events.waitlist_position', { n: ev.my_signup?.waitlist_position ?? '—' })"></p>
+                                    <button type="button" @click="cancelRsvp()" :disabled="busy"
+                                            class="mt-4 h-9 px-4 rounded-pill bg-white border border-line text-[12.5px] font-bold hover:border-ink transition disabled:opacity-50">{{ __('webapp.events.leave_waitlist') }}</button>
+                                </div>
+                            </template>
+
+                            <template x-if="!going && !waitlisted">
+                                <div class="text-center py-2">
+                                    <p class="font-bold text-[17px] text-ink">{{ __('webapp.events.rsvp_title') }}</p>
+                                    <p class="mt-1 text-[13px] text-body max-w-[40ch] mx-auto" x-text="spacesLabel"></p>
+                                    <button type="button" @click="rsvp()" :disabled="busy"
+                                            class="kb-on-yellow mt-4 h-12 px-7 rounded-pill bg-primary text-ink text-sm font-bold shadow-btn hover:bg-primary-dark transition disabled:opacity-50"
+                                            x-text="busy ? t('common.saving') : t('events.im_going')"></button>
+                                    <template x-if="rsvpError">
+                                        <p class="mt-3 text-[12.5px] text-bad-ink" x-text="rsvpError"></p>
+                                    </template>
+                                </div>
+                            </template>
+                        </section>
+
+                        <p class="mt-4 text-[12px] text-muted text-center">{{ __('webapp.events.attendee_free') }}</p>
+                    </div>
                 </template>
 
                 <template x-if="isHost">
@@ -129,11 +169,20 @@
     function eventDoorPage() {
         return {
             ev: null, door: {}, checkins: [], loading: true, pageError: '',
-            busy: false, copied: false, ticker: null, channel: null, live: false,
+            busy: false, copied: false, ticker: null, channel: null, live: false, rsvpError: '',
 
             id: location.pathname.slice((window.KB_BASE || '').length).split('/')[2],
 
             get isHost() { return !!this.me && !!this.ev && this.me.id === this.ev.host_profile_id; },
+            get going() { return this.ev?.my_signup?.status === 'going'; },
+            get waitlisted() { return this.ev?.my_signup?.status === 'waitlisted'; },
+            get spacesLabel() {
+                const cap = this.ev?.capacity;
+                const going = this.ev?.going_count ?? 0;
+                if (!cap) return t('events.rsvp_hint');
+                const left = Math.max(0, cap - going);
+                return left > 0 ? t('events.places_left', { n: left }) : t('events.full_waitlist');
+            },
             get turnout() {
                 const going = this.ev?.going_count ?? 0;
                 if (going === 0) return '—';
@@ -159,6 +208,17 @@
                 if (!window.kb.requireAuth()) return;
                 if (!await this.loadShell()) return;
                 await this.load();
+
+                /*
+                 * ?rsvp=1 is the hand-off from the public page on kolabing.com. That
+                 * page cannot sign anyone up — the token lives in this host's storage
+                 * — so it sends people here with the intent attached, and login
+                 * carries it through ?next=.
+                 */
+                if (!this.isHost && new URLSearchParams(location.search).get('rsvp') === '1' && !this.going && !this.waitlisted) {
+                    await this.rsvp();
+                }
+
                 if (this.isHost) {
                     await this.loadCheckins();
                     this.listen();
@@ -228,6 +288,27 @@
                 await this.load();
                 this.door = { ...this.door, is_open: true, code: d.checkin_code, url: d.checkin_url, expires_at: d.checkin_expires_at };
                 await this.loadCheckins();
+            },
+
+            async rsvp() {
+                this.busy = true;
+                this.rsvpError = '';
+                const res = await window.kb.api('/events/' + this.id + '/signup', { method: 'POST' });
+                this.busy = false;
+                if (!res.ok) {
+                    this.rsvpError = window.kb.errorText(res, t('events.rsvp_error'));
+                    return;
+                }
+                await this.load();
+            },
+
+            async cancelRsvp() {
+                this.busy = true;
+                this.rsvpError = '';
+                const res = await window.kb.api('/events/' + this.id + '/signup', { method: 'DELETE' });
+                this.busy = false;
+                if (!res.ok) { this.rsvpError = window.kb.errorText(res, t('events.rsvp_error')); return; }
+                await this.load();
             },
 
             async copyUrl() {
