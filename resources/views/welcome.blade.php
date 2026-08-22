@@ -947,6 +947,36 @@
     .ideas-foot b { color: var(--yellow); font-weight: 700; }
 
     /* ── FAQ — white, tight, clean contrast after dark examples ── */
+    /* ── LIVE KOLABS ── */
+    .section-live { background: #fff; padding: 112px 0 104px; border-top: 1px solid rgba(13,17,20,0.07); }
+    .live-track { max-width: 1200px; margin: 0 auto; padding: 0 56px; }
+    .live-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+    .live-lead { max-width: 520px; margin-top: 14px; color: rgba(13,17,20,0.62); font-size: 16px; line-height: 1.55; }
+    .live-all {
+      display: inline-flex; align-items: center; gap: 7px; height: 46px; padding: 0 22px;
+      border-radius: 999px; border: 2px solid var(--dark); background: #fff;
+      font-size: 14px; font-weight: 700; color: var(--dark); text-decoration: none;
+      transition: background .18s ease, color .18s ease; white-space: nowrap;
+    }
+    .live-all:hover { background: var(--dark); color: var(--yellow); }
+    .live-grid { margin-top: 36px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .live-card {
+      display: flex; flex-direction: column; padding: 24px 22px 20px;
+      border: 1px solid rgba(13,17,20,0.12); border-radius: 20px; background: #FDFBF7;
+      text-decoration: none; color: var(--dark);
+      transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+    }
+    .live-card:hover { border-color: var(--dark); transform: translateY(-2px); box-shadow: 0 14px 34px rgba(13,17,20,0.08); }
+    .live-kind { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--purple); }
+    .live-title { font-family: 'Anton', sans-serif; text-transform: uppercase; font-size: 21px; line-height: 1.05; margin-top: 9px; }
+    .live-poster { font-size: 13px; color: rgba(13,17,20,0.5); margin-top: 7px; }
+    .live-rows { margin-top: 16px; display: flex; flex-direction: column; gap: 5px; }
+    .live-row { font-size: 13.5px; line-height: 1.4; color: rgba(13,17,20,0.78); }
+    .live-row b { font-weight: 700; color: var(--dark); }
+    .live-meta { margin-top: 16px; font-size: 11.5px; font-weight: 600; color: rgba(13,17,20,0.42); }
+    .live-go { margin-top: auto; padding-top: 16px; font-size: 13px; font-weight: 700; }
+    .live-card:hover .live-go { text-decoration: underline; }
+
     .section-faq { background: #fff; padding: 112px 0; border-top: 1px solid rgba(13,17,20,0.07); }
     .faq-track {
       max-width: 1280px; margin: 0 auto; padding: 0 48px;
@@ -1173,6 +1203,8 @@
       .reveal-kicker { letter-spacing: 0.24em; gap: 12px; }
 
       .how-header { grid-template-columns: 1fr; padding: 0 24px; gap: 12px; }
+      .live-track { padding: 0 24px; }
+      .live-grid { grid-template-columns: 1fr; gap: 14px; }
       .how-steps { grid-template-columns: 1fr 1fr; padding: 0 24px; }
       .how-step::after { display: none; }
       .how-deco-arrow, .how-deco-squiggle { display: none; }
@@ -1210,9 +1242,10 @@
     <span class="nav-links">
       <a href="{{ route('for-businesses') }}">businesses</a>
       <a href="{{ route('for-communities') }}">communities</a>
+      <a href="{{ route('public-events') }}">what's on</a>
+      <a href="{{ route('public-kolabs') }}">kolabs</a>
       <a href="{{ route('pricing') }}">pricing</a>
       <a href="#how-it-works">how it works</a>
-      <a href="#faq">questions</a>
     </span>
     <a class="nav-login" href="{{ $appLogin }}">log in</a>
     <a class="btn-nav" href="{{ $appRegister }}">get started free</a>
@@ -1727,6 +1760,79 @@
 </section>
 
 <!-- FAQ -->
+{{--
+  Live Kolabs. Real rows from the marketplace, not illustrations — the strongest
+  argument that this is a working market is a working market.
+
+  Rendered only when there is something to show: a homepage section announcing
+  "nothing open" is worse than no section. The gate and the card contents come from
+  the same service and the same rules as /kolabs (PublicKolabFeedService,
+  PublicKolabPoster), so the shop window cannot promise what the listing hides. The
+  card markup is written out here rather than reusing <x-kolab-card>, because this
+  page is hand-rolled CSS and that component is Tailwind — sharing it would render
+  unstyled.
+--}}
+@if (($activeKolabs ?? collect())->isNotEmpty())
+<section class="section-live" id="live-kolabs">
+  <div class="live-track">
+    <div class="live-head">
+      <div>
+        <div class="section-label fade">live right now</div>
+        <div class="section-title fade">OPEN KOLABS</div>
+        <p class="live-lead fade" style="transition-delay:.1s">
+          Real collaborations waiting for a partner. Both sides post: a community looking for a venue,
+          a venue looking for a crowd. Browsing is free.
+        </p>
+      </div>
+      <a class="live-all fade" style="transition-delay:.15s" href="{{ route('public-kolabs') }}">
+        see all kolabs
+        <svg width="14" height="10" viewBox="0 0 14 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M1 5h11M8.5 1.5 12 5l-3.5 3.5"/>
+        </svg>
+      </a>
+    </div>
+
+    <div class="live-grid">
+      @foreach ($activeKolabs as $liveKolab)
+        @php
+            $livePoster = \App\Support\PublicKolabPoster::describe($liveKolab);
+            $liveIsAsk = $liveKolab->intent_type === \App\Enums\IntentType::CommunitySeeking;
+            $liveGives = $liveIsAsk
+                ? \App\Support\OfferOptionLabels::many('deliverable', $liveKolab->offers_in_return)
+                : \App\Support\OfferOptionLabels::many('offering', $liveKolab->offering);
+            $liveWants = $liveIsAsk
+                ? \App\Support\OfferOptionLabels::many('need', $liveKolab->needs)
+                : \App\Support\OfferOptionLabels::many('deliverable', $liveKolab->expects);
+            $liveKind = match ($liveKolab->intent_type) {
+                \App\Enums\IntentType::CommunitySeeking => 'community looking',
+                \App\Enums\IntentType::VenuePromotion => 'venue offering',
+                \App\Enums\IntentType::ProductPromotion => 'product offering',
+            };
+            $liveReach = $liveKolab->typical_attendance ?? $liveKolab->community_size;
+        @endphp
+        <a class="live-card fade" href="{{ \App\Support\PublicKolabLink::urlFor($liveKolab) }}">
+          <span class="live-kind">{{ $liveKind }}</span>
+          <span class="live-title">{{ $liveKolab->title }}</span>
+          <span class="live-poster">{{ $livePoster['description'] }}</span>
+          <span class="live-rows">
+            @if ($liveGives !== [])
+              <span class="live-row"><b>offers</b> {{ implode(' · ', array_slice($liveGives, 0, 2)) }}</span>
+            @endif
+            @if ($liveWants !== [])
+              <span class="live-row"><b>wants</b> {{ implode(' · ', array_slice($liveWants, 0, 2)) }}</span>
+            @endif
+          </span>
+          @if ($liveReach)
+            <span class="live-meta">{{ $liveReach }} people</span>
+          @endif
+          <span class="live-go">see the kolab →</span>
+        </a>
+      @endforeach
+    </div>
+  </div>
+</section>
+@endif
+
 <section class="section-faq" id="faq">
   <div class="faq-track">
     <div class="faq-heading-col">
@@ -1793,6 +1899,8 @@ COMMUNITIES GET PERKS.</div>
     <div class="footer-links">
       <a href="{{ route('for-businesses') }}">businesses</a>
       <a href="{{ route('for-communities') }}">communities</a>
+      <a href="{{ route('public-events') }}">what's on</a>
+      <a href="{{ route('public-kolabs') }}">active kolabs</a>
       <a href="{{ route('pricing') }}">pricing</a>
       <a href="{{ route('directory.index') }}">community directory</a>
       <a href="{{ route('blog.index') }}">blog</a>

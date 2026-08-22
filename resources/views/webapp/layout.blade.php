@@ -307,7 +307,29 @@
                 if (data.refresh_token) localStorage.setItem(this.refreshKey, data.refresh_token);
             },
             clear() { localStorage.removeItem(this.tokenKey); localStorage.removeItem(this.refreshKey); },
-            requireAuth() { if (!this.token) { window.nav('/login'); return false; } return true; },
+            /*
+             * Bounce to login, remembering where the visitor was trying to go.
+             *
+             * This matters most for the hand-offs from kolabing.com: a public page
+             * cannot sign anyone in (the token lives in this host's storage), so it
+             * sends people here with their intent in the query — /events/{id}?rsvp=1,
+             * /kolabs/{id}?apply=1. Without `next` the login screen forgot the
+             * destination and dropped them on the dashboard, losing the intent that
+             * brought them. `next` is a path only, and kbPostAuthTarget() re-checks
+             * that before using it, so this cannot become an open redirect. The
+             * locale prefix is stripped because nav() adds it back.
+             */
+            requireAuth() {
+                if (this.token) return true;
+
+                const base = window.KB_BASE || '';
+                const here = location.pathname.startsWith(base) ? location.pathname.slice(base.length) : location.pathname;
+                const intended = here + location.search;
+
+                window.nav(here === '/login' ? '/login' : '/login?next=' + encodeURIComponent(intended));
+
+                return false;
+            },
             requireGuest() { if (this.token) { window.nav('/dashboard'); return false; } return true; },
             // Logging out leaves the product entirely — send people to the public
             // site, not back to the app host's own logged-out hero.
