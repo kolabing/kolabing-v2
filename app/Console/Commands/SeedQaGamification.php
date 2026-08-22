@@ -219,6 +219,10 @@ class SeedQaGamification extends Command
      */
     private function cleanup(): void
     {
+        // `event_checkins` and `challenge_completions` both cascadeOnDelete on
+        // event_id (and completions also on challenge_id), so a QA round's
+        // check-ins and completed challenges go with the event — no need to
+        // clear them first, and no FK violation from this order.
         $events = Event::query()->where('name', self::EVENT_NAME)->pluck('id');
 
         if ($events->isNotEmpty()) {
