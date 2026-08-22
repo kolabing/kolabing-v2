@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\V1\CommunityController;
 use App\Http\Controllers\Api\V1\CommunityFollowController;
 use App\Http\Controllers\Api\V1\CommunityGoalController;
 use App\Http\Controllers\Api\V1\CommunityInvitationController;
+use App\Http\Controllers\Api\V1\CommunityJoinQuestionController;
 use App\Http\Controllers\Api\V1\CommunityJoinRequestController;
 use App\Http\Controllers\Api\V1\CommunityMemberController;
 use App\Http\Controllers\Api\V1\CommunityRewardController;
@@ -491,6 +492,17 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.communities.follow.store');
         Route::delete('communities/{community}/follow', [CommunityFollowController::class, 'destroy'])
             ->name('api.v1.communities.follow.destroy');
+
+        // The questions a leader asks before admitting a member. Reading the
+        // set is open (an applicant must see it); changing it needs `manage`.
+        Route::get('communities/{community}/join-questions', [CommunityJoinQuestionController::class, 'index'])
+            ->name('api.v1.communities.join-questions.index');
+        Route::post('communities/{community}/join-questions', [CommunityJoinQuestionController::class, 'store'])
+            ->name('api.v1.communities.join-questions.store');
+        Route::patch('communities/{community}/join-questions/{question}', [CommunityJoinQuestionController::class, 'update'])
+            ->name('api.v1.communities.join-questions.update');
+        Route::delete('communities/{community}/join-questions/{question}', [CommunityJoinQuestionController::class, 'destroy'])
+            ->name('api.v1.communities.join-questions.destroy');
 
         // Invite-only join requests (request → leader approves/declines).
         Route::post('communities/{community}/join-requests', [CommunityJoinRequestController::class, 'store'])
