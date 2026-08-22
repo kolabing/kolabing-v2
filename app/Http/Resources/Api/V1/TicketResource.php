@@ -38,6 +38,14 @@ class TicketResource extends JsonResource
             'qr_svg' => app(TicketService::class)->qrSvg($this->resource),
             'admit_url' => TicketLink::admitUrl($this->resource),
             'used_at' => $this->usedAt(),
+            /*
+             * Who is being let in. The doorkeeper needs it — the whole point of a
+             * ticket is that the person scanning is not the person authenticated —
+             * and only the holder and the host can read this resource at all.
+             */
+            'holder_name' => $this->profile?->name
+                ?? $this->profile?->businessProfile?->name
+                ?? $this->profile?->communityProfile?->name,
             'event' => $event === null ? null : [
                 'id' => $event->id,
                 'name' => $event->name,

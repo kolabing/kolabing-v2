@@ -4,30 +4,47 @@
     //   <div class="md:flex min-h-screen"> @include('webapp.partials.sidebar', ['active' => 'dashboard'])
     //   <main class="flex-1 min-w-0"> … </main> </div>
     $activeKey = $active ?? '';
+    /*
+     * Nav items, with an Alpine expression deciding who sees each one.
+     *
+     * Role is only knowable client-side (it comes from GET /auth/me), so this
+     * cannot be filtered in PHP. The `show` expression is therefore rendered as
+     * `x-show`, and which way it defaults matters:
+     *
+     *  - `!isAttendee` items render VISIBLE and hide only once we learn the viewer
+     *    is an attendee. No `x-cloak`, because businesses and communities are the
+     *    majority and a flash of missing nav is worse than a flash of extra.
+     *  - attendee-only items carry `x-cloak` so they stay hidden until known,
+     *    which is the correct state for that same majority.
+     */
     $items = [
-        'dashboard'     => ['/dashboard', __('webapp.nav.home'), '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>'],
-        'feed'          => ['/feed', __('webapp.nav.explore'), '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>'],
-        'suggestions'   => ['/suggestions', __('webapp.nav.suggestions'), '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18 15.5l.75 2L21 18.25l-2.25.75L18 21l-.75-2L15 18.25l2.25-.75z"/>'],
-        'kolabs'        => ['/kolabs', __('webapp.nav.my_kolabs'), '<path d="m12 2-10 5 10 5 10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>'],
+        'dashboard'     => ['/dashboard', __('webapp.nav.home'), '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>', null],
+        'feed'          => ['/feed', __('webapp.nav.explore'), '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>', '!isAttendee'],
+        'suggestions'   => ['/suggestions', __('webapp.nav.suggestions'), '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18 15.5l.75 2L21 18.25l-2.25.75L18 21l-.75-2L15 18.25l2.25-.75z"/>', '!isAttendee'],
+        'kolabs'        => ['/kolabs', __('webapp.nav.my_kolabs'), '<path d="m12 2-10 5 10 5 10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>', '!isAttendee'],
+        // An attendee's wallet: the seats they hold, each with the QR that gets
+        // them in. Nobody else has tickets, so nobody else sees it.
+        'tickets'       => ['/tickets', __('webapp.nav.tickets'), '<path d="M2 9V7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v2a2 2 0 0 0 0 6v2a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-6z"/><path d="M13 5v14"/>', 'isAttendee'],
         /*
          * No 'events' entry. Volkan's call (2026-08-22): there is no separate events
          * product — "kolablar üstünden yürümeli". A Kolab is agreed, people sign up,
-         * they scan a QR at the door. `events` rows still exist as that door's
-         * mechanism (a collaboration lazily gets one so it can mint a check-in token),
-         * but they are not a surface a user navigates to, so the nav does not offer
-         * one. BACKLOG BE-NF-40 reworks the attendee funnel onto Kolabs; until then
-         * pointing people at a parallel calendar would teach the wrong model.
+         * they scan a QR at the door. `events` rows are still that door's mechanism,
+         * but they are not a surface a user navigates to. An attendee's equivalent is
+         * their wallet above, plus what's on from their home.
          */
-        'chats'         => ['/chats', __('webapp.nav.messages'), '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'],
-        'notifications' => ['/notifications', __('webapp.nav.notifications'), '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'],
-        'account'       => ['/account', __('webapp.nav.profile'), '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'],
+        'chats'         => ['/chats', __('webapp.nav.messages'), '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>', null],
+        'notifications' => ['/notifications', __('webapp.nav.notifications'), '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>', null],
+        'account'       => ['/account', __('webapp.nav.profile'), '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>', null],
     ];
-    // Suggested partners ships behind config('suggestions.enabled') (BE-NF-39).
-    // The route itself 404s while the flag is off, so the entry must not exist
-    // either — a nav item that leads to a 404 is worse than no nav item.
+    /*
+     * Suggested partners ships behind config('suggestions.enabled') (BE-NF-39).
+     * The route itself 404s while the flag is off, so the entry must not exist
+     * either — a nav item that leads to a 404 is worse than no nav item.
+     */
     if (! config('suggestions.enabled')) {
         unset($items['suggestions']);
     }
+
     $planIcon = '<rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/>';
 @endphp
 
@@ -52,12 +69,15 @@
         </div>
     </div>
     <nav class="border-t border-ink/10 bg-cream px-5 py-3 flex flex-col gap-1 text-sm" x-show="menuOpen" x-cloak>
-        <a href="{{ $base }}/kolabs/create" class="kb-on-yellow mb-2 h-11 rounded-pill bg-primary text-ink font-bold flex items-center justify-center gap-2 shadow-btn">
+        <a href="{{ $base }}/kolabs/create" x-show="!isAttendee"
+           class="kb-on-yellow mb-2 h-11 rounded-pill bg-primary text-ink font-bold flex items-center justify-center gap-2 shadow-btn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
             {{ __('webapp.nav.create') }}
         </a>
-        @foreach ($items as $key => [$path, $label, $icon])
-            <a href="{{ $base.$path }}" class="py-2.5 px-2 rounded-xl {{ $activeKey === $key ? 'bg-primary-tint font-bold' : 'text-body' }}">{{ $label }}</a>
+        @foreach ($items as $key => [$path, $label, $icon, $show])
+            <a href="{{ $base.$path }}"
+               @if ($show) x-show="{{ $show }}" @if (! str_starts_with($show, '!')) x-cloak @endif @endif
+               class="py-2.5 px-2 rounded-xl {{ $activeKey === $key ? 'bg-primary-tint font-bold' : 'text-body' }}">{{ $label }}</a>
         @endforeach
         <a href="{{ $base }}/community" x-show="canSeeCommunityHub" x-cloak class="py-2.5 px-2 rounded-xl {{ $activeKey === 'community' ? 'bg-primary-tint font-bold' : 'text-body' }}">{{ __('webapp.nav.community') }}</a>
         <a href="{{ $base }}/subscription" x-show="isBusiness" x-cloak class="py-2.5 px-2 rounded-xl {{ $activeKey === 'subscription' ? 'bg-primary-tint font-bold' : 'text-body' }}">{{ __('webapp.nav.plan') }}</a>
@@ -85,15 +105,17 @@
         <img src="/webapp-assets/wordmark-light.png" alt="Kolabing" class="w-[138px]">
     </a>
 
-    <a href="{{ $base }}/kolabs/create"
+    {{-- Creating a Kolab is not an attendee action (ROLES §7.2). --}}
+    <a href="{{ $base }}/kolabs/create" x-show="!isAttendee"
        class="kb-on-yellow shrink-0 mb-5 flex items-center justify-center gap-2 h-12 rounded-pill bg-primary text-ink text-sm font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
         {{ __('webapp.nav.create') }}
     </a>
 
     <nav class="shrink-0 flex flex-col gap-0.5">
-        @foreach ($items as $key => [$path, $label, $icon])
+        @foreach ($items as $key => [$path, $label, $icon, $show])
             <a href="{{ $base.$path }}"
+               @if ($show) x-show="{{ $show }}" @if (! str_starts_with($show, '!')) x-cloak @endif @endif
                class="flex items-center gap-3 px-3 py-[11px] rounded-xl text-sm transition {{ $activeKey === $key ? 'bg-primary-tint font-bold text-ink' : 'font-medium text-body hover:bg-cream-low' }}">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{!! $icon !!}</svg>
                 {{ $label }}

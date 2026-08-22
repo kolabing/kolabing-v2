@@ -91,6 +91,21 @@ $webappRoutes = function (): void {
     Route::view('/events', 'webapp.events');
     Route::view('/events/{event}', 'webapp.event-detail');
     Route::view('/checkin/{token}', 'webapp.checkin');
+    /*
+     * Tickets, and the other side of the door.
+     *
+     * `/tickets` is the attendee's wallet — the seats they hold, each with the QR
+     * that gets them in. `/admit/{code}` is what that QR points at, opened by the
+     * HOST's camera: the person admitted is not the person signed in, which is the
+     * whole difference from /checkin/{token} above (there the attendee scans a code
+     * the host is displaying). Neither route is auth-gated at the route level; both
+     * pages call requireAuth(), which carries the destination in `?next=` so a QR
+     * scanned on a phone that is not signed in still completes after login.
+     */
+    Route::view('/tickets', 'webapp.tickets');
+    Route::view('/admit/{code}', 'webapp.admit');
+    // Attendee onboarding: the four steps the mobile app runs, same endpoint.
+    Route::view('/onboarding/attendee', 'webapp.onboarding-attendee');
     // Kolabs — order matters: literal + edit before the {kolab} catch-all.
     Route::view('/kolabs', 'webapp.kolabs');
     Route::view('/kolabs/create', 'webapp.kolab-form');
