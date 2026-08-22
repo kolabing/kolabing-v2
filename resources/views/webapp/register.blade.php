@@ -25,6 +25,19 @@
             </span>
         </button>
 
+        {{-- Attendees: the people who actually turn up. Free, and the only role
+             that needs no business or community details — just a handle. --}}
+        <button type="button" @click="pickRole('attendee')"
+                class="text-left p-5 rounded-[20px] bg-white border border-ink/10 hover:border-primary hover:bg-primary-tint transition flex items-center gap-3.5">
+            <span class="w-11 h-11 rounded-[14px] bg-cream-low flex items-center justify-center shrink-0">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/><path d="M12 7v10"/></svg>
+            </span>
+            <span>
+                <span class="block text-[15px] font-bold text-ink">{{ __('webapp.register.attendee_title') }}</span>
+                <span class="block text-[13px] text-muted mt-0.5">{{ __('webapp.register.attendee_sub') }}</span>
+            </span>
+        </button>
+
         <button type="button" @click="pickRole('community')"
                 class="text-left p-5 rounded-[20px] bg-white border border-ink/10 hover:border-primary hover:bg-primary-tint transition flex items-center gap-3.5">
             <span class="w-11 h-11 rounded-[14px] bg-cream-low flex items-center justify-center shrink-0">
@@ -140,6 +153,28 @@
         </template>
 
         {{-- Business: categories --}}
+        {{-- Attendee details: name + @handle. No city or category gate — an
+             attendee is not selling anything, so nothing else is required. --}}
+        <template x-if="role === 'attendee'">
+            <div class="flex flex-col gap-[13px]">
+                <div>
+                    <label class="text-[12px] font-semibold text-body">{{ __('webapp.register.attendee_name') }}</label>
+                    <input x-model="form.name" type="text" maxlength="255" placeholder="{{ __('webapp.register.attendee_name_ph') }}"
+                           class="mt-1.5 w-full h-12 px-4 rounded-xl bg-cream-low border border-transparent focus:border-ink/20 focus:bg-white text-[14px] outline-none transition">
+                </div>
+                <div>
+                    <label class="text-[12px] font-semibold text-body">{{ __('webapp.register.attendee_handle') }}</label>
+                    <div class="mt-1.5 flex items-center h-12 px-4 rounded-xl bg-cream-low border border-transparent focus-within:border-ink/20 focus-within:bg-white transition">
+                        <span class="text-[14px] text-muted">@</span>
+                        <input x-model="form.handle" type="text" maxlength="20" autocapitalize="none" spellcheck="false"
+                               placeholder="{{ __('webapp.register.attendee_handle_ph') }}"
+                               class="flex-1 min-w-0 ml-1 bg-transparent text-[14px] outline-none">
+                    </div>
+                    <p class="mt-1 text-[11.5px] text-muted">{{ __('webapp.register.attendee_handle_hint') }}</p>
+                </div>
+            </div>
+        </template>
+
         <template x-if="role === 'business'">
             <div class="flex flex-col gap-1.5">
                 <label class="text-xs font-semibold text-body">{{ __('webapp.register.categories') }} <span class="font-normal text-muted">{{ __('webapp.account.categories_hint') }}</span></label>
@@ -263,16 +298,22 @@
             businessTypes: [], communityTypes: [], venueTypes: [], cities: [],
             form: {
                 name: '', email: '', phone_number: '', password: '', password_confirmation: '',
-                referral_code: '', accepted_terms: false,
+                referral_code: '', accepted_terms: false, handle: '',
                 categories: [], community_type: '', community_size: null,
                 city_id: '', has_venue: null,
                 venue: { name: '', venue_type: '', capacity: null, formatted_address: '' },
             },
-            get roleLabel() { return this.role === 'business' ? t('register.as_business') : t('register.as_community'); },
+            get roleLabel() {
+                if (this.role === 'attendee') return t('register.as_attendee');
+                return this.role === 'business' ? t('register.as_business') : t('register.as_community');
+            },
             get nameLabel() { return this.role === 'business' ? t('account.business_name') : t('account.community_name'); },
             get namePlaceholder() { return this.role === 'business' ? t('register.business_name_ph') : t('register.community_name_ph'); },
             get inviteHint() { return this.role === 'business' ? t('register.invite_hint_business') : t('register.invite_hint_community'); },
-            get detailsHeading() { return this.role === 'business' ? t('register.details_business') : t('register.details_community'); },
+            get detailsHeading() {
+                if (this.role === 'attendee') return t('register.details_attendee');
+                return this.role === 'business' ? t('register.details_business') : t('register.details_community');
+            },
             get venueOptions() {
                 return [
                     { value: true,  title: t('register.venue_yes'), sub: t('register.venue_yes_sub') },
@@ -285,7 +326,7 @@
                 if (!window.kb.requireGuest()) return;
                 const params = new URLSearchParams(location.search);
                 const q = params.get('type');
-                if (q === 'business' || q === 'community') {
+                if (q === 'business' || q === 'community' || q === 'attendee', 'attendee') {
                     this.role = q; this.step = 'account';
                     if (this.hasGoogle) this.$nextTick(() => this.loadGoogle());
                 }
@@ -409,10 +450,63 @@
                 }
                 return b;
             },
+            /**
+             * Attendees take two calls, not one: the account, then the handle. The
+             * register endpoint only accepts email/password/terms — everything that
+             * identifies an attendee lives behind PUT /onboarding/attendee.
+             */
+            async submitAttendee() {
+                const f = this.form;
+                if (!f.name.trim()) { this.error = t('register.err_name'); return; }
+                if (!/^[a-z0-9_]{3,20}$/.test(f.handle.trim().toLowerCase())) {
+                    this.error = t('register.err_handle');
+                    return;
+                }
+
+                this.busy = true;
+                const account = await window.kb.api('/auth/register/attendee', {
+                    method: 'POST', auth: false,
+                    body: {
+                        email: f.email,
+                        password: f.password,
+                        password_confirmation: f.password,
+                        accepted_terms: true,
+                    },
+                });
+
+                if (!account.ok || !account.json?.data?.token) {
+                    this.busy = false;
+                    this.error = window.kb.errorText(account, t('register.error'));
+                    return;
+                }
+                window.kb.setSession(account.json.data);
+
+                const onboard = await window.kb.api('/onboarding/attendee', {
+                    method: 'PUT',
+                    body: { name: f.name.trim(), handle: f.handle.trim().toLowerCase() },
+                });
+                this.busy = false;
+
+                if (!onboard.ok) {
+                    // The account exists and they are signed in, so this is recoverable
+                    // from the profile page rather than a dead end.
+                    this.error = window.kb.errorText(onboard, t('register.error'));
+                    return;
+                }
+
+                window.nav(this.postAuthPath());
+            },
+
             async submit() {
                 this.error = '';
                 const f = this.form;
                 if (!f.accepted_terms) { this.error = t('register.err_terms'); return; }
+
+                if (this.role === 'attendee') {
+                    await this.submitAttendee();
+                    return;
+                }
+
                 if (!f.city_id) { this.error = t('register.err_city'); return; }
                 if (this.role === 'community' && !f.community_type) { this.error = t('register.err_community_type'); return; }
                 if (this.role === 'business' && f.categories.length === 0) { this.error = t('register.err_categories'); return; }
