@@ -20,6 +20,7 @@ use App\Models\Application;
 use App\Models\AttendeeProfile;
 use App\Models\Challenge;
 use App\Models\ChatThread;
+use App\Models\City;
 use App\Models\Collaboration;
 use App\Models\Community;
 use App\Models\CommunityMember;
@@ -99,6 +100,16 @@ class SeedQaGamification extends Command
 
     private const EVENT_NAME = self::MARKER.' Gamification Test Run';
 
+    /**
+     * City for the seeded accounts and event.
+     *
+     * Needed, not cosmetic: the attendee home feed is city-scoped, so without a
+     * city the app's default landing surface for an attendee is empty and the
+     * seed reads as if it had not worked. Resolved from the `cities` table by
+     * name — never a hardcoded id.
+     */
+    private const CITY_NAME = 'Barcelona';
+
     public function handle(): int
     {
         if (! $this->confirmTarget()) {
@@ -133,10 +144,17 @@ class SeedQaGamification extends Command
             $this->cleanup();
         }
 
-        $result = DB::transaction(function () use ($business): array {
-            $leader = $this->ensureLeader();
-            $attendeeA = $this->ensureAttendee(self::ATTENDEE_A_EMAIL, 'QA Attendee A', 'qa_attendee_a');
-            $attendeeB = $this->ensureAttendee(self::ATTENDEE_B_EMAIL, 'QA Attendee B', 'qa_attendee_b');
+        $city = City::query()->where('name', self::CITY_NAME)->first();
+
+        if ($city === null) {
+            $this->warn(self::CITY_NAME.' not found in `cities` — seeding without a city.');
+            $this->warn('The attendee home feed is city-scoped, so it will look empty.');
+        }
+
+        $result = DB::transaction(function () use ($business, $city): array {
+            $leader = $this->ensureLeader($city);
+            $attendeeA = $this->ensureAttendee(self::ATTENDEE_A_EMAIL, 'QA Attendee A', 'qa_attendee_a', $city);
+            $attendeeB = $this->ensureAttendee(self::ATTENDEE_B_EMAIL, 'QA Attendee B', 'qa_attendee_b', $city);
 
             $community = $this->ensureCommunity($leader);
             $this->ensureMember($community, $leader, canManage: true);
@@ -144,7 +162,7 @@ class SeedQaGamification extends Command
             $this->ensureMember($community, $attendeeB);
 
             $collaboration = $this->ensureActiveKolab($leader, $business);
-            $event = $this->ensureEvent($community, $leader);
+            $event = $this->ensureEvent($community, $leader, $city);
             $challenges = $this->ensureChallenges($event);
 
             $this->ensureGoing($event, $attendeeA);
@@ -242,7 +260,7 @@ class SeedQaGamification extends Command
         }
     }
 
-    private function ensureLeader(): Profile
+    private function ensureLeader(?City $city): Profile
     {
         $leader = Profile::query()->firstOrCreate(
             ['email' => self::LEADER_EMAIL],
@@ -251,23 +269,35 @@ class SeedQaGamification extends Command
                 'user_type' => UserType::Community,
                 'name' => 'QA Community Leader',
                 'handle' => 'qa_leader',
+                'city_id' => $city?->id,
                 'email_verified_at' => Carbon::now(),
             ]
         );
+
+        // firstOrCreate skips the attribute list on an existing row, so set the
+        // city explicitly — otherwise a re-run never backfills it.
+        if ($city !== null && $leader->city_id !== $city->id) {
+            $leader->update(['city_id' => $city->id]);
+        }
 
         CommunityProfile::query()->firstOrCreate(
             ['profile_id' => $leader->id],
             [
                 'name' => 'QA Community Leader',
                 'community_type' => 'running',
+                'city_id' => $city?->id,
             ]
         );
 
         return $leader->fresh(['communityProfile']);
     }
 
-    private function ensureAttendee(string $email, string $name, string $handle): Profile
-    {
+    private function ensureAttendee(
+        string $email,
+        string $name,
+        string $handle,
+        ?City $city
+    ): Profile {
         $attendee = Profile::query()->firstOrCreate(
             ['email' => $email],
             [
@@ -275,9 +305,14 @@ class SeedQaGamification extends Command
                 'user_type' => UserType::Attendee,
                 'name' => $name,
                 'handle' => $handle,
+                'city_id' => $city?->id,
                 'email_verified_at' => Carbon::now(),
             ]
         );
+
+        if ($city !== null && $attendee->city_id !== $city->id) {
+            $attendee->update(['city_id' => $city->id]);
+        }
 
         AttendeeProfile::query()->firstOrCreate(['profile_id' => $attendee->id]);
 
@@ -394,12 +429,13 @@ class SeedQaGamification extends Command
      * `POST /events/{id}/generate-qr` is step 1 of the flow under test, and
      * pre-filling it would skip the thing being tested.
      */
-    private function ensureEvent(Community $community, Profile $leader): Event
+    private function ensureEvent(Community $community, Profile $leader, ?City $city): Event
     {
         return Event::query()->updateOrCreate(
             ['name' => self::EVENT_NAME, 'community_id' => $community->id],
             [
                 'profile_id' => $leader->id,
+                'city_id' => $city?->id,
                 'partner_name' => $community->name,
                 'partner_type' => UserType::Community->value,
                 'event_date' => Carbon::today(),
