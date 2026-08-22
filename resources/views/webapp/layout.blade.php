@@ -267,6 +267,22 @@
             const s = window.t(key);
             return s === key ? fallback : s;
         };
+        /** Date + time in the viewer's locale, for anything timestamped to the minute. */
+        window.kbDateTime = function (iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            return d.toLocaleDateString(window.KB_LOCALE || 'en', { day: 'numeric', month: 'short' })
+                + ' · ' + d.toLocaleTimeString(window.KB_LOCALE || 'en', { hour: '2-digit', minute: '2-digit' });
+        };
+        /**
+         * Where to go after signing in. `?next=` is honoured only when it is a local
+         * path — an absolute URL here would be an open redirect.
+         */
+        window.kbPostAuthTarget = function (fallback) {
+            const next = new URLSearchParams(location.search).get('next');
+            if (next && next.startsWith('/') && !next.startsWith('//')) return next;
+            return fallback;
+        };
         /** Today + `days`, as a local YYYY-MM-DD (never UTC — that shifts the day). */
         window.kbDayOffset = function (days) {
             const d = new Date();
@@ -632,6 +648,9 @@
                         window.kb.api('/me/memberships'),
                     ]);
                     const mine = owned.ok ? window.kb.rows(owned) : [];
+                    // /me/communities already covers co-run communities since BE-FX-15
+                    // (each row carries my_can_manage); the memberships merge below is
+                    // now belt-and-braces and de-duped by id.
                     // /me/memberships returns membership rows: {community, tier, can_manage, …}
                     const managed = (memberships.ok ? window.kb.rows(memberships) : [])
                         .filter(m => m?.can_manage && m?.community)

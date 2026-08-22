@@ -34,17 +34,32 @@ class CommunityController extends Controller
     ) {}
 
     /**
-     * GET /api/v1/me/communities — communities I own (leader view).
+     * GET /api/v1/me/communities — communities I administer (leader view).
+     *
+     * BE-FX-15: this is the OWNED **plus MANAGED** set. Returning owned-only hid
+     * every community a profile co-runs as an active `can_manage` member, and
+     * because no client could discover the id, every management action that
+     * profile is authorised for (`CommunityPolicy::manage`, the channel and ban
+     * endpoints, `ChatService::canManageCommunity`) was unreachable. The additive
+     * `my_can_manage` flag on each row lets a client tell owner from manager.
      */
     public function index(Request $request): JsonResponse
     {
         /** @var Profile $profile */
         $profile = $request->user();
 
-        $communities = $profile->ownedCommunities()
+        $communities = Community::query()
+            ->manageableBy($profile)
             ->with('communityProfile')
             ->latest()
             ->get();
+
+        // `manageableBy` IS the can_manage set, so every row is manageable by
+        // construction. Stamping the flag here keeps the resource off its per-row
+        // lookup — no extra query for the list, whatever its length.
+        $communities->each(static function (Community $community): void {
+            $community->setAttribute('viewer_can_manage', true);
+        });
 
         return response()->json([
             'success' => true,

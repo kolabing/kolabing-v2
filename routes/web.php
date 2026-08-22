@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\EventVisibility;
 use App\Enums\UserType;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
@@ -28,10 +29,13 @@ use App\Http\Controllers\BlogController;
 use App\Http\Controllers\DirectoryController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\PasswordResetPageController;
+use App\Http\Controllers\PublicEventPageController;
 use App\Http\Controllers\PublicProfilePageController;
 use App\Models\BlogPost;
+use App\Models\Event;
 use App\Models\Profile;
 use App\Models\RankingPage;
+use App\Support\PublicEventLink;
 use App\Support\PublicProfileLink;
 use Illuminate\Support\Facades\Route;
 
@@ -76,6 +80,15 @@ $webappRoutes = function (): void {
     // client-side, and ?thread= / ?application= / ?collaboration= deep-link into
     // one (resolved against GET /chats, so no extra endpoint is needed).
     Route::view('/chats', 'webapp.chats');
+    /*
+     * Events and the door. `/checkin/{token}` is what a QR points at: it accepts
+     * either the short code or the long token, signs the visitor in if they are not
+     * already, and then performs the check-in. Order matters — the literal /create
+     * must be declared before the {event} catch-all.
+     */
+    Route::view('/events', 'webapp.events');
+    Route::view('/events/{event}', 'webapp.event-detail');
+    Route::view('/checkin/{token}', 'webapp.checkin');
     // Kolabs — order matters: literal + edit before the {kolab} catch-all.
     Route::view('/kolabs', 'webapp.kolabs');
     Route::view('/kolabs/create', 'webapp.kolab-form');
@@ -109,6 +122,56 @@ $webappRoutes = function (): void {
     Route::view('/community/leaderboard', 'webapp.community-leaderboard');
     Route::view('/community/settings', 'webapp.community-settings');
 };
+
+/*
+ * Universal Links (iOS) and App Links (Android) for the app host. Published here so
+ * a single check-in URL opens the app when it is installed and the browser when it
+ * is not — the QR never has to know which.
+ *
+ * Both 404 until the mobile identifiers are configured. That is deliberate: Apple's
+ * CDN caches the association file, so a placeholder would be cached too and would
+ * have to be waited out rather than fixed.
+ */
+Route::domain(config('webapp.host'))->group(function (): void {
+    Route::get('/.well-known/apple-app-site-association', function () {
+        $appId = config('webapp.app_links.apple_app_id');
+
+        abort_if(blank($appId), 404);
+
+        return response()->json([
+            'applinks' => [
+                'details' => [[
+                    'appIDs' => [$appId],
+                    'components' => array_map(
+                        static fn (string $path): array => ['/' => $path, 'comment' => 'Handled in-app'],
+                        config('webapp.app_links.paths', [])
+                    ),
+                ]],
+            ],
+            // Declared so a future password-manager or handoff feature does not need
+            // a second round of DNS-level plumbing.
+            'webcredentials' => ['apps' => [$appId]],
+        ])->header('Content-Type', 'application/json');
+    })->name('webapp.apple-app-site-association');
+
+    Route::get('/.well-known/assetlinks.json', function () {
+        $fingerprints = array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) config('webapp.app_links.android_sha256'))
+        )));
+
+        abort_if($fingerprints === [], 404);
+
+        return response()->json([[
+            'relation' => ['delegate_permission/common.handle_all_urls'],
+            'target' => [
+                'namespace' => 'android_app',
+                'package_name' => config('webapp.app_links.android_package'),
+                'sha256_cert_fingerprints' => $fingerprints,
+            ],
+        ]])->header('Content-Type', 'application/json');
+    })->name('webapp.assetlinks');
+});
 
 Route::domain(config('webapp.host'))
     ->middleware(\App\Http\Middleware\SetWebappLocale::class)
@@ -315,6 +378,11 @@ Route::view('/es/terms', 'pages.es.terms')->name('terms.es')->middleware('cache_
 // `name-<uuid tail>`; see App\Support\PublicProfileLink.
 Route::get('/p/{slug}', [PublicProfilePageController::class, 'show'])->name('public-profile')->middleware('cache_marketing');
 
+// What's on — the attendee's front door: public events, no account needed to read.
+// Only EventVisibility::Public reaches these pages (see PublicEventPageController).
+Route::get('/events', [PublicEventPageController::class, 'index'])->name('public-events')->middleware('cache_marketing');
+Route::get('/events/{slug}', [PublicEventPageController::class, 'show'])->name('public-event')->middleware('cache_marketing');
+
 Route::get('/blog', [BlogController::class, 'index'])->name('blog.index')->middleware('cache_marketing');
 Route::get('/blog/{post}', [BlogController::class, 'show'])->name('blog.show')->middleware('cache_marketing');
 
@@ -355,6 +423,26 @@ Route::get('/sitemap.xml', function () {
         $urls[] = route('blog.index');
         foreach ($posts as $slug) {
             $urls[] = route('blog.show', $slug);
+        }
+    }
+
+    /*
+     * Public events. Only upcoming ones, and only `visibility = public` — the same
+     * gate the pages themselves use, so the sitemap can never advertise a
+     * members-only event's URL.
+     */
+    $publicEvents = Event::query()
+        ->where('visibility', EventVisibility::Public)
+        ->where(fn ($query) => $query
+            ->where('starts_at', '>=', now())
+            ->orWhere('event_date', '>=', now()->toDateString()))
+        ->orderByRaw('COALESCE(starts_at, event_date) ASC')
+        ->limit(500)
+        ->get();
+    if ($publicEvents->isNotEmpty()) {
+        $urls[] = route('public-events');
+        foreach ($publicEvents as $publicEvent) {
+            $urls[] = PublicEventLink::urlFor($publicEvent);
         }
     }
 

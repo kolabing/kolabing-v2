@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api\V1;
 
+use App\Enums\ApplicationStatus;
+use App\Enums\ChatThreadType;
 use App\Models\Application;
 use App\Models\ChatThread;
 use App\Models\Kolab;
+use App\Models\Notification;
+use App\Models\NotificationReminder;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -45,6 +49,32 @@ class ChatCollaborationThreadEndpointTest extends TestCase
         $thread = ChatThread::query()->where('application_id', $application->id)->firstOrFail();
 
         return $thread;
+    }
+
+    /**
+     * The thread as a client would find it BEFORE any message exists — threads are
+     * created lazily, so the notification tests below need one without paying the
+     * side-effects of sending a message first.
+     */
+    private function emptyThreadFor(Application $application): ChatThread
+    {
+        /** @var ChatThread $thread */
+        $thread = ChatThread::query()->create([
+            'application_id' => $application->id,
+            'type' => ChatThreadType::Collaboration->value,
+        ]);
+
+        return $thread;
+    }
+
+    private function newMessageNotificationCount(Profile $recipient, Application $application): int
+    {
+        return Notification::query()
+            ->where('profile_id', $recipient->id)
+            ->where('type', 'new_message')
+            ->where('target_type', 'application')
+            ->where('target_id', $application->id)
+            ->count();
     }
 
     public function test_a_kolab_conversation_is_readable_through_the_thread_endpoint(): void
@@ -152,5 +182,114 @@ class ChatCollaborationThreadEndpointTest extends TestCase
             ->assertForbidden();
 
         $this->assertDatabaseHas('chat_threads', ['id' => $thread->id]);
+    }
+
+    /*
+     |-------------------------------------------------------------------------
+     | BE-FX-13 — the generic endpoint must notify, exactly like the application one
+     |-------------------------------------------------------------------------
+     */
+
+    public function test_a_kolab_message_sent_through_the_thread_endpoint_notifies_the_other_party(): void
+    {
+        [$business, $community, $application] = $this->makeConversation();
+        $thread = $this->emptyThreadFor($application);
+
+        $this->actingAs($community)
+            ->postJson("/api/v1/chats/{$thread->id}/messages", ['content' => 'Are you in?'])
+            ->assertStatus(201);
+
+        // EXACTLY one notification for the recipient, and none for the sender.
+        $this->assertSame(1, $this->newMessageNotificationCount($business, $application));
+        $this->assertSame(0, $this->newMessageNotificationCount($community, $application));
+
+        // No stray chat_thread-targeted fan-out on top of it.
+        $this->assertDatabaseMissing('notifications', [
+            'target_id' => $thread->id,
+            'target_type' => 'chat_thread',
+        ]);
+    }
+
+    public function test_a_kolab_message_notifies_exactly_once_on_either_route(): void
+    {
+        [$business, $community, $application] = $this->makeConversation();
+        $thread = $this->emptyThreadFor($application);
+
+        $this->actingAs($community)
+            ->postJson("/api/v1/chats/{$thread->id}/messages", ['content' => 'Via the thread route'])
+            ->assertStatus(201);
+        $this->actingAs($community)
+            ->postJson("/api/v1/applications/{$application->id}/messages", ['content' => 'Via the application route'])
+            ->assertStatus(201);
+
+        // Two messages, two notifications — one per message, neither route doubling.
+        $this->assertSame(2, $this->newMessageNotificationCount($business, $application));
+        $this->assertSame(
+            2,
+            Notification::query()->where('type', 'new_message')->count(),
+            'A message must produce one new_message notification in total, on either route.',
+        );
+    }
+
+    public function test_a_kolab_message_through_the_thread_endpoint_arms_the_unread_message_reminder(): void
+    {
+        [$business, $community, $application] = $this->makeConversation();
+        $thread = $this->emptyThreadFor($application);
+
+        $this->actingAs($community)
+            ->postJson("/api/v1/chats/{$thread->id}/messages", ['content' => 'Still waiting'])
+            ->assertStatus(201);
+
+        $reminder = NotificationReminder::query()
+            ->where('profile_id', $business->id)
+            ->where('type', 'unread_message')
+            ->where('entity_id', $application->id)
+            ->where('entity_type', 'application')
+            ->first();
+
+        $this->assertNotNull($reminder, 'The unread-message reminder must see thread-route messages.');
+        $this->assertNull($reminder->cancelled_at);
+        $this->assertNotNull($reminder->scheduled_for);
+    }
+
+    public function test_the_thread_endpoint_keeps_the_declined_application_suppression(): void
+    {
+        [$business, $community, $application] = $this->makeConversation();
+        $thread = $this->emptyThreadFor($application);
+        $application->forceFill(['status' => ApplicationStatus::Declined->value])->save();
+
+        $this->actingAs($community)
+            ->postJson("/api/v1/chats/{$thread->id}/messages", ['content' => 'Reconsider?'])
+            ->assertForbidden();
+
+        $this->assertSame(0, $this->newMessageNotificationCount($business, $application));
+        $this->assertDatabaseMissing('chat_messages', ['thread_id' => $thread->id]);
+    }
+
+    public function test_the_thread_endpoint_response_shape_is_unchanged(): void
+    {
+        [, $community, $application] = $this->makeConversation();
+        $thread = $this->emptyThreadFor($application);
+
+        $this->actingAs($community)
+            ->postJson("/api/v1/chats/{$thread->id}/messages", ['content' => 'Shape check'])
+            ->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.content', 'Shape check')
+            ->assertJsonPath('data.application_id', $application->id)
+            ->assertJsonPath('data.thread_id', $thread->id)
+            ->assertJsonPath('data.is_own', true)
+            ->assertJsonStructure([
+                'success',
+                'message',
+                'data' => ['id', 'application_id', 'thread_id', 'sender_profile', 'content', 'is_own', 'is_read', 'read_at', 'created_at'],
+            ]);
+
+        // The message still belongs to the same (single) thread — no duplicate row.
+        $this->assertSame(1, ChatThread::query()->where('application_id', $application->id)->count());
+        $this->assertDatabaseHas('chat_messages', [
+            'thread_id' => $thread->id,
+            'application_id' => $application->id,
+        ]);
     }
 }
