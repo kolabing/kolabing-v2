@@ -171,6 +171,16 @@
         .kb-fade-up { animation: kbFadeUp .5s cubic-bezier(.16,.84,.34,1); }
         .kb-fade-up-fast { animation: kbFadeUp .3s cubic-bezier(.16,.84,.34,1); }
 
+        /*
+         * Motion is decoration everywhere in this app, so someone who asked their OS
+         * for less of it gets the same screens without the movement. The Kolab drawer
+         * slides via Alpine's x-transition and carries `motion-reduce:transition-none`
+         * for the same reason.
+         */
+        @media (prefers-reduced-motion: reduce) {
+            .kb-fade-up, .kb-fade-up-fast { animation: none; }
+        }
+
         /* The auth welcome hero's curved yellow cap. */
         .kb-hero-curve { border-radius: 0 0 48% 48% / 0 0 60px 60px; }
 
@@ -472,6 +482,62 @@
             const d = new Date(iso);
             if (isNaN(d)) return String(iso);
             return d.toLocaleDateString(window.KB_LOCALE || 'en', { day: 'numeric', month: 'short' });
+        };
+
+        /**
+         * Which dates a Kolab can actually happen on, soonest first.
+         *
+         * One definition, because the rule is subtle in three ways and every place
+         * that guesses at it gets a different answer:
+         *
+         *  1. The floor is *tomorrow*, not today — a Kolab cannot be booked for the
+         *     day you are reading it.
+         *  2. `recurring_days` is ISO (1 = Monday … 7 = Sunday), which is NOT what
+         *     `Date.getDay()` returns (0 = Sunday). Mixing the two is wrong only on
+         *     Sundays, so it survives casual testing.
+         *  3. An empty `recurring_days` means "any day in the window", not "no days".
+         *
+         * Accepts either shape the API hands out: KolabResource's flat
+         * `availability_start` / `availability_end` / `recurring_days`, or the
+         * discovery feed's nested `availability: {start, end, recurring_days}`.
+         *
+         * @returns {Array<{value: string, top: string, bot: string, date: Date}>}
+         */
+        window.kbNextDates = function (kolab, limit) {
+            if (!kolab) return [];
+            const av = kolab.availability || kolab;
+            const start = av.availability_start || av.start || null;
+            const endRaw = av.availability_end || av.end || null;
+            const daysRaw = av.recurring_days;
+
+            const pad = (n) => String(n).padStart(2, '0');
+            const key = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            const locale = window.KB_LOCALE || 'en';
+
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today.getTime() + 86400000);
+
+            let cur = start ? new Date(start + 'T00:00:00') : tomorrow;
+            if (isNaN(cur) || cur < tomorrow) cur = tomorrow;
+            const end = endRaw ? new Date(endRaw + 'T00:00:00') : null;
+            const days = Array.isArray(daysRaw) && daysRaw.length ? daysRaw.map(Number) : null;
+
+            const max = limit || 8;
+            const out = [];
+            for (let guard = 0; guard < 400 && out.length < max; guard++) {
+                if (end && cur > end) break;
+                const iso = cur.getDay() === 0 ? 7 : cur.getDay();
+                if (!days || days.includes(iso)) {
+                    out.push({
+                        value: key(cur),
+                        top: cur.toLocaleDateString(locale, { weekday: 'short' }),
+                        bot: cur.toLocaleDateString(locale, { day: 'numeric', month: 'short' }),
+                        date: new Date(cur.getTime()),
+                    });
+                }
+                cur = new Date(cur.getTime() + 86400000);
+            }
+            return out;
         };
 
         /**
