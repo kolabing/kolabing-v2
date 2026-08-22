@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\CommunityMemberStatus;
 use App\Enums\MissionTrigger;
+use App\Events\AttendeeCheckedIn;
 use App\Models\Community;
 use App\Models\CommunityMember;
 use App\Models\Event;
@@ -30,6 +31,35 @@ class CheckinService
 
     /**
      * Generate a unique QR check-in token for an event.
+     */
+    /**
+     * Open the door, reusing the existing code when it is still valid.
+     *
+     * Idempotency matters because there are two clients. A host who opens the door
+     * on a laptop and then opens it again on a phone must not invalidate the QR that
+     * is still on the laptop screen — people would be standing in front of a dead
+     * code with nothing to tell them. Rotating is therefore explicit: it is how a
+     * host retires a code they think has leaked.
+     */
+    public function openDoor(Event $event, bool $rotate = false): string
+    {
+        $stillValid = $event->checkin_token !== null
+            && $event->is_active
+            && ($event->checkin_token_expires_at === null || $event->checkin_token_expires_at->isFuture());
+
+        if ($stillValid && ! $rotate) {
+            // Reopening extends the window without changing what is on screen.
+            $event->update(['checkin_token_expires_at' => $this->checkinWindowEndsAt($event)]);
+
+            return (string) $event->checkin_token;
+        }
+
+        return $this->generateCheckinToken($event);
+    }
+
+    /**
+     * Mint a fresh token, code and window. Retires whatever came before it, so
+     * prefer openDoor() unless you mean to invalidate the old code.
      */
     public function generateCheckinToken(Event $event): string
     {
@@ -132,6 +162,15 @@ class CheckinService
             'profile_id' => $profile->id,
             'checked_in_at' => now(),
         ]);
+
+        /*
+         * The door is watched from more than one screen — a laptop at the entrance
+         * and the host's phone, web and mobile. Polling makes them disagree for a
+         * few seconds each time; broadcasting makes the count move on all of them at
+         * once. Clients keep polling as a fallback, so this is an improvement rather
+         * than a dependency.
+         */
+        broadcast(new AttendeeCheckedIn($checkin->fresh(['profile'])));
 
         // Increment total_events_attended on attendee profile
         if ($profile->isAttendee() && $profile->attendeeProfile) {

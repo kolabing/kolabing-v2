@@ -623,6 +623,7 @@ return [
         'door_error' => 'Could not open check-in.',
         'open_door' => 'Open check-in',
         'new_code' => 'New code',
+        'new_code_hint' => 'This retires the current code everywhere, including your other screens. Continue?',
         'copy_link' => 'Copy link',
         'or_type' => 'or type this code',
         'closes_at' => 'Closes :time',

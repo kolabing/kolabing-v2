@@ -82,7 +82,7 @@ class EventResource extends JsonResource
          * The QR ships as an inline SVG because the panel authenticates with a
          * bearer token, which an <img src> cannot carry.
          */
-        if ($viewer !== null && $viewer->id === $this->profile_id) {
+        if ($this->resource->isHostedBy($viewer)) {
             $open = $this->checkin_token !== null
                 && $this->is_active
                 && ($this->checkin_token_expires_at === null || $this->checkin_token_expires_at->isFuture());

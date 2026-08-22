@@ -622,6 +622,7 @@ return [
         'door_error' => 'No s\'ha pogut obrir el registre.',
         'open_door' => 'Obre el registre',
         'new_code' => 'Codi nou',
+        'new_code_hint' => 'Això anul·la el codi actual a tot arreu, incloses les teves altres pantalles. Vols continuar?',
         'copy_link' => 'Copia l\'enllaç',
         'or_type' => 'o escriu aquest codi',
         'closes_at' => 'Es tanca :time',

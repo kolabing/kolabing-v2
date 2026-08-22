@@ -84,6 +84,19 @@ class Event extends Model
     /**
      * @return array<string, string>
      */
+    /**
+     * Whether a profile hosts this event.
+     *
+     * The single rule behind three gates: who may open the door, who may read the
+     * check-in list, and who may watch arrivals on the broadcast channel. Holding
+     * the token or the code is permission to be recorded as present, so these three
+     * must never drift apart.
+     */
+    public function isHostedBy(?Profile $profile): bool
+    {
+        return $profile !== null && $profile->id === $this->profile_id;
+    }
+
     protected function casts(): array
     {
         return [

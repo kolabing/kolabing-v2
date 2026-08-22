@@ -622,6 +622,7 @@ return [
         'door_error' => 'No se pudo abrir el registro.',
         'open_door' => 'Abrir el registro',
         'new_code' => 'Código nuevo',
+        'new_code_hint' => 'Esto anula el código actual en todas partes, incluidas tus otras pantallas. ¿Continuar?',
         'copy_link' => 'Copiar enlace',
         'or_type' => 'o escribe este código',
         'closes_at' => 'Cierra :time',

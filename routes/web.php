@@ -114,6 +114,56 @@ $webappRoutes = function (): void {
     Route::view('/community/settings', 'webapp.community-settings');
 };
 
+/*
+ * Universal Links (iOS) and App Links (Android) for the app host. Published here so
+ * a single check-in URL opens the app when it is installed and the browser when it
+ * is not — the QR never has to know which.
+ *
+ * Both 404 until the mobile identifiers are configured. That is deliberate: Apple's
+ * CDN caches the association file, so a placeholder would be cached too and would
+ * have to be waited out rather than fixed.
+ */
+Route::domain(config('webapp.host'))->group(function (): void {
+    Route::get('/.well-known/apple-app-site-association', function () {
+        $appId = config('webapp.app_links.apple_app_id');
+
+        abort_if(blank($appId), 404);
+
+        return response()->json([
+            'applinks' => [
+                'details' => [[
+                    'appIDs' => [$appId],
+                    'components' => array_map(
+                        static fn (string $path): array => ['/' => $path, 'comment' => 'Handled in-app'],
+                        config('webapp.app_links.paths', [])
+                    ),
+                ]],
+            ],
+            // Declared so a future password-manager or handoff feature does not need
+            // a second round of DNS-level plumbing.
+            'webcredentials' => ['apps' => [$appId]],
+        ])->header('Content-Type', 'application/json');
+    })->name('webapp.apple-app-site-association');
+
+    Route::get('/.well-known/assetlinks.json', function () {
+        $fingerprints = array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) config('webapp.app_links.android_sha256'))
+        )));
+
+        abort_if($fingerprints === [], 404);
+
+        return response()->json([[
+            'relation' => ['delegate_permission/common.handle_all_urls'],
+            'target' => [
+                'namespace' => 'android_app',
+                'package_name' => config('webapp.app_links.android_package'),
+                'sha256_cert_fingerprints' => $fingerprints,
+            ],
+        ]])->header('Content-Type', 'application/json');
+    })->name('webapp.assetlinks');
+});
+
 Route::domain(config('webapp.host'))
     ->middleware(\App\Http\Middleware\SetWebappLocale::class)
     ->group($webappRoutes);

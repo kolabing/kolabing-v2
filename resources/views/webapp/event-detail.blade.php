@@ -54,6 +54,7 @@
                                 <div class="flex flex-col items-center">
                                     <div class="flex items-center gap-2 text-[11px] font-bold tracking-[.12em] uppercase text-ok-ink">
                                         <span class="w-2 h-2 rounded-full bg-ok-ink"></span>{{ __('webapp.events.door_open') }}
+                                        <span x-show="live" x-cloak class="text-muted font-semibold">· {{ __('webapp.chats.live') }}</span>
                                     </div>
 
                                     {{-- Drawn server-side and inlined: the panel signs its
@@ -69,8 +70,9 @@
                                         <button type="button" @click="copyUrl()"
                                                 class="h-9 px-4 rounded-pill bg-white border border-line text-[12.5px] font-bold hover:border-ink transition"
                                                 x-text="copied ? t('profile.shared') : t('events.copy_link')"></button>
-                                        <button type="button" @click="openDoor()" :disabled="busy"
-                                                class="h-9 px-4 rounded-pill bg-white border border-line text-[12.5px] font-bold hover:border-ink transition disabled:opacity-50">{{ __('webapp.events.new_code') }}</button>
+                                        <button type="button" @click="rotate()" :disabled="busy"
+                                                class="h-9 px-4 rounded-pill bg-white border border-line text-[12.5px] font-bold hover:border-ink transition disabled:opacity-50"
+                                                :title="t('events.new_code_hint')">{{ __('webapp.events.new_code') }}</button>
                                     </div>
                                     <p class="mt-3 text-[11.5px] text-muted" x-show="door.expires_at" x-cloak
                                        x-text="t('events.closes_at', { time: window.kbDateTime(door.expires_at) })"></p>
@@ -122,11 +124,12 @@
 </div>
 
 @push('scripts')
+<script src="/webapp-assets/kb-realtime.js" defer></script>
 <script>
     function eventDoorPage() {
         return {
             ev: null, door: {}, checkins: [], loading: true, pageError: '',
-            busy: false, copied: false, ticker: null,
+            busy: false, copied: false, ticker: null, channel: null, live: false,
 
             id: location.pathname.slice((window.KB_BASE || '').length).split('/')[2],
 
@@ -158,11 +161,37 @@
                 await this.load();
                 if (this.isHost) {
                     await this.loadCheckins();
-                    // A door is watched, not refreshed: the count has to move on its own.
+                    this.listen();
+                    /*
+                     * A door is watched, not refreshed. The socket moves the count the
+                     * moment someone scans — on this screen and on the host's phone at
+                     * the same time — and this poll is the fallback for when it is not
+                     * connected. It stays slower while the socket is live.
+                     */
                     this.ticker = setInterval(() => {
-                        if (!document.hidden && this.door.is_open) this.loadCheckins();
+                        if (document.hidden || !this.door.is_open) return;
+                        if (this.live && this.tick++ % 5 !== 0) return;
+                        this.loadCheckins();
                     }, 6000);
                 }
+            },
+
+            tick: 0,
+
+            /** Arrivals, pushed. Both clients watch the same channel. */
+            listen() {
+                const rt = window.kbRealtime;
+                if (!rt) return;
+                rt.onStateChange = () => { this.live = rt.isLive(); };
+                rt.connect(window.KB_CONFIG.realtime || null);
+                this.live = rt.isLive();
+
+                this.channel = rt.listen('event.' + this.id + '.door', 'checkin.recorded', (payload) => {
+                    const arrival = payload?.checkin;
+                    if (arrival && !this.checkins.some(c => c.id === arrival.id)) {
+                        this.checkins = [arrival, ...this.checkins];
+                    }
+                });
             },
 
             async load() {
@@ -179,9 +208,19 @@
                 this.checkins = res.json?.data?.checkins || window.kb.rows(res);
             },
 
-            async openDoor() {
+            /** Retires the code everywhere — the host's other screens included. */
+            rotate() {
+                if (!window.confirm(t('events.new_code_hint'))) return;
+                return this.openDoor(true);
+            },
+
+            async openDoor(rotate = false) {
                 this.busy = true;
-                const res = await window.kb.api('/events/' + this.id + '/generate-qr', { method: 'POST' });
+                // Without `rotate`, reopening returns the same code, so a QR already
+                // on another screen keeps working.
+                const res = await window.kb.api('/events/' + this.id + '/generate-qr', {
+                    method: 'POST', body: { rotate },
+                });
                 this.busy = false;
                 if (!res.ok) { this.pageError = window.kb.errorText(res, t('events.door_error')); return; }
                 const d = res.json?.data || {};

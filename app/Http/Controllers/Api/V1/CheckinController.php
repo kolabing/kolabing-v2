@@ -30,14 +30,20 @@ class CheckinController extends Controller
         /** @var Profile $profile */
         $profile = $request->user();
 
-        if ($profile->id !== $event->profile_id) {
+        if (! $event->isHostedBy($profile)) {
             return response()->json([
                 'success' => false,
                 'message' => __('You are not authorized to generate a QR token for this event.'),
             ], 403);
         }
 
-        $token = $this->checkinService->generateCheckinToken($event);
+        /*
+         * Reopening an already-open door returns the same code. Two clients means a
+         * host may press this on a phone while a laptop is still showing the QR;
+         * minting a new one there would kill a code people are queuing in front of.
+         * `rotate` is how a host deliberately retires a leaked code.
+         */
+        $token = $this->checkinService->openDoor($event, $request->boolean('rotate'));
         $event->refresh();
 
         return response()->json([

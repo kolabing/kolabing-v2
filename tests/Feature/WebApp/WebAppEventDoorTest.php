@@ -46,7 +46,7 @@ class WebAppEventDoorTest extends TestCase
             ->assertSee('Who came')
             // The QR arrives as inline SVG, because a bearer token cannot ride on <img src>.
             ->assertSee('x-html="door.qr_svg"', false)
-            ->assertSee("'/generate-qr', { method: 'POST' }", false)
+            ->assertSee("'/generate-qr', {", false)
             ->assertSee("'/checkins?per_page=100'", false);
     }
 
@@ -116,6 +116,27 @@ class WebAppEventDoorTest extends TestCase
                 $this->assertSame($en, array_keys($translated), "webapp.{$group} keys drifted in {$locale}");
             }
         }
+    }
+
+    public function test_the_door_screen_stays_in_step_with_the_other_client(): void
+    {
+        // Web and mobile watch the same door. Arrivals arrive over the socket so both
+        // move at once; the poll stays as the fallback and slows down while it is live.
+        $this->get('http://'.$this->host().'/events/01a0-some-uuid')
+            ->assertOk()
+            ->assertSee('/webapp-assets/kb-realtime.js', false)
+            ->assertSee("rt.listen('event.' + this.id + '.door', 'checkin.recorded'", false)
+            ->assertSee('this.live && this.tick++ % 5 !== 0', false);
+    }
+
+    public function test_reopening_the_door_does_not_silently_kill_another_screens_code(): void
+    {
+        // Opening is idempotent; retiring a code is a separate, confirmed action.
+        $this->get('http://'.$this->host().'/events/01a0-some-uuid')
+            ->assertOk()
+            ->assertSee("method: 'POST', body: { rotate }", false)
+            ->assertSee('window.confirm(t(\'events.new_code_hint\'))', false)
+            ->assertSee('retires the current code everywhere');
     }
 
     public function test_the_panel_event_routes_do_not_leak_onto_the_marketing_host(): void
