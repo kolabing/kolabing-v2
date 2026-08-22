@@ -186,10 +186,21 @@ Route::get('/', function (\App\Services\PublicKolabFeedService $kolabFeed) {
      * the shop window can never advertise something the listing would hide. Six is one
      * tidy row at every breakpoint; `cache_marketing` gives it a 5-minute shared cache,
      * which is the right staleness for a page nobody reloads waiting for a new listing.
+     *
+     * The strip is decoration and the homepage is the top of the funnel, so a database
+     * that is unreachable — or a schema that has not been migrated yet — must cost us
+     * the strip, not the page. `/kolabs` deliberately does NOT swallow the same error:
+     * a page whose whole subject is the listings should fail loudly rather than render
+     * an empty one and imply nothing is open.
      */
-    return view('welcome', [
-        'activeKolabs' => $kolabFeed->highlights(6),
-    ]);
+    try {
+        $activeKolabs = $kolabFeed->highlights(6);
+    } catch (\Throwable $exception) {
+        report($exception);
+        $activeKolabs = collect();
+    }
+
+    return view('welcome', ['activeKolabs' => $activeKolabs]);
 })->name('home')->middleware('cache_marketing');
 
 // Legacy invite links still point at the marketing host. The page itself moved
