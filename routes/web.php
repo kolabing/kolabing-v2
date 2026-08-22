@@ -30,12 +30,14 @@ use App\Http\Controllers\DirectoryController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\PasswordResetPageController;
 use App\Http\Controllers\PublicEventPageController;
+use App\Http\Controllers\PublicKolabPageController;
 use App\Http\Controllers\PublicProfilePageController;
 use App\Models\BlogPost;
 use App\Models\Event;
 use App\Models\Profile;
 use App\Models\RankingPage;
 use App\Support\PublicEventLink;
+use App\Support\PublicKolabLink;
 use App\Support\PublicProfileLink;
 use Illuminate\Support\Facades\Route;
 
@@ -183,8 +185,27 @@ Route::domain(config('webapp.host'))
     ->middleware(\App\Http\Middleware\SetWebappLocale::class)
     ->group($webappRoutes);
 
-Route::get('/', function () {
-    return view('welcome');
+Route::get('/', function (\App\Services\PublicKolabFeedService $kolabFeed) {
+    /*
+     * The homepage strip reads the same gate as /kolabs, through the same service, so
+     * the shop window can never advertise something the listing would hide. Six is one
+     * tidy row at every breakpoint; `cache_marketing` gives it a 5-minute shared cache,
+     * which is the right staleness for a page nobody reloads waiting for a new listing.
+     *
+     * The strip is decoration and the homepage is the top of the funnel, so a database
+     * that is unreachable — or a schema that has not been migrated yet — must cost us
+     * the strip, not the page. `/kolabs` deliberately does NOT swallow the same error:
+     * a page whose whole subject is the listings should fail loudly rather than render
+     * an empty one and imply nothing is open.
+     */
+    try {
+        $activeKolabs = $kolabFeed->highlights(6);
+    } catch (\Throwable $exception) {
+        report($exception);
+        $activeKolabs = collect();
+    }
+
+    return view('welcome', ['activeKolabs' => $activeKolabs]);
 })->name('home')->middleware('cache_marketing');
 
 // Legacy invite links still point at the marketing host. The page itself moved
@@ -383,6 +404,15 @@ Route::get('/p/{slug}', [PublicProfilePageController::class, 'show'])->name('pub
 Route::get('/events', [PublicEventPageController::class, 'index'])->name('public-events')->middleware('cache_marketing');
 Route::get('/events/{slug}', [PublicEventPageController::class, 'show'])->name('public-event')->middleware('cache_marketing');
 
+/*
+ * The marketplace on the open web: active Kolabs, no account needed to read one.
+ * Separate from /events on purpose — an event is something you attend, a Kolab is a
+ * partnership offer, and the two answer different searches. What may be shown is
+ * decided in PublicKolabFeedService (which Kolabs) and PublicKolabPoster (whose name).
+ */
+Route::get('/kolabs', [PublicKolabPageController::class, 'index'])->name('public-kolabs')->middleware('cache_marketing');
+Route::get('/kolabs/{slug}', [PublicKolabPageController::class, 'show'])->name('public-kolab')->middleware('cache_marketing');
+
 Route::get('/blog', [BlogController::class, 'index'])->name('blog.index')->middleware('cache_marketing');
 Route::get('/blog/{post}', [BlogController::class, 'show'])->name('blog.show')->middleware('cache_marketing');
 
@@ -443,6 +473,26 @@ Route::get('/sitemap.xml', function () {
         $urls[] = route('public-events');
         foreach ($publicEvents as $publicEvent) {
             $urls[] = PublicEventLink::urlFor($publicEvent);
+        }
+    }
+
+    /*
+     * Public Kolabs, only once the data is worth indexing. The pages themselves serve
+     * `noindex` under the same flag (BE-FX-20), and a sitemap that advertises URLs the
+     * page asks Google to ignore is a contradiction, so both read one config value.
+     */
+    if (config('kolabing.public_kolabs.indexable')) {
+        $publicKolabs = app(\App\Services\PublicKolabFeedService::class)
+            ->publishable()
+            ->orderByDesc('published_at')
+            ->limit(500)
+            ->get();
+
+        if ($publicKolabs->isNotEmpty()) {
+            $urls[] = route('public-kolabs');
+            foreach ($publicKolabs as $publicKolab) {
+                $urls[] = PublicKolabLink::urlFor($publicKolab);
+            }
         }
     }
 

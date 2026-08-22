@@ -9,7 +9,15 @@
         'feed'          => ['/feed', __('webapp.nav.explore'), '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>'],
         'suggestions'   => ['/suggestions', __('webapp.nav.suggestions'), '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18 15.5l.75 2L21 18.25l-2.25.75L18 21l-.75-2L15 18.25l2.25-.75z"/>'],
         'kolabs'        => ['/kolabs', __('webapp.nav.my_kolabs'), '<path d="m12 2-10 5 10 5 10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>'],
-        'events'        => ['/events', __('webapp.nav.events'), '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>'],
+        /*
+         * No 'events' entry. Volkan's call (2026-08-22): there is no separate events
+         * product — "kolablar üstünden yürümeli". A Kolab is agreed, people sign up,
+         * they scan a QR at the door. `events` rows still exist as that door's
+         * mechanism (a collaboration lazily gets one so it can mint a check-in token),
+         * but they are not a surface a user navigates to, so the nav does not offer
+         * one. BACKLOG BE-NF-40 reworks the attendee funnel onto Kolabs; until then
+         * pointing people at a parallel calendar would teach the wrong model.
+         */
         'chats'         => ['/chats', __('webapp.nav.messages'), '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'],
         'notifications' => ['/notifications', __('webapp.nav.notifications'), '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'],
         'account'       => ['/account', __('webapp.nav.profile'), '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'],

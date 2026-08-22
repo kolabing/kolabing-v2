@@ -171,6 +171,16 @@
         .kb-fade-up { animation: kbFadeUp .5s cubic-bezier(.16,.84,.34,1); }
         .kb-fade-up-fast { animation: kbFadeUp .3s cubic-bezier(.16,.84,.34,1); }
 
+        /*
+         * Motion is decoration everywhere in this app, so someone who asked their OS
+         * for less of it gets the same screens without the movement. The Kolab drawer
+         * slides via Alpine's x-transition and carries `motion-reduce:transition-none`
+         * for the same reason.
+         */
+        @media (prefers-reduced-motion: reduce) {
+            .kb-fade-up, .kb-fade-up-fast { animation: none; }
+        }
+
         /* The auth welcome hero's curved yellow cap. */
         .kb-hero-curve { border-radius: 0 0 48% 48% / 0 0 60px 60px; }
 
@@ -307,7 +317,29 @@
                 if (data.refresh_token) localStorage.setItem(this.refreshKey, data.refresh_token);
             },
             clear() { localStorage.removeItem(this.tokenKey); localStorage.removeItem(this.refreshKey); },
-            requireAuth() { if (!this.token) { window.nav('/login'); return false; } return true; },
+            /*
+             * Bounce to login, remembering where the visitor was trying to go.
+             *
+             * This matters most for the hand-offs from kolabing.com: a public page
+             * cannot sign anyone in (the token lives in this host's storage), so it
+             * sends people here with their intent in the query — /events/{id}?rsvp=1,
+             * /kolabs/{id}?apply=1. Without `next` the login screen forgot the
+             * destination and dropped them on the dashboard, losing the intent that
+             * brought them. `next` is a path only, and kbPostAuthTarget() re-checks
+             * that before using it, so this cannot become an open redirect. The
+             * locale prefix is stripped because nav() adds it back.
+             */
+            requireAuth() {
+                if (this.token) return true;
+
+                const base = window.KB_BASE || '';
+                const here = location.pathname.startsWith(base) ? location.pathname.slice(base.length) : location.pathname;
+                const intended = here + location.search;
+
+                window.nav(here === '/login' ? '/login' : '/login?next=' + encodeURIComponent(intended));
+
+                return false;
+            },
             requireGuest() { if (this.token) { window.nav('/dashboard'); return false; } return true; },
             // Logging out leaves the product entirely — send people to the public
             // site, not back to the app host's own logged-out hero.
@@ -450,6 +482,62 @@
             const d = new Date(iso);
             if (isNaN(d)) return String(iso);
             return d.toLocaleDateString(window.KB_LOCALE || 'en', { day: 'numeric', month: 'short' });
+        };
+
+        /**
+         * Which dates a Kolab can actually happen on, soonest first.
+         *
+         * One definition, because the rule is subtle in three ways and every place
+         * that guesses at it gets a different answer:
+         *
+         *  1. The floor is *tomorrow*, not today — a Kolab cannot be booked for the
+         *     day you are reading it.
+         *  2. `recurring_days` is ISO (1 = Monday … 7 = Sunday), which is NOT what
+         *     `Date.getDay()` returns (0 = Sunday). Mixing the two is wrong only on
+         *     Sundays, so it survives casual testing.
+         *  3. An empty `recurring_days` means "any day in the window", not "no days".
+         *
+         * Accepts either shape the API hands out: KolabResource's flat
+         * `availability_start` / `availability_end` / `recurring_days`, or the
+         * discovery feed's nested `availability: {start, end, recurring_days}`.
+         *
+         * @returns {Array<{value: string, top: string, bot: string, date: Date}>}
+         */
+        window.kbNextDates = function (kolab, limit) {
+            if (!kolab) return [];
+            const av = kolab.availability || kolab;
+            const start = av.availability_start || av.start || null;
+            const endRaw = av.availability_end || av.end || null;
+            const daysRaw = av.recurring_days;
+
+            const pad = (n) => String(n).padStart(2, '0');
+            const key = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            const locale = window.KB_LOCALE || 'en';
+
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today.getTime() + 86400000);
+
+            let cur = start ? new Date(start + 'T00:00:00') : tomorrow;
+            if (isNaN(cur) || cur < tomorrow) cur = tomorrow;
+            const end = endRaw ? new Date(endRaw + 'T00:00:00') : null;
+            const days = Array.isArray(daysRaw) && daysRaw.length ? daysRaw.map(Number) : null;
+
+            const max = limit || 8;
+            const out = [];
+            for (let guard = 0; guard < 400 && out.length < max; guard++) {
+                if (end && cur > end) break;
+                const iso = cur.getDay() === 0 ? 7 : cur.getDay();
+                if (!days || days.includes(iso)) {
+                    out.push({
+                        value: key(cur),
+                        top: cur.toLocaleDateString(locale, { weekday: 'short' }),
+                        bot: cur.toLocaleDateString(locale, { day: 'numeric', month: 'short' }),
+                        date: new Date(cur.getTime()),
+                    });
+                }
+                cur = new Date(cur.getTime() + 86400000);
+            }
+            return out;
         };
 
         /**
