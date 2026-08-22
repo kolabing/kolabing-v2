@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\CollaborationQrCodeController;
 use App\Http\Controllers\Api\V1\CommunityBadgeController;
 use App\Http\Controllers\Api\V1\CommunityController;
+use App\Http\Controllers\Api\V1\CommunityFollowController;
 use App\Http\Controllers\Api\V1\CommunityGoalController;
 use App\Http\Controllers\Api\V1\CommunityInvitationController;
 use App\Http\Controllers\Api\V1\CommunityJoinRequestController;
@@ -483,6 +484,13 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.communities.invite');
         Route::post('communities/{community}/join', [CommunityController::class, 'join'])
             ->name('api.v1.communities.join');
+
+        // Following: interest without membership (kolabing-app#138). One tap,
+        // no approval, grants none of what membership grants.
+        Route::post('communities/{community}/follow', [CommunityFollowController::class, 'store'])
+            ->name('api.v1.communities.follow.store');
+        Route::delete('communities/{community}/follow', [CommunityFollowController::class, 'destroy'])
+            ->name('api.v1.communities.follow.destroy');
 
         // Invite-only join requests (request → leader approves/declines).
         Route::post('communities/{community}/join-requests', [CommunityJoinRequestController::class, 'store'])
