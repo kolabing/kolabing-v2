@@ -59,6 +59,7 @@ use App\Http\Controllers\Api\V1\SavedKolabController;
 use App\Http\Controllers\Api\V1\SpinWheelController;
 use App\Http\Controllers\Api\V1\StripeWebhookController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
+use App\Http\Controllers\Api\V1\SuggestionController;
 use App\Http\Controllers\Api\V1\SystemChallengeController;
 use App\Http\Controllers\Api\V1\UploadController;
 use Illuminate\Support\Facades\Route;
@@ -734,6 +735,35 @@ Route::prefix('v1')->group(function (): void {
         // Role-aware discovery feed for Explore
         Route::get('discovery/opportunities', DiscoveryOpportunityController::class)
             ->name('api.v1.discovery.opportunities');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Suggestions (BE-NF-39)
+        |--------------------------------------------------------------------------
+        |
+        | Generated pairings, one side at a time. Behind `feature:suggestions`
+        | so a flag that ships false 404s the whole surface rather than
+        | advertising it with a 403.
+        |
+        | No `whereUuid` on the bindings: `kolab_suggestions.id` is a uuid column
+        | and a non-uuid comparison raises 22P02 on Postgres, but KolabSuggestion
+        | uses HasUuids, and HasUniqueStringIds::resolveRouteBindingQuery() throws
+        | ModelNotFoundException for a malformed key *before* it builds a query.
+        | A route constraint on top of that would guard nothing; the contract is
+        | pinned by SuggestionApiTest instead.
+        |
+        */
+        Route::middleware('feature:suggestions')->group(function (): void {
+            Route::get('suggestions', [SuggestionController::class, 'index'])
+                ->name('api.v1.suggestions.index');
+
+            Route::get('suggestions/{suggestion}', [SuggestionController::class, 'show'])
+                ->name('api.v1.suggestions.show');
+
+            Route::post('suggestions/{suggestion}/dismiss', [SuggestionController::class, 'dismiss'])
+                ->middleware('throttle:30,1')
+                ->name('api.v1.suggestions.dismiss');
+        });
 
         // Browse opportunities (public list of published)
         Route::get('opportunities', [OpportunityController::class, 'index'])

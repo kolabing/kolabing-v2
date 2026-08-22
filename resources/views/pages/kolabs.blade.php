@@ -24,7 +24,7 @@
 
     /*
      * Not indexed yet, on purpose. See config('kolabing.public_kolabs.indexable') and
-     * BE-FX-21: production still holds test listings, and asking Google to index them
+     * BE-FX-24: production still holds test listings, and asking Google to index them
      * as the product's shop window is hard to undo. The page works for humans today;
      * flipping the config invites crawlers and adds these URLs to sitemap.xml.
      */

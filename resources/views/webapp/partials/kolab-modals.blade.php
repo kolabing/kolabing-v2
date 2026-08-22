@@ -522,7 +522,7 @@
              * Two shapes exist in the wild for these columns: the list of slugs the API
              * validates and production stores (`["food_drink"]`), and an older
              * associative-boolean map (`{food_drink: true}`) that KolabFactory still
-             * writes (BACKLOG BE-FX-22). Accept both; drop the falses either way.
+             * writes (BACKLOG BE-FX-25). Accept both; drop the falses either way.
              */
             labelList(raw) {
                 let items = [];

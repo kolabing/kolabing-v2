@@ -56,7 +56,7 @@ class PublicKolabFeedService
                  * today are structurally complete — the app itself generates
                  * "Collaborate with {name} to promote our product." — so no rule over
                  * these columns can separate a real listing from a test account's.
-                 * Deciding that needs a human, tracked as BE-FX-21; until then these
+                 * Deciding that needs a human, tracked as BE-FX-24; until then these
                  * pages are deliberately kept out of the index (see the `robots`
                  * attribute on the views and their absence from sitemap.xml).
                  */

@@ -8,6 +8,7 @@ use App\Enums\SubscriptionSource;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserType;
 use App\Enums\VerificationStatus;
+use App\Jobs\GenerateSuggestionsForProfile;
 use App\Models\AttendeeProfile;
 use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
@@ -205,6 +206,8 @@ class AuthService
 
         $this->afterRegistration($profile);
 
+        $this->seedSuggestions($profile);
+
         return [
             'profile' => $profile,
             'is_new_user' => true,
@@ -331,6 +334,8 @@ class AuthService
 
         $this->afterRegistration($profile);
 
+        $this->seedSuggestions($profile);
+
         return [
             'profile' => $profile,
             'is_new_user' => true,
@@ -377,6 +382,24 @@ class AuthService
         // account; the pending invitation becomes a membership now. Guarded
         // inside the service.
         $this->communityInvitationService->claimForSafely($profile);
+    }
+
+    /**
+     * Queue a first suggestion pass for a freshly-registered profile, so the
+     * suggestions page is not empty until the 04:00 batch reaches it.
+     *
+     * `false` because a profile that did not exist a moment ago was not
+     * complete. The one-shot register paths hand over a name, a type and a city
+     * and therefore cross straight into complete; the OAuth paths create a bare
+     * extended profile and do not, so nothing is queued for them until
+     * onboarding finishes — an incomplete profile has no city, and the candidate
+     * finder returns nothing without one. The debounce, the completeness
+     * predicate and the failure isolation all live on the job so this and
+     * OnboardingService cannot drift apart.
+     */
+    private function seedSuggestions(Profile $profile): void
+    {
+        GenerateSuggestionsForProfile::dispatchIfJustCompleted($profile, false);
     }
 
     /**
@@ -511,6 +534,8 @@ class AuthService
 
         $this->afterRegistration($profile);
 
+        $this->seedSuggestions($profile);
+
         return [
             'profile' => $profile,
             'is_new_user' => true,
@@ -607,6 +632,8 @@ class AuthService
 
         $this->afterRegistration($profile);
 
+        $this->seedSuggestions($profile);
+
         return [
             'profile' => $profile,
             'is_new_user' => true,
@@ -640,6 +667,8 @@ class AuthService
         $this->loadProfileRelationships($profile);
 
         $this->afterRegistration($profile);
+
+        $this->seedSuggestions($profile);
 
         return [
             'profile' => $profile,

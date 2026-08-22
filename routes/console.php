@@ -37,6 +37,15 @@ Schedule::command('app:send-business-reactivation-reminders')->dailyAt('09:00');
 // recalculation. Idempotent (updateOrCreate) — safe to run daily.
 Schedule::command('app:recalculate-partner-statuses')->dailyAt('14:20');
 
+// Generate two-sided collaboration suggestions (BE-NF-39). Scores candidate
+// pairs in PHP and refreshes each profile's top N rows in place — the unique key
+// is (viewer, counterpart) and excludes batch_key, so re-runs never accumulate
+// cards. 04:00 is the only free nightly slot (02:00 tiers, 03:00 auto-complete,
+// 08:00/09:00 reminders, 14:20 partner statuses). Gated on suggestions.enabled.
+Schedule::command('app:generate-suggestions')
+    ->dailyAt('04:00')
+    ->withoutOverlapping();
+
 // Onboarding email drip (T+0 welcome / T+2 complete-profile / T+5 activation /
 // T+10 inactive-nudge, see config/onboarding_drip.php). Polls due drip-state
 // rows hourly; each step re-checks eligibility at send time. New signups are

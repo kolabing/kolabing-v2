@@ -736,6 +736,9 @@
                         window.kb.api('/me/memberships'),
                     ]);
                     const mine = owned.ok ? window.kb.rows(owned) : [];
+                    // /me/communities already covers co-run communities since BE-FX-15
+                    // (each row carries my_can_manage); the memberships merge below is
+                    // now belt-and-braces and de-duped by id.
                     // /me/memberships returns membership rows: {community, tier, can_manage, …}
                     const managed = (memberships.ok ? window.kb.rows(memberships) : [])
                         .filter(m => m?.can_manage && m?.community)

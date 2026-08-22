@@ -173,7 +173,7 @@ class WebAppKolabDrawerTest extends TestCase
 
     /**
      * Production stores these as lists of slugs; KolabFactory still writes the older
-     * associative-boolean map (BACKLOG BE-FX-22). Both must render.
+     * associative-boolean map (BACKLOG BE-FX-25). Both must render.
      */
     public function test_offer_lists_accept_both_shapes_that_exist_in_the_data(): void
     {

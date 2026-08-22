@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\WebApp;
 
+use Illuminate\Support\Facades\Lang;
 use Tests\TestCase;
 
 class WebAppRoutesTest extends TestCase
@@ -335,6 +336,328 @@ class WebAppRoutesTest extends TestCase
         $this->get('http://'.$host.'/kolabs')
             ->assertOk()
             ->assertSee("myKolabsPage('offers')", false);
+    }
+
+    public function test_suggestions_page_renders_the_card_frame_under_every_locale(): void
+    {
+        config(['suggestions.enabled' => true]);
+        $host = $this->host();
+
+        $this->get('http://'.$host.'/suggestions')
+            ->assertOk()
+            ->assertSee('suggestionsPage(', false)
+            ->assertSee('Suggested partners')
+            // The two actions, and where each one goes.
+            ->assertSee('Create this Kolab')
+            ->assertSee('/kolabs/create?suggestion=', false)
+            ->assertSee('Not interested')
+            ->assertSee("/suggestions/' + card.id + '/dismiss", false)
+            // The blur is a sales moment with a route out of it…
+            ->assertSee('Community hidden on the free plan')
+            ->assertSee('/subscription?reason=suggestion', false)
+            // …and it is whatever SuggestionResource decided, never re-derived from
+            // the viewer's role — a community is never blurred (ROLES §3.6).
+            ->assertSee('const blurred = !!s.is_identity_blurred;', false)
+            ->assertSee('blur-sm select-none', false)
+            // Every figure on the card carries the basis it came from — the engine
+            // never invents a number and the card has to show that. These are source
+            // assertions, not behaviour: a route-render test cannot execute Alpine,
+            // so they pin the two rules the captions depend on rather than prove them.
+            ->assertSee("basisCaption('attendance', fmt.attendance_basis, fmt.expected_attendance)", false)
+            ->assertSee("basisCaption('weekday', fmt.weekday_basis, this.weekdayLabel(fmt.weekday))", false)
+            // tOr, so an unrecognised basis renders no caption instead of a raw key…
+            ->assertSee("return window.tOr('suggestions.basis.' + field + '_' + slug, '');", false)
+            // …and a caption with no figure to qualify renders neither.
+            ->assertSee("if (!qualifies || !slug) return '';", false)
+            // The empty state names the fix instead of apologising.
+            ->assertSee('No suggestions yet')
+            ->assertSee('Complete your profile')
+            ->assertSee('/account', false);
+
+        $this->get('http://'.$host.'/es/suggestions')
+            ->assertOk()
+            ->assertSee('lang="es"', false)
+            ->assertSee('Socios sugeridos')
+            ->assertSee('Crear este Kolab')
+            ->assertSee('Comunidad oculta en el plan gratuito')
+            // In-app links keep the locale prefix.
+            ->assertSee('/es/kolabs/create?suggestion=', false)
+            ->assertSee('/es/subscription?reason=suggestion', false);
+
+        $this->get('http://'.$host.'/ca/suggestions')
+            ->assertOk()
+            ->assertSee('lang="ca"', false)
+            ->assertSee('Socis suggerits')
+            ->assertSee('Crea aquest Kolab');
+    }
+
+    public function test_the_suggestions_page_and_its_nav_entry_are_gated_by_the_feature_flag(): void
+    {
+        $host = $this->host();
+
+        // Flag off (the shipped default): the page 404s like the API it reads, and
+        // the shell must not advertise a route that does not answer.
+        config(['suggestions.enabled' => false]);
+        $this->get('http://'.$host.'/suggestions')->assertNotFound();
+        $this->get('http://'.$host.'/es/suggestions')->assertNotFound();
+        $this->get('http://'.$host.'/ca/suggestions')->assertNotFound();
+
+        // The nav label itself is no proof either way: the layout inlines the whole
+        // `webapp` dictionary into window.KB_I18N on every page, so "Suggestions" is
+        // in the HTML regardless. The link is what the flag has to remove.
+        $this->get('http://'.$host.'/dashboard')
+            ->assertOk()
+            ->assertDontSee('href="/suggestions"', false);
+
+        config(['suggestions.enabled' => true]);
+        $this->get('http://'.$host.'/dashboard')
+            ->assertOk()
+            ->assertSee('href="/suggestions"', false)
+            ->assertSee('Suggestions');
+
+        $this->get('http://'.$host.'/es/dashboard')
+            ->assertOk()
+            ->assertSee('href="/es/suggestions"', false);
+    }
+
+    /**
+     * The pre-filled create form (BE-NF-39).
+     *
+     * A route-render test cannot execute Alpine, so these are **source**
+     * assertions: they prove each rule is written, and written the one way that
+     * keeps it safe — not that it runs. What actually runs is covered where it
+     * can be: `suggestion_id` by CreateKolabRequest's own tests, and the payload
+     * shape this maps from by SuggestionApiTest.
+     */
+    public function test_the_create_form_prefills_from_a_suggestion_and_carries_the_id_to_the_post(): void
+    {
+        config(['suggestions.enabled' => true]);
+        $host = $this->host();
+
+        $this->get('http://'.$host.'/kolabs/create')
+            ->assertOk()
+            // The flag is resolved server-side, so the form never chases a prefill
+            // the API would 404.
+            ->assertSee('const suggestionsEnabled = true;', false)
+            // ?suggestion={id} → GET /suggestions/{id}
+            ->assertSee("new URLSearchParams(location.search).get('suggestion')", false)
+            ->assertSee("window.kb.api('/suggestions/' + encodeURIComponent(this.suggestionId))", false)
+            // A broken suggestion is silent and never blocks creation: no error is
+            // set on the failure path, and the id is dropped with it so a bad link
+            // cannot turn into a 422 on `exists` at submit.
+            ->assertSee("if (!res.ok) { this.suggestionId = ''; return; }", false)
+            // What closes the funnel: the id survives every edit, to the POST.
+            ->assertSee('if (!this.isEdit && this.suggestionId) body.suggestion_id = this.suggestionId;', false)
+            // Mapped field by field. The weekday goes in as the ISO 1..7 that
+            // `recurring_days` stores — no shifting, since the two conventions
+            // differ only on Sunday and a shift would be wrong once a week…
+            ->assertSee('Number.isInteger(weekday) && weekday >= 1 && weekday <= 7', false)
+            ->assertSee('this.form.recurring_days = [weekday];', false)
+            // …a time only in the H:i shape `selected_time` validates…
+            ->assertSee('/^([01]\d|2[0-3]):[0-5]\d$/.test(', false)
+            // …a title clamped to what the column takes…
+            ->assertSee('String(fmt.title).slice(0, 255)', false)
+            // …attendance only where it means the same thing (a community's turnout,
+            // never a business `capacity`, which is a fact about a venue)…
+            ->assertSee('this.form.typical_attendance = attendance;', false)
+            // …and each chip list in the viewer's own vocabulary, filtered against
+            // the options actually on screen, so anything pre-filled is also
+            // something the user can un-pick.
+            ->assertSee("this.form.offers_in_return = this.knownOptions('deliverables', fmt.offer);", false)
+            ->assertSee("this.form.needs = this.knownOptions('needs', fmt.expects);", false)
+            ->assertSee("this.form.offering = this.knownOptions('offerings', fmt.offer);", false)
+            ->assertSee('return (Array.isArray(values) ? values : []).filter(v => known.has(v));', false)
+            // Built from `suggested_format` alone: a blurred card (a free business —
+            // name, avatar and counterpart id all null) pre-fills identically.
+            ->assertSee('res.json?.data?.suggested_format || {}', false)
+            // Only an intent this account may actually post.
+            ->assertSee("const allowed = this.isCommunity ? ['community'] : ['venue', 'product'];", false)
+            // And the banner says the one thing a prefill has to say — bound to the
+            // prefill having landed, never to the URL parameter.
+            ->assertSee('x-if="suggestionApplied"', false)
+            ->assertSee('Pre-filled from a suggested partner. Change anything');
+
+        $this->get('http://'.$host.'/es/kolabs/create')
+            ->assertOk()
+            ->assertSee('Rellenado desde un socio sugerido. Cambia lo que quieras');
+
+        $this->get('http://'.$host.'/ca/kolabs/create')
+            ->assertOk()
+            ->assertSee('soci suggerit. Canvia el que vulguis');
+    }
+
+    public function test_creating_a_kolab_never_depends_on_the_suggestion_flag(): void
+    {
+        config(['suggestions.enabled' => false]);
+        $host = $this->host();
+
+        // Kolab creation is not a suggestions feature. With the flag off the form
+        // renders exactly as before and simply stops asking for a prefill.
+        $this->get('http://'.$host.'/kolabs/create')
+            ->assertOk()
+            ->assertSee('Create a Kolab')
+            ->assertSee('const suggestionsEnabled = false;', false);
+
+        $this->get('http://'.$host.'/es/kolabs/create')->assertOk()->assertSee('Crear un Kolab');
+    }
+
+    public function test_the_plan_page_explains_a_blurred_suggestion_as_the_existing_gate(): void
+    {
+        $host = $this->host();
+
+        $this->get('http://'.$host.'/subscription')
+            ->assertOk()
+            // The reason the suggestions card already sends is on the allowlist. It
+            // was not, so the banner rendered nothing at all.
+            ->assertSee("['publish', 'accept', 'apply', 'create', 'welcome', 'suggestion'].includes(reason)", false)
+            // The copy names what was held back, and names the two actions ROLES
+            // §2.7 gates rather than inventing a third paywall.
+            ->assertSee('The community name and logo behind a suggestion stay hidden on the free plan', false)
+            ->assertSee('accepting an application and applying to a Kolab', false);
+
+        $this->get('http://'.$host.'/es/subscription')
+            ->assertOk()
+            ->assertSee('aceptar una solicitud y aplicar a un Kolab', false);
+
+        $this->get('http://'.$host.'/ca/subscription')
+            ->assertOk()
+            ->assertSee('i aplicar a un Kolab', false);
+    }
+
+    public function test_every_allowlisted_paywall_reason_has_copy_in_every_locale(): void
+    {
+        // The banner reads `t('subscription.reason.' + reason)`, and t() falls back
+        // to the key — so a reason allowlisted without copy prints the raw dotted
+        // path onto the plan page. The allowlist is read out of the view itself so
+        // this keeps holding for reasons added after this test was written.
+        $view = (string) file_get_contents(resource_path('views/webapp/subscription.blade.php'));
+
+        $this->assertSame(1, preg_match('/\[([^\]]*)\]\.includes\(reason\)/', $view, $matches));
+        $this->assertGreaterThan(0, preg_match_all("/'([a-z_]+)'/", $matches[1], $found));
+
+        $reasons = $found[1];
+        $this->assertContains('suggestion', $reasons);
+
+        foreach ($reasons as $reason) {
+            foreach (['en', 'es', 'ca'] as $locale) {
+                $key = 'webapp.subscription.reason.'.$reason;
+
+                // `fallback: false` — an English sentence shown to a Catalan reader
+                // is a missing translation, not a pass.
+                $this->assertTrue(
+                    Lang::has($key, $locale, false),
+                    "?reason={$reason} is allowlisted but has no [{$locale}] copy."
+                );
+            }
+        }
+    }
+
+    public function test_the_dashboard_suggestion_block_shows_the_top_card_or_nothing(): void
+    {
+        $host = $this->host();
+        config(['suggestions.enabled' => true]);
+
+        $this->get('http://'.$host.'/dashboard')
+            ->assertOk()
+            ->assertSee("suggestionsEnabled ? window.kb.api('/suggestions?per_page=1') : Promise.resolve(null)", false)
+            // An empty list shows no block at all: the wrapper is bound to the top
+            // card, which stays null, rather than to a count that would read "0".
+            ->assertSee('this.suggestionTop = rows.length ? this.suggestionCard(rows[0]) : null;', false)
+            ->assertSee('x-show="!loadingExtras && suggestionTop"', false)
+            // The count is the paginator's total, not the one row fetched for the card.
+            ->assertSee('this.suggestionCount = window.kb.meta(sugg).total || rows.length;', false)
+            ->assertSee('suggestions this week')
+            ->assertSee('suggestion this week')
+            // The blur is whatever SuggestionResource decided — never re-derived
+            // from the viewer's role, because a community is never blurred.
+            ->assertSee('const blurred = !!s.is_identity_blurred;', false)
+            ->assertSee('href="/suggestions"', false);
+
+        // Flag off: no block, and no request either.
+        config(['suggestions.enabled' => false]);
+        $this->get('http://'.$host.'/dashboard')
+            ->assertOk()
+            ->assertSee('const suggestionsEnabled = false;', false)
+            ->assertDontSee('x-show="!loadingExtras && suggestionTop"', false);
+    }
+
+    public function test_the_web_app_dictionary_is_complete_and_consistent_in_every_locale(): void
+    {
+        // The web app is at 100% es/ca and stays there: a page shipped with only
+        // English copy would render a raw dotted key to a Spanish reader.
+        $en = $this->flattenTranslations((array) trans('webapp', [], 'en'));
+        $this->assertArrayHasKey('suggestions.title', $en);
+
+        // Every basis FormatSuggester can persist for a figure the card shows…
+        foreach (['attendance_past_events', 'attendance_community_size', 'weekday_series', 'weekday_past_events'] as $basis) {
+            $this->assertArrayHasKey('suggestions.basis.'.$basis, $en);
+        }
+
+        // …and the two "no basis" slugs deliberately have none: that absence is what
+        // makes them render no caption at all rather than one that says nothing.
+        $this->assertArrayNotHasKey('suggestions.basis.attendance_profile_only', $en);
+        $this->assertArrayNotHasKey('suggestions.basis.weekday_none', $en);
+
+        foreach (['es', 'ca'] as $locale) {
+            $translated = $this->flattenTranslations((array) trans('webapp', [], $locale));
+
+            $this->assertSame(
+                [],
+                array_values(array_diff(array_keys($en), array_keys($translated))),
+                "lang/{$locale}/webapp.php is missing keys that lang/en/webapp.php has."
+            );
+            $this->assertSame(
+                [],
+                array_values(array_diff(array_keys($translated), array_keys($en))),
+                "lang/{$locale}/webapp.php has keys lang/en/webapp.php does not."
+            );
+
+            foreach ($en as $key => $english) {
+                // A translation that drops or renames a :placeholder ships a sentence
+                // with a hole in it, or a leaked ":count", to that locale only.
+                $this->assertSame(
+                    $this->placeholders($english),
+                    $this->placeholders($translated[$key]),
+                    "lang/{$locale}/webapp.php [{$key}] does not carry the same :params as English."
+                );
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $lines
+     * @return array<string, string>
+     */
+    private function flattenTranslations(array $lines, string $prefix = ''): array
+    {
+        $flat = [];
+
+        foreach ($lines as $key => $value) {
+            $dotted = $prefix === '' ? (string) $key : $prefix.'.'.$key;
+
+            if (is_array($value)) {
+                $flat += $this->flattenTranslations($value, $dotted);
+
+                continue;
+            }
+
+            $flat[$dotted] = (string) $value;
+        }
+
+        return $flat;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function placeholders(string $line): array
+    {
+        preg_match_all('/:([A-Za-z_][A-Za-z0-9_]*)/', $line, $matches);
+
+        $found = array_unique($matches[1]);
+        sort($found);
+
+        return array_values($found);
     }
 
     public function test_localized_public_pages_render_with_lang_and_hreflang(): void
