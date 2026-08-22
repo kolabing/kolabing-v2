@@ -95,7 +95,7 @@
         </div>
 
         <button type="button" @click="goDetails()"
-                class="mt-1.5 h-14 rounded-pill bg-primary text-ink text-base font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition">{{ __('webapp.common.continue') }}</button>
+                class="kb-on-yellow mt-1.5 h-14 rounded-pill bg-primary text-ink text-base font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition">{{ __('webapp.common.continue') }}</button>
 
         {{-- Google sign-up: skips the password + profile steps entirely (the API
              creates the profile from the Google identity + the role picked above). --}}
@@ -195,7 +195,7 @@
                                 class="text-left flex items-center gap-3 p-4 rounded-xl border transition"
                                 :class="form.has_venue === opt.value ? 'bg-primary-tint border-primary' : 'bg-white border-ink/10'">
                             <span class="w-6 h-6 rounded-full shrink-0 flex items-center justify-center border-[1.5px]"
-                                  :class="form.has_venue === opt.value ? 'bg-primary border-primary' : 'border-ink/20'">
+                                  :class="form.has_venue === opt.value ? 'kb-on-yellow bg-primary border-primary' : 'border-ink/20'">
                                 <template x-if="form.has_venue === opt.value">
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                                 </template>
@@ -248,7 +248,7 @@
         </label>
 
         <button type="button" @click="submit()" :disabled="busy"
-                class="mt-1.5 h-14 rounded-pill bg-primary text-ink text-base font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition disabled:opacity-50">
+                class="kb-on-yellow mt-1.5 h-14 rounded-pill bg-primary text-ink text-base font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition disabled:opacity-50">
             <span x-text="busy ? t('register.creating') : t('register.create_account')">{{ __('webapp.register.create_account') }}</span>
         </button>
     </div>

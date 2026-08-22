@@ -41,6 +41,7 @@ class AddSecurityHeaders
         $scriptSrc = ["'self'", "'unsafe-inline'", 'https://cdn.tailwindcss.com'];
         $styleSrc = ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'];
         $frameSrc = ["'self'"];
+        $connectSrc = ["'self'", 'https:'];
 
         if ($isWebApp) {
             // Alpine compiles every x-*/@ expression with `new Function(...)`, so the
@@ -58,6 +59,11 @@ class AddSecurityHeaders
             $scriptSrc[] = 'https://accounts.google.com';
             $styleSrc[] = 'https://accounts.google.com';
             $frameSrc[] = 'https://accounts.google.com';
+
+            // Real-time chat dials Reverb over a WebSocket. CSP treats ws:/wss: as
+            // their own schemes — `https:` above does NOT cover them — so without
+            // this the socket is blocked and chat silently degrades to polling.
+            $connectSrc[] = 'wss:';
         }
 
         return implode('; ', [
@@ -70,7 +76,7 @@ class AddSecurityHeaders
             'style-src '.implode(' ', $styleSrc),
             'script-src '.implode(' ', $scriptSrc),
             'frame-src '.implode(' ', $frameSrc),
-            "connect-src 'self' https:",
+            'connect-src '.implode(' ', $connectSrc),
             "media-src 'self'",
             "object-src 'none'",
             'upgrade-insecure-requests',

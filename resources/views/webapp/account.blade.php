@@ -2,13 +2,17 @@
 @section('title', __('webapp.account.title'))
 
 @section('body')
-<div class="min-h-screen md:flex" x-data="kbMerge(kbShell(), accountPage())" x-init="init()">
+<div class="min-h-screen md:flex" x-data="kbMerge(kbShell(), kbPhonePreview(), accountPage())" x-init="init()">
     @include('webapp.partials.sidebar', ['active' => 'account'])
 
     <main class="flex-1 min-w-0 overflow-x-hidden">
+    {{-- The phone preview sits beside the tab from xl up; below that the
+         tab keeps its full-width layout. --}}
+    <div class="xl:flex xl:items-start xl:gap-8 xl:pr-10">
+    <div class="flex-1 min-w-0">
     <div class="max-w-[640px] mx-auto px-5 md:px-10 py-8 md:py-10 pb-20 kb-fade-up">
 
-        <h1 class="font-anton text-[28px] tracking-[1px] text-ink">{{ __('webapp.account.title') }}</h1>
+        @include('webapp.partials.account-nav', ['accountActive' => 'details'])
 
         <template x-if="error">
             <div class="mt-5 rounded-2xl bg-bad-surface text-bad-ink text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
@@ -134,7 +138,7 @@
                 </template>
 
                 <button type="submit" :disabled="busy"
-                        class="mt-2 h-[52px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition disabled:opacity-50">
+                        class="kb-on-yellow mt-2 h-[52px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition disabled:opacity-50">
                     <span x-text="busy ? t('form.saving') : t('account.submit')">{{ __('webapp.account.submit') }}</span>
                 </button>
             </form>
@@ -173,7 +177,7 @@
                 <div x-show="showLanguages" x-cloak class="px-6 py-4 border-b border-ink/[.06] bg-cream-low/60 flex gap-2">
                     @foreach ($localePaths as $l => $href)
                         <a href="{{ $href }}"
-                           class="px-4 py-2 rounded-pill text-[13px] font-bold border transition {{ $l === $loc ? 'bg-primary border-primary text-ink' : 'bg-white border-ink/[.12] text-body' }}">{{ strtoupper($l) }}</a>
+                           class="kb-on-yellow px-4 py-2 rounded-pill text-[13px] font-bold border transition {{ $l === $loc ? 'kb-on-yellow bg-primary border-primary text-ink' : 'bg-white border-ink/[.12] text-body' }}">{{ strtoupper($l) }}</a>
                     @endforeach
                 </div>
 
@@ -187,6 +191,10 @@
                         class="w-full text-left px-6 py-[15px] text-sm font-semibold text-danger hover:bg-bad-surface transition">{{ __('webapp.nav.logout') }}</button>
             </div>
         </template>
+    </div>
+    </div>
+
+    @include('webapp.partials.phone-preview')
     </div>
     </main>
 </div>
@@ -230,6 +238,7 @@
                 this.prefill();
                 this.loading = false;
                 if (new URLSearchParams(location.search).get('edit') === '1') this.editing = true;
+                this.initPreview();
             },
             async loadLookups() {
                 const [bt, ct, ci] = await Promise.all([
@@ -281,6 +290,7 @@
                 if (res.ok) {
                     this.me = res.json?.data || this.me;
                     this.saved = true; this.editing = false;
+                    this.refreshPreview();
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                     return;
                 }
@@ -298,7 +308,7 @@
                 fd.append('profile_photo', file);
                 const res = await window.kb.upload('/me/profile', fd);
                 this.uploadingPhoto = false;
-                if (res.ok) { this.me = res.json?.data || this.me; this.saved = true; return; }
+                if (res.ok) { this.me = res.json?.data || this.me; this.saved = true; this.refreshPreview(); return; }
                 this.error = window.kb.errorText(res, t('account.photo_error'));
             },
             async toggleNotifPrefs() {

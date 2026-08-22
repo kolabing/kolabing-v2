@@ -11,6 +11,7 @@ use App\Jobs\GenerateSuggestionsForProfile;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
 use App\Models\Community;
+use App\Models\Event;
 use App\Models\Kolab;
 use App\Models\NotificationPreference;
 use App\Models\Profile;
@@ -381,8 +382,31 @@ class ProfileService
             throw $exception;
         }
 
+        return $this->getPublicProfileDetail($profile);
+    }
+
+    /**
+     * The rich public profile — identity, gallery, aggregated photos, past events,
+     * past collaborations and headline stats — for a business OR a community.
+     *
+     * `past_events` lives on `kolabs.past_events`, a column any creator writes, so
+     * businesses have always had this data; only the community-scoped endpoint made
+     * it look community-only. Attendees have no public profile of this shape.
+     *
+     * @throws ModelNotFoundException
+     */
+    public function getPublicProfileDetail(Profile $profile): Profile
+    {
+        if (! $profile->isCommunity() && ! $profile->isBusiness()) {
+            $exception = new ModelNotFoundException;
+            $exception->setModel(Profile::class, [$profile->id]);
+
+            throw $exception;
+        }
+
         $profile->load([
             'communityProfile.city',
+            'businessProfile.city',
             'galleryPhotos',
         ]);
 
@@ -411,6 +435,28 @@ class ProfileService
         $profile->setAttribute('community_public_photos', $this->buildCommunityPhotos($profile, $pastEvents));
         $profile->setAttribute('community_public_gallery', $this->buildCommunityGallery($profile));
         $profile->setAttribute('community_public_past_collaborations', $pastCollaborations);
+
+        return $profile;
+    }
+
+    /**
+     * Hydrate ONLY the portfolio block (gallery + merged past events) for the
+     * light `GET /profiles/{id}` endpoint.
+     *
+     * Deliberately narrower than getPublicProfileDetail(): that method also runs
+     * collaboration/kolab count queries for `public_stats`, which the light
+     * endpoint neither emits nor should pay for.
+     */
+    public function hydratePublicPortfolio(Profile $profile): Profile
+    {
+        if (! $profile->isBusiness() && ! $profile->isCommunity()) {
+            return $profile;
+        }
+
+        $profile->loadMissing('galleryPhotos');
+
+        $profile->setAttribute('community_public_past_events', $this->buildCommunityPastEvents($profile));
+        $profile->setAttribute('community_public_gallery', $this->buildCommunityGallery($profile));
 
         return $profile;
     }
@@ -490,6 +536,50 @@ class ProfileService
      */
     private function buildCommunityPastEvents(Profile $profile): array
     {
+        $merged = array_merge(
+            $this->pastEventsFromKolabs($profile),
+            $this->pastEventsFromEvents($profile),
+        );
+
+        // The same evening logged in both places: keep the event-sourced copy,
+        // which carries attendee_count and a real photo store.
+        $deduped = [];
+        foreach ($merged as $item) {
+            $key = mb_strtolower(trim((string) $item['name'])).'|'.(string) $item['date'];
+
+            if (! isset($deduped[$key]) || $item['source'] === 'event') {
+                $deduped[$key] = $item;
+            }
+        }
+
+        $items = array_values($deduped);
+
+        // Newest first; undated entries sort last so a malformed Kolab entry can
+        // never take the top slot.
+        usort($items, function (array $a, array $b): int {
+            if ($a['date'] === null && $b['date'] === null) {
+                return 0;
+            }
+            if ($a['date'] === null) {
+                return 1;
+            }
+            if ($b['date'] === null) {
+                return -1;
+            }
+
+            return strcmp((string) $b['date'], (string) $a['date']);
+        });
+
+        return $items;
+    }
+
+    /**
+     * The free-form JSON array any Kolab creator writes.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function pastEventsFromKolabs(Profile $profile): array
+    {
         /** @var Collection<int, Kolab> $kolabs */
         $kolabs = Kolab::query()
             ->where('creator_profile_id', $profile->id)
@@ -509,15 +599,51 @@ class ProfileService
                     }
 
                     return [
+                        'source' => 'kolab',
                         'source_kolab_id' => $kolab->id,
+                        'source_event_id' => null,
                         'name' => isset($event['name']) && is_string($event['name']) ? $event['name'] : null,
                         'date' => isset($event['date']) && is_string($event['date']) ? $event['date'] : null,
                         'partner_name' => isset($event['partner_name']) && is_string($event['partner_name']) ? $event['partner_name'] : null,
+                        'attendee_count' => null,
                         'media' => $this->normalizeMediaCollection($event['media'] ?? $event['photos'] ?? []),
                     ];
                 }, $kolab->past_events);
             })
             ->filter(fn (?array $event): bool => $event !== null)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Real retrospective rows in the `events` table, with their own photo store.
+     * These were invisible on every public profile until this was added.
+     *
+     * Two queries regardless of event count (the row query + the eager-loaded
+     * photos), which the query-count test in PastEventsMergeTest locks.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function pastEventsFromEvents(Profile $profile): array
+    {
+        return Event::query()
+            ->where('profile_id', $profile->id)
+            ->whereDate('event_date', '<', now()->toDateString())
+            ->with('photos')
+            ->orderByDesc('event_date')
+            ->get()
+            ->map(fn (Event $event): array => [
+                'source' => 'event',
+                'source_kolab_id' => null,
+                'source_event_id' => $event->id,
+                'name' => $event->name,
+                'date' => $event->event_date?->toDateString(),
+                'partner_name' => $event->partner_name,
+                'attendee_count' => $event->attendee_count,
+                // Event::photos() already orders by sort_order, so the reorder
+                // endpoint is what decides the public cover image.
+                'media' => $this->normalizeMediaCollection($event->photos->pluck('url')->all()),
+            ])
             ->values()
             ->all();
     }
@@ -530,7 +656,7 @@ class ProfileService
     {
         $photos = collect();
 
-        $profilePhoto = $profile->communityProfile?->profile_photo;
+        $profilePhoto = $profile->getExtendedProfile()?->profile_photo;
         if (is_string($profilePhoto) && $profilePhoto !== '') {
             $photos->push([
                 'url' => $profilePhoto,

@@ -1,5 +1,6 @@
 @php
-    $title = 'Pricing';
+
+    $title = 'Pricing for businesses';
     $description = 'Kolabing Business pricing: €'.(int) config('subscriptions.business.stripe.monthly.price').' per month to publish unlimited Kolabs and partner with local communities. Communities always use Kolabing for free.';
     $canonical = route('pricing');
     $alternates = [
@@ -11,7 +12,7 @@
     $c = [
         'eyebrow' => 'Pricing',
         'headline' => 'One plan. Unlimited local partnerships.',
-        'intro' => 'Kolabing Business is a single monthly subscription — publish as many Kolabs as you want, see who applies, and run the collaborations that fill your quiet hours. Communities never pay.',
+        'intro' => 'Kolabing Business is a single monthly subscription — publish as many Kolabs as you want, see who applies, and run the collaborations that fill your quiet nights. Communities never pay.',
         'monthly_name' => 'Monthly',
         'quarterly_name' => '3 months',
         'per_month' => '/ month',
@@ -45,48 +46,59 @@
         ['q' => 'Do you offer discounts?', 'a' => 'We run campaigns from time to time. If you have a promotion code you can enter it on the Stripe checkout screen before paying.'],
         ['q' => 'Can I use Kolabing on my phone?', 'a' => 'Yes. Everything works in the browser, and the Kolabing app adds chat, notifications and event check-ins.'],
     ];
+
+    /**
+     * JSON-LD is built here, NOT inline in the <script> tag. Blade compiles
+     * directives inside `{!! !!}` expressions, and Laravel 12 has an `@context`
+     * directive — so a literal '@context' key written there is replaced by compiled
+     * PHP and the emitted structured data loses its @context entirely. Inside a
+     * @php block the compiler leaves it alone. See PublicProfilePageTest /
+     * MarketingSeoTest for the guard.
+     */
+    $productSchema = json_encode([
+        '@context' => 'https://schema.org',
+        '@type' => 'Product',
+        'name' => 'Kolabing Business',
+        'description' => $description,
+        'brand' => ['@type' => 'Brand', 'name' => 'Kolabing'],
+        'url' => $canonical,
+        'offers' => [
+            [
+                '@type' => 'Offer',
+                'name' => 'Monthly',
+                'price' => (string) (int) config('subscriptions.business.stripe.monthly.price'),
+                'priceCurrency' => 'EUR',
+                'availability' => 'https://schema.org/InStock',
+                'url' => $canonical,
+            ],
+            [
+                '@type' => 'Offer',
+                'name' => '3 months',
+                'price' => (string) (int) config('subscriptions.business.stripe.three_months.price'),
+                'priceCurrency' => 'EUR',
+                'availability' => 'https://schema.org/InStock',
+                'url' => $canonical,
+            ],
+        ],
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $faqSchema = json_encode([
+        '@context' => 'https://schema.org',
+        '@type' => 'FAQPage',
+        'mainEntity' => array_map(static fn (array $faq): array => [
+            '@type' => 'Question',
+            'name' => $faq['q'],
+            'acceptedAnswer' => ['@type' => 'Answer', 'text' => $faq['a']],
+        ], $faqs),
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 @endphp
 
 <x-layouts.marketing-page :title="$title" :description="$description" :canonical="$canonical" :alternates="$alternates">
     <x-slot:head>
         <script type="application/ld+json">
-            {!! json_encode([
-                '@context' => 'https://schema.org',
-                '@type' => 'Product',
-                'name' => 'Kolabing Business',
-                'description' => $description,
-                'brand' => ['@type' => 'Brand', 'name' => 'Kolabing'],
-                'url' => $canonical,
-                'offers' => [
-                    [
-                        '@type' => 'Offer',
-                        'name' => 'Monthly',
-                        'price' => (string) (int) config('subscriptions.business.stripe.monthly.price'),
-                        'priceCurrency' => 'EUR',
-                        'availability' => 'https://schema.org/InStock',
-                        'url' => $canonical,
-                    ],
-                    [
-                        '@type' => 'Offer',
-                        'name' => '3 months',
-                        'price' => (string) (int) config('subscriptions.business.stripe.three_months.price'),
-                        'priceCurrency' => 'EUR',
-                        'availability' => 'https://schema.org/InStock',
-                        'url' => $canonical,
-                    ],
-                ],
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+            {!! $productSchema !!}
         </script>
         <script type="application/ld+json">
-            {!! json_encode([
-                '@context' => 'https://schema.org',
-                '@type' => 'FAQPage',
-                'mainEntity' => array_map(static fn (array $faq): array => [
-                    '@type' => 'Question',
-                    'name' => $faq['q'],
-                    'acceptedAnswer' => ['@type' => 'Answer', 'text' => $faq['a']],
-                ], $faqs),
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+            {!! $faqSchema !!}
         </script>
     </x-slot:head>
 

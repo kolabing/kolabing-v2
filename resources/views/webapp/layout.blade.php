@@ -76,6 +76,13 @@
             --kb-neutral-surface: 237 234 224; --kb-neutral-ink: 76 70 56;
             --kb-success-solid: 86 98 77;   /* the confirmation sheet's check disc */
 
+            /* The brand yellow is light in BOTH themes, so anything sitting on it
+               must stay dark — see the on-yellow scope class below. */
+            --kb-on-primary: 25 21 15;
+            /* "Strong" filled pill: near-black with a yellow label in light theme. */
+            --kb-inverse: 25 21 15;
+            --kb-on-inverse: 255 226 140;
+
             --kb-shadow-card: 0 1.5px 8px rgba(55, 73, 87, .10);
             --kb-shadow-btn: 0 1.5px 4px rgba(55, 73, 87, .11);
             --kb-shadow-cardhover: 0 4px 16px rgba(55, 73, 87, .12);
@@ -86,9 +93,9 @@
 
         /*
          * Dark theme. The yellow stays the brand anchor but is dimmed so it does not
-         * glare on a dark ground, and `ink` inverts to near-white — which also flips
-         * every dark-on-yellow pairing (bg-ink text-primary) into the correct
-         * light-on-dark one, because both sides come from the same tokens.
+         * glare on a dark ground, and `ink` inverts to near-white for page text.
+         * Anything painted ON the yellow keeps its light-theme ink instead — see
+         * the on-yellow scope class — because the yellow itself never goes dark.
          */
         [data-theme="dark"] {
             --kb-primary: 245 205 106;
@@ -117,12 +124,36 @@
             --kb-neutral-surface: 52 47 40; --kb-neutral-ink: 190 182 168;
             --kb-success-solid: 108 130 96;
 
+            --kb-on-primary: 25 21 15;
+            /* On a dark ground a near-black pill has no presence, so the strong
+               action becomes the yellow one with a dark label. */
+            --kb-inverse: 245 205 106;
+            --kb-on-inverse: 25 21 15;
+
             --kb-shadow-card: 0 1.5px 8px rgba(0, 0, 0, .45);
             --kb-shadow-btn: 0 1.5px 4px rgba(0, 0, 0, .5);
             --kb-shadow-cardhover: 0 4px 16px rgba(0, 0, 0, .55);
             --kb-overlay: rgba(0, 0, 0, .7);
             --kb-scrollbar: rgba(255, 255, 255, .16);
             color-scheme: dark;
+        }
+
+        /*
+         * Anything sitting on the brand yellow. The yellow stays light in both
+         * themes, so this subtree pins the ink tokens to their light-theme values —
+         * otherwise dark theme flips the label to near-white on yellow. Because
+         * every colour is a variable, one class re-themes the whole subtree.
+         */
+        /* Also set `color` itself: an element on the yellow that declares no text
+           colour would otherwise inherit the near-white page ink. Tailwind's
+           utilities are injected after this, so an explicit text-* still wins. */
+        .kb-on-yellow { color: rgb(var(--kb-ink)); }
+        .kb-on-yellow, .kb-on-yellow * {
+            --kb-ink: 25 21 15;
+            --kb-body: 63 58 50;
+            --kb-muted: 92 84 70;
+            --kb-amber: 122 96 26;
+            --kb-line: 214 180 96;
         }
 
         [x-cloak] { display: none !important; }
@@ -183,6 +214,9 @@
                         "bad-surface": "rgb(var(--kb-bad-surface) / <alpha-value>)",
                         "bad-ink": "rgb(var(--kb-bad-ink) / <alpha-value>)",
                         "success-solid": "rgb(var(--kb-success-solid) / <alpha-value>)",
+                        "on-primary": "rgb(var(--kb-on-primary) / <alpha-value>)",
+                        inverse: "rgb(var(--kb-inverse) / <alpha-value>)",
+                        "on-inverse": "rgb(var(--kb-on-inverse) / <alpha-value>)",
                         // Card surfaces. Remapping `white` re-themes every existing
                         // `bg-white` without editing ~100 call sites.
                         white: "rgb(var(--kb-surface) / <alpha-value>)",
@@ -209,6 +243,9 @@
             androidUrl: @json(config('webapp.play_store_url')),
             deepLink: @json(config('webapp.deep_link')),
             marketingUrl: @json(config('webapp.marketing_url')),
+            // Reverb (real-time chat). `key` is null until the daemon is deployed
+            // (BE-IF-18); the chat page then polls instead of opening a socket.
+            realtime: @json(config('webapp.realtime')),
         };
         window.KB_LOCALE = @json($loc);
         window.KB_BASE = @json($base);
@@ -324,10 +361,18 @@
              * data.data, while plain ones (notifications, lookups) put it at data —
              * read both so a caller never silently renders an empty list.
              */
-            rows(res) {
+            rows(res, key = null) {
                 const d = res?.json?.data;
                 if (Array.isArray(d)) return d;
                 if (Array.isArray(d?.data)) return d.data;
+                // Envelope-style endpoints name their list key alongside sibling
+                // metadata — the community roster returns data.members next to
+                // data.pagination. Without this branch it silently returned [].
+                if (key && Array.isArray(d?.[key])) return d[key];
+                if (d && typeof d === 'object') {
+                    const firstList = Object.values(d).find(v => Array.isArray(v));
+                    if (firstList) return firstList;
+                }
                 return [];
             },
             /** Pagination meta, wherever the endpoint puts it. */
@@ -467,11 +512,65 @@
             },
         };
 
+        /**
+         * Phone-frame preview state, shared by every Profile-section tab.
+         *
+         * Spread into the page's x-data next to kbShell(); call initPreview()
+         * from the page's init() and refreshPreview() after any successful
+         * mutation, so the phone is never stale relative to what the tab did.
+         *
+         * The markup lives in webapp/partials/phone-preview.blade.php, which
+         * mirrors kolabing-app's public_profile_screen.dart.
+         */
+        window.kbPhonePreview = function () {
+            return {
+                previewProfile: null,
+                previewLoading: true,
+                previewError: '',
+
+                get previewAvatar() {
+                    return this.previewProfile?.avatar_url || this.previewProfile?.profile_photo || '';
+                },
+                get previewGallery() { return this.previewProfile?.gallery || []; },
+                get previewPastEvents() { return this.previewProfile?.past_events || []; },
+                get previewCollaborations() { return this.previewProfile?.past_collaborations || []; },
+                get previewRating() {
+                    const rating = this.previewProfile?.reputation?.average_rating;
+                    return rating ? Number(rating).toFixed(1) : '—';
+                },
+                get previewSocials() {
+                    const p = this.previewProfile || {};
+                    return [p.instagram, p.tiktok, p.website].filter(Boolean);
+                },
+
+                previewEventCover(event) {
+                    const first = (event?.media || [])[0];
+                    return first ? (first.url || first) : null;
+                },
+
+                async initPreview() { await this.refreshPreview(); },
+
+                async refreshPreview() {
+                    if (!this.me?.id) { this.previewLoading = false; return; }
+
+                    this.previewError = '';
+                    const res = await window.kb.api('/profiles/' + this.me.id + '/public-profile');
+                    this.previewLoading = false;
+
+                    if (!res.ok) {
+                        this.previewError = window.kb.errorText(res, window.t('account.phone.error'));
+                        return;
+                    }
+                    this.previewProfile = res.json?.data || null;
+                },
+            };
+        };
+
         // Shared shell state: viewer identity + unread notification count + theme.
         // kbMerge (never object spread) so kbThemeState's `isDark` getter stays lazy.
         function kbShell() {
             return window.kbMerge(window.kbThemeState(), {
-                me: null, unread: 0, menuOpen: false, shellReady: false,
+                me: null, unread: 0, chatUnread: 0, menuOpen: false, shellReady: false,
                 get isBusiness() { return this.me?.user_type === 'business'; },
                 get isCommunity() { return this.me?.user_type === 'community'; },
                 /** A business without an active plan — paywalled actions should route to /subscription. */
@@ -502,16 +601,102 @@
                 get initial() { return window.kbInitial(this.displayName); },
                 get avatarUrl() { return this.profile.logo_url || this.profile.profile_photo || this.me?.avatar_url || ''; },
                 get roleLabel() { return this.isBusiness ? window.t('nav.role_business') : window.t('nav.role_community'); },
+                /*
+                 | Community Hub access.
+                 |
+                 | Gated on the GRANT, never on user_type: a community manager is
+                 | an attendee account carrying can_manage on their membership
+                 | (ROLES §8.1 / §8.3 D1). A leader owns their community outright.
+                 */
+                communities: [], communityPending: 0,
+                get canManageCommunity() { return this.communities.length > 0; },
+                /**
+                 * Whether the Hub is reachable at all. A community user with no
+                 * community yet still gets in — the Hub is where they create one
+                 * (otherwise the entry is invisible and there is no web path to
+                 * becoming a leader). Managers reach it via the grant.
+                 */
+                get canSeeCommunityHub() { return this.canManageCommunity || this.isCommunity; },
+                get activeCommunity() {
+                    const saved = localStorage.getItem('kolabing_active_community');
+                    return this.communities.find(c => c.id === saved) || this.communities[0] || null;
+                },
+                setActiveCommunity(id) {
+                    localStorage.setItem('kolabing_active_community', id);
+                    location.reload();
+                },
+                async loadManagedCommunities() {
+                    if (!window.kb.token) return [];
+                    const [owned, memberships] = await Promise.all([
+                        window.kb.api('/me/communities'),
+                        window.kb.api('/me/memberships'),
+                    ]);
+                    const mine = owned.ok ? window.kb.rows(owned) : [];
+                    // /me/memberships returns membership rows: {community, tier, can_manage, …}
+                    const managed = (memberships.ok ? window.kb.rows(memberships) : [])
+                        .filter(m => m?.can_manage && m?.community)
+                        .map(m => m.community);
+                    const byId = {};
+                    [...mine, ...managed].forEach(c => { if (c && c.id) byId[c.id] = c; });
+                    this.communities = Object.values(byId);
+                    return this.communities;
+                },
+                /*
+                 | Creating the first community, from the panel.
+                 |
+                 | POST /communities does the rest: default tier, main chat thread,
+                 | is_primary. The owner is a leader from that moment — CommunityPolicy
+                 | @manage passes on ownership, so no membership row is needed.
+                 */
+                newCommunityName: '', creatingCommunity: false, createCommunityError: '',
+                async createCommunity() {
+                    const name = this.newCommunityName.trim();
+                    if (name.length < 2) { this.createCommunityError = window.t('community.create.name_too_short'); return; }
+
+                    this.creatingCommunity = true;
+                    this.createCommunityError = '';
+
+                    const res = await window.kb.api('/communities', { method: 'POST', body: { name } });
+                    this.creatingCommunity = false;
+
+                    if (res.ok) {
+                        await this.loadManagedCommunities();
+                        const created = res.json?.data;
+                        if (created?.id) { localStorage.setItem('kolabing_active_community', created.id); }
+                        window.nav('/community/members');
+                        return;
+                    }
+
+                    // The one-free-community cap is its own gate, NOT the business
+                    // paywall — surface it honestly instead of hiding the button.
+                    this.createCommunityError = res.json?.error === 'community_limit_reached'
+                        ? window.t('community.create.limit_reached')
+                        : window.kb.errorText(res, window.t('community.create.error'));
+                },
+                async loadCommunityPending() {
+                    const community = this.activeCommunity;
+                    if (!community) return;
+                    const res = await window.kb.api('/communities/' + community.id + '/stats');
+                    if (!res.ok) return;
+                    const p = res.json?.data?.pending || {};
+                    this.communityPending = (p.join_requests || 0) + (p.invitations || 0);
+                },
                 async loadShell() {
                     if (!window.kb.token) return null;
-                    const [me, un] = await Promise.all([
+                    const [me, un, chat] = await Promise.all([
                         window.kb.api('/auth/me'),
                         window.kb.api('/me/notifications/unread-count'),
+                        window.kb.api('/chats/unread-count'),
                     ]);
                     if (!me.ok) { window.kb.logout(); return null; }
                     this.me = me.json?.data || null;
                     if (un.ok) this.unread = un.json?.data?.count ?? 0;
+                    // Unread messages are counted separately from notifications:
+                    // a message raises both, and the two badges sit on two nav rows.
+                    if (chat.ok) this.chatUnread = chat.json?.data?.total ?? 0;
                     this.shellReady = true;
+                    // Non-blocking: the nav entry appears once this resolves.
+                    this.loadManagedCommunities().then(() => this.loadCommunityPending());
                     return this.me;
                 },
             });

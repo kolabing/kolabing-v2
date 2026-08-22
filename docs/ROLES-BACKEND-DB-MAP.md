@@ -7,7 +7,7 @@
 > Restoring/creating `BACKEND-SCHEMA.md` is tracked as backlog, not part of
 > this PR.
 
-**Last updated:** 2026-08-17 (**Web payment flow — new §14.** No gate changed. `POST /me/subscription/checkout/confirm` added: the return-from-Stripe page activates the subscription synchronously (ownership-checked against `client_reference_id`, 403 otherwise; 409 `pending` while unpaid; same idempotent `activateFromStripeSession` the webhook runs — which now returns the upserted row). Checkout Session gains `customer` **or** `customer_email` (never both — duplicate customers orphan the Billing Portal), `allow_promotion_codes` (buyer discount — NOT the referrer-rewarding referral code), and `locale` (`ca → es`, Stripe has no Catalan); payload building split into `StripeService::checkoutSessionParams()` so it is testable without the SDK. `UserResource` gains additive business-only `subscription_status` + `subscription_cancel_at_period_end` (warning copy only — `has_active_subscription` is still the only field the paywall reads; `past_due` is NOT active). Paywall redirects carry `?reason=…` (§3). Public `/pricing` + `/es/pricing` added. Prior: Web app redesign wiring: documented the **paywall HTTP-status asymmetry** — apply/publish surface as 402 but **accept surfaces as 403** via `ApplicationPolicy::accept()`, so clients must treat `403 + business-without-sub` as the paywall too; also documented the `scheduled_date` recurring-day/window rule on accept — §3. No role rule changed. Prior: 2026-08-15 Stripe web checkout now implements `source=stripe` — `POST /me/subscription/checkout` + public signature-verified `/webhooks/stripe`, business-only, server-side price ids, return-URL allowlist, referral-on-first-paid; the `source`-invariant in §9 still holds — see §9. Prior: 2026-07-28 Explore browse feed now hides date-exhausted kolabs — `KolabService::browse()` applies `Kolab::scopeWithSelectableDates()` (serves `/kolabs` + `/opportunities` shim), mirroring the apply-time guard; `?saved=1` left unfiltered — §4. Prior: 2026-07-15 admin company/legal settings: single-row `company_settings` (name/address/NIF/refund/emails + `terms_version`/`terms_effective_date`), maintainer CRUD at `/admin/company-settings`, `CompanySettingService::termsVersion()` is now the consent-version source (config = fallback), a view composer injects the values into the four legal pages — §0 item 12. Prior: legal consent gate: `accepted_terms` (`required|accepted`) on all `register/*` endpoints, OAuth signups stamped in `AuthService::consentStamp()`, consent on `profiles.terms_accepted_at`/`terms_version` vs `config('legal.terms_version')`, `GET /auth/me` `terms` block, `POST /me/consent` (`ConsentController`), `Profile::needsTermsAcceptance()` — §0 item 12. Prior: profile reputation cache (#76): `getReputationSummary()` cached per profile with observer-based invalidation (`CollaborationReviewObserver` + `CollaborationObserver`) and the duplicate `completed_kolabs_count` COUNT removed — §13. Prior: DB scalability indexes (#72): 37 previously-unindexed FKs + hot-path composite/partial indexes added; `ProfileService::getReputationSummary()` window function gained a deterministic `id ASC` tiebreaker so the per-pair cap is stable across index/scan order — §13. Prior: PR 5: reputation shape — `unique_partner_count` removed from public reputation block; per-pair fairness cap added (max 2 reviews per reviewer→reviewed pair via SQL window function, no schema change); `recent_reviews` items serialise `is_verified_kolab_review: true` — §13. Prior: PR 4: public reputation summary — `collaboration_reviews` schema expansion with five category star ratings + `public_comment` + `public_comment_visible` gate, `ProfileService::getReputationSummary()` aggregation, and new `reputation` block on `PublicProfileResource` — §13. Prior: 2026-06-28 gamification mission system v1 curation: `challenges.app_visible` column + the three event/general mission filter sites — #49. Prior same day: #61 Saved Kolabs — new `saved_kolabs` pivot + save/unsave endpoints + `?saved=1` list + viewer-scoped `is_saved` flag — §7, §7.1. PR #59 review fixes: completion-confirmation gate hardening — terminal-state guard, `pending = not-yes` resource/gate alignment, auto-complete grace anchored on `updated_at`, `Collaboration::roleFor()`, **legacy feedback fallback + backfill removed (`/complete` now gates purely on real completion confirmations)**, dead-code removal — §0 item 10, §3, §8, §10. Prior: 2026-06-26 PR 1 moved the `/complete` gate to `collaboration_completions`)
+**Last updated:** 2026-08-20 (**Invite page moved to the app host** — §12.6. It had never worked: the marketing layout loads no Alpine and the CSP grants 'unsafe-eval' only to the app host, so the CTA rendered empty. Moving it was preferred to weakening a security header. `invite_base_url` now defaults to https://app.kolabing.com/c, with a 301 from the old path. The page also gained Google sign-up + a name/phone/photo form using only existing endpoints. Prior: 2026-08-20 (**Phone preview — new §17.5.** Web-app only: a read-only replica of the app's public profile screen beside every Profile-section tab, refreshed after each edit. It mirrors three named Dart files in kolabing-app and must move with them. No API, schema, role or gate change. Prior: **Last updated:** 2026-08-20 (**Public portfolio — new §17.** Three new endpoints (gallery caption + gallery order + event photo order) sharing one `PhotoOrderingService` rule; `buildCommunityPastEvents()` merges the `events` table with `kolabs.past_events` (additive `source`/`source_event_id`/`attendee_count`, newest-first, undated last, deduped on name+date, two queries at any size); `GET /profiles/{id}` gains the portfolio via the narrower `hydratePublicPortfolio()` — the full detail hydration would have added count queries this endpoint does not emit and would have 404'd every attendee profile. No new table, no migration. Prior: 2026-08-19 (**Public-profile indexation bar revised — §16.6b.** The sitemap bar moved from "has a completed collaboration" to "has a review or three photos", because the first bar published a seeded test account and would have published hundreds of empty near-duplicate profiles; the same predicate now drives `noindex` on the page, and `/blog` + `/communities` use the same empty-hub rule through the layout's new `noindex` prop. Added `Profile::receivedReviews()`. Part of the SEO audit remediation, BACKLOG BE-FX-19. Prior same day: (**Public profile pages — new §16.** No schema change. One additive endpoint `GET /profiles/{id}/public-profile` serves the rich profile (gallery, aggregated photos, past events, past collaborations, stats) for **either** role: `past_events` lives on `kolabs.past_events` and was always written by whoever creates the Kolab, so only the community-scoped route's `isCommunity()` guard made it look community-only — that route is unchanged and still 404s for a business (pinned by a test). `buildCommunityPhotos()` stopped assuming `communityProfile`. Three additive fields for linking: `public_url` on the rich resource, `actor_profile_id` on notifications, `id` on chat participants. The public teaser at `kolabing.com/p/{slug}` reads models directly rather than opening any unauthenticated API, and the sign-up wall is enforced by never rendering the withheld fields (§16.4, ROLES §4.2). Slugs are `name-<uuid tail>` because `profiles.handle` is attendee-only in practice — 5 of 94 production profiles have one (§16.3). Prior: 2026-08-18 (**Chat on the web panel — new §15.** No endpoint, column, or gate added: the panel is a second client over the existing chat API. Documented what it calls and why, including two things that are easy to get wrong — `GET /chats/{thread}/messages` paginates **oldest-first** (page 1 is the start of the conversation; the newest messages are on `last_page`), and `POST /chats/{thread}/messages` on a **collaboration** thread notifies nobody because `threadRecipientIds()` returns `[]` for that type, so Kolab sends must use `POST /applications/{id}/messages` (§15.4, BE-FX-13). Real-time: `NewChatMessage` + `chat.thread.{id}` channel auth already existed; the panel subscribes with a self-hosted Pusher-protocol client and signs private channels at `POST /broadcasting/auth` (app root, Sanctum, bearer token). `config('webapp.realtime')` exposes only the four public Reverb values — never the app secret — and with the key unset the page polls, so this ships safely ahead of BE-IF-18. `AddSecurityHeaders` adds `wss:` to `connect-src` on the web-app host only. Two further gaps filed: BE-FX-14 (§2.8 lapse re-gate unenforced for chat — doc/code drift) and BE-FX-15 (`GET /me/communities` hides `can_manage` delegates' communities). Prior: 2026-08-17 (**Web payment flow — new §14.** No gate changed. `POST /me/subscription/checkout/confirm` added: the return-from-Stripe page activates the subscription synchronously (ownership-checked against `client_reference_id`, 403 otherwise; 409 `pending` while unpaid; same idempotent `activateFromStripeSession` the webhook runs — which now returns the upserted row). Checkout Session gains `customer` **or** `customer_email` (never both — duplicate customers orphan the Billing Portal), `allow_promotion_codes` (buyer discount — NOT the referrer-rewarding referral code), and `locale` (`ca → es`, Stripe has no Catalan); payload building split into `StripeService::checkoutSessionParams()` so it is testable without the SDK. `UserResource` gains additive business-only `subscription_status` + `subscription_cancel_at_period_end` (warning copy only — `has_active_subscription` is still the only field the paywall reads; `past_due` is NOT active). Paywall redirects carry `?reason=…` (§3). Public `/pricing` + `/es/pricing` added. Prior: Web app redesign wiring: documented the **paywall HTTP-status asymmetry** — apply/publish surface as 402 but **accept surfaces as 403** via `ApplicationPolicy::accept()`, so clients must treat `403 + business-without-sub` as the paywall too; also documented the `scheduled_date` recurring-day/window rule on accept — §3. No role rule changed. Prior: 2026-08-15 Stripe web checkout now implements `source=stripe` — `POST /me/subscription/checkout` + public signature-verified `/webhooks/stripe`, business-only, server-side price ids, return-URL allowlist, referral-on-first-paid; the `source`-invariant in §9 still holds — see §9. Prior: 2026-07-28 Explore browse feed now hides date-exhausted kolabs — `KolabService::browse()` applies `Kolab::scopeWithSelectableDates()` (serves `/kolabs` + `/opportunities` shim), mirroring the apply-time guard; `?saved=1` left unfiltered — §4. Prior: 2026-07-15 admin company/legal settings: single-row `company_settings` (name/address/NIF/refund/emails + `terms_version`/`terms_effective_date`), maintainer CRUD at `/admin/company-settings`, `CompanySettingService::termsVersion()` is now the consent-version source (config = fallback), a view composer injects the values into the four legal pages — §0 item 12. Prior: legal consent gate: `accepted_terms` (`required|accepted`) on all `register/*` endpoints, OAuth signups stamped in `AuthService::consentStamp()`, consent on `profiles.terms_accepted_at`/`terms_version` vs `config('legal.terms_version')`, `GET /auth/me` `terms` block, `POST /me/consent` (`ConsentController`), `Profile::needsTermsAcceptance()` — §0 item 12. Prior: profile reputation cache (#76): `getReputationSummary()` cached per profile with observer-based invalidation (`CollaborationReviewObserver` + `CollaborationObserver`) and the duplicate `completed_kolabs_count` COUNT removed — §13. Prior: DB scalability indexes (#72): 37 previously-unindexed FKs + hot-path composite/partial indexes added; `ProfileService::getReputationSummary()` window function gained a deterministic `id ASC` tiebreaker so the per-pair cap is stable across index/scan order — §13. Prior: PR 5: reputation shape — `unique_partner_count` removed from public reputation block; per-pair fairness cap added (max 2 reviews per reviewer→reviewed pair via SQL window function, no schema change); `recent_reviews` items serialise `is_verified_kolab_review: true` — §13. Prior: PR 4: public reputation summary — `collaboration_reviews` schema expansion with five category star ratings + `public_comment` + `public_comment_visible` gate, `ProfileService::getReputationSummary()` aggregation, and new `reputation` block on `PublicProfileResource` — §13. Prior: 2026-06-28 gamification mission system v1 curation: `challenges.app_visible` column + the three event/general mission filter sites — #49. Prior same day: #61 Saved Kolabs — new `saved_kolabs` pivot + save/unsave endpoints + `?saved=1` list + viewer-scoped `is_saved` flag — §7, §7.1. PR #59 review fixes: completion-confirmation gate hardening — terminal-state guard, `pending = not-yes` resource/gate alignment, auto-complete grace anchored on `updated_at`, `Collaboration::roleFor()`, **legacy feedback fallback + backfill removed (`/complete` now gates purely on real completion confirmations)**, dead-code removal — §0 item 10, §3, §8, §10. Prior: 2026-06-26 PR 1 moved the `/complete` gate to `collaboration_completions`) Prior: ** 2026-08-19 (**Community members web panel — new §12.6.** New table `community_invitations` + its endpoints, `GET /communities/{c}/stats`, member-detail and bulk-update endpoints, and the public `/c/{slug}` join route. `GET /communities/{c}/members` gains filters/sorts and per-row engagement metrics (resolved with left-joined grouped aggregates — no N+1, locked by a query-count test), is **now manage-gated**, and **defaults to excluding `status = removed`**. `AuthService::startOnboardingDrip` renamed to `afterRegistration` and now also claims pending invitations for the new profile's email (guarded). `CommunityMemberResource` fixed: it read the extended profile for a display name, but `attendee_profiles` has no `name` column, so every community member rendered as their email prefix — `profiles.name` is read first now. No gate changed; §12.5 is now enforced by `CommunityNeverPaywalledTest`. Prior: 2026-08-19 (**Public profile pages — new §16.** No schema change. One additive endpoint `GET /profiles/{id}/public-profile` serves the rich profile (gallery, aggregated photos, past events, past collaborations, stats) for **either** role: `past_events` lives on `kolabs.past_events` and was always written by whoever creates the Kolab, so only the community-scoped route's `isCommunity()` guard made it look community-only — that route is unchanged and still 404s for a business (pinned by a test). `buildCommunityPhotos()` stopped assuming `communityProfile`. Three additive fields for linking: `public_url` on the rich resource, `actor_profile_id` on notifications, `id` on chat participants. The public teaser at `kolabing.com/p/{slug}` reads models directly rather than opening any unauthenticated API, and the sign-up wall is enforced by never rendering the withheld fields (§16.4, ROLES §4.2). Slugs are `name-<uuid tail>` because `profiles.handle` is attendee-only in practice — 5 of 94 production profiles have one (§16.3). Prior: 2026-08-18 (**Chat on the web panel — new §15.** No endpoint, column, or gate added: the panel is a second client over the existing chat API. Documented what it calls and why, including two things that are easy to get wrong — `GET /chats/{thread}/messages` paginates **oldest-first** (page 1 is the start of the conversation; the newest messages are on `last_page`), and `POST /chats/{thread}/messages` on a **collaboration** thread notifies nobody because `threadRecipientIds()` returns `[]` for that type, so Kolab sends must use `POST /applications/{id}/messages` (§15.4, BE-FX-13). Real-time: `NewChatMessage` + `chat.thread.{id}` channel auth already existed; the panel subscribes with a self-hosted Pusher-protocol client and signs private channels at `POST /broadcasting/auth` (app root, Sanctum, bearer token). `config('webapp.realtime')` exposes only the four public Reverb values — never the app secret — and with the key unset the page polls, so this ships safely ahead of BE-IF-18. `AddSecurityHeaders` adds `wss:` to `connect-src` on the web-app host only. Two further gaps filed: BE-FX-14 (§2.8 lapse re-gate unenforced for chat — doc/code drift) and BE-FX-15 (`GET /me/communities` hides `can_manage` delegates' communities). Prior: 2026-08-17 (**Web payment flow — new §14.** No gate changed. `POST /me/subscription/checkout/confirm` added: the return-from-Stripe page activates the subscription synchronously (ownership-checked against `client_reference_id`, 403 otherwise; 409 `pending` while unpaid; same idempotent `activateFromStripeSession` the webhook runs — which now returns the upserted row). Checkout Session gains `customer` **or** `customer_email` (never both — duplicate customers orphan the Billing Portal), `allow_promotion_codes` (buyer discount — NOT the referrer-rewarding referral code), and `locale` (`ca → es`, Stripe has no Catalan); payload building split into `StripeService::checkoutSessionParams()` so it is testable without the SDK. `UserResource` gains additive business-only `subscription_status` + `subscription_cancel_at_period_end` (warning copy only — `has_active_subscription` is still the only field the paywall reads; `past_due` is NOT active). Paywall redirects carry `?reason=…` (§3). Public `/pricing` + `/es/pricing` added. Prior: Web app redesign wiring: documented the **paywall HTTP-status asymmetry** — apply/publish surface as 402 but **accept surfaces as 403** via `ApplicationPolicy::accept()`, so clients must treat `403 + business-without-sub` as the paywall too; also documented the `scheduled_date` recurring-day/window rule on accept — §3. No role rule changed. Prior: 2026-08-15 Stripe web checkout now implements `source=stripe` — `POST /me/subscription/checkout` + public signature-verified `/webhooks/stripe`, business-only, server-side price ids, return-URL allowlist, referral-on-first-paid; the `source`-invariant in §9 still holds — see §9. Prior: 2026-07-28 Explore browse feed now hides date-exhausted kolabs — `KolabService::browse()` applies `Kolab::scopeWithSelectableDates()` (serves `/kolabs` + `/opportunities` shim), mirroring the apply-time guard; `?saved=1` left unfiltered — §4. Prior: 2026-07-15 admin company/legal settings: single-row `company_settings` (name/address/NIF/refund/emails + `terms_version`/`terms_effective_date`), maintainer CRUD at `/admin/company-settings`, `CompanySettingService::termsVersion()` is now the consent-version source (config = fallback), a view composer injects the values into the four legal pages — §0 item 12. Prior: legal consent gate: `accepted_terms` (`required|accepted`) on all `register/*` endpoints, OAuth signups stamped in `AuthService::consentStamp()`, consent on `profiles.terms_accepted_at`/`terms_version` vs `config('legal.terms_version')`, `GET /auth/me` `terms` block, `POST /me/consent` (`ConsentController`), `Profile::needsTermsAcceptance()` — §0 item 12. Prior: profile reputation cache (#76): `getReputationSummary()` cached per profile with observer-based invalidation (`CollaborationReviewObserver` + `CollaborationObserver`) and the duplicate `completed_kolabs_count` COUNT removed — §13. Prior: DB scalability indexes (#72): 37 previously-unindexed FKs + hot-path composite/partial indexes added; `ProfileService::getReputationSummary()` window function gained a deterministic `id ASC` tiebreaker so the per-pair cap is stable across index/scan order — §13. Prior: PR 5: reputation shape — `unique_partner_count` removed from public reputation block; per-pair fairness cap added (max 2 reviews per reviewer→reviewed pair via SQL window function, no schema change); `recent_reviews` items serialise `is_verified_kolab_review: true` — §13. Prior: PR 4: public reputation summary — `collaboration_reviews` schema expansion with five category star ratings + `public_comment` + `public_comment_visible` gate, `ProfileService::getReputationSummary()` aggregation, and new `reputation` block on `PublicProfileResource` — §13. Prior: 2026-06-28 gamification mission system v1 curation: `challenges.app_visible` column + the three event/general mission filter sites — #49. Prior same day: #61 Saved Kolabs — new `saved_kolabs` pivot + save/unsave endpoints + `?saved=1` list + viewer-scoped `is_saved` flag — §7, §7.1. PR #59 review fixes: completion-confirmation gate hardening — terminal-state guard, `pending = not-yes` resource/gate alignment, auto-complete grace anchored on `updated_at`, `Collaboration::roleFor()`, **legacy feedback fallback + backfill removed (`/complete` now gates purely on real completion confirmations)**, dead-code removal — §0 item 10, §3, §8, §10. Prior: 2026-06-26 PR 1 moved the `/complete` gate to `collaboration_completions`)
 **Status:** Authoritative companion to [`ROLES-AND-PERMISSIONS.md`](./ROLES-AND-PERMISSIONS.md). Read that first (the *what*), then this (the *where*).
 **Sync note:** Duplicated in both repos (`kolabing-app`, `kolabing-v2`). Keep identical, and **bump the Last updated date in both** when role behaviour or backend wiring changes.
 
@@ -237,6 +237,11 @@ Fixed since the last revision:
 
 Still open:
 
+- [ ] **BE-NF-30 — decide the public-profile opt-out:** `/p/{slug}` publishes every business/community with a completed collaboration and lists them in `sitemap.xml`, with no way to decline (§16, ROLES §4.2).
+- [ ] **BE-FX-13 — converge the two chat send paths:** `sendThreadMessage()` must notify the counterpart when the thread has an `application_id`, so `POST /chats/{thread}/messages` stops delivering silent Kolab messages (§15.4).
+- [ ] **BE-FX-14 — decide §2.8 vs. the code for chat:** either enforce the lapse re-gate in `canParticipate()` / on the chat routes (community side unaffected), or correct §2.8. Today the doc and the code disagree (§15.5).
+- [ ] **BE-FX-15 — let `can_manage` delegates find their communities:** include managed communities in `GET /me/communities` and emit `my_can_manage` on `CommunityResource` (§15.5).
+
 - [ ] Implement the **blur** (name + logo) for free businesses on Explore. Server should emit an `identity_locked` flag (or null the identity for free businesses) and the client should render an actual blur. **No hard block on Explore.** (§4)
 - [ ] Past events linked to collaborations and `completed_at` populated.
 - [ ] "View profile" deep-link confirmed to pass a `profiles.id` (not a `business_profile.id` or `collaboration.id`).
@@ -455,6 +460,92 @@ Resources (`app/Http/Resources/Api/V1`): `CommunityResource`, `CommunityTierReso
 - Never add a `user_type` enum value for "community member" — the wire value stays `attendee` (D4).
 - Never couple `can_manage` to the top tier (D1).
 
+
+### 12.6 Web panel wiring (BE-NF-34, added 2026-08-19)
+
+**New table `community_invitations`** — `id` (uuid pk), `community_id` (fk
+communities, cascade), `email`, `tier_id` (fk community_tiers, nullOnDelete),
+`token` (string 64, unique), `invited_by_profile_id` (fk profiles, nullOnDelete),
+`status` (`pending|accepted|revoked|expired`), `expires_at`, `accepted_at`,
+`accepted_profile_id` (fk profiles, nullOnDelete), timestamps. Indexes:
+`(community_id, status)`, `(email, status)`, unique `token`. A partial unique
+index on `(community_id, email) WHERE pending` is **not** portable to SQLite (the
+test driver), so per-email uniqueness is enforced in
+`CommunityInvitationService::invite()` by upserting the pending row — the same
+shape as `CommunityMemberService::upsertMember`. TTL from
+`config('communities.invitation_ttl_days')` (default 30).
+
+**New / changed endpoints** (all manage-gated via `CommunityPolicy@manage` except
+`accept`, which is authorized by the token, and the public `/c/{slug}` page):
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/communities/{c}/members` | **now manage-gated** (carries emails); `?search`, `?status`, `?tier_id` (accepts `none`), `?can_manage`, `?sort`, `?direction`, `?limit`≤100. **Default excludes `removed`**; `?status=all` opts back in. |
+| GET | `/communities/{c}/members/{member}` | drawer: member + metrics + last 25 `community_point_ledger` rows |
+| PATCH | `/communities/{c}/members` | bulk (≤100 ids) tier / `can_manage` / status; ids outside `{c}` are counted `skipped`, never written |
+| GET | `/communities/{c}/stats` | member counts by status, `new_this_month`, `dormant_30d`, tier distribution, pending join-requests + invitations, 30-day points/check-ins/attendance, top 5 |
+| GET | `/communities/{c}/invitations` | `?status=pending` (default) \| `all` |
+| POST | `/communities/{c}/invitations` | `email` or `emails[]` (≤50) + optional `tier_id`; per-row results; `422 tier_not_in_community` |
+| POST | `/invitations/{invitation}/resend` | refreshes `expires_at`, re-queues the mail |
+| DELETE | `/invitations/{invitation}` | revoke (`status = revoked`) |
+| POST | `/invitations/accept/{token}` | auth required; `404 invitation_not_found`, `422 invitation_not_claimable` |
+| GET | `/c/{slug}` (web) | public join landing; `noindex` when invite-only |
+
+**`POST /communities/{c}/members` is unchanged.** It still returns
+`404 profile_not_found` for an address with no Kolabing account. Turning that 404
+into a 201 would silently change the contract the mobile client is written
+against, so invitations are a separate resource; the web panel catches the 404 and
+offers the email invitation instead.
+
+**The invite page lives on the APP host (BE-NF-38, corrected 2026-08-20).**
+`config('communities.invite_base_url')` now defaults to
+`https://app.kolabing.com/c`, and `kolabing.com/c/{slug}` 301-redirects there
+preserving the query string. The reason is the CSP: `AddSecurityHeaders` grants
+`'unsafe-eval'` and `accounts.google.com` only to `config('webapp.host')`. Alpine
+compiles every `x-*` expression with `new Function`, so on the marketing host the
+page's CTA could not run — it rendered an **empty** call-to-action, since the
+buttons lived inside `<template x-if>` blocks that never evaluated. Moving the page
+was chosen over relaxing the header.
+
+A signed-out visitor now signs up in place: `POST /auth/google`
+(`user_type: attendee` — community members are attendees on the wire, §8.1 D4),
+then `PUT /me/profile` (multipart `name`, `phone_number`, `profile_photo`), then the
+join/accept call. No new endpoint; every field was already accepted. The route is
+registered twice (`/c/{slug}` and `/{locale}/c/{slug}`), so the controller reads the
+slug **by name** from the route — a positional argument picks up the locale on the
+prefixed one.
+
+**Claim-on-register.** `AuthService::afterRegistration()` (was
+`startOnboardingDrip`, called from all five registration paths) now also calls
+`CommunityInvitationService::claimForSafely($profile)`, which accepts every
+`pending`, unexpired invitation matching the new profile's email. Guarded with
+try/catch + `Log::warning` — the same never-break-signup contract as
+`OnboardingService::autoJoinCommunities` and the mission hooks.
+
+**No N+1 on the roster.** `CommunityRosterQuery` LEFT-JOINs three grouped
+aggregate subqueries (`community_points`, `event_checkins` ⋈ `events` on
+`community_id`, `MAX(created_at)` over `community_point_ledger`) plus `profiles`
+and the extended-profile tables, so a page costs a fixed number of queries at any
+member count. `tests/Feature/Api/V1/CommunityRosterMetricsTest.php` asserts 3
+members and 30 members cost the same number of queries (BE-NF-15's O(N)-per-row
+pattern is the thing being prevented). `CommunityMemberResource` emits the metrics
+only when the caller preloaded them, via the same transient-attribute fast path
+`CommunityResource` uses — so mobile's existing calls keep the lean payload and
+its cost.
+
+**Resource fix:** `CommunityMemberResource::profileDisplayName()` read the
+extended profile first, but `attendee_profiles` has **no `name` column** and every
+community member is an attendee — so the roster rendered email prefixes instead of
+names. It now reads `profiles.name` first, and the payload gained
+`profile.handle` + `profile.email`.
+
+**Layout note:** `marketing-page.blade.php` gained an overridable `robots` prop so
+an invite-only `/c/{slug}` can emit `noindex` without a second layout.
+
+**This surface must never** (restating §12.5, now covered by a test):
+`CommunityNeverPaywalledTest` exercises every endpoint above as an unsubscribed
+owner and an unsubscribed `can_manage` attendee.
+
 ---
 
 ## 13. Public reputation aggregates (added 2026-06-30, PR 4)
@@ -524,3 +615,306 @@ Web surfaces: `resources/views/webapp/partials/billing-banner.blade.php` (includ
 ### 14.6 Required prod configuration
 
 `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_MONTHLY_PRICE_ID`, `STRIPE_THREE_MONTHS_PRICE_ID`; the webhook endpoint registered in the Stripe dashboard for the three event types in §14.1; Billing Portal + cancellation enabled there. A plan with no configured `stripe_price_id` is hidden on `/subscription` rather than offered as a button that 502s (unless *no* plan is configured, in which case both render — local/CI preview).
+
+---
+
+## 15. Chat on the web panel — backend map (added 2026-08-18)
+
+The web panel (`app.kolabing.com/chats`) adds **no endpoints and no columns**. It is a second client over the chat API that
+mobile already uses, so everything below is a map of existing code — with three real gaps called out at the end.
+
+### 15.1 What the page calls
+
+| Purpose | Endpoint | Notes |
+|---|---|---|
+| Inbox | `GET /chats` | `ChatService::visibleThreads()` — collaboration + community + event threads merged, sorted by `last_message_at`, each carrying transient `unread_count` and a `last_message` preview. **Unpaginated** (see BE-NF-15 scale audit). |
+| Badge | `GET /chats/unread-count` | `data.total`. Loaded in `kbShell()` next to the notification count; they are two different numbers. |
+| Read a thread | `GET /chats/{thread}/messages` | Works for **every** thread type, collaboration included — `canAccessThread()` routes collaboration through `canParticipate()`, and messages are found by `thread_id` (populated by `sendMessage()` and backfilled by `2026_06_04_000004_backfill_chat_threads`). Oldest-first under `data.messages`; also moves the viewer's read pointer. |
+| Send (Kolab) | `POST /applications/{application}/messages` | **Required for collaboration threads** — see §15.4. |
+| Send (group) | `POST /chats/{thread}/messages` | Community main / custom channel / event. |
+| Read pointer | `POST /chats/{thread}/read` | `markThreadRead()` handles both read models: per-message `read_at` for collaboration, `chat_thread_reads` for group threads. |
+| Channel CRUD | `POST /communities/{community}/chats`, `PATCH`/`DELETE /chats/{thread}` | `CommunityPolicy@manage` on create; `canManageCustomChat()` (custom threads only) on rename/delete. ≤5 cap raises `DomainException` → 422. |
+| Blocking | `GET`/`POST /chats/{thread}/bans`, `DELETE /chats/{thread}/bans/{profile}` | `canManageThread()` — any thread with a `community_id` the viewer manages, main chat included. Returns `banned_profile_ids` only, so the panel joins names from `GET /communities/{community}/members`. |
+| Manageable communities | `GET /me/communities` | Owned communities only — see §15.5. |
+
+Pagination note: `getThreadMessages()` paginates **oldest-first**, so page 1 is the beginning of the conversation and the
+newest messages live on `last_page`. The panel therefore reads page 1, and re-reads `meta.last_page` when there is more than
+one page; "load older" walks the page number **down**. Do not "fix" this by reversing the order — the mobile client reads the
+same shape.
+
+### 15.2 Real-time
+
+`NewChatMessage` (`ShouldBroadcast`) already broadcasts `message.sent` on `PrivateChannel('chat.thread.{id}')` (plus the
+legacy `chat.application.{id}`), and `routes/channels.php` authorizes it with the same `canAccessThread()` used by REST —
+that is the security boundary; never authorize a chat channel on community membership alone.
+
+The panel subscribes with `public/webapp-assets/kb-realtime.js`, a hand-written Pusher-protocol client (connect → auth →
+subscribe → `message.sent`, with ping/pong and backoff). It is not laravel-echo + pusher-js because the web app ships static
+self-hosted assets with no bundler and the CSP forbids third-party origins. Private-channel signing goes to
+`POST /broadcasting/auth`, which is **at the app root, not under `/api/v1`**, and is Sanctum-guarded — hence a bearer token
+plus the same one-shot refresh the REST client uses.
+
+Config: `config('webapp.realtime')` exposes `REVERB_APP_KEY` / `REVERB_HOST` / `REVERB_PORT` / `REVERB_SCHEME` to the browser.
+The **app secret is never exposed** (pinned by a test). With `key` unset the socket is disabled and a 4s ticker polls the open
+thread (8s) and the inbox (20s) instead, so chat is functional either way.
+
+**Production already runs Reverb** (verified 2026-08-18). Laravel Cloud hosts the managed instance and the client trio is set:
+`REVERB_HOST=ws-a0f4ad70-…-reverb.laravel.cloud`, `REVERB_PORT=443`, `REVERB_SCHEME=https`, with `BROADCAST_CONNECTION=reverb`
+and `QUEUE_CONNECTION=database`. The handshake was confirmed against that endpoint with `Origin: https://app.kolabing.com`
+(and `https://kolabing.com`) → `pusher:connection_established`, `activity_timeout: 30`, so `REVERB_ALLOWED_ORIGINS` already
+covers the web panel. A connection with **no** Origin is rejected `4009 Origin not allowed` — expected, and irrelevant to
+browsers, which always send one. The client treats 4000–4099 as fatal and stops reconnecting (falling back to polling), so a
+future origin/key misconfiguration surfaces as chat that never goes live rather than a reconnect storm.
+
+The full loop was then exercised against a local `reverb:start` + `queue:work` on an isolated SQLite database: handshake →
+`POST /broadcasting/auth` (200, `key:signature`) → `pusher:subscribe` → `POST /applications/{id}/messages` → `message.sent`
+received on `private-chat.chat.thread.{id}` carrying `{message: {...}}` with the right `thread_id` and `is_own: false`.
+One consequence worth remembering: `NewChatMessage` broadcasts with `->toOthers()`, so the sender's own socket never receives
+its own message — that is why the composer appends the API's returned message locally instead of waiting for the event.
+
+**`REVERB_PORT` vs `REVERB_SERVER_PORT`.** `config/reverb.php` maps the first to `apps.apps.*.options` (what clients dial) and
+the second to `servers.reverb` (what a self-hosted daemon binds — `REVERB_SERVER_HOST` defaults to `0.0.0.0` and is not set in
+`.env`; `REVERB_SERVER_PORT` is `6001`). With Laravel Cloud's managed Reverb that server pair is unused — do not "align" them.
+
+`AddSecurityHeaders` adds `wss:` to `connect-src` **for the web-app host only**. CSP treats `ws:`/`wss:` as their own
+schemes, so the existing `connect-src 'self' https:` does not cover the socket.
+
+### 15.3 Role behaviour (unchanged, just now visible on web)
+
+Business viewers see only collaboration threads with `last_message_at != null` (`visibleCollaborationThreads()`); custom
+channels are gated by tier (`community_tiers.permissions.chat_channels` → `canAccessCustomChat()`); event chats need a
+`going` sign-up or leader rights. Communities are never paywalled in any of this (ROLES §4.1, §8.4).
+
+### 15.4 Trap: `sendThreadMessage()` does not notify for collaboration threads
+
+`threadRecipientIds()` returns `[]` for `ChatThreadType::Collaboration`, and `sendThreadMessage()` calls neither
+`notifyNewMessage()` nor `syncUnreadMessageReminder()`. Posting a Kolab message to `POST /chats/{thread}/messages` therefore
+delivers **no notification, no push, no reminder**. Both clients avoid it by using the application endpoint for Kolab chats
+(the panel's split is pinned by `WebAppChatPageTest::test_kolab_chats_send_through_the_application_endpoint`). Converging the
+two paths is BACKLOG **BE-FX-13**.
+
+### 15.5 Two more open gaps
+
+- **BE-FX-14 — §2.8 re-gate not enforced for chat.** `canParticipate()` never reads subscription state and the chat routes
+  have no subscription middleware, so a lapsed business keeps full chat access even though ROLES §2.8 says it should not.
+  Doc/code drift; needs a product decision, not a drive-by patch.
+- **BE-FX-15 — `GET /me/communities` returns `ownedCommunities()` only.** A `community_members.can_manage = true` delegate is
+  authorized by `canManageCommunity()` for channels and bans, but cannot discover the community id in any client. Fix is
+  additive: include managed communities and emit `my_can_manage` on `CommunityResource`.
+
+### 15.6 Tests
+
+`tests/Feature/WebApp/WebAppChatPageTest.php` (12) pins the shell: routes in all three locales, the endpoints the page calls,
+the send-path split, the deep links, channel management, CSP `wss:`, the self-hosted client, secret non-exposure, the
+no-Reverb fallback, and es/ca copy parity. `tests/Feature/Api/V1/ChatCollaborationThreadEndpointTest.php` (5) covers the
+previously untested assumption the panel depends on: the generic thread endpoints against a **collaboration** thread —
+oldest-first read, read pointer clearing the badge, outsider 403, and that a Kolab thread cannot be renamed or deleted as a
+channel.
+
+---
+
+## 16. Public profile pages — backend map (added 2026-08-19)
+
+Two surfaces over one dataset: the authenticated panel page and the unauthenticated marketing teaser. **No schema change** —
+everything below reads existing columns.
+
+### 16.1 What each surface calls
+
+| Surface | Source | Notes |
+|---|---|---|
+| Panel `app.kolabing.com/profiles/{id}` | `GET /profiles/{id}/public-profile` **(new, additive)** | Rich shape for **either** role: `gallery`, `photos`, `past_events`, `past_collaborations`, `public_stats`, `public_url`. `ProfileService::getPublicProfileDetail()`; attendees throw `ModelNotFoundException` → 404. |
+| Panel (reputation) | `GET /profiles/{id}` | The rich endpoint has no reputation block; this one carries `reputation` = `{average_rating, review_count, completed_kolabs_count, breakdown}` where `breakdown` is the five category averages (communication / reliability / fit / value / repeat). |
+| Panel (reviews) | `GET /profiles/{id}/reviews?per_page=10&page=N` | `PublicProfileReviewResource` — includes the reviewer, which the public page must not. |
+| Panel (history) | `GET /profiles/{id}/collaborations?per_page=10&page=N` | Completed only. |
+| Public `kolabing.com/p/{slug}` | **No API.** `PublicProfilePageController` reads models directly | Keeps `/api/v1` authenticated; nothing here may become a way to enumerate the database. |
+
+`GET /communities/{community}/public-profile` is unchanged and still 404s for a business — existing clients depend on that, and
+a test pins it. It now delegates to `getPublicProfileDetail()` after its own `isCommunity()` guard.
+
+### 16.2 Why businesses get past events now
+
+`past_events` is a column on **`kolabs`**, written by `CreateKolabRequest` for whoever creates the Kolab — it was never
+community-specific. Only `getCommunityPublicProfile()`'s `isCommunity()` guard made it look that way, so a business profile
+could never show its own history. `ProfileService::buildCommunityPhotos()` also assumed `communityProfile->profile_photo`; it
+now reads `getExtendedProfile()?->profile_photo` so the aggregated photo list works for both roles.
+
+### 16.3 Slugs: `App\Support\PublicProfileLink`
+
+`/p/barcelona-runners-1dd66a` = `Str::slug(display name)` + the last **6** characters of the UUID.
+
+`profiles.handle` would have been the natural key — it is unique and nullable — but it is only required during **attendee**
+onboarding, so **5 of 94 production profiles have one**. Keying the public page on it would 404 for almost every business and
+community. The suffix form needs no column and no backfill, survives a rename (the tail still resolves; `<link rel="canonical">`
+points at the current slug), and `resolve()` also accepts a bare handle or a full UUID so links shared in any shape keep
+working. Lookup is `where('id', 'like', '%'.$suffix)` — `right()`/`substr()` disagree on negative offsets between Postgres and
+SQLite, and this reads the same on both. It is a sequential scan bounded by the profile count; if profiles grow into the tens
+of thousands, add a functional index on the id tail (see BE-NF-15, the scale audit).
+
+### 16.4 The wall (see ROLES §4.2)
+
+`PublicProfilePageController` computes *only* what may be public and passes that to the view; the Blade template is told not to
+reach for more off `$profile`. Concretely: about is truncated to 320 chars, photos are sliced to 3 with the remainder shown as a
+count, and the single quote comes from the newest `collaboration_reviews` row with `public_comment_visible = true` and a
+non-empty `public_comment`, rendered without the reviewer. Contact fields (`instagram`, `tiktok`, `website`) are never passed
+in. Tests in `tests/Feature/Marketing/PublicProfilePageTest.php` assert **absence** for each of those, which is the only way a
+leak gets caught — a leak does not break the page.
+
+### 16.5 Additive fields added for linking
+
+- `CommunityPublicProfileResource.public_url` — the shareable marketing URL, so no client re-implements the slug rule.
+- `NotificationResource.actor_profile_id` — notifications previously carried the actor's name and avatar but no id, so nothing
+  could link to them.
+- `ChatThreadResource.participant_summary[].id` — same reason, for the chat header.
+
+All three are additive; no existing key changed shape.
+
+### 16.6 SEO
+
+`sitemap.xml` lists profiles that have at least one **completed** collaboration as creator or applicant (capped at 500) — an
+empty profile is a thin page. JSON-LD is `LocalBusiness` for a business and `Organization` for a community, with
+`aggregateRating` emitted **only** when `review_count > 0`.
+
+### 16.6a Trap: never build JSON-LD inline in a Blade echo (fixed 2026-08-19, BE-FX-17)
+
+Laravel 12 registers an **`@context` Blade directive**, and Blade compiles directives inside `{{ }}` / `{!! !!}` expressions.
+So this — which four marketing templates used — is broken:
+
+```blade
+{!! json_encode(['@context' => 'https://schema.org', '@type' => 'Organization', …]) !!}
+```
+
+The `'@context'` key is replaced by compiled PHP, and the page emits
+`{"<?php $__contextArgs = []; … ?>":"https://schema.org","@type":"Organization",…}`. It still parses as JSON, so there is no
+error and no visible symptom — the structured data simply has no vocabulary and search engines ignore it. It affected
+`Organization` on every marketing page (shared layout), the homepage `@graph`, and `Product` + `FAQPage` on both pricing pages.
+
+Build the array inside a **`@php` block** and echo the encoded string, as `blog/show.blade.php` and `pages/public-profile.blade.php`
+always did — `@php` content is stored raw before directive compilation, so the key survives. `tests/Feature/Marketing/StructuredDataTest.php`
+now parses every ld+json block on ten marketing URLs and fails if `@context` is missing or a key contains raw PHP.
+
+### 16.6b Indexation bar for public profiles (revised 2026-08-19, BE-FX-19)
+
+The first cut listed any profile with a **completed collaboration** in `sitemap.xml`. Two problems showed up on production: a seeded
+`test` account met that bar and was published to the open web, and a profile with no review and no photos is a near-duplicate of
+every other empty profile — the thin-page cluster that drags a domain down once there are hundreds.
+
+The bar is now **at least one review, or at least three gallery photos** (`Profile::receivedReviews()` — added for this — or
+`galleryPhotos`). The same predicate drives `noindex` on the page itself, so a profile below the bar stays reachable (people share
+these links) but asks not to be indexed, and starts being indexed by itself once it has something to show. `/blog` and
+`/communities` follow the identical rule via the layout's `noindex` prop: an empty hub is not indexable and not in the sitemap.
+
+Keep the two in step. If the sitemap query and the controller's `noindex` ever disagree, the sitemap advertises pages that tell
+Google to go away.
+
+### 16.7 Tests
+
+`tests/Feature/Marketing/PublicProfilePageTest.php` (14) — renders for both roles, the four withheld categories, the 3-photo
+cap, private comments never quoted, canonical + JSON-LD + `og:type`, no faked rating, attendee 404, unknown slug 404, renamed
+profile still resolves, full UUID resolves, sitemap inclusion/exclusion.
+`tests/Feature/Api/V1/ProfilePublicDetailTest.php` (6) — business past events, community parity, `public_url`, attendee 404,
+auth required, and that the community route still refuses a business.
+`tests/Feature/WebApp/WebAppProfilePageTest.php` (9) — sections, the four endpoints, reviewer identity present *inside* the app,
+contact links present, own-profile edit/share, all three locales, every entry point, copy parity, and no leak onto the
+marketing host.
+
+---
+
+## 17. Public portfolio — past events, photos, gallery (BE-NF-36, added 2026-08-20)
+
+**No new table, no migration.** Everything below is endpoints, a service change and a
+resource change.
+
+### 17.1 New endpoints
+
+| Method | Path | Notes |
+|---|---|---|
+| PATCH | `/me/gallery/{photo}` | edit `caption` (`present\|nullable\|string\|max:500`); 403 unless the row is the caller's |
+| PUT | `/me/gallery/order` | `{ids: [...]}` → writes `sort_order`; returns the caller's FULL ordered gallery |
+| PUT | `/events/{event}/photos/order` | same shape; guarded by `EventPhotoController::canManageEvent()` (creator, or `can_manage` on the event's community) |
+
+Both reorder endpoints run through `App\Services\PhotoOrderingService::resolve()`, which
+holds the rule in one place: **ids the caller does not own are ignored and never
+written**, and **owned ids omitted from the request keep their relative order after the
+supplied ones**, so a partial or hostile list can neither hide a photo nor touch another
+profile's row. `profile_gallery_photos.caption` and `.sort_order` had existed since the
+table was created with no endpoint writing either; `event_photos.sort_order` was only
+ever set at insert.
+
+### 17.2 The two past-event stores, merged
+
+`ProfileService::buildCommunityPastEvents()` now returns the union of:
+
+- `pastEventsFromKolabs()` — `kolabs.past_events` JSON on the caller's published/closed
+  Kolabs (unchanged source, unchanged keys);
+- `pastEventsFromEvents()` — `events` rows where `profile_id = <profile>` and
+  `event_date < today`, with `photos` eager-loaded in `sort_order`.
+
+Item shape (every pre-existing key preserved; the rest are **additive**):
+
+```
+source          'kolab' | 'event'
+source_kolab_id string|null      (null for event-sourced)
+source_event_id string|null      (NEW; null for kolab-sourced)
+name            string|null
+date            string|null
+partner_name    string|null
+attendee_count  int|null         (NEW; only ever set for event-sourced)
+media           array
+```
+
+Ordering: `date` descending, **undated entries last** so a malformed Kolab entry cannot
+take the top slot. Dedup: same case-insensitive `name` + same `date` collapses to one,
+keeping the **event-sourced** copy. `community_public_stats.past_events_count` follows
+the merged list, and `buildCommunityPhotos()` picks the newly surfaced media up with no
+change.
+
+Cost: **two queries regardless of event count** (the rows + the eager-loaded photos),
+locked by a query-count assertion in `PastEventsMergeTest`.
+
+### 17.3 The light public profile
+
+`GET /profiles/{profile}` (`PublicProfileResource`) gains `gallery`, `past_events` and
+`past_events_count`.
+
+Hydration goes through the **narrower** `ProfileService::hydratePublicPortfolio()`, not
+`getPublicProfileDetail()`. Two reasons, both load-bearing:
+
+- `getPublicProfileDetail()` also runs collaboration and kolab count queries for
+  `public_stats`, which this endpoint neither emits nor should pay for — reusing it
+  tripped `ProfileReputationCacheTest`'s "completed_kolabs_count computed once" guard.
+- `getPublicProfileDetail()` **throws `ModelNotFoundException` for attendees**, so
+  calling it unguarded would have turned every attendee profile into a 404.
+
+`hydratePublicPortfolio()` is a no-op for attendees, and `portfolioFields()` emits
+nothing unless the hydrator ran — an attendee's payload is byte-identical to before.
+
+`PublicProfileResource` is instantiated in exactly one place, for a single profile,
+never in a collection, so there is no list-payload cost.
+
+### 17.5 Phone preview (BE-NF-37, added 2026-08-20)
+
+`resources/views/webapp/partials/phone-preview.blade.php` renders a phone frame beside
+every Profile-section tab containing a **read-only replica** of the mobile app's public
+profile screen, driven by the same `GET /profiles/{me}/public-profile` payload. Alpine
+state (`kbPhonePreview()` in the webapp layout) exposes `refreshPreview()`, which every
+gallery and past-event mutation calls on success so the frame is never stale.
+
+**It mirrors these files and must change with them:**
+
+- `kolabing-app/lib/features/profile/screens/public_profile_screen.dart`
+- `kolabing-app/lib/widgets/gallery/public_gallery_section.dart`
+- `kolabing-app/lib/features/event/widgets/past_events_section.dart`
+
+This is a second rendering of the profile UI, which §17.3's web Preview deliberately
+avoids by rendering the real page. It is unavoidable here — the target is a Flutter
+screen and cannot be embedded — so the cost is bounded instead: read-only (no lightbox,
+no pagination, no tap targets), confined to one file, gated to `xl` and up, and not
+shown for attendees (their app layout is the member social hub, a different screen).
+
+No API, schema, role or gate change.
+
+### 17.4 Caps (unchanged, enforced by the existing endpoints)
+
+Gallery: 20 photos, 5 per request. Event photos: 20 per event, 5 per request. A past
+event created via `POST /events` requires 1–5 photo **files**. The web uploader chunks
+larger selections into sequential 5-file requests rather than truncating them.

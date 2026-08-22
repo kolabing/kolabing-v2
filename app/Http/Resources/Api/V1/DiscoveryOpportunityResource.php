@@ -25,6 +25,7 @@ class DiscoveryOpportunityResource extends JsonResource
             : $creatorProfile?->communityProfile?->name;
 
         return [
+            'item_type' => 'kolab',
             'id' => $this->id,
             'creator_type' => $creatorProfile?->user_type?->value,
             'intent_type' => $this->intent_type->value,

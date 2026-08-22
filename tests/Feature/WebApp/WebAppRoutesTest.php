@@ -31,10 +31,17 @@ class WebAppRoutesTest extends TestCase
             ->assertSee('Where businesses &amp; communities grow together', false);
     }
 
-    public function test_the_hero_opens_the_same_login_overlay(): void
+    public function test_the_app_host_has_no_landing_page_of_its_own(): void
     {
-        // Arriving from the marketing site never needs a separate login page load.
-        $this->get('http://'.$this->host().'/')
+        // kolabing.com is where the product is pitched. Anyone arriving on the app
+        // host goes straight to signing in; signing up is its own page.
+        $host = $this->host();
+
+        $this->get('http://'.$host.'/')->assertRedirect('http://'.$host.'/login');
+        $this->get('http://'.$host.'/es')->assertRedirect('http://'.$host.'/es/login');
+        $this->get('http://'.$host.'/ca')->assertRedirect('http://'.$host.'/ca/login');
+
+        $this->get('http://'.$host.'/login')
             ->assertOk()
             ->assertSee('kbLoginModal', false)
             ->assertSee('openLogin()', false)
@@ -49,6 +56,165 @@ class WebAppRoutesTest extends TestCase
             ->assertSee('Get started')
             ->assertSee("I'm a community")
             ->assertSee('Create your account');
+    }
+
+    public function test_profile_section_tabs_render(): void
+    {
+        foreach (['', '/gallery', '/events', '/preview'] as $path) {
+            // The tab strip renders on every tab, so each page links to the others.
+            $this->get('http://'.$this->host().'/account'.$path)
+                ->assertOk()
+                ->assertSee('/account/gallery', false)
+                ->assertSee('Past events');
+        }
+    }
+
+    public function test_the_phone_preview_renders_on_every_profile_tab(): void
+    {
+        // A read-only replica of the app's profile screen, beside each tab, so a
+        // leader reordering a gallery can see which photo leads on a phone.
+        foreach (['', '/gallery', '/events', '/preview'] as $path) {
+            $this->get('http://'.$this->host().'/account'.$path)
+                ->assertOk()
+                ->assertSee('kbPhonePreview()', false)
+                ->assertSee('On a phone');
+        }
+    }
+
+    public function test_the_phone_preview_is_gated_to_wide_screens(): void
+    {
+        // Rendering a phone frame on a phone-width browser is nonsense; the tab
+        // keeps its full-width layout below xl.
+        $this->get('http://'.$this->host().'/account/gallery')
+            ->assertOk()
+            ->assertSee('hidden xl:block w-[360px]', false);
+    }
+
+    public function test_the_preview_refreshes_after_an_edit(): void
+    {
+        // The phone must never be stale relative to what the tab just did.
+        $this->get('http://'.$this->host().'/account/gallery')
+            ->assertOk()
+            ->assertSee('refreshPreview()', false);
+    }
+
+    public function test_the_phone_preview_is_localised(): void
+    {
+        $this->get('http://'.$this->host().'/es/account/gallery')
+            ->assertOk()
+            ->assertSee('En el móvil');
+
+        $this->get('http://'.$this->host().'/ca/account/gallery')
+            ->assertOk()
+            ->assertSee('Al mòbil');
+    }
+
+    public function test_profile_section_tabs_render_under_the_locale_prefixes(): void
+    {
+        foreach (['es', 'ca'] as $locale) {
+            $this->get('http://'.$this->host().'/'.$locale.'/account/gallery')->assertOk();
+        }
+    }
+
+    public function test_the_profile_section_is_localised(): void
+    {
+        $this->get('http://'.$this->host().'/es/account/events')
+            ->assertOk()
+            ->assertSee('Registrar un evento pasado');
+
+        $this->get('http://'.$this->host().'/ca/account/events')
+            ->assertOk()
+            ->assertSee('Registra un esdeveniment passat');
+    }
+
+    public function test_community_hub_pages_render_on_the_app_host(): void
+    {
+        // Public shells; auth + the manage gate are enforced client-side and by
+        // the API. Each page must render its own tab strip.
+        foreach (['', '/members', '/requests', '/tiers', '/economy', '/leaderboard', '/settings'] as $path) {
+            $this->get('http://'.$this->host().'/community'.$path)
+                ->assertOk()
+                ->assertSee('canManageCommunity', false);
+        }
+    }
+
+    public function test_the_hub_is_reachable_by_a_community_user_who_owns_no_community_yet(): void
+    {
+        // The nav gate is canSeeCommunityHub (canManageCommunity OR isCommunity),
+        // not canManageCommunity — otherwise a community user with no community
+        // has no web path to becoming a leader at all.
+        $page = $this->get('http://'.$this->host().'/community/members')->assertOk();
+
+        $page->assertSee('canSeeCommunityHub', false)
+            ->assertSee('createCommunity()', false)
+            ->assertSee('Create your community');
+    }
+
+    public function test_the_create_community_form_is_localised(): void
+    {
+        $this->get('http://'.$this->host().'/es/community')
+            ->assertOk()
+            ->assertSee('Crea tu comunidad');
+
+        $this->get('http://'.$this->host().'/ca/community')
+            ->assertOk()
+            ->assertSee('Crea la teva comunitat');
+    }
+
+    public function test_the_hub_tabs_are_hidden_until_a_community_exists(): void
+    {
+        // Every tab would be empty without one, so the strip is gated on
+        // canManageCommunity even though the entry itself is not.
+        $this->get('http://'.$this->host().'/community')
+            ->assertOk()
+            ->assertSee('x-show="canManageCommunity"', false);
+    }
+
+    public function test_no_file_in_public_shadows_a_webapp_route(): void
+    {
+        // public/community/ (a staging copy of an email banner) sat on the
+        // /community URL: nginx found the directory, 301'd to /community/, then
+        // 403'd for want of an index file — Laravel never saw the request.
+        // Any directory or file in public/ whose name matches a first path
+        // segment of a webapp route will do the same thing.
+        $segments = ['community', 'c', 'dashboard', 'feed', 'kolabs', 'account',
+            'notifications', 'subscription', 'applications', 'login', 'register', 'welcome'];
+
+        $shadowed = array_values(array_filter(
+            $segments,
+            fn (string $segment): bool => file_exists(public_path($segment)),
+        ));
+
+        $this->assertSame([], $shadowed, 'public/ entries shadow these routes: '.implode(', ', $shadowed));
+    }
+
+    public function test_community_hub_pages_render_under_the_locale_prefixes(): void
+    {
+        foreach (['es', 'ca'] as $locale) {
+            $this->get('http://'.$this->host().'/'.$locale.'/community/members')->assertOk();
+        }
+    }
+
+    public function test_the_community_roster_page_is_localised(): void
+    {
+        $this->get('http://'.$this->host().'/es/community/members')
+            ->assertOk()
+            ->assertSee('Invitar por email');
+
+        $this->get('http://'.$this->host().'/ca/community/members')
+            ->assertOk()
+            ->assertSee('Convida per correu');
+    }
+
+    public function test_the_api_client_reads_keyed_list_envelopes(): void
+    {
+        // The community roster returns its rows at data.members, next to
+        // data.pagination. kb.rows() used to read only data / data.data and
+        // silently returned [] — the same class of bug BE-NF-21 shipped.
+        $this->get('http://'.$this->host().'/community/members')
+            ->assertOk()
+            ->assertSee('rows(res, key = null)', false)
+            ->assertSee('Object.values(d).find(v => Array.isArray(v))', false);
     }
 
     public function test_subscription_page_renders_on_the_app_host(): void
@@ -122,7 +288,7 @@ class WebAppRoutesTest extends TestCase
         // A declined card silently removes access; the shell must say so and offer
         // the fix. The banner ships with the sidebar, so it cannot be forgotten on
         // a new page.
-        foreach (['/dashboard', '/feed', '/kolabs', '/subscription', '/account'] as $path) {
+        foreach (['/dashboard', '/feed', '/kolabs', '/chats', '/subscription', '/account'] as $path) {
             $this->get('http://'.$this->host().$path)
                 ->assertOk()
                 ->assertSee('We could not charge your card')
@@ -131,12 +297,8 @@ class WebAppRoutesTest extends TestCase
         }
     }
 
-    public function test_app_root_and_welcome_render(): void
+    public function test_post_purchase_welcome_renders(): void
     {
-        $this->get('http://'.$this->host().'/')
-            ->assertOk()
-            ->assertSee('Where businesses &amp; communities grow together', false);
-
         $this->get('http://'.$this->host().'/welcome')
             ->assertOk()
             ->assertSee('Continue in the Kolabing app');

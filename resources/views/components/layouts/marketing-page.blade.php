@@ -6,8 +6,17 @@
     'alternates' => null,
     'image' => null,
     'ogType' => 'website',
+    /*
+     * Overridable so a surface can opt out of indexing without a second layout:
+     * a private page (an invite-only community's join page) or one that has no
+     * content yet (an empty blog, a directory with no published cities). Null
+     * means the indexable default below, so an opting-out caller passes only
+     * 'noindex,follow' rather than restating the whole string.
+     */
+    'robots' => null,
 ])
 @php
+
     $ogImage = $image
         ? (str_starts_with($image, 'http') ? $image : url($image))
         : url('/social-preview.svg');
@@ -19,6 +28,24 @@
     $webapp = rtrim(config('webapp.url'), '/');
     $webappLogin = $webapp.'/login';
     $webappRegister = $webapp.'/register';
+
+    /**
+     * JSON-LD is built here, NOT inline in the <script> tag. Blade compiles
+     * directives inside `{!! !!}` expressions, and Laravel 12 has an `@context`
+     * directive — so a literal '@context' key written there is replaced by compiled
+     * PHP and the emitted structured data loses its @context entirely. Inside a
+     * @php block the compiler leaves it alone. See PublicProfilePageTest /
+     * MarketingSeoTest for the guard.
+     */
+    $organizationSchema = json_encode([
+        '@context' => 'https://schema.org',
+        '@type' => 'Organization',
+        'name' => 'Kolabing',
+        'url' => route('home'),
+        'logo' => url('/brand/kolabing-logo.png'),
+        'description' => 'Kolabing helps local businesses and communities plan partnerships that turn events into footfall, member value, and repeat visits.',
+        'email' => 'support@kolabing.com',
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 @endphp
 <!DOCTYPE html>
 <html lang="{{ $locale }}">
@@ -27,7 +54,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $title }} | Kolabing</title>
     <meta name="description" content="{{ $description }}">
-    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+    <meta name="robots" content="{{ $robots ?? 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1' }}">
     <link rel="canonical" href="{{ $canonical }}">
     @isset($alternates)
         @foreach ($alternates as $alternate)
@@ -72,15 +99,7 @@
         };
     </script>
     <script type="application/ld+json">
-        {!! json_encode([
-            '@context' => 'https://schema.org',
-            '@type' => 'Organization',
-            'name' => 'Kolabing',
-            'url' => route('home'),
-            'logo' => url('/brand/kolabing-logo.png'),
-            'description' => 'Kolabing helps local businesses and communities plan partnerships that turn events into foot traffic, member value, and repeat visits.',
-            'email' => 'support@kolabing.com',
-        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+        {!! $organizationSchema !!}
     </script>
     {{ $head ?? '' }}
 </head>
@@ -88,7 +107,7 @@
     <header class="border-b border-off-black/10 bg-white/90 backdrop-blur">
         <div class="mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-4">
             <a href="{{ route('home') }}" class="flex items-center gap-3 text-off-black">
-                <img src="/brand/kolabing-logo.png" alt="Kolabing" width="2000" height="894" class="h-9 w-auto">
+                <img src="/brand/kolabing-logo.webp" alt="Kolabing" width="560" height="250" fetchpriority="high" class="h-9 w-auto">
             </a>
             {{-- Every marketing page funnels into the web app from here; the legal
                  links stay in the DOM for crawlers but collapse on small screens so
@@ -115,7 +134,7 @@
         <div class="mx-auto flex max-w-6xl flex-col gap-6 px-6 md:flex-row md:items-center md:justify-between">
             <div>
                 <p class="font-montserrat text-xl font-black uppercase tracking-wide">Kolabing</p>
-                <p class="mt-2 max-w-xl text-sm text-white/70">Kolabing helps local businesses and communities plan partnerships that turn events into foot traffic, member value, and repeat visits.</p>
+                <p class="mt-2 max-w-xl text-sm text-white/70">Kolabing helps local businesses and communities plan partnerships that turn events into footfall, member value, and repeat visits.</p>
             </div>
             <div class="flex flex-wrap gap-4 text-sm text-white/70">
                 <a href="{{ $webappRegister }}" class="font-bold text-primary hover:text-primary/80">Get started</a>

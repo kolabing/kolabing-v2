@@ -49,7 +49,7 @@
                             <div class="flex gap-2 shrink-0 flex-wrap">
                                 <template x-if="of.status === 'draft'">
                                     <button type="button" @click="publish(of)" :disabled="busy"
-                                            class="h-[38px] px-[18px] rounded-pill bg-primary text-ink text-[13px] font-bold hover:bg-primary-dark transition disabled:opacity-50">{{ __('webapp.kolabs.publish') }}</button>
+                                            class="kb-on-yellow h-[38px] px-[18px] rounded-pill bg-primary text-ink text-[13px] font-bold hover:bg-primary-dark transition disabled:opacity-50">{{ __('webapp.kolabs.publish') }}</button>
                                 </template>
                                 <template x-if="of.status === 'published'">
                                     <button type="button" @click="closeKolab(of)" :disabled="busy"
@@ -79,10 +79,10 @@
                     <div class="flex p-1 bg-white border border-ink/[.12] rounded-pill">
                         <button type="button" @click="setReqSub('sent')"
                                 class="min-w-[100px] h-8 rounded-pill text-[12.5px] font-bold tracking-[.4px] transition"
-                                :class="reqSub === 'sent' ? 'bg-primary text-ink' : 'text-muted'">{{ __('webapp.applications.tab_sent') }}</button>
+                                :class="reqSub === 'sent' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.applications.tab_sent') }}</button>
                         <button type="button" @click="setReqSub('received')"
                                 class="min-w-[100px] h-8 rounded-pill text-[12.5px] font-bold tracking-[.4px] transition"
-                                :class="reqSub === 'received' ? 'bg-primary text-ink' : 'text-muted'">{{ __('webapp.applications.tab_received') }}</button>
+                                :class="reqSub === 'received' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.applications.tab_received') }}</button>
                     </div>
                 </div>
 
@@ -98,7 +98,13 @@
                                 <div class="w-10 h-10 rounded-full bg-primary/40 flex items-center justify-center text-[15px] font-semibold text-ink shrink-0"
                                      x-text="initialOf(partyName(rq))"></div>
                                 <div class="flex-1 min-w-0">
-                                    <p class="text-sm font-semibold text-ink truncate" x-text="partyName(rq)"></p>
+                                    <template x-if="partyId(rq)">
+                                        <a :href="window.kbPath('/profiles/' + partyId(rq))"
+                                           class="block text-sm font-semibold text-ink truncate hover:underline" x-text="partyName(rq)"></a>
+                                    </template>
+                                    <template x-if="!partyId(rq)">
+                                        <p class="text-sm font-semibold text-ink truncate" x-text="partyName(rq)"></p>
+                                    </template>
                                     <p class="text-[12.5px] text-muted mt-px truncate" x-text="requestMeta(rq)"></p>
                                 </div>
                                 <span class="px-3 py-1 rounded-xl text-[11px] font-bold tracking-[.4px] shrink-0"
@@ -119,7 +125,7 @@
                                     <template x-if="acceptingId !== rq.id">
                                         <div class="flex gap-2">
                                             <button type="button" @click="startAccept(rq)"
-                                                    class="flex-1 h-[38px] rounded-pill bg-primary text-ink text-[13px] font-bold hover:bg-primary-dark transition">{{ __('webapp.applications.accept') }}</button>
+                                                    class="kb-on-yellow flex-1 h-[38px] rounded-pill bg-primary text-ink text-[13px] font-bold hover:bg-primary-dark transition">{{ __('webapp.applications.accept') }}</button>
                                             <button type="button" @click="decline(rq)" :disabled="busy"
                                                     class="flex-1 h-[38px] rounded-pill bg-white border border-line text-ink text-[13px] font-bold hover:border-ink transition disabled:opacity-50">{{ __('webapp.applications.decline') }}</button>
                                         </div>
@@ -135,7 +141,7 @@
                                                            class="mt-1 h-10 w-full rounded-xl border border-transparent bg-white px-3 text-sm text-ink">
                                                 </div>
                                                 <button type="button" @click="confirmAccept(rq)" :disabled="busy || !scheduledDate"
-                                                        class="h-10 px-4 rounded-pill bg-ink text-primary text-[13px] font-bold disabled:opacity-50">{{ __('webapp.applications.confirm') }}</button>
+                                                        class="h-10 px-4 rounded-pill bg-inverse text-on-inverse text-[13px] font-bold disabled:opacity-50">{{ __('webapp.applications.confirm') }}</button>
                                                 <button type="button" @click="acceptingId = null"
                                                         class="h-10 px-4 rounded-pill bg-white border border-line text-[13px] font-bold">{{ __('webapp.common.cancel') }}</button>
                                             </div>
@@ -155,7 +161,14 @@
                             </template>
 
                             <template x-if="rq.status === 'accepted'">
-                                <p class="mt-2 text-[12px] text-ok-ink">{{ __('webapp.applications.accepted_note') }}</p>
+                                <div class="mt-2 flex items-center justify-between gap-3">
+                                    <p class="text-[12px] text-ok-ink">{{ __('webapp.applications.accepted_note') }}</p>
+                                    <a :href="window.kbPath('/chats') + '?application=' + rq.id"
+                                       class="shrink-0 h-[38px] px-4 rounded-pill bg-white border border-line text-[13px] font-bold hover:border-ink transition flex items-center gap-1.5">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                        {{ __('webapp.chats.title') }}
+                                    </a>
+                                </div>
                             </template>
                         </div>
                     </template>
@@ -176,7 +189,13 @@
                             <div class="w-10 h-10 rounded-full bg-primary/40 flex items-center justify-center text-[15px] font-semibold text-ink shrink-0"
                                  x-text="initialOf(collabPartner(cl).name)"></div>
                             <div class="flex-1 min-w-0">
-                                <p class="text-sm font-semibold text-ink truncate" x-text="collabPartner(cl).name"></p>
+                                <template x-if="collabPartner(cl).id">
+                                    <a :href="window.kbPath('/profiles/' + collabPartner(cl).id)"
+                                       class="block text-sm font-semibold text-ink truncate hover:underline" x-text="collabPartner(cl).name"></a>
+                                </template>
+                                <template x-if="!collabPartner(cl).id">
+                                    <p class="text-sm font-semibold text-ink truncate" x-text="collabPartner(cl).name"></p>
+                                </template>
                                 <p class="text-[13px] text-body mt-px truncate" x-text="cl.kolab?.title || ''"></p>
                                 <span x-show="cl.scheduled_date" x-cloak
                                       class="inline-block mt-[7px] px-2 py-[3px] rounded-md bg-cream-input text-[11px] font-medium text-body"
@@ -185,6 +204,11 @@
                             <span class="px-3 py-1 rounded-xl text-[11px] font-bold tracking-[.4px] shrink-0"
                                   :style="`background:${statusPill(cl.status).bg};color:${statusPill(cl.status).c}`"
                                   x-text="statusPill(cl.status).label"></span>
+                            <a :href="window.kbPath('/chats') + '?collaboration=' + cl.id"
+                               class="shrink-0 w-9 h-9 rounded-full bg-cream-low hover:bg-cream-low-hover transition flex items-center justify-center text-ink"
+                               :aria-label="t('chats.title')" :title="t('chats.title')">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            </a>
                         </div>
                     </template>
                 </div>
@@ -231,6 +255,11 @@
                 if (this.reqSub === 'received') return rq.applicant_profile?.display_name || t('applications.a_community');
                 return rq.kolab?.creator_profile?.display_name || rq.opportunity?.creator_profile?.display_name || t('feed.a_partner');
             },
+            /** …and their profile id, so the row links to who they are. */
+            partyId(rq) {
+                if (this.reqSub === 'received') return rq.applicant_profile?.id || null;
+                return rq.kolab?.creator_profile?.id || rq.opportunity?.creator_profile?.id || null;
+            },
             requestMeta(rq) {
                 const title = rq.kolab?.title || rq.opportunity?.title || t('intent.kolab');
                 return `${title} · ${window.kbDate(rq.created_at)}`;
@@ -238,7 +267,7 @@
             collabPartner(cl) {
                 const mine = this.me?.id;
                 const other = cl.creator_profile?.id === mine ? cl.applicant_profile : cl.creator_profile;
-                return { name: other?.display_name || t('dashboard.partner') };
+                return { name: other?.display_name || t('dashboard.partner'), id: other?.id || null };
             },
 
             async init() {

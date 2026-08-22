@@ -19,10 +19,12 @@ use App\Http\Controllers\Api\V1\CollaborationQrCodeController;
 use App\Http\Controllers\Api\V1\CommunityBadgeController;
 use App\Http\Controllers\Api\V1\CommunityController;
 use App\Http\Controllers\Api\V1\CommunityGoalController;
+use App\Http\Controllers\Api\V1\CommunityInvitationController;
 use App\Http\Controllers\Api\V1\CommunityJoinRequestController;
 use App\Http\Controllers\Api\V1\CommunityMemberController;
 use App\Http\Controllers\Api\V1\CommunityRewardController;
 use App\Http\Controllers\Api\V1\CommunityRewardsHubController;
+use App\Http\Controllers\Api\V1\CommunityStatsController;
 use App\Http\Controllers\Api\V1\CommunityTierController;
 use App\Http\Controllers\Api\V1\ConsentController;
 use App\Http\Controllers\Api\V1\DashboardController;
@@ -43,6 +45,8 @@ use App\Http\Controllers\Api\V1\LeaderboardController;
 use App\Http\Controllers\Api\V1\LookupController;
 use App\Http\Controllers\Api\V1\MeRewardsOverviewController;
 use App\Http\Controllers\Api\V1\MissionController;
+use App\Http\Controllers\Api\V1\MultiKolabEventController;
+use App\Http\Controllers\Api\V1\MultiKolabRoleApplicationController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OnboardingController;
@@ -312,6 +316,10 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.me.gallery.store');
 
         // Delete gallery photo
+        Route::put('me/gallery/order', [GalleryController::class, 'reorder'])
+            ->name('api.v1.me.gallery.reorder');
+        Route::patch('me/gallery/{photo}', [GalleryController::class, 'update'])
+            ->name('api.v1.me.gallery.update');
         Route::delete('me/gallery/{photo}', [GalleryController::class, 'destroy'])
             ->name('api.v1.me.gallery.destroy');
 
@@ -364,6 +372,8 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.events.chat.store');
 
         // NF-16 — add/remove photos on an existing event (creator / can_manage)
+        Route::put('events/{event}/photos/order', [EventPhotoController::class, 'reorder'])
+            ->name('api.v1.events.photos.reorder');
         Route::post('events/{event}/photos', [EventPhotoController::class, 'store'])
             ->name('api.v1.events.photos.store');
         Route::delete('events/{event}/photos/{photo}', [EventPhotoController::class, 'destroy'])
@@ -495,12 +505,30 @@ Route::prefix('v1')->group(function (): void {
 
         Route::get('communities/{community}/members', [CommunityMemberController::class, 'index'])
             ->name('api.v1.communities.members.index');
+        Route::patch('communities/{community}/members', [CommunityMemberController::class, 'bulkUpdate'])
+            ->name('api.v1.communities.members.bulk-update');
+        Route::get('communities/{community}/members/{member}', [CommunityMemberController::class, 'show'])
+            ->name('api.v1.communities.members.show');
         Route::post('communities/{community}/members', [CommunityMemberController::class, 'store'])
             ->name('api.v1.communities.members.store');
         Route::patch('communities/{community}/members/{member}', [CommunityMemberController::class, 'update'])
             ->name('api.v1.communities.members.update');
         Route::delete('communities/{community}/members/{member}', [CommunityMemberController::class, 'destroy'])
             ->name('api.v1.communities.members.destroy');
+
+        Route::get('communities/{community}/stats', [CommunityStatsController::class, 'show'])
+            ->name('api.v1.communities.stats');
+
+        Route::get('communities/{community}/invitations', [CommunityInvitationController::class, 'index'])
+            ->name('api.v1.communities.invitations.index');
+        Route::post('communities/{community}/invitations', [CommunityInvitationController::class, 'store'])
+            ->name('api.v1.communities.invitations.store');
+        Route::post('invitations/{invitation}/resend', [CommunityInvitationController::class, 'resend'])
+            ->name('api.v1.invitations.resend');
+        Route::delete('invitations/{invitation}', [CommunityInvitationController::class, 'destroy'])
+            ->name('api.v1.invitations.destroy');
+        Route::post('invitations/accept/{token}', [CommunityInvitationController::class, 'accept'])
+            ->name('api.v1.invitations.accept');
 
         /*
         |--------------------------------------------------------------------------
@@ -657,6 +685,10 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.profiles.reviews');
 
         // View public-facing community profile
+        // Rich public profile for either role (business or community).
+        Route::get('profiles/{profile}/public-profile', [ProfileController::class, 'publicProfileDetail'])
+            ->name('api.v1.profiles.public-profile');
+
         Route::get('communities/{community}/public-profile', [ProfileController::class, 'communityPublicProfile'])
             ->name('api.v1.communities.public-profile');
 
@@ -854,6 +886,77 @@ Route::prefix('v1')->group(function (): void {
         // Received applications
         Route::get('me/received-applications', [ApplicationController::class, 'receivedApplications'])
             ->name('api.v1.me.received-applications');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Multi-Kolab Events (MVP)
+        |--------------------------------------------------------------------------
+        | Separate parent domain beside the attendee Event/kolabs marketplace.
+        | See docs/superpowers/specs/2026-08-12-multi-kolab-event-api-contract.md.
+        */
+
+        Route::get('me/organizer-entitlement', [MultiKolabEventController::class, 'entitlement'])
+            ->name('api.v1.me.organizer-entitlement');
+
+        // Explore listing (published/recruiting events, filterable)
+        Route::get('multi-kolab-events', [MultiKolabEventController::class, 'index'])
+            ->name('api.v1.multi-kolab-events.index');
+
+        // My events (MUST be before {event})
+        Route::get('multi-kolab-events/me', [MultiKolabEventController::class, 'myEvents'])
+            ->name('api.v1.multi-kolab-events.me');
+
+        Route::post('multi-kolab-events', [MultiKolabEventController::class, 'store'])
+            ->name('api.v1.multi-kolab-events.store');
+
+        Route::get('multi-kolab-events/{event}', [MultiKolabEventController::class, 'show'])
+            ->name('api.v1.multi-kolab-events.show');
+
+        Route::patch('multi-kolab-events/{event}', [MultiKolabEventController::class, 'update'])
+            ->name('api.v1.multi-kolab-events.update');
+
+        Route::post('multi-kolab-events/{event}/roles', [MultiKolabEventController::class, 'storeRole'])
+            ->name('api.v1.multi-kolab-events.roles.store');
+
+        Route::post('multi-kolab-events/{event}/publish', [MultiKolabEventController::class, 'publish'])
+            ->name('api.v1.multi-kolab-events.publish');
+
+        Route::post('multi-kolab-events/{event}/confirm', [MultiKolabEventController::class, 'confirm'])
+            ->name('api.v1.multi-kolab-events.confirm');
+
+        Route::post('multi-kolab-events/{event}/complete', [MultiKolabEventController::class, 'complete'])
+            ->name('api.v1.multi-kolab-events.complete');
+
+        Route::post('multi-kolab-events/{event}/cancel', [MultiKolabEventController::class, 'cancel'])
+            ->name('api.v1.multi-kolab-events.cancel');
+
+        Route::get('multi-kolab-events/{event}/dashboard', [MultiKolabEventController::class, 'dashboard'])
+            ->name('api.v1.multi-kolab-events.dashboard');
+
+        Route::patch('multi-kolab-roles/{role}', [MultiKolabEventController::class, 'updateRole'])
+            ->name('api.v1.multi-kolab-roles.update');
+
+        Route::delete('multi-kolab-roles/{role}', [MultiKolabEventController::class, 'destroyRole'])
+            ->name('api.v1.multi-kolab-roles.destroy');
+
+        // Organizer review list for a role's applications (MUST be before the store route)
+        Route::get('multi-kolab-roles/{role}/applications', [MultiKolabRoleApplicationController::class, 'forRole'])
+            ->name('api.v1.multi-kolab-roles.applications.index');
+
+        Route::post('multi-kolab-roles/{role}/applications', [MultiKolabRoleApplicationController::class, 'store'])
+            ->name('api.v1.multi-kolab-roles.applications.store');
+
+        Route::post('multi-kolab-role-applications/{application}/shortlist', [MultiKolabRoleApplicationController::class, 'shortlist'])
+            ->name('api.v1.multi-kolab-role-applications.shortlist');
+
+        Route::post('multi-kolab-role-applications/{application}/decline', [MultiKolabRoleApplicationController::class, 'decline'])
+            ->name('api.v1.multi-kolab-role-applications.decline');
+
+        Route::post('multi-kolab-role-applications/{application}/withdraw', [MultiKolabRoleApplicationController::class, 'withdraw'])
+            ->name('api.v1.multi-kolab-role-applications.withdraw');
+
+        Route::post('multi-kolab-role-applications/{application}/accept', [MultiKolabRoleApplicationController::class, 'accept'])
+            ->name('api.v1.multi-kolab-role-applications.accept');
 
         /*
         |--------------------------------------------------------------------------

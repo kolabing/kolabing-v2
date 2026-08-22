@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Middleware\AddSecurityHeaders;
+use App\Http\Middleware\CacheMarketingPage;
+use App\Http\Middleware\CanonicalUrl;
 use App\Http\Middleware\EnsureAdminUserIsMaintainer;
 use App\Http\Middleware\EnsureFeatureEnabled;
 use App\Http\Middleware\EnsureUserType;
@@ -40,6 +42,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // intermittent 419 (Page Expired) on /admin/login, diagnosed in #104.
         $middleware->trustProxies(at: '*');
 
+        // One URL per page: fold www onto the apex host and drop trailing slashes
+        // before anything else runs, so a duplicate never reaches a controller.
+        $middleware->prepend(CanonicalUrl::class);
+
         $middleware->append(AddSecurityHeaders::class);
 
         // Register middleware aliases
@@ -52,6 +58,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'feature' => EnsureFeatureEnabled::class,
             'maintainer' => EnsureAdminUserIsMaintainer::class,
             'touch_profile_activity' => TouchProfileActivity::class,
+            'cache_marketing' => CacheMarketingPage::class,
         ]);
 
         // Sanctum stateful domains for API

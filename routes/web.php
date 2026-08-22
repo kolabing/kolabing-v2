@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\UserType;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
 use App\Http\Controllers\Admin\BlogController as AdminBlogController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Admin\KolabController as AdminKolabController;
 use App\Http\Controllers\Admin\ManagedUserController;
 use App\Http\Controllers\Admin\OfferOptionController as AdminOfferOptionController;
 use App\Http\Controllers\Admin\PartnerRewardController as AdminPartnerRewardController;
+use App\Http\Controllers\Admin\RankingController as AdminRankingController;
 use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Admin\RewardEconomicsController as AdminRewardEconomicsController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
@@ -23,9 +25,14 @@ use App\Http\Controllers\Admin\TypeController as AdminTypeController;
 use App\Http\Controllers\Admin\XpEarnRuleController as AdminXpEarnRuleController;
 use App\Http\Controllers\Admin\XpLevelController as AdminXpLevelController;
 use App\Http\Controllers\BlogController;
+use App\Http\Controllers\DirectoryController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\PasswordResetPageController;
+use App\Http\Controllers\PublicProfilePageController;
 use App\Models\BlogPost;
+use App\Models\Profile;
+use App\Models\RankingPage;
+use App\Support\PublicProfileLink;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -43,7 +50,13 @@ use Illuminate\Support\Facades\Route;
 | in-app links are literal, locale-prefixed client-side). Config: config/webapp.php.
 */
 $webappRoutes = function (): void {
-    Route::view('/', 'webapp.index');
+    // The app host has no landing page of its own — kolabing.com is where the
+    // product is pitched. Anyone arriving here (typed URL, bookmark, or a
+    // requireAuth() bounce) goes straight to the sign-in screen; signing up is
+    // its own page at /register.
+    Route::get('/', function (?string $locale = null) {
+        return redirect(($locale ? '/'.$locale : '').'/login');
+    });
     Route::view('/login', 'webapp.login');
     Route::view('/register', 'webapp.register');
     Route::view('/dashboard', 'webapp.dashboard');
@@ -59,6 +72,10 @@ $webappRoutes = function (): void {
     // EnsureFeatureEnabled, which aborts(404) for a non-JSON request.
     Route::view('/suggestions', 'webapp.suggestions')->middleware('feature:suggestions');
     Route::view('/notifications', 'webapp.notifications');
+    // Chat. One route for the whole inbox: the two-pane layout swaps threads
+    // client-side, and ?thread= / ?application= / ?collaboration= deep-link into
+    // one (resolved against GET /chats, so no extra endpoint is needed).
+    Route::view('/chats', 'webapp.chats');
     // Kolabs — order matters: literal + edit before the {kolab} catch-all.
     Route::view('/kolabs', 'webapp.kolabs');
     Route::view('/kolabs/create', 'webapp.kolab-form');
@@ -67,7 +84,30 @@ $webappRoutes = function (): void {
     // The design folds applications into My Kolabs → Requests; this route keeps
     // the standalone URL working by opening that same tab.
     Route::view('/applications', 'webapp.kolabs', ['initialTab' => 'requests']);
+    // Public profile of any business/community, seen from inside the app.
+    Route::view('/profiles/{profile}', 'webapp.profile');
+    // Public invitation landing page. On the APP host because Alpine needs
+    // 'unsafe-eval' and Google Sign-In needs accounts.google.com — the CSP grants
+    // both only here. Not auth-gated: it IS the front door for a new member.
+    Route::get('/c/{slug}', [\App\Http\Controllers\CommunityJoinPageController::class, 'show'])
+        ->name('communities.join-page');
+
     Route::view('/account', 'webapp.account');
+    // Profile section tabs (BE-NF-35). Settings stay inside the Details page's
+    // existing accordion — splitting them would be churn with no user benefit.
+    Route::view('/account/gallery', 'webapp.account-gallery');
+    Route::view('/account/events', 'webapp.account-events');
+    Route::view('/account/preview', 'webapp.account-preview');
+
+    // Community Hub — the members & tiers surface (BE-NF-29). All literals
+    // under /community; no catch-all segment, so order is not load-bearing.
+    Route::view('/community', 'webapp.community');
+    Route::view('/community/members', 'webapp.community-members');
+    Route::view('/community/requests', 'webapp.community-requests');
+    Route::view('/community/tiers', 'webapp.community-tiers');
+    Route::view('/community/economy', 'webapp.community-economy');
+    Route::view('/community/leaderboard', 'webapp.community-leaderboard');
+    Route::view('/community/settings', 'webapp.community-settings');
 };
 
 Route::domain(config('webapp.host'))
@@ -82,7 +122,19 @@ Route::domain(config('webapp.host'))
 
 Route::get('/', function () {
     return view('welcome');
-})->name('home');
+})->name('home')->middleware('cache_marketing');
+
+// Legacy invite links still point at the marketing host. The page itself moved
+// to the app host, where the CSP allows Alpine ('unsafe-eval') and Google
+// Sign-In — under the marketing policy it could not run at all (BE-NF-38).
+Route::get('/c/{slug}', function (string $slug) {
+    $query = request()->getQueryString();
+
+    return redirect()->away(
+        rtrim(config('webapp.url'), '/').'/c/'.$slug.($query ? '?'.$query : ''),
+        301,
+    );
+})->name('communities.join-page.legacy');
 
 Route::post('/newsletter', [NewsletterController::class, 'store'])
     ->middleware('throttle:10,1')
@@ -105,6 +157,11 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::delete('/users/{profile}', [ManagedUserController::class, 'destroy'])->name('users.destroy');
     Route::post('/users/{profile}/subscription/grant', [ManagedUserController::class, 'grantSubscription'])->name('users.subscription.grant');
     Route::post('/users/{profile}/subscription/revoke', [ManagedUserController::class, 'revokeSubscription'])->name('users.subscription.revoke');
+
+    // Multi-Kolab Event Creator entitlement — independent of the business
+    // subscription above; both Business and Community profiles are eligible.
+    Route::post('/users/{profile}/event-creator/grant', [ManagedUserController::class, 'grantEventCreatorEntitlement'])->name('users.event-creator.grant');
+    Route::post('/users/{profile}/event-creator/revoke', [ManagedUserController::class, 'revokeEventCreatorEntitlement'])->name('users.event-creator.revoke');
 
     // Community verification — submit proof channels (mobile), maintainer verifies
     // / rejects here. State lives on community_profiles.verification_*.
@@ -139,12 +196,25 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
 
     // CRM (businesses / communities / ambassadors) + Tasks
     Route::get('/crm', [AdminCrmController::class, 'index'])->name('crm.index');
+    Route::get('/crm/board', [AdminCrmController::class, 'board'])->name('crm.board');
+    Route::get('/crm/export', [AdminCrmController::class, 'export'])->name('crm.export');
     Route::post('/crm/columns', [AdminCrmController::class, 'saveColumns'])->name('crm.columns');
     Route::get('/crm/create', [AdminCrmController::class, 'create'])->name('crm.create');
     Route::post('/crm', [AdminCrmController::class, 'store'])->name('crm.store');
     Route::get('/crm/{account}/edit', [AdminCrmController::class, 'edit'])->name('crm.edit');
+    Route::get('/crm/{account}', [AdminCrmController::class, 'show'])->name('crm.show');
     Route::put('/crm/{account}', [AdminCrmController::class, 'update'])->name('crm.update');
     Route::delete('/crm/{account}', [AdminCrmController::class, 'destroy'])->name('crm.destroy');
+    Route::post('/crm/{account}/stage', [AdminCrmController::class, 'moveStage'])->name('crm.stage');
+    Route::post('/crm/{account}/activity', [AdminCrmController::class, 'addActivity'])->name('crm.activity');
+    Route::post('/crm/{account}/first-touch', [AdminCrmController::class, 'firstTouch'])->name('crm.first-touch');
+
+    // Community-rankings directory: publish/unpublish pages + moderate testimonials.
+    // (Re-ranking is done in /admin/crm via score + metrics.rank_override + listed.)
+    Route::get('/rankings', [AdminRankingController::class, 'index'])->name('rankings.index');
+    Route::post('/rankings/{page}/publish', [AdminRankingController::class, 'togglePublish'])->name('rankings.publish');
+    Route::post('/rankings/{page}/spotlight', [AdminRankingController::class, 'toggleSpotlight'])->name('rankings.spotlight');
+    Route::post('/rankings/testimonials/{testimonial}/{decision}', [AdminRankingController::class, 'moderate'])->name('rankings.testimonials.moderate');
 
     Route::get('/tasks', [AdminTaskController::class, 'index'])->name('tasks.index');
     Route::get('/tasks/create', [AdminTaskController::class, 'create'])->name('tasks.create');
@@ -230,19 +300,38 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
 Route::get('/reset-password', [PasswordResetPageController::class, 'show'])->name('password.reset');
 Route::post('/reset-password', [PasswordResetPageController::class, 'update'])->name('password.reset.update');
 
-Route::view('/for-businesses', 'pages.for-businesses')->name('for-businesses');
-Route::view('/for-communities', 'pages.for-communities')->name('for-communities');
-Route::view('/pricing', 'pages.pricing')->name('pricing');
-Route::view('/es/pricing', 'pages.es.pricing')->name('pricing.es');
-Route::view('/support', 'pages.support')->name('support');
-Route::view('/careers', 'pages.careers')->name('careers');
-Route::view('/privacy', 'pages.privacy')->name('privacy');
-Route::view('/terms', 'pages.terms')->name('terms');
-Route::view('/es/privacy', 'pages.es.privacy')->name('privacy.es');
-Route::view('/es/terms', 'pages.es.terms')->name('terms.es');
+Route::view('/for-businesses', 'pages.for-businesses')->name('for-businesses')->middleware('cache_marketing');
+Route::view('/for-communities', 'pages.for-communities')->name('for-communities')->middleware('cache_marketing');
+Route::view('/pricing', 'pages.pricing')->name('pricing')->middleware('cache_marketing');
+Route::view('/es/pricing', 'pages.es.pricing')->name('pricing.es')->middleware('cache_marketing');
+Route::view('/support', 'pages.support')->name('support')->middleware('cache_marketing');
+Route::view('/careers', 'pages.careers')->name('careers')->middleware('cache_marketing');
+Route::view('/privacy', 'pages.privacy')->name('privacy')->middleware('cache_marketing');
+Route::view('/terms', 'pages.terms')->name('terms')->middleware('cache_marketing');
+Route::view('/es/privacy', 'pages.es.privacy')->name('privacy.es')->middleware('cache_marketing');
+Route::view('/es/terms', 'pages.es.terms')->name('terms.es')->middleware('cache_marketing');
 
-Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
-Route::get('/blog/{post}', [BlogController::class, 'show'])->name('blog.show');
+// Shareable public profile teaser (marketing host, indexable). The slug is
+// `name-<uuid tail>`; see App\Support\PublicProfileLink.
+Route::get('/p/{slug}', [PublicProfilePageController::class, 'show'])->name('public-profile')->middleware('cache_marketing');
+
+Route::get('/blog', [BlogController::class, 'index'])->name('blog.index')->middleware('cache_marketing');
+Route::get('/blog/{post}', [BlogController::class, 'show'])->name('blog.show')->middleware('cache_marketing');
+
+// Community rankings directory (public GTM lead-magnet pages).
+Route::get('/communities', [DirectoryController::class, 'index'])->name('directory.index')->middleware('cache_marketing');
+Route::get('/communities/how-we-rank', [DirectoryController::class, 'howWeRank'])->name('directory.how-we-rank')->middleware('cache_marketing');
+// Social layer + claim (literal paths before the {city} catch-alls).
+Route::post('/communities/claim', [DirectoryController::class, 'claim'])
+    ->middleware('throttle:10,1')->name('directory.claim');
+Route::get('/communities/claim/verify/{token}', [DirectoryController::class, 'verifyClaim'])->name('directory.claim.verify');
+Route::post('/communities/vouch', [DirectoryController::class, 'vouch'])
+    ->middleware('throttle:40,1')->name('directory.vouch');
+Route::post('/communities/testimonial', [DirectoryController::class, 'testimonial'])
+    ->middleware('throttle:10,1')->name('directory.testimonial');
+Route::get('/communities/{city}/badge/{id}', [DirectoryController::class, 'badge'])->name('directory.badge');
+Route::get('/communities/{city}', [DirectoryController::class, 'show'])->name('directory.city')->middleware('cache_marketing');
+Route::get('/communities/{city}/{slug}', [DirectoryController::class, 'topic'])->name('directory.topic')->middleware('cache_marketing');
 
 Route::get('/sitemap.xml', function () {
     $urls = [
@@ -257,18 +346,55 @@ Route::get('/sitemap.xml', function () {
         route('terms'),
         route('privacy.es'),
         route('terms.es'),
-        route('blog.index'),
     ];
 
-    foreach (BlogPost::query()->published()->orderByDesc('published_at')->pluck('slug') as $slug) {
-        $urls[] = route('blog.show', $slug);
+    // A hub with nothing in it is a thin page: it stays out of the sitemap and
+    // serves `noindex` (see the marketing layout) until it has something to show.
+    $posts = BlogPost::query()->published()->orderByDesc('published_at')->pluck('slug');
+    if ($posts->isNotEmpty()) {
+        $urls[] = route('blog.index');
+        foreach ($posts as $slug) {
+            $urls[] = route('blog.show', $slug);
+        }
+    }
+
+    $rankingPages = RankingPage::query()->published()->orderBy('sort')->get(['city', 'topic', 'slug']);
+    if ($rankingPages->isNotEmpty()) {
+        $urls[] = route('directory.index');
+        $urls[] = route('directory.how-we-rank');
+        foreach ($rankingPages as $page) {
+            // A hub page is a city; the rest hang off a city as a topic.
+            $urls[] = $page->topic === null
+                ? route('directory.city', $page->slug)
+                : route('directory.topic', [$page->city, $page->slug]);
+        }
+    }
+
+    /*
+     * Public profile teasers, and the bar is deliberately higher than "exists".
+     * A completed collaboration alone let a seeded test account into the index,
+     * and a profile with no review and no photos is a near-duplicate of every
+     * other empty profile — exactly the thin-page cluster that drags a domain
+     * down once there are hundreds of them. Require something a reader would
+     * actually come for: a review, or a real gallery.
+     */
+    foreach (Profile::query()
+        ->whereIn('user_type', [UserType::Business, UserType::Community])
+        ->whereHas('receivedReviews', fn ($query) => $query->whereNotNull('rating'))
+        ->orWhere(fn ($query) => $query
+            ->whereIn('user_type', [UserType::Business, UserType::Community])
+            ->has('galleryPhotos', '>=', 3))
+        ->with(['businessProfile', 'communityProfile'])
+        ->limit(500)
+        ->get() as $profile) {
+        $urls[] = route('public-profile', PublicProfileLink::slugFor($profile));
     }
 
     return response()->view('sitemap', [
         'urls' => $urls,
         'lastModified' => now()->toDateString(),
     ])->header('Content-Type', 'application/xml; charset=UTF-8');
-})->name('sitemap');
+})->name('sitemap')->middleware('cache_marketing');
 
 Route::get('/llms.txt', function () {
     $lines = [
@@ -300,7 +426,7 @@ Route::get('/llms.txt', function () {
     $lines[] = 'Contact: support@kolabing.com';
 
     return response(implode("\n", $lines), 200)->header('Content-Type', 'text/plain; charset=UTF-8');
-})->name('llms');
+})->name('llms')->middleware('cache_marketing');
 
 Route::get('/.well-known/security.txt', function () {
     $content = implode("\n", [
@@ -312,4 +438,4 @@ Route::get('/.well-known/security.txt', function () {
     ]);
 
     return response($content, 200)->header('Content-Type', 'text/plain; charset=UTF-8');
-})->name('security.txt');
+})->name('security.txt')->middleware('cache_marketing');

@@ -40,7 +40,7 @@
                        class="h-[52px] rounded-2xl border border-transparent bg-cream-input px-4 text-sm text-ink">
             </div>
             <button type="submit" :disabled="loginLoading"
-                    class="mt-1 h-14 rounded-pill bg-primary text-ink text-base font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition disabled:opacity-50">
+                    class="kb-on-yellow mt-1 h-14 rounded-pill bg-primary text-ink text-base font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition disabled:opacity-50">
                 <span x-text="loginLoading ? t('login.submitting') : t('login.submit')">{{ __('webapp.login.submit') }}</span>
             </button>
         </form>
@@ -55,10 +55,10 @@
             <div class="flex p-1 bg-white border border-ink/[.12] rounded-pill mb-3">
                 <button type="button" @click="userType = 'business'"
                         class="flex-1 h-8 rounded-pill text-xs font-bold tracking-wide transition"
-                        :class="userType === 'business' ? 'bg-primary text-ink' : 'text-muted'">{{ __('webapp.login.business') }}</button>
+                        :class="userType === 'business' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.login.business') }}</button>
                 <button type="button" @click="userType = 'community'"
                         class="flex-1 h-8 rounded-pill text-xs font-bold tracking-wide transition"
-                        :class="userType === 'community' ? 'bg-primary text-ink' : 'text-muted'">{{ __('webapp.login.community') }}</button>
+                        :class="userType === 'community' ? 'kb-on-yellow bg-primary text-ink' : 'text-muted'">{{ __('webapp.login.community') }}</button>
             </div>
 
             <div x-show="hasGoogle" x-cloak class="w-full max-w-[400px] mx-auto">

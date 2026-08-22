@@ -55,9 +55,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property \Illuminate\Support\Carbon|null $published_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property string|null $multi_kolab_event_id
+ * @property string|null $multi_kolab_role_id
  * @property-read Profile $creatorProfile
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Application> $applications
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Collaboration> $collaborations
+ * @property-read MultiKolabEvent|null $multiKolabEvent
+ * @property-read MultiKolabRole|null $multiKolabRole
  */
 class Kolab extends Model
 {
@@ -114,6 +118,8 @@ class Kolab extends Model
         'past_events',
         'highlights',
         'published_at',
+        'multi_kolab_event_id',
+        'multi_kolab_role_id',
     ];
 
     /**
@@ -181,6 +187,29 @@ class Kolab extends Model
     public function collaborations(): HasMany
     {
         return $this->hasMany(Collaboration::class, 'kolab_id');
+    }
+
+    /**
+     * The parent Multi-Kolab Event this Kolab was created for, if it was
+     * created by accepting a {@see MultiKolabRoleApplication}. Null for every
+     * ordinary Kolab.
+     *
+     * @return BelongsTo<MultiKolabEvent, $this>
+     */
+    public function multiKolabEvent(): BelongsTo
+    {
+        return $this->belongsTo(MultiKolabEvent::class, 'multi_kolab_event_id');
+    }
+
+    /**
+     * The parent Multi-Kolab role this Kolab fulfils, if any. Null for every
+     * ordinary Kolab.
+     *
+     * @return BelongsTo<MultiKolabRole, $this>
+     */
+    public function multiKolabRole(): BelongsTo
+    {
+        return $this->belongsTo(MultiKolabRole::class, 'multi_kolab_role_id');
     }
 
     /**

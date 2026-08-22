@@ -31,6 +31,64 @@ class CrmAdminTest extends TestCase
         }
     }
 
+    public function test_city_filter_and_map_narrow_community_results(): void
+    {
+        CrmAccount::query()->create(['type' => 'community', 'name' => 'Madrid Runners XT', 'metrics' => ['city' => 'Madrid']]);
+        CrmAccount::query()->create(['type' => 'community', 'name' => 'Berlin Runners XT', 'metrics' => ['city' => 'Berlin']]);
+        $admin = $this->maintainer();
+
+        // The city dropdown + map surface both cities.
+        $this->actingAs($admin, 'admin')
+            ->get(route('admin.crm.index', ['type' => 'community']))
+            ->assertOk()
+            ->assertSee('All cities')
+            ->assertSee('Madrid')
+            ->assertSee('Berlin');
+
+        // Filtering by city narrows the table to that city's accounts.
+        $this->actingAs($admin, 'admin')
+            ->get(route('admin.crm.index', ['type' => 'community', 'city' => 'Madrid']))
+            ->assertOk()
+            ->assertSee('Madrid Runners XT')
+            ->assertDontSee('Berlin Runners XT');
+    }
+
+    public function test_community_catalog_exposes_verification_columns(): void
+    {
+        $catalog = app(\App\Http\Controllers\Admin\CrmController::class)->columnsFor('community');
+
+        foreach (['city', 'classification', 'audience', 'confidence', 'last_active_date', 'evidence_url'] as $key) {
+            $this->assertArrayHasKey($key, $catalog, "community CRM should expose the {$key} verification column");
+            $this->assertTrue($catalog[$key][2], "{$key} should be a metric column");
+        }
+    }
+
+    public function test_editing_a_verified_community_preserves_verification_metadata(): void
+    {
+        $c = CrmAccount::query()->create([
+            'type' => 'community',
+            'name' => 'Verified Co',
+            'metrics' => [
+                'source' => 'neil-2026-08-18-verified', 'city' => 'Madrid',
+                'classification' => 'local-community', 'audience_count' => 5000, 'confidence' => 'High',
+            ],
+        ]);
+
+        // Edit + save WITHOUT re-posting the verification keys (as the edit form does today).
+        $this->actingAs($this->maintainer(), 'admin')
+            ->put(route('admin.crm.update', $c), [
+                'type' => 'community', 'name' => 'Verified Co', 'status' => 'Active',
+                'metrics' => ['category' => 'Sports'],
+            ])->assertRedirect();
+
+        $c->refresh();
+        $this->assertSame('neil-2026-08-18-verified', $c->metrics['source']); // preserved
+        $this->assertSame('Madrid', $c->metrics['city']);                     // preserved
+        $this->assertSame(5000, $c->metrics['audience_count']);               // preserved
+        $this->assertSame('Active', $c->status);                             // change applied
+        $this->assertSame('Sports', $c->metrics['category']);                // new value merged in
+    }
+
     public function test_create_and_edit_pages_render_for_each_type(): void
     {
         (new CrmSeeder)->run();

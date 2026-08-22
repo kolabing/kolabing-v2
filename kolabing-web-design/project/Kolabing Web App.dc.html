@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face { font-family: 'Anton'; src: url('assets/fonts/anton-400.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('assets/fonts/inter-400.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('assets/fonts/inter-500.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('assets/fonts/inter-600.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('assets/fonts/inter-700.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+html, body { margin: 0; padding: 0; background: #FAF5EA; }
+body { font-family: 'Inter', sans-serif; color: #19150F; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
+a { color: #19150F; }
+a:hover { color: #3F3A32; }
+input, textarea, select, button { font-family: 'Inter', sans-serif; }
+input:focus, textarea:focus, select:focus { outline: none; border-color: #19150F !important; }
+::placeholder { color: #8C8474; }
+@keyframes kbFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</helmet>
+
+<div style="height: 100vh; overflow: hidden; background: #FAF5EA;">
+
+<!-- ═══════════════ AUTH ═══════════════ -->
+<sc-if value="{{ notAuthed }}" hint-placeholder-val="{{ false }}">
+<div style="height: 100vh; overflow-y: auto; background: #F6F1E7;">
+
+  <sc-if value="{{ aWelcome }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height: 100vh; display: flex; flex-direction: column;">
+    <div style="background: #FFE28C; height: 42vh; display: flex; align-items: center; justify-content: center; border-radius: 0 0 48% 48% / 0 0 60px 60px;">
+      <img src="assets/brand/kolabing-wordmark-dark.png" alt="Kolabing" style="width: 240px;">
+    </div>
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; padding: 56px 24px 48px;">
+      <div style="max-width: 480px; width: 100%; display: flex; flex-direction: column; gap: 28px; text-align: center;">
+        <div style="font-family: Anton; font-size: 44px; line-height: 1.05; letter-spacing: .02em; text-transform: uppercase; color: #19150F;">Where businesses &amp; communities grow together</div>
+        <div style="font-size: 14px; color: #3F3A32; line-height: 1.5;">Real kolabs · real communities · real growth</div>
+        <button onClick="{{ goType }}" style="height: 56px; border: none; border-radius: 999px; background: #FFE28C; color: #19150F; font-size: 16px; font-weight: 700; letter-spacing: -0.2px; cursor: pointer; box-shadow: 0 1.5px 4px rgba(55,73,87,.11);" style-hover="transform: translateY(-1px); background: #F5D070;">Get started</button>
+        <div style="font-size: 14px; color: #8C8474;">Already in? <a href="#" onClick="{{ goLogin }}" style="font-weight: 600; color: #19150F; text-decoration: none;">Log in</a></div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ aType }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 24px;">
+    <div style="max-width: 480px; width: 100%; display: flex; flex-direction: column; gap: 16px;">
+      <button onClick="{{ backWelcome }}" style="width: 40px; height: 40px; border-radius: 50%; background: #fff; border: 1px solid rgba(28,28,22,.10); cursor: pointer; display: flex; align-items: center; justify-content: center;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg>
+      </button>
+      <div style="font-family: Anton; font-size: 32px; letter-spacing: .02em; text-transform: uppercase; color: #19150F; margin-top: 8px;">Get started</div>
+      <div style="font-size: 14px; color: #3F3A32;">Are you a business looking for communities, or a community seeking partners?</div>
+      <button onClick="{{ pickBiz }}" style="margin-top: 12px; text-align: left; padding: 20px; border-radius: 20px; background: #fff; border: 1px solid rgba(28,28,22,.10); cursor: pointer; display: flex; align-items: center; gap: 14px;" style-hover="border-color: #FFE28C; background: #FFF4C2;">
+        <div style="width: 44px; height: 44px; border-radius: 14px; background: #F7F3EA; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path><path d="M10 6h4"></path><path d="M10 10h4"></path><path d="M10 14h4"></path><path d="M10 18h4"></path></svg></div>
+        <div><div style="font-size: 15px; font-weight: 700; color: #19150F;">I'm a business / brand</div><div style="font-size: 13px; color: #8C8474; margin-top: 2px;">Post Kolabs and fill your quiet hours</div></div>
+      </button>
+      <button onClick="{{ pickComm }}" style="text-align: left; padding: 20px; border-radius: 20px; background: #fff; border: 1px solid rgba(28,28,22,.10); cursor: pointer; display: flex; align-items: center; gap: 14px;" style-hover="border-color: #FFE28C; background: #FFF4C2;">
+        <div style="width: 44px; height: 44px; border-radius: 14px; background: #F7F3EA; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
+        <div><div style="font-size: 15px; font-weight: 700; color: #19150F;">I'm a community</div><div style="font-size: 13px; color: #8C8474; margin-top: 2px;">Apply to Kolabs — always free</div></div>
+      </button>
+      <div style="text-align: center; font-size: 14px; color: #8C8474; margin-top: 8px;">Already have an account? <a href="#" onClick="{{ goLogin }}" style="font-weight: 600; color: #19150F; text-decoration: none;">Sign in</a></div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ aLogin }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 24px;">
+    <div style="max-width: 420px; width: 100%; display: flex; flex-direction: column; gap: 14px;">
+      <img src="assets/brand/kolabing-wordmark-light.png" alt="Kolabing" style="width: 150px; align-self: center;">
+      <div style="font-family: Anton; font-size: 30px; letter-spacing: .02em; text-transform: uppercase; color: #19150F; text-align: center; margin-top: 12px;">Welcome back</div>
+      <div style="font-size: 14px; color: #3F3A32; text-align: center;">Sign in to your account</div>
+      <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 10px;">
+        <label style="font-size: 12px; font-weight: 600; color: #3F3A32;">Email</label>
+        <input type="email" placeholder="you@yourbusiness.com" style="height: 52px; border-radius: 16px; border: 1px solid transparent; background: #F5EFE3; padding: 0 16px; font-size: 14px; color: #19150F;">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label style="font-size: 12px; font-weight: 600; color: #3F3A32;">Password</label>
+        <input type="password" placeholder="Enter your password" style="height: 52px; border-radius: 16px; border: 1px solid transparent; background: #F5EFE3; padding: 0 16px; font-size: 14px; color: #19150F;">
+      </div>
+      <button onClick="{{ doLogin }}" style="margin-top: 8px; height: 56px; border: none; border-radius: 999px; background: #FFE28C; color: #19150F; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 1.5px 4px rgba(55,73,87,.11);" style-hover="transform: translateY(-1px); background: #F5D070;">Sign in</button>
+      <a href="#" style="text-align: center; font-size: 13px; font-weight: 600; color: #19150F; text-decoration: none; margin-top: 4px;">Forgot your password?</a>
+      <div style="text-align: center; font-size: 14px; color: #8C8474; margin-top: 6px;">New here? <a href="#" onClick="{{ goType }}" style="font-weight: 600; color: #19150F; text-decoration: none;">Create account</a></div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ aSignup }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 24px;">
+    <div style="max-width: 460px; width: 100%; display: flex; flex-direction: column; gap: 13px;">
+      <button onClick="{{ goType }}" style="width: 40px; height: 40px; border-radius: 50%; background: #fff; border: 1px solid rgba(28,28,22,.10); cursor: pointer; display: flex; align-items: center; justify-content: center;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg>
+      </button>
+      <div style="font-family: Anton; font-size: 30px; letter-spacing: .02em; text-transform: uppercase; color: #19150F;">Create your account</div>
+      <div style="font-size: 14px; color: #3F3A32; margin-top: -6px;">Joining as <span style="font-weight: 700;">{{ signupRoleLabel }}</span> · <a href="#" onClick="{{ goType }}" style="color: #19150F;">change</a></div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label style="font-size: 12px; font-weight: 600; color: #3F3A32;">{{ signupNameLabel }}</label>
+        <input type="text" placeholder="{{ signupNamePh }}" style="height: 50px; border-radius: 16px; border: 1px solid transparent; background: #F5EFE3; padding: 0 16px; font-size: 14px; color: #19150F;">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label style="font-size: 12px; font-weight: 600; color: #3F3A32;">Email</label>
+        <input type="email" placeholder="you@example.com" style="height: 50px; border-radius: 16px; border: 1px solid transparent; background: #F5EFE3; padding: 0 16px; font-size: 14px; color: #19150F;">
+      </div>
+      <div style="display: flex; gap: 12px;">
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+          <label style="font-size: 12px; font-weight: 600; color: #3F3A32;">Phone</label>
+          <input type="text" placeholder="+34 123 456 789" style="height: 50px; width: 100%; border-radius: 16px; border: 1px solid transparent; background: #F5EFE3; padding: 0 16px; font-size: 14px; color: #19150F;">
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+          <label style="font-size: 12px; font-weight: 600; color: #3F3A32;">Password</label>
+          <input type="password" placeholder="Min 6 characters" style="height: 50px; width: 100%; border-radius: 16px; border: 1px solid transparent; background: #F5EFE3; padding: 0 16px; font-size: 14px; color: #19150F;">
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label style="font-size: 12px; font-weight: 600; color: #3F3A32;">Invitation code <span style="font-weight: 400; color: #8C8474;">{{ signupInviteHint }}</span></label>
+        <input type="text" placeholder="Enter invitation code" style="height: 50px; border-radius: 16px; border: 1px solid transparent; background: #F5EFE3; padding: 0 16px; font-size: 14px; color: #19150F; text-transform: uppercase;">
+      </div>
+      <button onClick="{{ doLogin }}" style="margin-top: 6px; height: 56px; border: none; border-radius: 999px; background: #FFE28C; color: #19150F; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 1.5px 4px rgba(55,73,87,.11);" style-hover="transform: translateY(-1px); background: #F5D070;">Create account</button>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</sc-if>
+
+<!-- ═══════════════ APP SHELL ═══════════════ -->
+<sc-if value="{{ authed }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; height: 100vh;">
+
+  <!-- Sidebar -->
+  <div style="width: 264px; flex-shrink: 0; background: #FFFFFF; border-right: 1px solid rgba(28,28,22,.08); display: flex; flex-direction: column; padding: 24px 16px 20px; overflow-y: auto;">
+    <img src="assets/brand/kolabing-wordmark-light.png" alt="Kolabing" style="width: 138px; margin: 0 8px 24px; flex-shrink: 0;">
+    <button onClick="{{ goCreate }}" style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 48px; flex-shrink: 0; border: none; border-radius: 999px; background: #FFE28C; color: #19150F; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 1.5px 4px rgba(55,73,87,.11); margin-bottom: 20px;" style-hover="transform: translateY(-1px); background: #F5D070;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+      Create a Kolab
+    </button>
+    <div style="display: flex; flex-direction: column; gap: 2px; flex-shrink: 0;">
+      <a href="#" onClick="{{ goHome }}" style="display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: {{ hW }}; color: {{ hC }}; background: {{ hBg }};" style-hover="background: #F7F3EA;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><path d="M9 22V12h6v10"></path></svg>
+        Home
+      </a>
+      <a href="#" onClick="{{ goExplore }}" style="display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: {{ eW }}; color: {{ eC }}; background: {{ eBg }};" style-hover="background: #F7F3EA;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
+        Explore
+      </a>
+      <a href="#" onClick="{{ goKolabs }}" style="display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: {{ kW }}; color: {{ kC }}; background: {{ kBg }};" style-hover="background: #F7F3EA;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2-10 5 10 5 10-5z"></path><path d="m2 17 10 5 10-5"></path><path d="m2 12 10 5 10-5"></path></svg>
+        My Kolabs
+      </a>
+      <a href="#" onClick="{{ goNotifs }}" style="display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: {{ nW }}; color: {{ nC }}; background: {{ nBg }};" style-hover="background: #F7F3EA;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+        Notifications
+        <span style="margin-left: auto; min-width: 20px; height: 20px; border-radius: 999px; background: #19150F; color: #FFE28C; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 6px;">3</span>
+      </a>
+      <a href="#" onClick="{{ goProfile }}" style="display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: {{ pW }}; color: {{ pC }}; background: {{ pBg }};" style-hover="background: #F7F3EA;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        Profile
+      </a>
+      <sc-if value="{{ roleIsBusiness }}" hint-placeholder-val="{{ false }}">
+      <a href="#" onClick="{{ goPlan }}" style="display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: {{ plW }}; color: {{ plC }}; background: {{ plBg }};" style-hover="background: #F7F3EA;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"></rect><path d="M1 10h22"></path></svg>
+        Plan
+      </a>
+      </sc-if>
+    </div>
+    <div style="margin-top: auto; padding-top: 20px; display: flex; flex-direction: column; gap: 14px; flex-shrink: 0;">
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 10px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: #8C8474; padding: 0 4px;">Viewing as</div>
+        <div style="display: flex; padding: 4px; background: #fff; border: 1px solid rgba(28,28,22,.12); border-radius: 999px;">
+          <sc-for list="{{ roleTabs }}" as="rt" hint-placeholder-count="2">
+            <button onClick="{{ rt.on }}" style="flex: 1; height: 32px; border: none; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .4px; cursor: pointer; background: {{ rt.bg }}; color: {{ rt.c }};">{{ rt.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px; background: #F7F3EA;">
+        <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(255,226,140,.5); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: #19150F;">{{ userInitial }}</div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 13px; font-weight: 600; color: #19150F; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ userName }}</div>
+          <div style="font-size: 11px; color: #8C8474;">{{ roleLabel }}</div>
+        </div>
+        <a href="#" onClick="{{ logout }}" title="Log out" style="color: #8C8474; display: flex;" style-hover="color: #19150F;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div style="flex: 1; overflow-y: auto;">
+  <div style="max-width: 880px; margin: 0 auto; padding: 40px 40px 80px;">
+
+    <!-- ══ DASHBOARD ══ -->
+    <sc-if value="{{ sDash }}" hint-placeholder-val="{{ true }}">
+    <div style="animation: kbFadeUp .5s cubic-bezier(.16,.84,.34,1);">
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <div style="flex: 1;">
+          <div style="font-family: Anton; font-size: 28px; letter-spacing: 1px; text-transform: uppercase; color: #19150F;">{{ dashTitle }}</div>
+          <div style="font-size: 14px; color: #8C8474; margin-top: 4px;">Welcome back, {{ userName }}</div>
+        </div>
+        <button onClick="{{ goNotifs }}" style="position: relative; width: 42px; height: 42px; border-radius: 50%; background: #fff; border: 1px solid rgba(28,28,22,.10); cursor: pointer; display: flex; align-items: center; justify-content: center;" style-hover="border-color: rgba(28,28,22,.3);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+          <span style="position: absolute; top: 9px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: #FF6114; border: 1.5px solid #fff;"></span>
+        </button>
+        <button onClick="{{ goProfile }}" style="width: 42px; height: 42px; border-radius: 50%; background: rgba(255,226,140,.5); border: 1px solid rgba(28,28,22,.10); cursor: pointer; font-size: 15px; font-weight: 600; color: #19150F;">{{ userInitial }}</button>
+      </div>
+
+      <!-- Community dashboard -->
+      <sc-if value="{{ roleIsCommunity }}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 28px; margin-top: 28px;">
+        <div style="display: flex; gap: 12px;">
+          <button onClick="{{ goExplore }}" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; height: 48px; border: none; border-radius: 999px; background: #FFE28C; color: #19150F; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 1.5px 4px rgba(55,73,87,.11);" style-hover="transform: translateY(-1px); background: #F5D070;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
+            Find a Kolab
+          </button>
+          <button onClick="{{ goRequests }}" style="flex: 1; height: 48px; border: 1px solid #E4DBCB; border-radius: 999px; background: #fff; color: #19150F; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 12px rgba(0,0,0,.04);" style-hover="transform: translateY(-1px);">My applications</button>
+        </div>
+
+        <div>
+          <div style="font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #19150F; margin-bottom: 12px;">Upcoming Kolabs</div>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <sc-for list="{{ upcoming }}" as="u" hint-placeholder-count="2">
+              <div style="display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid rgba(28,28,22,.08); border-radius: 16px; padding: 16px; cursor: pointer; box-shadow: 0 1.5px 8px rgba(55,73,87,.10);" style-hover="border-color: rgba(28,28,22,.24);">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255,226,140,.4); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; color: #19150F; flex-shrink: 0;">{{ u.initial }}</div>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 14px; font-weight: 600; color: #19150F;">{{ u.partner }}</div>
+                  <div style="font-size: 13px; color: #3F3A32; margin-top: 1px;">{{ u.title }}</div>
+                  <div style="display: inline-block; margin-top: 7px; padding: 3px 8px; border-radius: 6px; background: #F5EFE3; font-size: 11px; font-weight: 500; color: #3F3A32;">{{ u.date }}</div>
+                </div>
+                <div style="padding: 4px 12px; border-radius: 12px; background: {{ u.stBg }}; color: {{ u.stC }}; font-size: 11px; font-weight: 700; letter-spacing: .4px;">{{ u.stLabel }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <sc-for list="{{ commStats }}" as="st" hint-placeholder-count="4">
+            <div style="flex: 1; background: #fff; border: 1px solid rgba(28,28,22,.08); border-radius: 12px; padding: 12px 8px; text-align: center;">
+              <div style="font-family: Anton; font-size: 20px; color: #19150F;">{{ st.n }}</div>
+              <div style="font-size: 9px; font-weight: 500; letter-spacing: .5px; color: #8C8474; margin-top: 2px;">{{ st.label }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- Business dashboard -->
+      <sc-if value="{{ roleIsBusiness }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 28px; margin-top: 20px;">
+        <div style="max-width: 560px;">
+          <div style="font-size: 14px; font-weight: 700; color: #19150F;">Turn local partnerships into repeatable customer growth.</div>
+          <div style="font-size: 12px; color: #8C8474; margin-top: 2px;">Post a Kolab, pick a community, and bring real people through the door.</div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+          <div style="background: #FFE28C; border-radius: 24px; padding: 20px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px;">
+            <div style="padding: 5px 12px; border-radius: 999px; background: #19150F; color: #FFE28C; font-size: 11px; font-weight: 700; letter-spacing: .8px;">BUSINESS ACTIVITY</div>
+            <div>
+              <div style="font-family: Anton; font-size: 40px; line-height: .95; color: #19150F;">2</div>
+              <div style="font-size: 11px; font-weight: 700; letter-spacing: 1.2px; color: #9A7C28; margin-top: 3px;">LIVE KOLABS</div>
+            </div>
+            <div style="display: flex; gap: 8px; width: 100%;">
+              <sc-for list="{{ bizStats }}" as="bs" hint-placeholder-count="3">
+                <div style="flex: 1; background: rgba(25,21,15,.06); border-radius: 14px; padding: 8px; text-align: center;">
+                  <div style="font-family: Anton; font-size: 17px; color: #19150F;">{{ bs.n }}</div>
+                  <div style="font-size: 9px; font-weight: 700; letter-spacing: .4px; color: #9A7C28; margin-top: 1px;">{{ bs.label }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <button onClick="{{ goCreate }}" style="width: 100%; height: 42px; border: none; border-radius: 999px; background: #19150F; color: #FFE28C; font-size: 14px; font-weight: 700; cursor: pointer;" style-hover="transform: translateY(-1px);">Create a Kolab</button>
+          </div>
+
+          <div>
+            <div style="font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #19150F; margin-bottom: 10px;">Grow your business</div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <button onClick="{{ goCreate }}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; background: #fff; border: 1px solid rgba(28,28,22,.08); cursor: pointer; text-align: left;" style-hover="border-color: rgba(28,28,22,.24);">
+                <div style="width: 36px; height: 36px; border-radius: 12px; background: #F7F3EA; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></div>
+                <div style="flex: 1; min-width: 0;"><div style="font-size: 13px; font-weight: 700; color: #19150F;">Create a Kolab</div><div style="font-size: 12px; color: #8C8474;">Post a new collaboration</div></div>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+              </button>
+              <button onClick="{{ goRequests }}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; background: #FFF4C2; border: 1px solid #FFE28C; cursor: pointer; text-align: left;" style-hover="transform: translateY(-1px);">
+                <div style="width: 36px; height: 36px; border-radius: 12px; background: rgba(255,255,255,.7); display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg></div>
+                <div style="flex: 1; min-width: 0;"><div style="font-size: 13px; font-weight: 700; color: #19150F;">Review applications</div><div style="font-size: 12px; color: #8C8474;">5 communities waiting</div></div>
+                <span style="padding: 3px 8px; border-radius: 999px; background: #19150F; color: #FFE28C; font-size: 11px; font-weight: 700;">5</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+              </button>
+              <button onClick="{{ goExplore }}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; background: #fff; border: 1px solid rgba(28,28,22,.08); cursor: pointer; text-align: left;" style-hover="border-color: rgba(28,28,22,.24);">
+                <div style="width: 36px; height: 36px; border-radius: 12px; background: #F7F3EA; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg></div>
+                <div style="flex: 1; min-width: 0;"><div style="font-size: 13px; font-weight: 700; color: #19150F;">Find a community</div><div style="font-size: 12px; color: #8C8474;">Browse community requests</div></div>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+              </button>
+              <button onClick="{{ goKolabs }}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; background: #fff; border: 1px solid rgba(28,28,22,.08); cursor: pointer; text-align: left;" style-hover="border-color: rgba(28,28,22,.24);">
+                <div style="width: 36px; height: 36px; border-radius: 12px; background: #F7F3EA; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
+                <div style="flex: 1; min-width: 0;"><div style="font-size: 13px; font-weight: 700; color: #19150F;">View my Kolabs</div><div style="font-size: 12px; color: #8C8474;">1 active · 4 completed</div></div>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #19150F; margin-bottom: 12px;">Upcoming Kolabs</div>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <sc-for list="{{ upcoming }}" as="u" hint-placeholder-count="2">
+              <div style="display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid rgba(28,28,22,.08); border-radius: 16px; padding: 16px; cursor: pointer; box-shadow: 0 1.5px 8px rgba(55,73,87,.10);" style-hover="border-color: rgba(28,28,22,.24);">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255,226,140,.4); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; color: #19150F; flex-shrink: 0;">{{ u.initial }}</div>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 14px; font-weight: 600; color: #19150F;">{{ u.partner }}</div>
+                  <div style="font-size: 13px; color: #3F3A32; margin-top: 1px;">{{ u.title }}</div>
+                  <div style="display: inline-block; margin-top: 7px; padding: 3px 8px; border-radius: 6px; background: #F5EFE3; font-size: 11px; font-weight: 500; color: #3F3A32;">{{ u.date }}</div>
+                </div>
+                <div style="padding: 4px 12px; border-radius: 12px; background: {{ u.stBg }}; color: {{ u.stC }}; font-size: 11px; font-weight: 700; letter-spacing: .4px;">{{ u.stLabel }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <!-- ══ EXPLORE ══ -->
+    <sc-if value="{{ sExplore }}" hint-placeholder-val="{{ false }}">
+    <div style="animation: kbFadeUp .5s cubic-bezier(.16,.84,.34,1);">
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;">
+        <div>
+          <div style="font-family: Anton; font-size: 28px; letter-spacing: 1px; text-transform: uppercase; color: #19150F;">Explore</div>
+          <div style="font-size: 14px; color: #8C8474; margin-top: 4px;">{{ exploreSub }}</div>
+        </div>
+        <div style="display: flex; padding: 4px; background: #fff; border: 1px solid rgba(28,28,22,.12); border-radius: 999px;">
+          <sc-for list="{{ exploreTabs }}" as="et" hint-placeholder-count="2">
+            <button onClick="{{ et.on }}" style="min-width: 88px; height: 32px; border: none; border-radius: 999px; font-size: 12.5px; font-weight: 700; letter-spacing: .4px; cursor: pointer; background: {{ et.bg }}; color: {{ et.c }};">{{ et.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px;">
+        <sc-for list="{{ cats }}" as="ct" hint-placeholder-count="5">
+          <button onClick="{{ ct.on }}" style="padding: 8px 16px; border-radius: 999px; font-size: 12.5px; font-weight: 600; cursor: pointer; background: {{ ct.bg }}; color: {{ ct.c }}; border: 1px solid {{ ct.bd }};">{{ ct.label }}</button>
+        </sc-for>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; margin-top: 24px;">
+        <sc-for list="{{ cards }}" as="cd" hint-placeholder-count="0">
+          <div onClick="{{ cd.onOpen }}" style="background: #fff; border: 1px solid rgba(28,28,22,.08); border-radius: 16px; overflow: hidden; cursor: pointer; box-shadow: 0 1.5px 8px rgba(55,73,87,.10); transition: all .2s cubic-bezier(.2,.7,.2,1);" style-hover="transform: translateY(-2px); box-shadow: 0 4px 16px rgba(55,73,87,.12); border-color: rgba(28,28,22,.20);">
+            <div style="position: relative; aspect-ratio: 16/10; background: #F5EFE3;">
+              <img src="{{ cd.img }}" alt="{{ cd.name }}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+              <div style="position: absolute; top: 10px; right: 10px; padding: 5px 10px; border-radius: 999px; background: #19150F; color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .1px;">{{ cd.match }}% match</div>
+              <button onClick="{{ cd.onStar }}" title="Save" style="position: absolute; top: 8px; left: 8px; width: 32px; height: 32px; border-radius: 50%; border: none; background: rgba(255,255,255,.9); cursor: pointer; font-size: 16px; line-height: 1; color: {{ cd.starC }};">{{ cd.star }}</button>
+            </div>
+            <div style="padding: 14px;">
+              <div style="font-size: 16px; font-weight: 700; letter-spacing: -0.3px; color: #19150F; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ cd.name }}</div>
+              <div style="display: flex; align-items: center; gap: 4px; font-size: 12.5px; color: #8C8474; margin-top: 3px;">
+                <span>{{ cd.meta }}</span><span>·</span>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                <span>{{ cd.city }}</span>
+              </div>
+              <div style="display: flex; gap: 5px; align-items: flex-start; margin-top: 9px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><path d="M7 7h.01"></path></svg>
+                <div style="font-size: 13px; font-weight: 600; line-height: 1.3; color: #19150F;">{{ cd.offer }}</div>
+              </div>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px;">
+                <sc-for list="{{ cd.chips }}" as="ch" hint-placeholder-count="3">
+                  <span style="padding: 4px 10px; border-radius: 999px; background: #F6DDCF; color: #9A4A20; font-size: 11px; font-weight: 600;">{{ ch }}</span>
+                </sc-for>
+              </div>
+              <div style="border-top: 1px solid rgba(28,28,22,.08); margin-top: 12px; padding-top: 10px; display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 12.5px; font-weight: 600; color: #3F3A32;">View details</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ══ MY KOLABS ══ -->
+    <sc-if value="{{ sKolabs }}" hint-placeholder-val="{{ false }}">
+    <div style="animation: kbFadeUp .5s cubic-bezier(.16,.84,.34,1);">
+      <div style="font-family: Anton; font-size: 28px; letter-spacing: 1px; text-transform: uppercase; color: #19150F;">My Kolabs</div>
+      <div style="display: flex; padding: 4px; background: #fff; border: 1px solid rgba(28,28,22,.12); border-radius: 999px; box-shadow: 0 1.5px 8px rgba(55,73,87,.10); margin-top: 18px;">
+        <sc-for list="{{ mkTabs }}" as="mt" hint-placeholder-count="4">
+          <button onClick="{{ mt.on }}" style="flex: 1; height: 34px; border: none; border-radius: 999px; font-size: 12.5px; font-weight: 700; letter-spacing: .4px; cursor: pointer; background: {{ mt.bg }}; color: {{ mt.c }};">{{ mt.label }}</button>
+        </sc-for>
+      </div>
+
+      <!-- Offers -->
+      <sc-if value="{{ mkIs0 }}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+        <sc-for list="{{ offers }}" as="of" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 14px; background: #fff; border: 1px solid rgba(28,28,22,.08); border-radius: 16px; padding: 18px; box-shadow: 0 1.5px 8px rgba(55,73,87,.10);" style-hover="border-color: rgba(28,28,22,.24);">
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="font-size: 15px; font-weight: 700; color: #19150F;">{{ of.title }}</div>
+                <div style="padding: 3px 10px; border-radius: 12px; background: {{ of.stBg }}; color: {{ of.stC }}; font-size: 11px; font-weight: 700; letter-spacing: .4px;">{{ of.stLabel }}</div>
+              </div>
+              <div style="font-size: 13px; color: #8C8474; margin-top: 4px;">{{ of.meta }}</div>
+            </div>
+            <button style="height: 38px; padding: 0 18px; border: 1px solid #E4DBCB; border-radius: 999px; background: #fff; color: #19150F; font-size: 13px; font-weight: 700; cursor: pointer;" style-hover="border-color: #19150F;">Edit</button>
+          </div>
+        </sc-for>
+        <button onClick="{{ goCreate }}" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 18px; border: 1.5px dashed rgba(28,28,22,.20); border-radius: 16px; background: transparent; color: #3F3A32; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="border-color: #19150F; color: #19150F;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+          Create a new Kolab
+        </button>
+      </div>
+      </sc-if>
+
+      <!-- Requests -->
+      <sc-if value="{{ mkIs1 }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top: 20px;">
+        <div style="display: flex; justify-content: center;">
+          <div style="display: flex; padding: 4px; background: #fff; border: 1px solid rgba(28,28,22,.12); border-radius: 999px;">
+            <sc-for list="{{ reqTabs }}" as="rq" hint-placeholder-count="2">
+              <button onClick="{{ rq.on }}" style="min-width: 100px; height: 32px; border: none; border-radius: 999px; font-size: 12.5px; font-weight: 700; letter-spacing: .4px; cursor: pointer; background: {{ rq.bg }}; color: {{ rq.c }};">{{ rq.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 18px;">
+          <sc-for list="{{ requests }}" as="rq" hint-placeholder-count="3">
+            <div style="background: #fff; border: 1px solid rgba(28,28,22,.08); border-radius: 16px; padding: 16px; box-shadow: 0 1.5px 8px rgba(55,73,87,.10);">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255,226,140,.4); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; color: #19150F; flex-shrink: 0;">{{ rq.initial }}</div>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 14px; font-weight: 600; color: #19150F;">{{ rq.partner }}</div>
+                  <div style="font-size: 12.5px; color: #8C8474; margin-top: 1px;">{{ rq.kolab }} · {{ rq.meta }}</div>
+                </div>
+                <div style="padding: 4px 12px; border-radius: 12px; background: {{ rq.stBg }}; color: {{ rq.stC }}; font-size: 11px; font-weight: 700; letter-spacing: .4px;">{{ rq.stLabel }}</div>
+              </div>
+              <div style="margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: #F7F3EA; font-size: 13px; color: #3F3A32; line-height: 1.45;">"{{ rq.msg }}"</div>
+              <sc-if value="{{ rq.showActions }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <button style="flex: 1; height: 38px; border: none; border-radius: 999px; background: #FFE28C; color: #19150F; font-size: 13px; font-weight: 700; cursor: pointer;" style-hover="background: #F5D070;">Accept</button>
+                <button style="flex: 1; height: 38px; border: 1px solid #E4DBCB; border-radius: 999px; background: #fff; color: #19150F; font-size: 13px; font-weight: 700; cursor: pointer;" style-hover="border-color: #19150F;">Decline</button>
+              </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- Active / Finished -->
+      <sc-if value="{{ mkIs23 }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+        <sc-for list="{{ collabs }}" as="cl" hint-placeholder-count="2">
+          <div style="display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid rgba(28,28,22,.08); border-radius: 16px; padding: 16px; box-shadow: 0 1.5px 8px rgba(55,73,87,.10);" style-hover="border-color: rgba(28,28,22,.24);">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255,226,140,.4); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; color: #19150F; flex-shrink: 0;">{{ cl.initial }}</div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-size: 14px; font-weight: 600; color: #19150F;">{{ cl.partner }}</div>
+              <div style="font-size: 13px; color: #3F3A32; margin-top: 1px;">{{ cl.kolab }}</div>
+              <div style="display: inline-block; margin-top: 7px; padding: 3px 8px; border-radius: 6px; background: #F5EFE3; font-size: 11px; font-weight: 500; color: #3F3A32;">{{ cl.when }}</div>
+            </div>
+            <div style="padding: 4px 12px; border-radius: 12px; background: {{ cl.stBg }}; color: {{ cl.stC }}; font-size: 11px; font-weight: 700; letter-spacing: .4px;">{{ cl.stLabel }}</div>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <!-- ══ NOTIFICATIONS ══ -->
+    <sc-if value="{{ sNotifs }}" hint-placeholder-val="{{ false }}">
+    <div style="animation: kbFadeUp .5s cubic-bezier(.16,.84,.34,1); max-width: 640px;">
+      <div style="font-family: Anton; font-size: 28px; letter-spacing: 1px; text-transform: uppercase; color: #19150F;">Notifications</div>
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 20px;">
+        <sc-for list="{{ notifs }}" as="nt" hint-placeholder-count="4">
+          <div style="display: flex; align-items: flex-start; gap: 12px; background: {{ nt.bg }}; border: 1px solid rgba(28,28,22,.08); border-radius: 16px; padding: 14px 16px;" style-hover="border-color: rgba(28,28,22,.24);">
+            <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(255,226,140,.4); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: #19150F; flex-shrink: 0;">{{ nt.initial }}</div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-size: 13.5px; font-weight: 600; color: #19150F;">{{ nt.title }}</div>
+              <div style="font-size: 13px; color: #3F3A32; margin-top: 2px; line-height: 1.4;">{{ nt.body }}</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+              <span style="font-size: 11px; color: #8C8474;">{{ nt.time }}</span>
+              <sc-if value="{{ nt.unread }}" hint-placeholder-val="{{ false }}"><span style="width: 8px; height: 8px; border-radius: 50%; background: #FF6114;"></span></sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ══ PROFILE ══ -->
+    <sc-if value="{{ sProfile }}" hint-placeholder-val="{{ false }}">
+    <div style="animation: kbFadeUp .5s cubic-bezier(.16,.84,.34,1); max-width: 640px;">
+      <div style="font-family: Anton; font-size: 28px; letter-spacing: 1px; text-transform: uppercase; color: #19150F;">Profile</div>
+      <div style="display: flex; align-items: center; gap: 18px; background: #fff; border: 1px solid rgba(28,28,22,.08); border-radius: 20px; padding: 24px; margin-top: 20px; box-shadow: 0 1.5px 8px rgba(55,73,87,.10);">
+        <div style="width: 72px; height: 72px; border-radius: 50%; background: rgba(255,226,140,.5); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 600; color: #19150F;">{{ userInitial }}</div>
+        <div style="flex: 1;">
+          <div style="font-size: 20px; font-weight: 700; color: #19150F;">{{ userName }}</div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
+            <span style="padding: 4px 10px; border-radius: 999px; background: #F5EFE3; font-size: 11px; font-weight: 600; color: #3F3A32;">{{ roleLabel }}</span>
+            <span style="padding: 4px 10px; border-radius: 999px; background: #F6DDCF; color: #9A4A20; font-size: 11px; font-weight: 600;">{{ profCat }}</span>
+            <span style="font-size: 12.5px; color: #8C8474;">Barcelona</span>
+          </div>
+        </div>
+        <button style="height: 38px; padding: 0 18px; border: 1px solid #E4DBCB; border-radius: 999px; background: #fff; color: #19150F; font-size: 13px; font-weight: 700; cursor: pointer;" style-hover="border-color: #19150F;">Edit profile</button>
+      </div>
+      <div style="background: #fff; border: 1px solid rgba(28,28,22,.08); border-radius: 20px; padding: 20px 24px; margin-top: 14px;">
+        <div style="font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #8C8474;">About</div>
+        <div style="font-size: 14px; color: #3F3A32; line-height: 1.55; margin-top: 8px;">{{ profAbout }}</div>
+        <div style="display: flex; gap: 20px; margin-top: 14px; font-size: 13px; color: #3F3A32;">
+          <span style="font-weight: 600;">{{ profStat1 }}</span>
+          <span style="font-weight: 600;">{{ profStat2 }}</span>
+          <span style="font-weight: 600;">@{{ profInsta }}</span>
+        </div>
+      </div>
+      <div style="background: #fff; border: 1px solid rgba(28,28,22,.08); border-radius: 20px; margin-top: 14px; overflow: hidden;">
+        <sc-for list="{{ settingsRows }}" as="sr" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px 24px; border-bottom: 1px solid rgba(28,28,22,.06); cursor: pointer; font-size: 14px; font-weight: 500; color: {{ sr.c }};" style-hover="background: #F7F3EA;">
+            {{ sr.label }}
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+          </div>
+        </sc-for>
+        <div onClick="{{ logout }}" style="display: flex; align-items: center; gap: 8px; padding: 15px 24px; cursor: pointer; font-size: 14px; font-weight: 600; color: #BA1A1A;" style-hover="background: #F8D7DA;">Log out</div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ══ PLAN ══ -->
+    <sc-if value="{{ sPlan }}" hint-placeholder-val="{{ false }}">
+    <div style="animation: kbFadeUp .5s cubic-bezier(.16,.84,.34,1); max-width: 640px;">
+      <div style="font-family: Anton; font-size: 28px; letter-spacing: 1px; text-transform: uppercase; color: #19150F;">Your plan</div>
+
+      <sc-if value="{{ notSubscribed }}" hint-placeholder-val="{{ true }}">
+      <div style="background: #FFE28C; border-radius: 24px; padding: 26px; margin-top: 20px;">
+        <div style="display: inline-block; padding: 5px 12px; border-radius: 999px; background: #19150F; color: #FFE28C; font-size: 11px; font-weight: 700; letter-spacing: .8px;">KOLABING BUSINESS</div>
+        <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 14px;">
+          <span style="font-family: Anton; font-size: 44px; color: #19150F; line-height: 1;">€49</span>
+          <span style="font-size: 14px; font-weight: 600; color: #9A7C28;">/ month · cancel anytime</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 18px;">
+          <sc-for list="{{ planBenefits }}" as="pb" hint-placeholder-count="4">
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 500; color: #19150F;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M20 6 9 17l-5-5"></path></svg>
+              {{ pb }}
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 20px;">
+          <input type="text" placeholder="Referral code (optional)" style="height: 48px; border-radius: 16px; border: 1px solid rgba(25,21,15,.15); background: rgba(255,255,255,.65); padding: 0 16px; font-size: 14px; color: #19150F; text-transform: uppercase;">
+          <button onClick="{{ subscribe }}" style="height: 52px; border: none; border-radius: 999px; background: #19150F; color: #FFE28C; font-size: 15px; font-weight: 700; cursor: pointer;" style-hover="transform: translateY(-1px);">Subscribe</button>
+        </div>
+      </div>
+      <div style="font-size: 12.5px; color: #8C8474; margin-top: 12px; text-align: center;">free for communities · paid plans for businesses · cancel anytime</div>
+      </sc-if>
+
+      <sc-if value="{{ isSubscribed }}" hint-placeholder-val="{{ false }}">
+      <div style="background: #fff; border: 1px solid rgba(28,28,22,.08); border-radius: 24px; padding: 26px; margin-top: 20px; box-shadow: 0 1.5px 8px rgba(55,73,87,.10);">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 17px; font-weight: 700; color: #19150F;">Kolabing Business</span>
+              <span style="padding: 4px 12px; border-radius: 12px; background: #D4EDDA; color: #155724; font-size: 11px; font-weight: 700; letter-spacing: .4px;">ACTIVE</span>
+            </div>
+            <div style="font-size: 13px; color: #8C8474; margin-top: 6px;">€49 / month · next billing 17 Sep 2026</div>
+          </div>
+          <div style="font-family: Anton; font-size: 34px; color: #19150F;">€49</div>
+        </div>
+        <div style="border-top: 1px solid rgba(28,28,22,.08); margin-top: 18px; padding-top: 18px; display: flex; gap: 10px;">
+          <button style="flex: 1; height: 44px; border: 1px solid #E4DBCB; border-radius: 999px; background: #fff; color: #19150F; font-size: 13px; font-weight: 700; cursor: pointer;" style-hover="border-color: #19150F;">Manage billing</button>
+          <button onClick="{{ unsubscribe }}" style="flex: 1; height: 44px; border: none; border-radius: 999px; background: #F8D7DA; color: #721C24; font-size: 13px; font-weight: 700; cursor: pointer;" style-hover="transform: translateY(-1px);">Cancel plan</button>
+        </div>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <!-- ══ CREATE FLOW ══ -->
+    <sc-if value="{{ sCreate }}" hint-placeholder-val="{{ false }}">
+    <div style="animation: kbFadeUp .4s cubic-bezier(.16,.84,.34,1); max-width: 620px; margin: 0 auto;">
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <button onClick="{{ createBack }}" style="width: 40px; height: 40px; border-radius: 50%; background: #fff; border: 1px solid rgba(28,28,22,.10); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" style-hover="border-color: rgba(28,28,22,.3);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg>
+        </button>
+        <div style="flex: 1; text-align: center; font-size: 13px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: #19150F;">{{ createTitle }}</div>
+        <div style="width: 40px;"></div>
+      </div>
+
+      <!-- Intent selection -->
+      <sc-if value="{{ createIsIntent }}" hint-placeholder-val="{{ true }}">
+      <div style="margin-top: 28px;">
+        <div style="font-family: Anton; font-size: 26px; letter-spacing: .02em; text-transform: uppercase; color: #19150F;">{{ intentTitle }}</div>
+        <div style="font-size: 14px; color: #3F3A32; margin-top: 8px;">{{ intentSub }}</div>
+        <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 28px;">
+          <sc-for list="{{ intentOpts }}" as="io" hint-placeholder-count="2">
+            <button onClick="{{ io.on }}" style="text-align: left; padding: 22px; border-radius: 20px; background: #fff; border: 1px solid rgba(28,28,22,.10); cursor: pointer; display: flex; align-items: center; gap: 16px;" style-hover="border-color: #FFE28C; background: #FFF4C2; transform: translateY(-1px);">
+              <div style="width: 48px; height: 48px; border-radius: 14px; background: #F7F3EA; display: flex; align-items: center; justify-content: center; font-family: Anton; font-size: 20px; color: #19150F; flex-shrink: 0;">{{ io.glyph }}</div>
+              <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 15px; font-weight: 700; color: #19150F;">{{ io.title }}</span>
+                  <sc-if value="{{ io.badge }}" hint-placeholder-val="{{ false }}"><span style="padding: 3px 8px; border-radius: 999px; background: #D4EDDA; color: #155724; font-size: 10px; font-weight: 700; letter-spacing: .5px;">FREE</span></sc-if>
+                </div>
+                <div style="font-size: 13px; color: #8C8474; margin-top: 3px;">{{ io.sub }}</div>
+              </div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- Step flow -->
+      <sc-if value="{{ createHasIntent }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top: 22px;">
+        <div style="display: flex; gap: 6px;">
+          <sc-for list="{{ stepDots }}" as="sd" hint-placeholder-count="6">
+            <div style="flex: 1; height: 4px; border-radius: 2px; background: {{ sd.bg }};"></div>
+          </sc-for>
+        </div>
+
+        <div style="margin-top: 26px;">
+          <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #3F3A32;">{{ stepEyebrow }}</div>
+          <div style="font-size: 19px; font-weight: 700; color: #19150F; margin-top: 6px;">{{ stepQ }}</div>
+          <div style="font-size: 13.5px; color: #3F3A32; margin-top: 4px;">{{ stepSub }}</div>
+
+          <!-- options (single-select) -->
+          <sc-if value="{{ kOptions }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 18px;">
+            <sc-for list="{{ stepOptions }}" as="op" hint-placeholder-count="4">
+              <button onClick="{{ op.on }}" style="text-align: left; display: flex; align-items: center; gap: 12px; padding: 16px; border-radius: 12px; cursor: pointer; background: {{ op.bg }}; border: 1px solid {{ op.bd }}; transition: all .2s;">
+                <div style="width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: {{ op.ckBg }}; border: 1.5px solid {{ op.ckBd }};">
+                  <sc-if value="{{ op.sel }}" hint-placeholder-val="{{ false }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+                </div>
+                <div>
+                  <div style="font-size: 14px; font-weight: {{ op.w }}; color: #19150F;">{{ op.name }}</div>
+                  <div style="font-size: 12px; color: #8C8474; margin-top: 2px;">{{ op.desc }}</div>
+                </div>
+              </button>
+            </sc-for>
+          </div>
+          </sc-if>
+
+          <!-- chips (multi-select) -->
+          <sc-if value="{{ kChips }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px;">
+            <sc-for list="{{ stepChips }}" as="sc" hint-placeholder-count="6">
+              <button onClick="{{ sc.on }}" style="padding: 10px 18px; border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer; background: {{ sc.bg }}; color: #19150F; border: 1px solid {{ sc.bd }};">{{ sc.label }}</button>
+            </sc-for>
+          </div>
+          </sc-if>
+
+          <!-- text fields -->
+          <sc-if value="{{ kText }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 18px;">
+            <sc-for list="{{ stepFields }}" as="f" hint-placeholder-count="2">
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <label style="font-size: 12px; font-weight: 600; color: #3F3A32;">{{ f.label }}</label>
+                <sc-if value="{{ f.isArea }}" hint-placeholder-val="{{ false }}">
+                  <textarea placeholder="{{ f.ph }}" value="{{ f.val }}" onChange="{{ f.on }}" rows="4" style="border-radius: 16px; border: 1px solid transparent; background: #F5EFE3; padding: 14px 16px; font-size: 14px; color: #19150F; resize: vertical;"></textarea>
+                </sc-if>
+                <sc-if value="{{ f.isInput }}" hint-placeholder-val="{{ true }}">
+                  <input type="text" placeholder="{{ f.ph }}" value="{{ f.val }}" onChange="{{ f.on }}" style="height: 50px; border-radius: 16px; border: 1px solid transparent; background: #F5EFE3; padding: 0 16px; font-size: 14px; color: #19150F;">
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+          </sc-if>
+
+          <!-- media -->
+          <sc-if value="{{ kMedia }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top: 18px; border: 1.5px dashed rgba(28,28,22,.20); border-radius: 18px; padding: 44px 20px; text-align: center; cursor: pointer;" style-hover="border-color: #19150F;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto;"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="m21 15-5-5L5 21"></path></svg>
+            <div style="font-size: 14px; font-weight: 600; color: #19150F; margin-top: 10px;">Drop photos here</div>
+            <div style="font-size: 12.5px; color: #8C8474; margin-top: 3px;">Show your space or product the way a member would see it. You can skip this step.</div>
+          </div>
+          </sc-if>
+
+          <!-- availability -->
+          <sc-if value="{{ kAvail }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top: 18px; display: flex; flex-direction: column; gap: 16px;">
+            <div style="display: flex; gap: 12px;">
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                <label style="font-size: 12px; font-weight: 600; color: #3F3A32;">From</label>
+                <input type="date" value="2026-09-02" style="height: 50px; width: 100%; border-radius: 16px; border: 1px solid transparent; background: #F5EFE3; padding: 0 16px; font-size: 14px; color: #19150F;">
+              </div>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                <label style="font-size: 12px; font-weight: 600; color: #3F3A32;">Until</label>
+                <input type="date" value="2026-10-30" style="height: 50px; width: 100%; border-radius: 16px; border: 1px solid transparent; background: #F5EFE3; padding: 0 16px; font-size: 14px; color: #19150F;">
+              </div>
+            </div>
+            <div>
+              <label style="font-size: 12px; font-weight: 600; color: #3F3A32;">Which days work?</label>
+              <div style="display: flex; gap: 8px; margin-top: 8px;">
+                <sc-for list="{{ dayChips }}" as="dc" hint-placeholder-count="7">
+                  <button onClick="{{ dc.on }}" style="width: 42px; height: 42px; border-radius: 50%; font-size: 12px; font-weight: 700; cursor: pointer; background: {{ dc.bg }}; color: #19150F; border: 1px solid {{ dc.bd }};">{{ dc.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          </sc-if>
+
+          <!-- review -->
+          <sc-if value="{{ kReview }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top: 18px; background: #fff; border: 1px solid rgba(28,28,22,.08); border-radius: 20px; padding: 22px; box-shadow: 0 1.5px 8px rgba(55,73,87,.10);">
+            <sc-for list="{{ revRows }}" as="rr" hint-placeholder-count="5">
+              <div style="display: flex; gap: 16px; padding: 9px 0; border-bottom: 1px solid rgba(28,28,22,.06);">
+                <div style="width: 130px; flex-shrink: 0; font-size: 12px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: #8C8474; padding-top: 1px;">{{ rr.label }}</div>
+                <div style="font-size: 13.5px; font-weight: 500; color: #19150F;">{{ rr.val }}</div>
+              </div>
+            </sc-for>
+            <div style="font-size: 12.5px; color: #8C8474; margin-top: 14px;">Publishing makes this Kolab visible to every matching {{ revAudience }} on Kolabing.</div>
+          </div>
+          </sc-if>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 28px;">
+          <button onClick="{{ stepPrev }}" style="height: 48px; padding: 0 24px; border: 1px solid #E4DBCB; border-radius: 999px; background: #fff; color: #19150F; font-size: 14px; font-weight: 700; cursor: pointer;" style-hover="border-color: #19150F;">Back</button>
+          <button onClick="{{ stepNext }}" style="flex: 1; height: 48px; border: none; border-radius: 999px; background: {{ nextBg }}; color: {{ nextC }}; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 1.5px 4px rgba(55,73,87,.11);" style-hover="transform: translateY(-1px);">{{ nextLabel }}</button>
+        </div>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+  </div>
+  </div>
+</div>
+</sc-if>
+
+<!-- ═══════════════ DETAIL MODAL ═══════════════ -->
+<sc-if value="{{ detailOpen }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeDetail }}" style="position: fixed; inset: 0; background: rgba(13,17,20,.62); backdrop-filter: blur(3px); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 32px;">
+  <div onClick="{{ stopProp }}" style="background: #fff; border-radius: 22px; width: 100%; max-width: 560px; max-height: 86vh; display: flex; flex-direction: column; overflow: hidden; animation: kbFadeUp .3s cubic-bezier(.16,.84,.34,1);">
+    <div style="flex: 1; overflow-y: auto; padding: 26px 28px 18px;">
+      <div style="display: flex; align-items: flex-start; gap: 14px;">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(255,226,140,.35); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+          <sc-if value="{{ detailOpen }}" hint-placeholder-val="{{ false }}"><img src="{{ dk.img }}" alt="{{ dk.name }}" style="width: 100%; height: 100%; object-fit: cover;"></sc-if>
+        </div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 20px; font-weight: 700; color: #19150F;">{{ dk.name }}</div>
+          <div style="display: inline-block; margin-top: 6px; padding: 3px 10px; border-radius: 999px; background: #F5EFE3; font-size: 11px; font-weight: 600; color: #3F3A32;">{{ dk.typeLabel }}</div>
+        </div>
+        <button onClick="{{ closeDetail }}" style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #F7F3EA; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" style-hover="background: #ECE8DF;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3F3A32" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </div>
+
+      <div style="margin-top: 22px;">
+        <div style="font-size: 17px; font-weight: 700; color: #19150F;">{{ dk.title }}</div>
+        <div style="font-size: 14px; color: #3F3A32; line-height: 1.55; margin-top: 8px;">{{ dk.desc }}</div>
+      </div>
+
+      <div style="margin-top: 20px; background: #FFF4C2; border: 1px solid #FFE28C; border-radius: 16px; padding: 16px;">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #9A7C28;">{{ dk.offerHead }}</div>
+        <div style="display: flex; gap: 8px; align-items: flex-start; margin-top: 8px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#19150F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><path d="M7 7h.01"></path></svg>
+          <div style="font-size: 14px; font-weight: 600; color: #19150F; line-height: 1.4;">{{ dk.offer }}</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: #3F3A32;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+          <span>{{ dk.cityLine }}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: #3F3A32;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4"></path><path d="M8 2v4"></path><path d="M3 10h18"></path></svg>
+          {{ dk.window }} · {{ dk.time }}
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: #3F3A32;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C8474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          {{ dk.group }}
+        </div>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #8C8474;">Available days</div>
+        <div style="display: flex; gap: 7px; margin-top: 9px;">
+          <sc-for list="{{ dk.dayCells }}" as="dd" hint-placeholder-count="7">
+            <div style="width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; background: {{ dd.bg }}; color: {{ dd.c }}; border: 1px solid {{ dd.bd }};">{{ dd.l }}</div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #8C8474;">Categories</div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px;">
+          <sc-for list="{{ dk.chips }}" as="ch" hint-placeholder-count="3">
+            <span style="padding: 5px 12px; border-radius: 999px; background: #F6DDCF; color: #9A4A20; font-size: 12px; font-weight: 600;">{{ ch }}</span>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    <div style="padding: 16px 28px 20px; border-top: 1px solid rgba(28,28,22,.08); display: flex; gap: 10px;">
+      <button onClick="{{ closeDetail }}" style="height: 50px; padding: 0 22px; border: 1px solid #E4DBCB; border-radius: 999px; background: #fff; color: #19150F; font-size: 14px; font-weight: 700; cursor: pointer;" style-hover="border-color: #19150F;">Close</button>
+      <button onClick="{{ openApply }}" style="flex: 1; height: 50px; border: none; border-radius: 999px; background: #FFE28C; color: #19150F; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 1.5px 4px rgba(55,73,87,.11);" style-hover="transform: translateY(-1px); background: #F5D070;">{{ applyCta }}</button>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<!-- ═══════════════ APPLY MODAL ═══════════════ -->
+<sc-if value="{{ applyOpen }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeApply }}" style="position: fixed; inset: 0; background: rgba(13,17,20,.62); backdrop-filter: blur(3px); z-index: 60; display: flex; align-items: center; justify-content: center; padding: 32px;">
+  <div onClick="{{ stopProp }}" style="background: #fff; border-radius: 22px; width: 100%; max-width: 520px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; animation: kbFadeUp .3s cubic-bezier(.16,.84,.34,1);">
+    <div style="flex: 1; overflow-y: auto; padding: 26px 28px 18px;">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
+        <div>
+          <div style="font-size: 19px; font-weight: 700; color: #19150F;">Apply to this Kolab</div>
+          <div style="font-size: 13px; color: #8C8474; margin-top: 3px;">{{ dk.name }} · {{ dk.title }}</div>
+        </div>
+        <button onClick="{{ closeApply }}" style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #F7F3EA; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" style-hover="background: #ECE8DF;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3F3A32" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </div>
+
+      <div style="margin-top: 22px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: #3F3A32;">When are you available?</div>
+        <div style="font-size: 12.5px; color: #8C8474; margin-top: 3px;">Pick one or more dates inside the Kolab's window.</div>
+        <sc-if value="{{ applyErrShow }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top: 8px; font-size: 12.5px; font-weight: 600; color: #BA1A1A;">Select at least one date to continue.</div>
+        </sc-if>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;">
+          <sc-for list="{{ dateChips }}" as="dt" hint-placeholder-count="8">
+            <button onClick="{{ dt.on }}" style="width: 64px; padding: 9px 0; border-radius: 14px; cursor: pointer; text-align: center; background: {{ dt.bg }}; border: 1px solid {{ dt.bd }};">
+              <div style="font-size: 10.5px; font-weight: 600; letter-spacing: .4px; color: #8C8474;">{{ dt.top }}</div>
+              <div style="font-size: 13px; font-weight: 700; color: #19150F; margin-top: 1px;">{{ dt.bot }}</div>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-top: 20px;">
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+          <label style="font-size: 12px; font-weight: 600; color: #3F3A32;">From</label>
+          <select value="{{ applyStart }}" onChange="{{ onApplyStart }}" style="height: 48px; border-radius: 16px; border: 1px solid transparent; background: #F5EFE3; padding: 0 12px; font-size: 14px; color: #19150F; cursor: pointer;">
+            <option value="8:00">8:00</option><option value="9:00">9:00</option><option value="10:00">10:00</option><option value="11:00">11:00</option><option value="12:00">12:00</option><option value="14:00">14:00</option><option value="16:00">16:00</option><option value="18:00">18:00</option><option value="19:00">19:00</option><option value="20:00">20:00</option>
+          </select>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+          <label style="font-size: 12px; font-weight: 600; color: #3F3A32;">Until</label>
+          <select value="{{ applyEnd }}" onChange="{{ onApplyEnd }}" style="height: 48px; border-radius: 16px; border: 1px solid transparent; background: #F5EFE3; padding: 0 12px; font-size: 14px; color: #19150F; cursor: pointer;">
+            <option value="10:00">10:00</option><option value="11:00">11:00</option><option value="12:00">12:00</option><option value="13:00">13:00</option><option value="14:00">14:00</option><option value="17:00">17:00</option><option value="19:00">19:00</option><option value="21:00">21:00</option><option value="22:00">22:00</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 18px;">
+        <label style="font-size: 12px; font-weight: 600; color: #3F3A32;">Message to {{ dk.name }}</label>
+        <textarea value="{{ applyMsg }}" onChange="{{ onApplyMsg }}" placeholder="Tell them who you are, how many people you bring, and why this Kolab fits." rows="4" style="border-radius: 16px; border: 1px solid transparent; background: #F5EFE3; padding: 14px 16px; font-size: 14px; color: #19150F; resize: vertical; line-height: 1.5;"></textarea>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 14px;">
+        <label style="font-size: 12px; font-weight: 600; color: #3F3A32;">Availability notes <span style="font-weight: 400; color: #8C8474;">(optional)</span></label>
+        <input type="text" placeholder="e.g. we can also do early evenings" style="height: 48px; border-radius: 16px; border: 1px solid transparent; background: #F5EFE3; padding: 0 16px; font-size: 14px; color: #19150F;">
+      </div>
+    </div>
+    <div style="padding: 16px 28px 20px; border-top: 1px solid rgba(28,28,22,.08);">
+      <button onClick="{{ submitApply }}" style="width: 100%; height: 52px; border: none; border-radius: 999px; background: #FFE28C; color: #19150F; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 1.5px 4px rgba(55,73,87,.11);" style-hover="transform: translateY(-1px); background: #F5D070;">Send application</button>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<!-- ═══════════════ SUCCESS SHEETS ═══════════════ -->
+<sc-if value="{{ applySuccess }}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; background: rgba(13,17,20,.62); backdrop-filter: blur(3px); z-index: 70; display: flex; align-items: center; justify-content: center; padding: 32px;">
+  <div style="background: #fff; border-radius: 22px; width: 100%; max-width: 400px; padding: 36px 32px; text-align: center; animation: kbFadeUp .3s cubic-bezier(.16,.84,.34,1);">
+    <div style="width: 64px; height: 64px; border-radius: 50%; background: #56624D; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+    </div>
+    <div style="font-size: 20px; font-weight: 700; color: #19150F; margin-top: 18px;">Application sent</div>
+    <div style="font-size: 14px; color: #3F3A32; line-height: 1.5; margin-top: 8px;">{{ dk.name }} will review it and get back to you. You can track it under My Kolabs → Requests.</div>
+    <button onClick="{{ goApplications }}" style="width: 100%; height: 50px; margin-top: 22px; border: none; border-radius: 999px; background: #FFE28C; color: #19150F; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 1.5px 4px rgba(55,73,87,.11);" style-hover="background: #F5D070;">View my applications</button>
+    <button onClick="{{ closeSuccess }}" style="width: 100%; height: 44px; margin-top: 8px; border: none; border-radius: 999px; background: transparent; color: #8C8474; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="color: #19150F;">Keep exploring</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ createDone }}" hint-placeholder-val="{{ false }}">
+<div style="position: fixed; inset: 0; background: rgba(13,17,20,.62); backdrop-filter: blur(3px); z-index: 70; display: flex; align-items: center; justify-content: center; padding: 32px;">
+  <div style="background: #fff; border-radius: 22px; width: 100%; max-width: 400px; padding: 36px 32px; text-align: center; animation: kbFadeUp .3s cubic-bezier(.16,.84,.34,1);">
+    <div style="width: 64px; height: 64px; border-radius: 50%; background: #56624D; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+    </div>
+    <div style="font-size: 20px; font-weight: 700; color: #19150F; margin-top: 18px;">Kolab published</div>
+    <div style="font-size: 14px; color: #3F3A32; line-height: 1.5; margin-top: 8px;">Your Kolab is live. Matching {{ revAudience }}s can now find it and apply.</div>
+    <button onClick="{{ doneGo }}" style="width: 100%; height: 50px; margin-top: 22px; border: none; border-radius: 999px; background: #FFE28C; color: #19150F; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 1.5px 4px rgba(55,73,87,.11);" style-hover="background: #F5D070;">Done</button>
+  </div>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startRole&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;community&quot;, &quot;business&quot;], &quot;default&quot;: &quot;community&quot;, &quot;tsType&quot;: &quot;'community' | 'business'&quot;, &quot;section&quot;: &quot;Prototype&quot;}, &quot;startAuthed&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Prototype&quot;}}">
+class Component extends DCLogic {
+  state = {
+    authed: null, authScreen: 'welcome', authRole: 'business',
+    role: null, screen: 'dashboard',
+    detailId: null, applyOpen: false, applySuccess: false, applyErr: false,
+    applyDates: [], applyStart: '10:00', applyEnd: '13:00', applyMsg: '',
+    exploreTab: 'forYou', exploreCat: 'All', savedIds: ['b2'],
+    mkTab: 0, reqSub: 0,
+    createIntent: null, createStep: 0, cf: {},
+    createDone: false, subscribed: false,
+  };
+
+  // ---- static data -------------------------------------------------------
+  get kolabs() {
+    return [
+      { id: 'b1', role: 'business', name: 'Nordic Coffee Lab', intent: 'Venue promotion', meta: 'Specialty coffee', city: 'El Born', img: 'assets/img/run-club-cafe.png', title: 'Fill our slow weekday mornings', offer: 'Free specialty coffee + 20% off for your members', chips: ['Coffee', 'Mornings', 'El Born'], desc: 'We are a specialty coffee bar with a big back room that sits empty before noon. We want a community that brings real people in — run clubs, book clubs, coworking crews. You get the space and the coffee; we get the buzz.', days: [1, 3, 5], window: 'Sep 2 – Oct 30', time: '8:00 – 12:00', group: '15–40 people', match: 92 },
+      { id: 'b2', role: 'business', name: 'Rooftop Flow Studio', intent: 'Venue promotion', meta: 'Wellness', city: 'Eixample', img: 'assets/img/yoga-rooftop.png', title: 'Sunrise rooftop slots for weekly sessions', offer: 'Free rooftop space + mats for weekly sessions', chips: ['Yoga', 'Sunrise', 'Rooftop'], desc: 'Our rooftop is magic at 7am and nobody sees it. We want a yoga or movement community to run a weekly sunrise session. We handle mats, water and towels — you bring the people.', days: [2, 4], window: 'Sep 9 – Nov 27', time: '7:00 – 9:00', group: '10–25 people', match: 88 },
+      { id: 'b3', role: 'business', name: 'Aura Skincare', intent: 'Product promotion', meta: 'Beauty', city: 'Citywide', img: 'assets/img/feedback-skincare.png', title: 'Honest feedback circle for our new line', offer: 'Full-size product kits for 15 members', chips: ['Skincare', 'Feedback', 'Gifted'], desc: 'We are launching a three-step routine and want real opinions before it hits shelves. Members get the full kit; we sit in on one session and listen.', days: [1, 2, 3, 4, 5], window: 'Sep 15 – Oct 10', time: 'Flexible', group: '10–15 people', match: 81 },
+      { id: 'b4', role: 'business', name: 'Volta Cycles', intent: 'Product promotion', meta: 'Sports', city: 'Poblenou', img: 'assets/img/cycling-hydration.png', title: 'Test our hydration packs on a real ride', offer: 'Hydration packs + free tune-up workshop', chips: ['Cycling', 'Gear', 'Poblenou'], desc: 'New hydration packs, zero marketing fluff. We want a cycling crew to ride with them for a month and tell us what breaks. Workshop and coffee on us after.', days: [6, 7], window: 'Sep 6 – Nov 29', time: '9:00 – 13:00', group: '10–30 people', match: 76 },
+      { id: 'b5', role: 'business', name: 'Casa Vermut', intent: 'Venue promotion', meta: 'Wine bar', city: 'Gràcia', img: 'assets/img/loyalty-wine-book.png', title: 'Weeknight takeover for your community', offer: 'Reserved terrace + first vermut on the house', chips: ['Vermut', 'Evenings', 'Gràcia'], desc: 'Tuesdays and Wednesdays are quiet and our terrace deserves better. Book clubs, language exchanges, supper clubs — take it over, we pour the first round.', days: [2, 3], window: 'Sep 2 – Dec 17', time: '18:00 – 22:00', group: '15–35 people', match: 71 },
+      { id: 'b6', role: 'business', name: "Bruno's Dog Café", intent: 'Venue promotion', meta: 'Café', city: 'Sant Antoni', img: 'assets/img/content-dog-walk.png', title: 'Sunday patio takeover — dogs welcome', offer: 'Free puppuccinos + reserved patio on Sundays', chips: ['Dogs', 'Sundays', 'Patio'], desc: 'Dog walking groups, photo walks, adoption meetups — our patio is yours on Sunday mornings. We just ask that you tag us in the chaos.', days: [7], window: 'Sep 7 – Nov 30', time: '10:00 – 14:00', group: '10–30 people', match: 69 },
+      { id: 'c1', role: 'community', name: 'Real Run Club', intent: 'Seeking venue', meta: 'Run club · 240 members', city: 'Eixample', img: 'assets/img/community-1.png', title: 'Post-run café partner for Saturday mornings', offer: 'We bring 40+ runners to your door every Saturday', chips: ['Running', 'Saturdays', '40+ people'], desc: 'We finish every Saturday run at 10:30 with nowhere to land. We want a café partner near Eixample — you give us a corner and a group deal, we fill your quietest hour of the week.', days: [6], window: 'Sep 6 – Dec 20', time: '10:30 – 12:30', group: '40–60 people', match: 94 },
+      { id: 'c2', role: 'community', name: 'Sunrise Yoga Collective', intent: 'Seeking venue', meta: 'Wellness · 120 members', city: 'Gràcia', img: 'assets/img/yoga-rooftop.png', title: 'Rooftop or terrace for weekly flows', offer: 'Weekly session + your brand in every post', chips: ['Yoga', 'Weekly', 'Content'], desc: 'We run donation-based sunrise flows and our current rooftop closes in October. 120 members, strong Instagram, very photogenic. We tag, you glow.', days: [2, 4], window: 'Oct 1 – Dec 18', time: '7:00 – 9:00', group: '15–25 people', match: 89 },
+      { id: 'c3', role: 'community', name: 'Barcelona Book & Wine', intent: 'Seeking venue', meta: 'Book club · 85 members', city: 'Gràcia', img: 'assets/img/loyalty-wine-book.png', title: 'A home for our monthly book night', offer: '30 readers who stay for dinner and wine', chips: ['Books', 'Monthly', 'Evenings'], desc: 'One Thursday a month, 30 people, three hours, lots of wine. We want a bar or bookshop that wants a loyal recurring crowd on a slow night.', days: [4], window: 'Sep 18 – Dec 18', time: '19:00 – 22:00', group: '25–35 people', match: 83 },
+      { id: 'c4', role: 'community', name: 'Paws of Poblenou', intent: 'Seeking product partner', meta: 'Dog walks · 90 members', city: 'Poblenou', img: 'assets/img/content-dog-walk.png', title: 'Treat sponsor for our weekend photo walks', offer: 'UGC from 90 dog owners, every weekend', chips: ['Dogs', 'UGC', 'Weekends'], desc: 'Every weekend we walk, we shoot, we post. A treat or gear brand gets honest content from 90 dog owners who actually use the stuff.', days: [6, 7], window: 'Sep 6 – Nov 30', time: '10:00 – 13:00', group: '20–40 people', match: 78 },
+    ];
+  }
+
+  st(status) {
+    const m = {
+      pending: ['#FFDDAC', '#D8910B', 'PENDING'], accepted: ['#D4EDDA', '#155724', 'ACCEPTED'],
+      active: ['#D4EDDA', '#155724', 'ACTIVE'], scheduled: ['#FFDDAC', '#D8910B', 'SCHEDULED'],
+      published: ['#D4EDDA', '#155724', 'PUBLISHED'], draft: ['#EDEAE0', '#4C4638', 'DRAFT'],
+      closed: ['#EDEAE0', '#4C4638', 'CLOSED'], completed: ['#EDEAE0', '#4C4638', 'COMPLETED'],
+      declined: ['#F8D7DA', '#721C24', 'DECLINED'], cancelled: ['#F8D7DA', '#721C24', 'CANCELLED'],
+    }[status];
+    return { stBg: m[0], stC: m[1], stLabel: m[2] };
+  }
+
+  stepsFor(intent) {
+    const bizGoal = { key: 'goal', eyebrow: 'Goal', q: 'What would make this Kolab a success?', sub: 'Pick the main goal so communities understand what you are looking for.', kind: 'options', options: [
+      { v: 'Fill a place', d: 'Bring people in during quiet hours' }, { v: 'Test a product', d: 'Honest feedback from real users' },
+      { v: 'Create content', d: 'Photos and posts from the community' }, { v: 'Build loyalty', d: 'Turn one visit into a habit' }] };
+    const bizOffer = { key: 'offer', eyebrow: 'Your offer', q: 'What do you offer the community?', sub: 'Pick everything that applies — generous offers get more applications.', kind: 'chips', options: ['Free tastings', 'Member discount', 'Reserved space', 'Free products', 'Gift bags', 'Staff support', 'First round on us'] };
+    const bizIdeal = { key: 'ideal', eyebrow: 'Ideal community', q: 'Who should apply?', sub: 'Pick the kinds of communities this Kolab is made for.', kind: 'chips', options: ['Run clubs', 'Yoga & wellness', 'Book clubs', 'Food lovers', 'Cycling crews', 'Creators', 'Dog owners', 'Language exchange'] };
+    const media = { key: 'media', eyebrow: 'Media', q: 'Add photos', sub: 'Optional, but Kolabs with photos get 3× more applications.', kind: 'media' };
+    const avail = { key: 'avail', eyebrow: 'Availability', q: 'When can this Kolab happen?', sub: 'Set the window and the days that work for you.', kind: 'avail' };
+    const review = { key: 'review', eyebrow: 'Review', q: 'Ready to publish?', sub: 'Check everything one last time.', kind: 'review' };
+    if (intent === 'community') return [
+      { key: 'needs', eyebrow: 'Your need', q: 'What do you need?', sub: 'Tell businesses what kind of partner you are looking for.', kind: 'options', options: [
+        { v: 'A venue for our events', d: 'Café, bar, studio, rooftop…' }, { v: 'A product sponsor', d: 'Gear, gifts or samples for members' }, { v: 'Both', d: 'Open to venues and products' }] },
+      { key: 'details', eyebrow: 'Your Kolab', q: 'Describe your Kolab', sub: 'What happens, and what does the business get out of it?', kind: 'text', fields: [
+        { key: 'headline', label: 'Headline', ph: 'e.g. Post-run café partner for Saturday mornings' },
+        { key: 'about', label: 'What you bring', ph: 'How many people, how often, what content or value the business gets…', area: true }] },
+      avail,
+      media,
+      review,
+    ];
+    const details = intent === 'product'
+      ? { key: 'details', eyebrow: 'Your product', q: 'Tell communities about the product', sub: 'What is it, and why should a community care?', kind: 'text', fields: [
+          { key: 'headline', label: 'Headline', ph: 'e.g. Test our hydration packs on a real ride' },
+          { key: 'about', label: 'About the product', ph: 'What it is, what stage it is in, what you want to learn…', area: true }] }
+      : { key: 'details', eyebrow: 'Your venue', q: 'Tell communities about your venue', sub: 'One good sentence beats three vague ones.', kind: 'text', fields: [
+          { key: 'headline', label: 'Headline', ph: 'e.g. Fill our slow weekday mornings' },
+          { key: 'about', label: 'About the Kolab', ph: 'What the space is like, which hours you want to fill, what makes it worth the trip…', area: true }] };
+    return [details, bizGoal, media, bizOffer, bizIdeal, avail, review];
+  }
+
+  setCF(k, v) { this.setState(s => ({ cf: { ...s.cf, [k]: v } })); }
+  toggleCF(k, v) {
+    this.setState(s => {
+      const arr = s.cf[k] || [];
+      return { cf: { ...s.cf, [k]: arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v] } };
+    });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const authed = s.authed ?? (this.props.startAuthed ?? true);
+    const role = s.role ?? (this.props.startRole ?? 'community');
+    const isComm = role === 'community';
+    const go = (screen) => () => this.setState({ screen, createIntent: screen === 'create' ? null : s.createIntent, createStep: 0 });
+    const nav = (key) => {
+      const active = s.screen === key || (key === 'dashboard' && s.screen === 'create' && false);
+      return active
+        ? { bg: '#FFF4C2', c: '#19150F', w: 700 }
+        : { bg: 'transparent', c: '#3F3A32', w: 500 };
+    };
+    const N = { dashboard: nav('dashboard'), explore: nav('explore'), mykolabs: nav('mykolabs'), notifs: nav('notifs'), profile: nav('profile'), plan: nav('plan') };
+
+    // explore
+    const catNames = ['All', 'Food & drink', 'Fitness', 'Wellness', 'Culture', 'Dogs'];
+    const catMap = { 'Food & drink': ['Coffee', 'Vermut'], Fitness: ['Running', 'Cycling'], Wellness: ['Yoga', 'Skincare'], Culture: ['Books'], Dogs: ['Dogs'] };
+    let pool = this.kolabs.filter(k => isComm ? k.role === 'business' : k.role === 'community');
+    if (s.exploreTab === 'saved') pool = pool.filter(k => s.savedIds.includes(k.id));
+    if (s.exploreCat !== 'All') pool = pool.filter(k => (k.chips.concat([k.meta])).some(c => (catMap[s.exploreCat] || []).some(t => c.toLowerCase().includes(t.toLowerCase()))));
+    const cards = pool.map(k => ({
+      ...k,
+      star: s.savedIds.includes(k.id) ? '★' : '☆',
+      starC: s.savedIds.includes(k.id) ? '#D8910B' : '#8C8474',
+      onStar: (e) => { e.stopPropagation(); this.setState(st => ({ savedIds: st.savedIds.includes(k.id) ? st.savedIds.filter(i => i !== k.id) : [...st.savedIds, k.id] })); },
+      onOpen: () => this.setState({ detailId: k.id }),
+    }));
+
+    // detail
+    const dkRaw = this.kolabs.find(k => k.id === s.detailId) || this.kolabs[0];
+    const dayL = ['M', 'Tu', 'W', 'Th', 'F', 'Sa', 'Su'];
+    const dk = {
+      ...dkRaw,
+      typeLabel: dkRaw.role === 'business' ? 'Business · ' + dkRaw.intent : 'Community · ' + dkRaw.meta,
+      cityLine: dkRaw.city + ', Barcelona',
+      offerHead: dkRaw.role === 'business' ? "What's on offer" : 'What they bring',
+      dayCells: dayL.map((l, i) => dkRaw.days.includes(i + 1)
+        ? { l, bg: '#19150F', c: '#fff', bd: '#19150F' }
+        : { l, bg: '#fff', c: '#C9C2B4', bd: 'rgba(28,28,22,.12)' }),
+    };
+
+    // apply dates: synthetic upcoming dates
+    const dateDefs = [['Sat', 'Sep 6'], ['Wed', 'Sep 10'], ['Sat', 'Sep 13'], ['Mon', 'Sep 15'], ['Sat', 'Sep 20'], ['Wed', 'Sep 24'], ['Sat', 'Sep 27'], ['Mon', 'Sep 29']];
+    const dateChips = dateDefs.map(([top, bot]) => {
+      const sel = s.applyDates.includes(bot);
+      return { top, bot, bg: sel ? '#FFF4C2' : '#fff', bd: sel ? '#FFE28C' : 'rgba(28,28,22,.12)',
+        on: () => this.setState(st => ({ applyErr: false, applyDates: st.applyDates.includes(bot) ? st.applyDates.filter(d => d !== bot) : [...st.applyDates, bot] })) };
+    });
+
+    // my kolabs
+    const mkLabels = ['OFFERS', 'REQUESTS', 'ACTIVE', 'FINISHED'];
+    const mkTabs = mkLabels.map((label, i) => ({ label, on: () => this.setState({ mkTab: i }),
+      bg: s.mkTab === i ? '#19150F' : 'transparent', c: s.mkTab === i ? '#fff' : '#8C8474' }));
+    const offers = (isComm ? [
+      { title: 'Saturday morning social run', status: 'published', apps: 6, window: 'Sep 6 – Dec 20' },
+      { title: 'Sunset picnic run — brand partner wanted', status: 'draft', apps: 0, window: 'Not published yet' },
+    ] : [
+      { title: 'Fill our slow weekday mornings', status: 'published', apps: 12, window: 'Sep 2 – Oct 30' },
+      { title: 'New menu tasting night', status: 'draft', apps: 0, window: 'Not published yet' },
+      { title: 'Summer terrace takeover', status: 'closed', apps: 24, window: 'Jun 1 – Aug 15' },
+    ]).map(o => ({ ...o, ...this.st(o.status), meta: `${o.apps} application${o.apps === 1 ? '' : 's'} · ${o.window}` }));
+
+    const reqLabels = ['SENT', 'RECEIVED'];
+    const reqTabs = reqLabels.map((label, i) => ({ label, on: () => this.setState({ reqSub: i }),
+      bg: s.reqSub === i ? '#FFE28C' : 'transparent', c: s.reqSub === i ? '#19150F' : '#8C8474' }));
+    const sent = isComm ? [
+      { partner: 'Nordic Coffee Lab', kolab: 'Fill our slow weekday mornings', meta: 'Applied 2 days ago', status: 'pending', msg: 'Our Saturday group finishes right around the corner — 40 to 60 runners every week, happy to make you the official finish line.' },
+      { partner: 'Casa Vermut', kolab: 'Weeknight takeover', meta: 'Applied 1 week ago', status: 'declined', msg: 'Our book night crowd would love the terrace — 30 readers, one Thursday a month.' },
+    ] : [
+      { partner: 'Real Run Club', kolab: 'Post-run café partner', meta: 'Sent 3 days ago', status: 'pending', msg: 'We would love to be your Saturday finish line — corner reserved, group deal on flat whites.' },
+    ];
+    const received = isComm ? [
+      { partner: 'Aura Skincare', kolab: 'Honest feedback circle', meta: 'Received yesterday', status: 'pending', msg: 'Your community is exactly who we built this line for. 15 full kits, one listening session — interested?' },
+    ] : [
+      { partner: 'Real Run Club', kolab: 'Fill our slow weekday mornings', meta: 'Received yesterday', status: 'pending', msg: '40+ runners every Saturday at 10:30. We are your quiet-morning fix — one trial run?' },
+      { partner: 'Sunrise Yoga Collective', kolab: 'Fill our slow weekday mornings', meta: 'Received 3 days ago', status: 'pending', msg: '120 members, strong Instagram. Weekly post-flow coffee takeover, we tag everything.' },
+      { partner: 'Barcelona Book & Wine', kolab: 'New menu tasting night', meta: 'Received 5 days ago', status: 'accepted', msg: '30 readers who stay for dinner. Your tasting night is our October pick.' },
+    ];
+    const reqSrc = s.reqSub === 0 ? sent : received;
+    const requests = reqSrc.map(r => ({ ...r, ...this.st(r.status), initial: r.partner[0],
+      showActions: s.reqSub === 1 && r.status === 'pending' }));
+
+    const activeC = [
+      { partner: isComm ? 'Aura Skincare' : 'Real Run Club', kolab: isComm ? 'Honest feedback circle' : 'Saturday finish line', when: 'Thu Sep 18 · 18:00', status: 'active' },
+      { partner: isComm ? 'Nordic Coffee Lab' : 'Sunrise Yoga Collective', kolab: isComm ? 'Saturday finish line' : 'Post-flow coffee takeover', when: 'Sat Sep 20 · 10:30', status: 'scheduled' },
+    ];
+    const finishedC = [
+      { partner: isComm ? "Bruno's Dog Café" : 'Paws of Poblenou', kolab: 'Sunday patio takeover', when: 'Aug 3', status: 'completed' },
+      { partner: isComm ? 'Volta Cycles' : 'Barcelona Book & Wine', kolab: isComm ? 'Hydration pack test ride' : 'Book night pilot', when: 'Jul 12', status: 'cancelled' },
+    ];
+    const collabs = (s.mkTab === 2 ? activeC : finishedC).map(c => ({ ...c, ...this.st(c.status), initial: c.partner[0] }));
+
+    // create flow
+    const intent = s.createIntent;
+    const steps = intent ? this.stepsFor(intent) : [];
+    const step = steps[s.createStep] || {};
+    const cf = s.cf;
+    const stepOptions = (step.kind === 'options' ? step.options : []).map(o => {
+      const sel = cf[step.key] === o.v;
+      return { name: o.v, desc: o.d, sel, w: sel ? 700 : 500,
+        bg: sel ? '#FFF4C2' : '#fff', bd: sel ? '#FFE28C' : 'rgba(28,28,22,.10)',
+        ckBg: sel ? '#FFE28C' : 'transparent', ckBd: sel ? '#FFE28C' : 'rgba(28,28,22,.20)',
+        on: () => this.setCF(step.key, o.v) };
+    });
+    const stepChips = (step.kind === 'chips' ? step.options : []).map(label => {
+      const sel = (cf[step.key] || []).includes(label);
+      return { label, bg: sel ? '#FFF4C2' : '#fff', bd: sel ? '#FFE28C' : 'rgba(28,28,22,.12)',
+        on: () => this.toggleCF(step.key, label) };
+    });
+    const stepFields = (step.kind === 'text' ? step.fields : []).map(f => ({
+      label: f.label, ph: f.ph, isArea: !!f.area, isInput: !f.area, val: cf[f.key] || '',
+      on: (e) => this.setCF(f.key, e.target.value) }));
+    const dayChips = ['M', 'Tu', 'W', 'Th', 'F', 'Sa', 'Su'].map((label, i) => {
+      const sel = (cf.days || [1, 3, 5]).includes(i + 1);
+      return { label, bg: sel ? '#FFE28C' : '#fff', bd: sel ? '#FFE28C' : 'rgba(28,28,22,.12)',
+        on: () => this.setState(st => { const base = st.cf.days || [1, 3, 5]; const d = i + 1; return { cf: { ...st.cf, days: base.includes(d) ? base.filter(x => x !== d) : [...base, d] } }; }) };
+    });
+    const revRows = [
+      { label: 'Headline', val: cf.headline || 'Untitled Kolab' },
+      { label: intent === 'community' ? 'Need' : 'Goal', val: cf[intent === 'community' ? 'needs' : 'goal'] || '—' },
+      { label: intent === 'community' ? 'You bring' : 'You offer', val: intent === 'community' ? (cf.about || '—') : ((cf.offer || []).join(', ') || '—') },
+      ...(intent === 'community' ? [] : [{ label: 'Ideal community', val: (cf.ideal || []).join(', ') || 'Open to all' }]),
+      { label: 'Window', val: 'Sep 2 – Oct 30 · ' + ['M', 'Tu', 'W', 'Th', 'F', 'Sa', 'Su'].filter((_, i) => (cf.days || [1, 3, 5]).includes(i + 1)).join(' ') },
+    ];
+    const isReview = intent && s.createStep === steps.length - 1;
+    const intentOpts = isComm ? [
+      { glyph: 'V', title: 'Find a venue or sponsor', sub: 'Post what your community needs — businesses apply to you', badge: true, on: () => this.setState({ createIntent: 'community', createStep: 0, cf: {} }) },
+    ] : [
+      { glyph: 'V', title: 'Promote your venue', sub: 'Fill quiet hours with a real community', badge: false, on: () => this.setState({ createIntent: 'venue', createStep: 0, cf: {} }) },
+      { glyph: 'P', title: 'Promote a product', sub: 'Get it into the hands of the right people', badge: false, on: () => this.setState({ createIntent: 'product', createStep: 0, cf: {} }) },
+    ];
+
+    const stop = (e) => e.stopPropagation();
+    const roleSwitch = (r) => () => this.setState({ role: r, screen: 'dashboard', detailId: null, applyOpen: false, applySuccess: false, exploreCat: 'All', exploreTab: 'forYou', mkTab: 0, reqSub: r === 'community' ? 0 : 1, createIntent: null });
+
+    return {
+      // shell
+      authed, notAuthed: !authed,
+      roleIsCommunity: isComm, roleIsBusiness: !isComm,
+      userName: isComm ? 'Real Run Club' : 'Nordic Coffee Lab',
+      userInitial: isComm ? 'R' : 'N',
+      roleLabel: isComm ? 'Community' : 'Business',
+      hBg: N.dashboard.bg, hC: N.dashboard.c, hW: N.dashboard.w,
+      eBg: N.explore.bg, eC: N.explore.c, eW: N.explore.w,
+      kBg: N.mykolabs.bg, kC: N.mykolabs.c, kW: N.mykolabs.w,
+      nBg: N.notifs.bg, nC: N.notifs.c, nW: N.notifs.w,
+      pBg: N.profile.bg, pC: N.profile.c, pW: N.profile.w,
+      plBg: N.plan.bg, plC: N.plan.c, plW: N.plan.w,
+      goHome: go('dashboard'), goExplore: go('explore'), goKolabs: go('mykolabs'),
+      goNotifs: go('notifs'), goProfile: go('profile'), goPlan: go('plan'),
+      goCreate: () => this.setState({ screen: 'create', createIntent: null, createStep: 0, cf: {} }),
+      goRequests: () => this.setState({ screen: 'mykolabs', mkTab: 1 }),
+      logout: () => this.setState({ authed: false, authScreen: 'welcome' }),
+      roleTabs: [
+        { label: 'Business', on: roleSwitch('business'), bg: !isComm ? '#FFE28C' : 'transparent', c: !isComm ? '#19150F' : '#8C8474' },
+        { label: 'Community', on: roleSwitch('community'), bg: isComm ? '#FFE28C' : 'transparent', c: isComm ? '#19150F' : '#8C8474' },
+      ],
+      // screens
+      sDash: authed && s.screen === 'dashboard', sExplore: authed && s.screen === 'explore',
+      sKolabs: authed && s.screen === 'mykolabs', sNotifs: authed && s.screen === 'notifs',
+      sProfile: authed && s.screen === 'profile', sPlan: authed && s.screen === 'plan',
+      sCreate: authed && s.screen === 'create',
+      // dashboard
+      dashTitle: isComm ? 'Community Dashboard' : 'Business Dashboard',
+      upcoming: activeC.map(c => ({ initial: c.partner[0], partner: c.partner, title: c.kolab, date: c.when, ...this.st(c.status) })),
+      commStats: [{ n: 2, label: 'PENDING' }, { n: 1, label: 'ACTIVE' }, { n: 4, label: 'DONE' }, { n: 3, label: 'ACCEPTED' }],
+      bizStats: [{ n: 5, label: 'NEW APPS' }, { n: 1, label: 'ACTIVE' }, { n: 4, label: 'COMPLETED' }],
+      // explore
+      exploreSub: isComm ? 'Kolabs from businesses across Barcelona' : 'Communities looking for a partner like you',
+      exploreTabs: [
+        { label: 'FOR YOU', on: () => this.setState({ exploreTab: 'forYou' }), bg: s.exploreTab === 'forYou' ? '#19150F' : 'transparent', c: s.exploreTab === 'forYou' ? '#fff' : '#8C8474' },
+        { label: 'SAVED', on: () => this.setState({ exploreTab: 'saved' }), bg: s.exploreTab === 'saved' ? '#19150F' : 'transparent', c: s.exploreTab === 'saved' ? '#fff' : '#8C8474' },
+      ],
+      cats: catNames.map(c => ({ label: c, on: () => this.setState({ exploreCat: c }),
+        bg: s.exploreCat === c ? '#19150F' : '#fff', c: s.exploreCat === c ? '#fff' : '#3F3A32',
+        bd: s.exploreCat === c ? '#19150F' : 'rgba(28,28,22,.12)' })),
+      cards,
+      // detail + apply
+      detailOpen: !!s.detailId, dk, stopProp: stop,
+      closeDetail: () => this.setState({ detailId: null }),
+      openApply: () => this.setState({ applyOpen: true, applyDates: [], applyMsg: '', applyErr: false }),
+      applyCta: isComm ? 'Apply to this Kolab' : 'Send a proposal',
+      applyOpen: s.applyOpen, applyErrShow: s.applyErr, dateChips,
+      applyStart: s.applyStart, applyEnd: s.applyEnd, applyMsg: s.applyMsg,
+      onApplyStart: (e) => this.setState({ applyStart: e.target.value }),
+      onApplyEnd: (e) => this.setState({ applyEnd: e.target.value }),
+      onApplyMsg: (e) => this.setState({ applyMsg: e.target.value }),
+      closeApply: () => this.setState({ applyOpen: false }),
+      submitApply: () => { if (this.state.applyDates.length === 0) { this.setState({ applyErr: true }); return; } this.setState({ applyOpen: false, applySuccess: true }); },
+      applySuccess: s.applySuccess,
+      closeSuccess: () => this.setState({ applySuccess: false, detailId: null }),
+      goApplications: () => this.setState({ applySuccess: false, detailId: null, screen: 'mykolabs', mkTab: 1, reqSub: 0 }),
+      // my kolabs
+      mkTabs, mkIs0: s.mkTab === 0, mkIs1: s.mkTab === 1, mkIs23: s.mkTab === 2 || s.mkTab === 3,
+      offers, reqTabs, requests, collabs,
+      // notifications
+      notifs: (isComm ? [
+        { initial: 'A', title: 'New Kolab from Aura Skincare', body: 'A product Kolab matching your community was just published.', time: '2h', unread: true },
+        { initial: 'N', title: 'Application accepted', body: 'Nordic Coffee Lab accepted your Saturday finish line application.', time: '1d', unread: true },
+        { initial: 'K', title: 'Kolab reminder', body: 'Your feedback circle with Aura Skincare is Thursday at 18:00.', time: '2d', unread: true },
+        { initial: 'B', title: 'Leave a review', body: "How was your Sunday patio takeover with Bruno's Dog Café?", time: '5d', unread: false },
+      ] : [
+        { initial: 'R', title: 'New application', body: 'Real Run Club applied to "Fill our slow weekday mornings".', time: '1h', unread: true },
+        { initial: 'S', title: 'New application', body: 'Sunrise Yoga Collective applied to "Fill our slow weekday mornings".', time: '3d', unread: true },
+        { initial: 'K', title: 'Kolab reminder', body: 'Saturday finish line with Real Run Club starts Sat 10:30.', time: '2d', unread: true },
+        { initial: 'B', title: 'Your Kolab is live', body: '"Fill our slow weekday mornings" is now visible to communities.', time: '1w', unread: false },
+      ]).map(n => ({ ...n, bg: n.unread ? '#fff' : 'rgba(255,255,255,.55)' })),
+      // profile
+      profCat: isComm ? 'Run club' : 'Specialty coffee',
+      profAbout: isComm
+        ? 'Barcelona\'s friendliest run club. Three paces, zero ego, coffee after every run. We collaborate with local spots that want real people through the door.'
+        : 'Specialty coffee bar in El Born with a big back room and slow mornings. We host communities that bring good energy — runners, readers, makers.',
+      profStat1: isComm ? '240 members' : '2 live Kolabs',
+      profStat2: isComm ? '12 kolabs completed' : '4 kolabs completed',
+      profInsta: isComm ? 'realrunclub.bcn' : 'nordiccoffeelab',
+      settingsRows: [
+        { label: 'Edit profile', c: '#19150F' }, { label: 'Notification settings', c: '#19150F' },
+        { label: 'Language', c: '#19150F' }, { label: 'Support', c: '#19150F' },
+      ],
+      // plan
+      notSubscribed: !s.subscribed, isSubscribed: s.subscribed,
+      subscribe: () => this.setState({ subscribed: true }),
+      unsubscribe: () => this.setState({ subscribed: false }),
+      planBenefits: ['Publish unlimited Kolabs', 'See community names and profiles', 'Apply to community requests', 'Cancel anytime'],
+      // create flow
+      createIsIntent: !intent, createHasIntent: !!intent,
+      createTitle: !intent ? 'Create a Kolab' : (intent === 'community' ? 'Find a partner' : intent === 'venue' ? 'Promote your venue' : 'Promote a product'),
+      intentTitle: isComm ? 'What does your community need?' : 'What do you want to promote?',
+      intentSub: isComm ? 'Post a request and let businesses come to you. Always free.' : 'Pick a starting point — you can fine-tune everything before publishing.',
+      intentOpts,
+      createBack: () => {
+        if (!intent) { this.setState({ screen: 'dashboard' }); }
+        else if (s.createStep === 0) { this.setState({ createIntent: null }); }
+        else { this.setState({ createStep: s.createStep - 1 }); }
+      },
+      stepDots: steps.map((_, i) => ({ bg: i <= s.createStep ? '#FFE28C' : 'rgba(28,28,22,.10)' })),
+      stepEyebrow: step.eyebrow || '', stepQ: step.q || '', stepSub: step.sub || '',
+      kOptions: step.kind === 'options', kChips: step.kind === 'chips', kText: step.kind === 'text',
+      kMedia: step.kind === 'media', kAvail: step.kind === 'avail', kReview: step.kind === 'review',
+      stepOptions, stepChips, stepFields, dayChips, revRows,
+      revAudience: intent === 'community' ? 'business' : 'community',
+      stepPrev: () => { if (s.createStep === 0) this.setState({ createIntent: null }); else this.setState({ createStep: s.createStep - 1 }); },
+      stepNext: () => { if (isReview) this.setState({ createDone: true }); else this.setState({ createStep: s.createStep + 1 }); },
+      nextLabel: isReview ? 'Publish Kolab' : 'Continue',
+      nextBg: isReview ? '#19150F' : '#FFE28C', nextC: isReview ? '#FFE28C' : '#19150F',
+      createDone: s.createDone,
+      doneGo: () => this.setState({ createDone: false, createIntent: null, createStep: 0, cf: {}, screen: 'mykolabs', mkTab: 0 }),
+      // auth
+      aWelcome: !authed && s.authScreen === 'welcome', aLogin: !authed && s.authScreen === 'login',
+      aSignup: !authed && s.authScreen === 'signup', aType: !authed && s.authScreen === 'type',
+      goLogin: (e) => { e && e.preventDefault && e.preventDefault(); this.setState({ authScreen: 'login' }); },
+      goType: (e) => { e && e.preventDefault && e.preventDefault(); this.setState({ authScreen: 'type' }); },
+      backWelcome: () => this.setState({ authScreen: 'welcome' }),
+      pickBiz: () => this.setState({ authRole: 'business', authScreen: 'signup' }),
+      pickComm: () => this.setState({ authRole: 'community', authScreen: 'signup' }),
+      doLogin: () => this.setState({ authed: true, role: s.authRole === 'community' ? 'community' : (s.role ?? role), screen: 'dashboard' }),
+      signupRoleLabel: s.authRole === 'business' ? 'a business' : 'a community',
+      signupNameLabel: s.authRole === 'business' ? 'Business name' : 'Community name',
+      signupNamePh: s.authRole === 'business' ? 'Enter your business name' : 'Enter your community name',
+      signupInviteHint: s.authRole === 'business' ? '(optional — get 1 free credit)' : '(optional)',
+    };
+  }
+}
+</script>
+</body>
+</html>

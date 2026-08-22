@@ -29,10 +29,13 @@
                 <div @click="open(nt)"
                      class="flex items-start gap-3 border border-ink/[.08] rounded-2xl px-4 py-3.5 hover:border-ink/25 transition cursor-pointer"
                      :class="nt.is_read ? 'bg-white/60' : 'bg-white'">
-                    <div class="w-9 h-9 rounded-full bg-primary/40 flex items-center justify-center overflow-hidden text-sm font-semibold text-ink shrink-0">
+                    <a :href="nt.actor_profile_id ? window.kbPath('/profiles/' + nt.actor_profile_id) : null"
+                       @click.stop
+                       class="w-9 h-9 rounded-full bg-primary/40 flex items-center justify-center overflow-hidden text-sm font-semibold text-ink shrink-0"
+                       :class="nt.actor_profile_id ? 'hover:ring-2 hover:ring-primary transition' : ''">
                         <template x-if="nt.actor_avatar_url"><img :src="nt.actor_avatar_url" alt="" class="w-full h-full object-cover"></template>
                         <template x-if="!nt.actor_avatar_url"><span x-text="initialOf(nt.actor_name || nt.title)"></span></template>
-                    </div>
+                    </a>
                     <div class="flex-1 min-w-0">
                         <p class="text-[13.5px] font-semibold text-ink" x-text="nt.title"></p>
                         <p class="text-[13px] text-body mt-0.5 leading-snug" x-text="nt.body"></p>
@@ -97,6 +100,9 @@
             targetPath(nt) {
                 const type = String(nt.target_type || '').toLowerCase();
                 if (!nt.target_id) return null;
+                // A new-message notification targets the APPLICATION, so without this
+                // it fell through to the Requests tab instead of opening the chat.
+                if (nt.type === 'new_message') return '/chats?application=' + nt.target_id;
                 if (type.includes('kolab') || type.includes('opportunity')) return '/kolabs/' + nt.target_id;
                 if (type.includes('application')) return '/kolabs?tab=requests';
                 if (type.includes('collaboration')) return '/kolabs?tab=active';

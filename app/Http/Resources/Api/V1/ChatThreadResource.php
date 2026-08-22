@@ -38,7 +38,7 @@ class ChatThreadResource extends JsonResource
             'last_message_at' => $this->last_message_at?->toIso8601String(),
             // Preview of the most recent message so the chat list shows real text
             // instead of a "Tap to open" placeholder (#8). Eager-loaded via
-            // latestMessage()->latestOfMany() to avoid N+1; null on empty threads,
+            // ChatService::attachLatestMessages() to avoid N+1; null on empty threads,
             // key omitted when the relation isn't loaded (the app falls back).
             'last_message' => $this->whenLoaded('latestMessage', fn () => $this->latestMessage ? [
                 'content' => $this->latestMessage->content,
@@ -51,7 +51,7 @@ class ChatThreadResource extends JsonResource
     }
 
     /**
-     * @return array<int, array{name: string|null, avatar_url: string|null}>
+     * @return array<int, array{id: string, name: string|null, avatar_url: string|null}>
      */
     private function participantSummary(): array
     {
@@ -70,6 +70,9 @@ class ChatThreadResource extends JsonResource
         foreach ($participants as $profile) {
             if ($profile instanceof Profile) {
                 $summary[] = [
+                    // Additive: the id lets a client link a chat header to the
+                    // counterpart's public profile.
+                    'id' => $profile->id,
                     'name' => $this->profileName($profile),
                     'avatar_url' => $profile->avatar_url,
                 ];

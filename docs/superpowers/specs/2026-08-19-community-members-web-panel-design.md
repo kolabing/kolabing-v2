@@ -1,6 +1,6 @@
 # Community Members & Tiers — Web Panel (Community Hub)
 
-> Design spec. Date: 2026-08-19. Feature: **BE-NF-28**.
+> Design spec. Date: 2026-08-19. Feature: **BE-NF-34**.
 > Governed by `docs/ROLES-AND-PERMISSIONS.md` §8 and `docs/ROLES-BACKEND-DB-MAP.md` §12.
 > **§8.4 is absolute: this surface is NEVER paywalled.** No code path in this feature
 > may call `Profile::hasActiveSubscription()`.
@@ -336,7 +336,7 @@ single most repeated regression in this codebase.
   *Last updated*.
 - `docs/ROLES-BACKEND-DB-MAP.md` §12 — new table, new endpoints, the roster default-status
   behaviour change, the claim-on-register hook; bump *Last updated*.
-- `BACKLOG.md` — BE-NF-28 entry, bump *Last updated*.
+- `BACKLOG.md` — BE-NF-34 entry, bump *Last updated*.
 - PR uses `.github/pull_request_template.md`. **Mobile impact:** additive query params +
   additive response fields on `GET /communities/{id}/members`, plus one behaviour change
   (default now excludes `removed` — mobile currently has no Community tab, so nothing

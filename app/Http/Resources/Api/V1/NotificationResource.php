@@ -28,6 +28,8 @@ class NotificationResource extends JsonResource
             'is_read' => $this->isRead(),
             'read_at' => $this->read_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
+            // Additive: lets a client open the actor's profile from a notification.
+            'actor_profile_id' => $this->actor_profile_id,
             'actor_name' => $this->actorProfile?->getExtendedProfile()?->name,
             'actor_avatar_url' => $this->actorProfile?->avatar_url,
             'target_id' => $this->target_id,

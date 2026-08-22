@@ -1,6 +1,6 @@
 # Kolabing — Roles, Permissions & Features (Canonical Reference)
 
-**Last updated:** 2026-08-17 (**Web payment flow completed** — no change to who is paywalled or what is gated; §2.12 is new and documents how a business now buys: two selectable plans priced from `config/subscriptions.php`, Stripe promotion codes enabled (a buyer discount, distinct from the referrer-rewarding referral code), and a **webhook-independent confirmation** — Stripe returns to `/subscription/success?session_id=…` which calls `POST /me/subscription/checkout/confirm` so a paid business is never left on the paywall. Paywall redirects now carry `?reason=…`; `past_due` is surfaced as a shell alert linking to the Billing Portal, and `GET /auth/me` gained additive `subscription_status` + `subscription_cancel_at_period_end` for business profiles. Public `kolabing.com/pricing` (+ `/es/pricing`) added — it states "communities never pay" explicitly. §2.1 price corrected: the doc said €39.99, the code has always billed **€49 / €129** from config. Backend map §14. Prior: Web app (app.kolabing.com) rebuilt on the Claude-Design handoff — same role rules, no behaviour change: communities stay free everywhere, the business paywall stays backend-enforced, and the web client now routes **both** paywall statuses (402, and 403 on accept) to the plan page. Explore on web reads `GET /discovery/opportunities` (match score) with `?saved=1` for the Saved tab; apply/create/profile flows unchanged. Backend map §3. Prior: 2026-07-28 Explore feed now hides date-exhausted Kolabs — a Kolab whose application dates have all passed is not returned in the browse feed, mirroring the apply-time guard; saved list unaffected — §3.3. Prior: 2026-07-15 company/legal details + agreement version now maintainer-editable at `/admin/company-settings` — legal pages render live values, bumping the version re-prompts app users; see the consent callout & backend map §0.12. Prior: legal consent gate — all registration requires `accepted_terms`; consent recorded on `profiles.terms_*` with re-consent via `GET /auth/me` + `POST /me/consent`; see the consent callout below and backend map §0 item 12. Prior: PR 5: reputation shape — removed `unique_partner_count` from public reputation block; added per-pair fairness cap (max 2 reviews per reviewer→reviewed pair count toward aggregate); `recent_reviews` items now carry `is_verified_kolab_review: true` — §4. Prior: PR 4: public reputation summary — updated reviews note to mention new aggregate `reputation` block on `PublicProfileResource` — §4. Prior: 2026-06-28 gamification mission system v1: curated `app_visible` mission set + event/general mission separation — #49. Prior: PR #59 review fixes — completion-confirmation gate hardening — terminal-state guard, resource/gate agreement on `no`/`not_yet`, auto-complete grace anchored on the `yes` timestamp, **legacy feedback fallback + backfill removed (`/complete` gates purely on real completion confirmations)** — §2.9, §4)
+**Last updated:** **Last updated:** 2026-08-20 (**Public portfolio — new §10.** No gate or paywall changed. Business and community accounts can now manage the portfolio their public profile renders — gallery, past events and each event's photos — from a tabbed Profile section on the web, including a Preview of their own public profile. The substantive fix: 'past events' is written in **two** unrelated stores and the public profile read only `kolabs.past_events`, leaving 60 events and 173 photographs invisible; both stores are merged now. Attendees are explicitly excluded — no public portfolio, gallery stays private. Backend map §17. Prior: 2026-08-19 (**Community members web panel — new §8.7.** No paywall or gate changed. The NF-6 members & tiers surface becomes reachable for the first time: a seven-tab Community Hub at `app.kolabing.com/community`, gated on **owner OR `can_manage`** and never on `user_type` (managers are attendee accounts, §8.3 D1). Three behaviour changes worth knowing: `GET /communities/{id}/members` is **now manage-gated** (it carries member emails), its **default result set excludes `status = removed`** (`?status=all` restores it), and each row now carries engagement (`points`, `events_attended`, `last_active_at`, `tenure_days`). Two new inlets for members: pending **email invitations** that are claimed when the invitee registers, and the public **`/c/{slug}` join page** — which `Community::inviteUrl()` has always pointed at and which did not exist, so every invite link ever shared 404'd. Still free, still never paywalled, now with a standing guard test. Backend map §12.6. Prior: 2026-08-19 (**Public profile pages — new §4.2.** No change to who may do what; this is a *visibility* decision, and it is the first place Kolabing shows profile data to people who are not logged in. Inside the app, `app.kolabing.com/profiles/{id}` shows a business or community in full: reviews **with their authors**, the five-category rating breakdown, past events, past collaborations, gallery and contact links. On the open web, `kolabing.com/p/{slug}` is a deliberately partial teaser — identity, aggregate rating, three photos, one **anonymised** review quote — and everything else sits behind sign-up, enforced by keeping it out of the HTML rather than hiding it with CSS. Reviewer identity, contact details, past-event detail and collaboration partner names are the withheld set; §4.2 is the authoritative list. Businesses now get the same rich profile as communities (past events were never community-only — `kolabs.past_events` is written by whoever creates the Kolab). **No opt-out exists yet** — every profile with a completed collaboration is published and listed in the sitemap; that is tracked as BACKLOG BE-NF-30 and needs a product decision. Backend map §16. Prior: 2026-08-18 (**Chat integrated into the web panel** — no change to who may chat or when: chat still unlocks on an accepted application (§4) and community channels stay free and un-paywalled (§8.4). What is new is the surface: `app.kolabing.com/chats` now carries the same conversations mobile has, including community channel management (create/rename/delete + per-member blocking) for a community's **owner**. Two doc/code drifts were found while wiring it and are filed, not silently "fixed": (a) §2.8 says a lapsed business loses chat access, but `ChatService::canParticipate()` never checks subscription state and the chat routes have no subscription middleware — a lapsed business keeps full chat access today (BACKLOG BE-FX-14, needs a product decision); (b) `GET /me/communities` returns owned communities only, so a `can_manage` delegate cannot reach the management surface in any client (BE-FX-15). §4.1 is new; backend map §15. Prior: 2026-08-17 (**Web payment flow completed** — no change to who is paywalled or what is gated; §2.12 is new and documents how a business now buys: two selectable plans priced from `config/subscriptions.php`, Stripe promotion codes enabled (a buyer discount, distinct from the referrer-rewarding referral code), and a **webhook-independent confirmation** — Stripe returns to `/subscription/success?session_id=…` which calls `POST /me/subscription/checkout/confirm` so a paid business is never left on the paywall. Paywall redirects now carry `?reason=…`; `past_due` is surfaced as a shell alert linking to the Billing Portal, and `GET /auth/me` gained additive `subscription_status` + `subscription_cancel_at_period_end` for business profiles. Public `kolabing.com/pricing` (+ `/es/pricing`) added — it states "communities never pay" explicitly. §2.1 price corrected: the doc said €39.99, the code has always billed **€49 / €129** from config. Backend map §14. Prior: Web app (app.kolabing.com) rebuilt on the Claude-Design handoff — same role rules, no behaviour change: communities stay free everywhere, the business paywall stays backend-enforced, and the web client now routes **both** paywall statuses (402, and 403 on accept) to the plan page. Explore on web reads `GET /discovery/opportunities` (match score) with `?saved=1` for the Saved tab; apply/create/profile flows unchanged. Backend map §3. Prior: 2026-07-28 Explore feed now hides date-exhausted Kolabs — a Kolab whose application dates have all passed is not returned in the browse feed, mirroring the apply-time guard; saved list unaffected — §3.3. Prior: 2026-07-15 company/legal details + agreement version now maintainer-editable at `/admin/company-settings` — legal pages render live values, bumping the version re-prompts app users; see the consent callout & backend map §0.12. Prior: legal consent gate — all registration requires `accepted_terms`; consent recorded on `profiles.terms_*` with re-consent via `GET /auth/me` + `POST /me/consent`; see the consent callout below and backend map §0 item 12. Prior: PR 5: reputation shape — removed `unique_partner_count` from public reputation block; added per-pair fairness cap (max 2 reviews per reviewer→reviewed pair count toward aggregate); `recent_reviews` items now carry `is_verified_kolab_review: true` — §4. Prior: PR 4: public reputation summary — updated reviews note to mention new aggregate `reputation` block on `PublicProfileResource` — §4. Prior: 2026-06-28 gamification mission system v1: curated `app_visible` mission set + event/general mission separation — #49. Prior: PR #59 review fixes — completion-confirmation gate hardening — terminal-state guard, resource/gate agreement on `no`/`not_yet`, auto-complete grace anchored on the `yes` timestamp, **legacy feedback fallback + backfill removed (`/complete` gates purely on real completion confirmations)** — §2.9, §4)
 **Status:** Authoritative. This document overrides assumptions.
 **Sync note:** This file is duplicated in both repos (`kolabing-app` and `kolabing-v2`). Keep the two copies identical. When role behaviour changes, update both **and bump the Last updated date** in both.
 
@@ -197,6 +197,67 @@ Nothing. There is no paywall and no gated action on the community side. If code 
   - Re-gate exemption: a lapsed business can still submit `/feedback` on a past collab — feedback is post-mortem and unblocked even when `/collaborations` index is re-gated.
   - **Backend mirror (rollout aid, still active post-PR-1):** while the legacy app still POSTs to `/review`, the server transparently writes a stub `/feedback` row (mirror) so feedback-dependent aggregates stay consistent. Mirrored rows carry `mirrored_from_review = true` and are excluded from the rich admin-stats aggregates. **This mirror no longer affects `/complete`** — it only ever wrote to `collaboration_feedback`, which the completion gate no longer reads.
 
+### 4.1 Chat surfaces — mobile and the web panel (added 2026-08-18)
+Chat is now on **both** clients with identical rules. Nothing about *who* may chat changed; only *where* it can be used.
+
+**What is reachable, by thread type.** The inbox (`GET /chats`) returns exactly what the viewer may open, and the same
+derived access authorizes both the REST layer and the real-time channel (`ChatService::canAccessThread`):
+
+| Thread | Who sees it |
+|---|---|
+| Kolab chat (`collaboration`) | The applicant and the Kolab creator, once an application exists and is not declined/withdrawn (§4). **A business only sees threads that already have ≥1 message** — a bare match is not an inbox row for them. |
+| Community main | Any member or the owner of that community. |
+| Custom channel (`community_custom`) | Members whose **tier** grants the channel's slug (`community_tiers.permissions.chat_channels`) — never community membership alone. |
+| Event chat | Anyone with a `going` sign-up, plus the community leader / `can_manage`. |
+
+**Channel management is a community-leader action, and it is free.** The owner of a community can create up to **5** custom
+channels, rename them, delete them, and block individual members from any of that community's chats (the block is
+per-chat: the person stays a member). This is part of the community-members surface (§8) and must **never** be paywalled —
+see §8.4. Blocking is available on the community's main chat too; creating/renaming/deleting applies to custom channels only.
+
+**Communities are never gated here.** No chat surface, channel, or moderation action may be put behind a subscription for a
+community. The only role-conditional behaviour in chat is the business-side "threads with messages only" filter above and
+the §2.8 lapse re-gate.
+
+**Known drift on §2.8 (do not "fix" on your own initiative).** §2.8 states that a lapsed business loses access to its
+ongoing collaborations and chats. The code does not enforce that for chat: `canParticipate()` ignores subscription state and
+the chat routes carry no subscription middleware, so a lapsed business currently keeps full chat access. This is tracked as
+BACKLOG **BE-FX-14** and needs a product decision — if the gate is added, remember re-gating is one-sided: the community
+counterpart keeps full access regardless.
+
+### 4.2 Profile visibility — inside the app vs. the open web (added 2026-08-19)
+A profile now has **two** audiences, and the split between them is a product rule, not a styling choice.
+
+**Inside the app** (`app.kolabing.com/profiles/{id}`, any authenticated viewer) a business or community profile shows
+everything: about, city, verification tick, **contact and social links**, the aggregate rating **and its five-category
+breakdown** (communication / reliability / fit / value / repeat), **every received review with the reviewer's name, avatar and a
+link to their profile**, past events with dates, partner names and photos, past collaborations with partner names, and the full
+photo gallery. Both roles get the same treatment.
+
+**On the open web** (`kolabing.com/p/{slug}`, no account) the page is a teaser. Public: name, logo, type, city, an ~320
+character about excerpt, aggregate rating + review count, completed-Kolab count, past-event and review counts, up to **three**
+photos, and **one** review quote whose author allowed the comment to be public.
+
+Withheld until sign-up — and withheld by **not rendering it**, never by hiding it:
+
+| Withheld | Why |
+|---|---|
+| Reviewer identities | Who vouched for whom is the network's value, and naming a partner publicly is their call, not ours. |
+| The rest of the reviews | One quote proves the page; the list is worth an account. |
+| Contact + social links | The single strongest reason to register. |
+| Past-event detail (dates, partners, media) and collaboration partner names | Reveals who a profile works with. |
+| The category rating breakdown | Competitive detail. |
+
+A review whose author did not make the comment public (`public_comment_visible = false`) is **never** quoted publicly, and an
+`aggregateRating` is emitted in structured data only when real reviews exist — never faked to look established.
+
+**Attendees have no public profile** in either place. Their surface is the gamification track (§7), and neither
+`/profiles/{id}/public-profile` nor `/p/{slug}` resolves for them.
+
+**No opt-out exists yet.** Every business/community profile with a completed collaboration is published and listed in
+`sitemap.xml`. That was an acquisition decision, but it is a privacy decision too — a `public_page_enabled` switch is tracked
+as BACKLOG **BE-NF-30** and needs Daniel's call. Until then, do not widen what the public page shows.
+
 ---
 
 ## 5. Permission matrix
@@ -230,6 +291,9 @@ These are specific errors that have happened in past fixes. Do not repeat them.
 - **Do not merge, delete, or rename "opportunity" versus "collaboration."** Both exist and are distinct.
 - **Do not change what a free business sees in Explore beyond the blur.** They see all Kolab details; only the community identity is blurred.
 - **Do not paywall registration, onboarding, or browsing.** Only creating and applying are paywalled, and only for the Business role.
+- **Do not send a Kolab chat message through `POST /chats/{thread}/messages`.** It stores and broadcasts the message but notifies nobody — `ChatService::threadRecipientIds()` returns `[]` for collaboration threads, and only the application path calls `notifyNewMessage()`. Kolab messages go to `POST /applications/{id}/messages`; group-thread messages go to the thread endpoint. Tracked as BE-FX-13.
+- **Do not widen the public profile page without checking §4.2.** `kolabing.com/p/{slug}` is indexable and unauthenticated. Reviewer names, contact links, past-event detail and partner names are withheld on purpose, and the wall is enforced by leaving them out of the HTML — hiding them with CSS or `x-show` is not a wall.
+- **Do not paywall or member-gate a community's chat channels.** Channel creation, renaming, deletion and blocking are free community-leader actions (§4.1, §8.4). Tier gating decides *which members* see a custom channel; it is never a payment gate.
 - **When a fix touches Explore, profiles, the paywall, or onboarding, re-read sections 1, 2, and 3 of this document before writing code.**
 - [ ] Port the freemium collab limit + portfolio-photo parity to `/kolabs`, then remove the `/opportunities` shim (#31). The limit lives only on the legacy `/opportunities` create path today; `/kolabs` create does not enforce it yet.
 
@@ -325,6 +389,90 @@ Tiers can auto-assign by rule: `xp_threshold` (member XP from `point_ledger`), `
 "This community's events" is defined by a new nullable `events.community_id` FK. The `events_attended` rule counts check-ins on events with that `community_id`. The chapter-scoped leaderboard (`GET /leaderboard/global?community_id=`) is scoped by **active membership** (the global leaderboard filtered to one community's members). Organiser's events are NOT silently assumed to be the community's events.
 
 Backend wiring (tables, endpoints, policy, command) is in `ROLES-BACKEND-DB-MAP.md §12`.
+
+
+### 8.7 Managing members on the web (BE-NF-34, added 2026-08-19)
+
+The Community Hub at `app.kolabing.com/community` is the first human-reachable
+surface for everything §8 describes. Seven tabs: **Overview** (health strip, tier
+distribution, top members), **Members** (the roster workspace), **Requests**
+(join requests + pending invitations), **Tiers**, **Economy** (goals / rewards /
+badges), **Leaderboard**, **Settings**.
+
+**Who gets it.** Access is gated on **owner OR `can_manage`**, never on
+`user_type`. A community manager is an `attendee` account carrying `can_manage`
+on their membership (§8.3 D1 decouples tier from admin power), so gating the nav
+entry on `user_type === 'community'` would lock managers out. The entry appears
+when `GET /me/communities` returns a row **or** `GET /me/memberships` returns one
+with `can_manage: true`.
+
+**The roster is manage-gated.** `GET /communities/{id}/members` now returns member
+emails and handles, so it is no longer readable by any authenticated viewer — it
+requires `CommunityPolicy@manage` like every other mutation on this surface. It
+also gained search / status / tier / manager filters and six sort keys, and its
+**default result set now excludes `status = removed`** (a removed member is not a
+member); `?status=all` restores the old set.
+
+**Engagement is now visible.** Each roster row carries `points`,
+`events_attended`, `last_active_at` and `tenure_days`, resolved from
+`community_points`, `event_checkins` on the community's own events (the same
+definition §8.6 gives the `events_attended` tier rule) and `community_point_ledger`.
+`GET /communities/{id}/stats` aggregates the same data into the Overview strip.
+
+**Two inlets for new members.**
+1. **Email invitations** — a leader can invite an address that has no Kolabing
+   account. The row waits as `pending` in `community_invitations` and is claimed
+   automatically when that email registers, on any registration path. This is the
+   only way a leader's real roster (a spreadsheet, a WhatsApp group) becomes
+   memberships.
+2. **The `/c/{slug}` join page** — public, unauthenticated, showing the community,
+   its tier ladder and its upcoming **public** events (members-only events must
+   not leak from it). `Community::inviteUrl()` has always emitted this path and
+   the route did not exist until now, so every invite link ever shared was dead.
+   Invite-only communities render `noindex`.
+
+**Still true, unchanged:** none of this is paywalled (§8.4). No file in this
+feature calls `Profile::hasActiveSubscription()`, and
+`tests/Feature/Api/V1/CommunityNeverPaywalledTest.php` is a standing guard that
+exercises every endpoint as an unsubscribed owner and an unsubscribed
+`can_manage` attendee. Tier `permissions` are still stored and displayed only —
+enforcement is still out of scope (§8.3 D3). There is still no attendee
+registration on the web: a visitor with no account is offered sign-in and pointed
+at the app, and any invitation addressed to them waits.
+
+Backend wiring is in `ROLES-BACKEND-DB-MAP.md §12.6`.
+
+
+## 10. Public portfolio — past events, photos, gallery (BE-NF-36, added 2026-08-20)
+
+Business and community accounts publish a **portfolio**: a photo gallery and a list of
+past events. Both roles have it, both are free, and neither is behind any gate.
+
+**Where it is managed.** `app.kolabing.com/account` is a tabbed Profile section —
+Profile · Gallery · Past events · Preview. The Preview tab renders the account's own
+public profile exactly as a visitor sees it, which is the answer to "where does this
+show up?". Before this, none of it was reachable from the web at all.
+
+**Two stores feed one public block.** "Past events" is written in two unrelated places
+and the public profile now merges both:
+
+1. **`events` table** — real retrospective rows (`partner_name`, `attendee_count`) with
+   their own photo store, created by the past-event branch of `POST /events` and managed
+   on the Past events tab.
+2. **`kolabs.past_events`** — a free-form JSON array authored inside a Kolab, editable
+   on the web Kolab form's review step.
+
+Until 2026-08-20 the public profile read **only** the second, so 60 past events and 173
+photographs that businesses and communities had already uploaded were invisible. The
+merged block is newest-first, undated entries last, and an entry logged in both places
+appears once (the `events`-table copy wins, since it carries attendee count and a real
+photo store).
+
+**Attendees are excluded.** An attendee has no public portfolio: their gallery stays
+private to their own account, and `GET /profiles/{id}` returns their original payload
+with no portfolio keys.
+
+Backend wiring is in `ROLES-BACKEND-DB-MAP.md §17`.
 
 ---
 

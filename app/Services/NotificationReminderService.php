@@ -7,12 +7,14 @@ namespace App\Services;
 use App\Enums\ApplicationStatus;
 use App\Enums\CollaborationStatus;
 use App\Enums\KolabStatus;
+use App\Enums\MultiKolabEventStatus;
 use App\Enums\NotificationType;
 use App\Models\Application;
 use App\Models\ChatMessage;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
 use App\Models\Kolab;
+use App\Models\MultiKolabEvent;
 use App\Models\NotificationReminder;
 use App\Models\Profile;
 use Illuminate\Support\Carbon;
@@ -24,11 +26,23 @@ class NotificationReminderService
      */
     private const CADENCE_HOURS = [2, 24, 72];
 
+    /**
+     * Incomplete-draft cap for Multi-Kolab Events (plan Task 8): exactly two
+     * reminders — 24h, then a final one at 72h — never a third, and never
+     * after publish/cancel (enforced by {@see refreshMultiKolabEventDraftReminder()}
+     * re-checking `status === Draft` on every send attempt).
+     *
+     * @var list<int>
+     */
+    private const MULTI_KOLAB_EVENT_DRAFT_CADENCE_HOURS = [24, 72];
+
     private const ENTITY_APPLICATION = 'application';
 
     private const ENTITY_KOLAB = 'kolab';
 
     private const ENTITY_COLLABORATION = 'collaboration';
+
+    private const ENTITY_MULTI_KOLAB_EVENT = 'multi_kolab_event';
 
     public function __construct(
         private readonly NotificationService $notificationService,
@@ -53,6 +67,28 @@ class NotificationReminderService
             type: NotificationType::KolabCreateIncomplete,
             entityId: $kolab->id,
             entityType: self::ENTITY_KOLAB,
+        );
+    }
+
+    public function syncMultiKolabEventDraftReminder(MultiKolabEvent $event): void
+    {
+        $this->syncReminder(
+            profileId: $event->creator_profile_id,
+            type: NotificationType::MultiKolabEventDraftIncomplete,
+            entityId: $event->id,
+            entityType: self::ENTITY_MULTI_KOLAB_EVENT,
+            eligible: $event->status === MultiKolabEventStatus::Draft,
+            anchorAt: $event->updated_at,
+        );
+    }
+
+    public function cancelMultiKolabEventDraftReminder(MultiKolabEvent $event): void
+    {
+        $this->cancelReminder(
+            profileId: $event->creator_profile_id,
+            type: NotificationType::MultiKolabEventDraftIncomplete,
+            entityId: $event->id,
+            entityType: self::ENTITY_MULTI_KOLAB_EVENT,
         );
     }
 
@@ -300,8 +336,37 @@ class NotificationReminderService
             NotificationType::UnreadMessage => $this->refreshUnreadMessageReminder($reminder),
             NotificationType::ReviewReminder => $this->refreshReviewReminder($reminder),
             NotificationType::SecondOfferPrompt => $this->refreshSecondOfferPromptReminder($reminder),
+            NotificationType::MultiKolabEventDraftIncomplete => $this->refreshMultiKolabEventDraftReminder($reminder),
             default => false,
         };
+    }
+
+    private function refreshMultiKolabEventDraftReminder(NotificationReminder $reminder): bool
+    {
+        $event = MultiKolabEvent::query()->find($reminder->entity_id);
+
+        // Re-checked on every send attempt — this is what guarantees "never
+        // after publish/cancel": both transitions move status away from
+        // Draft, so the very next due-check cancels the reminder outright
+        // instead of sending.
+        if ($event === null || $event->status !== MultiKolabEventStatus::Draft) {
+            $this->cancelExistingReminder($reminder);
+
+            return false;
+        }
+
+        $this->syncReminder(
+            profileId: $event->creator_profile_id,
+            type: NotificationType::MultiKolabEventDraftIncomplete,
+            entityId: $event->id,
+            entityType: self::ENTITY_MULTI_KOLAB_EVENT,
+            eligible: true,
+            anchorAt: $event->updated_at,
+        );
+
+        $reminder->refresh();
+
+        return true;
     }
 
     private function refreshReviewReminder(NotificationReminder $reminder): bool
@@ -382,6 +447,7 @@ class NotificationReminderService
         return match ($type) {
             NotificationType::ReviewReminder => config('gamification_business.review_reminder_cadence_hours'),
             NotificationType::SecondOfferPrompt => config('gamification_business.second_offer_prompt_cadence_hours'),
+            NotificationType::MultiKolabEventDraftIncomplete => self::MULTI_KOLAB_EVENT_DRAFT_CADENCE_HOURS,
             default => self::CADENCE_HOURS,
         };
     }
@@ -506,6 +572,10 @@ class NotificationReminderService
             NotificationType::SecondOfferPrompt => [
                 'title' => 'Ready for your next Kolab?',
                 'body' => 'Build on the momentum and create your next offer.',
+            ],
+            NotificationType::MultiKolabEventDraftIncomplete => [
+                'title' => 'Finish your event',
+                'body' => 'Your Multi-Kolab Event is still in draft. Add roles and publish when ready.',
             ],
             default => null,
         };

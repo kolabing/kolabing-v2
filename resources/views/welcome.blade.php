@@ -1,4 +1,5 @@
 @php
+
     /**
      * Absolute web-app URLs. The app lives on another host (app.kolabing.com), so
      * these cannot be route() calls. `?type=` lands straight on the register form
@@ -9,29 +10,16 @@
     $appLogin = $app.'/login';
     $appRegisterBusiness = $appRegister.'?type=business';
     $appRegisterCommunity = $appRegister.'?type=community';
-@endphp
-<!DOCTYPE html><html lang="en" class="scroll-smooth"><head>
 
-
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="csrf-token" content="{{ csrf_token() }}">
-  <title>Kolabing — Local Business &amp; Community Collaboration</title>
-  <meta name="description" content="Kolabing connects local businesses with nearby communities to plan real-world collaborations that drive foot traffic, members, and repeat visits. Live in Barcelona.">
-  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
-  <link rel="canonical" href="{{ route('home') }}">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Kolabing">
-  <meta property="og:title" content="Kolabing — Local Business &amp; Community Collaboration">
-  <meta property="og:description" content="Connect with nearby communities to plan real-world collaborations that drive foot traffic, members, and repeat visits.">
-  <meta property="og:url" content="{{ route('home') }}">
-  <meta property="og:image" content="{{ url('/social-preview.svg') }}">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Kolabing — Local Business &amp; Community Collaboration">
-  <meta name="twitter:description" content="Connect with nearby communities to plan real-world collaborations that drive foot traffic, members, and repeat visits.">
-  <meta name="twitter:image" content="{{ url('/social-preview.svg') }}">
-  <script type="application/ld+json">
-  {!! json_encode([
+    /**
+     * JSON-LD is built here, NOT inline in the <script> tag. Blade compiles
+     * directives inside `{!! !!}` expressions, and Laravel 12 has an `@context`
+     * directive — so a literal '@context' key written there is replaced by compiled
+     * PHP and the emitted structured data loses its @context entirely. Inside a
+     * @php block the compiler leaves it alone. See PublicProfilePageTest /
+     * MarketingSeoTest for the guard.
+     */
+    $homeSchema = json_encode([
       '@context' => 'https://schema.org',
       '@graph' => [
           [
@@ -39,7 +27,7 @@
               'name' => 'Kolabing',
               'url' => route('home'),
               'logo' => url('/brand/kolabing-logo.png'),
-              'description' => 'Kolabing helps local businesses and communities plan partnerships that turn events into foot traffic, member value, and repeat visits.',
+              'description' => 'Kolabing helps local businesses and communities plan partnerships that turn events into footfall, member value, and repeat visits.',
               'email' => 'support@kolabing.com',
           ],
           [
@@ -58,7 +46,29 @@
               ],
           ],
       ],
-  ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+@endphp
+<!DOCTYPE html><html lang="en" class="scroll-smooth"><head>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>Kolabing — Local Business &amp; Community Collaboration</title>
+  <meta name="description" content="Kolabing connects local businesses with nearby communities to plan real-world collaborations that drive footfall, members, and repeat visits. Live in Barcelona.">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <link rel="canonical" href="{{ route('home') }}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Kolabing">
+  <meta property="og:title" content="Kolabing — Local Business &amp; Community Collaboration">
+  <meta property="og:description" content="Connect with nearby communities to plan real-world collaborations that drive footfall, members, and repeat visits.">
+  <meta property="og:url" content="{{ route('home') }}">
+  <meta property="og:image" content="{{ url('/social-preview.svg') }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Kolabing — Local Business &amp; Community Collaboration">
+  <meta name="twitter:description" content="Connect with nearby communities to plan real-world collaborations that drive footfall, members, and repeat visits.">
+  <meta name="twitter:image" content="{{ url('/social-preview.svg') }}">
+  <script type="application/ld+json">
+  {!! $homeSchema !!}
   </script>
   <link rel="icon" href="/favicon.ico?v=3" sizes="any">
   <link rel="icon" type="image/png" href="/favicon-512.png?v=3">
@@ -1194,10 +1204,13 @@
 <!-- NAV -->
 <header>
   <div class="logo">
-    <img class="logo-mark" src="/brand/kolabing-logo.png" alt="Kolabing"/>
+    <img class="logo-mark" src="/brand/kolabing-logo.webp" alt="Kolabing" width="560" height="250" fetchpriority="high"/>
   </div>
   <nav>
     <span class="nav-links">
+      <a href="{{ route('for-businesses') }}">businesses</a>
+      <a href="{{ route('for-communities') }}">communities</a>
+      <a href="{{ route('pricing') }}">pricing</a>
       <a href="#how-it-works">how it works</a>
       <a href="#faq">questions</a>
     </span>
@@ -1374,8 +1387,6 @@
     setTimeout(cycle, 600);
   })();
 </script>
-
-
 
 <!-- JOURNEY + PHONE SECTION -->
 <section class="section-manifesto" data-screen-label="journey">
@@ -1651,7 +1662,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/Screenshot 2026-05-16 at 22.47.19.png" alt="Run club cheers-ing coffee cups after a morning run" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-app-preview.webp" alt="Run club cheers-ing coffee cups after a morning run" width="1600" height="862" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Run club + café</strong><span>Morning run + coffee</span></figcaption>
       </figure>
     </div>
@@ -1662,7 +1673,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/Gemini_Generated_Image_j3ohygj3ohygj3oh.png" alt="Cycling crew on the road testing gear" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-run-club-cafe.webp" alt="Cycling crew on the road testing gear" width="1600" height="872" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Cycling crew + hydration brand</strong><span>Ride test</span></figcaption>
       </figure>
     </div>
@@ -1673,7 +1684,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/Gemini_Generated_Image_rfno1grfno1grfno.png" alt="Yoga class at sunset on a rooftop" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-yoga-studio-brunch.webp" alt="Yoga class at sunset on a rooftop" width="1600" height="872" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Yoga club + activewear brand</strong><span>Try-on flow</span></figcaption>
       </figure>
     </div>
@@ -1684,7 +1695,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/feedback-skincare.png" alt="Women's group testing skincare products together" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-idea-skincare-feedback.webp" alt="Women's group testing skincare products together" width="1600" height="1200" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Women&rsquo;s group + skincare brand</strong><span>Product testing circle</span></figcaption>
       </figure>
     </div>
@@ -1695,7 +1706,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/content-dog-walk.png" alt="Dog community on a city photo walk with their dogs" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-idea-dog-walk-content.webp" alt="Dog community on a city photo walk with their dogs" width="1600" height="1200" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Dog community + pet brand</strong><span>Dog photo walk</span></figcaption>
       </figure>
     </div>
@@ -1706,7 +1717,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/loyalty-wine-book.png" alt="Book club gathered around a table reading with wine in a cellar" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-idea-wine-book-loyalty.webp" alt="Book club gathered around a table reading with wine in a cellar" width="1600" height="1200" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Book club + wine bar</strong><span>Monthly tasting night</span></figcaption>
       </figure>
     </div>
@@ -1777,9 +1788,14 @@ COMMUNITIES GET PERKS.</div>
 <footer>
   <div class="footer-inner">
     <div class="logo">
-      <img class="logo-mark logo-mark--footer" src="/brand/kolabing-logo.png" alt="Kolabing"/>
+      <img class="logo-mark logo-mark--footer" src="/brand/kolabing-logo.webp" alt="Kolabing" width="560" height="250" loading="lazy"/>
     </div>
     <div class="footer-links">
+      <a href="{{ route('for-businesses') }}">businesses</a>
+      <a href="{{ route('for-communities') }}">communities</a>
+      <a href="{{ route('pricing') }}">pricing</a>
+      <a href="{{ route('directory.index') }}">community directory</a>
+      <a href="{{ route('blog.index') }}">blog</a>
       <a href="{{ route('terms') }}">terms</a>
       <a href="{{ route('privacy') }}">privacy</a>
       <a href="{{ route('support') }}">support</a>
@@ -1832,7 +1848,6 @@ COMMUNITIES GET PERKS.</div>
 
   document.getElementById('yr').textContent = new Date().getFullYear();
 
-
   // Scroll fade-in
   const fadeEls = document.querySelectorAll('.fade');
   const obs = new IntersectionObserver((entries) => {
@@ -1850,7 +1865,6 @@ COMMUNITIES GET PERKS.</div>
     });
   });
 </script>
-
 
 <!-- ============ NEWSLETTER + BOOK-A-CALL POP-UP ============ -->
 <style>
@@ -1923,7 +1937,7 @@ COMMUNITIES GET PERKS.</div>
 
       <div class="kb-pop__or"><span>or</span></div>
       <a class="kb-pop__call kb-pop__call--primary" href="{{ $appRegister }}">Create your free account →</a>
-      <a class="kb-pop__call" href="{{ config('kolabing.book_a_call_url') }}" target="_blank" rel="noopener">Book a call with us →</a>
+      <a class="kb-pop__call kb-pop__bookcall" data-url-community="{{ config('kolabing.book_a_call_url_community') }}" data-url-business="{{ config('kolabing.book_a_call_url_business') }}" href="{{ config('kolabing.book_a_call_url_community') }}" target="_blank" rel="noopener">Book a call with us →</a>
     </div>
 
     <div class="kb-pop__body kb-pop__done" id="kbPopDone" hidden>
@@ -1931,7 +1945,7 @@ COMMUNITIES GET PERKS.</div>
       <h2 class="kb-pop__title">You're on the list</h2>
       <p class="kb-pop__sub">Thanks — we'll be in touch. Want to start now?</p>
       <a class="kb-pop__call kb-pop__call--primary" href="{{ $appRegister }}">Create your free account →</a>
-      <a class="kb-pop__call" href="{{ config('kolabing.book_a_call_url') }}" target="_blank" rel="noopener">Book a call with us →</a>
+      <a class="kb-pop__call kb-pop__bookcall" data-url-community="{{ config('kolabing.book_a_call_url_community') }}" data-url-business="{{ config('kolabing.book_a_call_url_business') }}" href="{{ config('kolabing.book_a_call_url_community') }}" target="_blank" rel="noopener">Book a call with us →</a>
     </div>
   </div>
 </div>
@@ -1959,11 +1973,21 @@ COMMUNITIES GET PERKS.</div>
   }
 
   // Audience toggle
+  // Point the "Book a call" CTAs at the discovery call that matches the segment.
+  function syncBookCall(){
+    pop.querySelectorAll('.kb-pop__bookcall').forEach(function(a){
+      var url = a.getAttribute('data-url-' + audience);
+      if (url) a.setAttribute('href', url);
+    });
+  }
+  syncBookCall();
+
   pop.querySelectorAll('.kb-pop__seg-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
       audience = btn.getAttribute('data-aud');
       pop.querySelectorAll('.kb-pop__seg-btn').forEach(function(b){ b.classList.remove('is-on'); });
       btn.classList.add('is-on');
+      syncBookCall();
     });
   });
 
@@ -2035,6 +2059,5 @@ COMMUNITIES GET PERKS.</div>
   }
 })();
 </script>
-
 
 </body></html>

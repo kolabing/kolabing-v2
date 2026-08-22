@@ -20,7 +20,13 @@
                         <template x-if="!dkAvatar"><span x-text="initialOf(dkName)"></span></template>
                     </div>
                     <div class="flex-1 min-w-0">
-                        <p class="text-xl font-bold text-ink" x-text="dkName"></p>
+                        <template x-if="dk?.creator_profile?.id">
+                            <a :href="window.kbPath('/profiles/' + dk.creator_profile.id)"
+                               class="text-xl font-bold text-ink hover:underline" x-text="dkName"></a>
+                        </template>
+                        <template x-if="!dk?.creator_profile?.id">
+                            <p class="text-xl font-bold text-ink" x-text="dkName"></p>
+                        </template>
                         <span class="inline-block mt-1.5 px-2.5 py-[3px] rounded-pill bg-cream-input text-[11px] font-semibold text-body" x-text="dkTypeLabel"></span>
                     </div>
                     <button type="button" @click="closeDetail()" class="w-9 h-9 rounded-full bg-cream-low hover:bg-cream-low-hover transition flex items-center justify-center shrink-0" aria-label="{{ __('webapp.common.close') }}">
@@ -106,7 +112,7 @@
                 </template>
                 <template x-if="dk.is_own && dk.status === 'draft'">
                     <button type="button" @click="publishKolab()" :disabled="applyBusy"
-                            class="h-[50px] px-[22px] rounded-pill bg-ink text-primary text-sm font-bold hover:-translate-y-px transition disabled:opacity-50">{{ __('webapp.kolabs.publish') }}</button>
+                            class="h-[50px] px-[22px] rounded-pill bg-inverse text-on-inverse text-sm font-bold hover:-translate-y-px transition disabled:opacity-50">{{ __('webapp.kolabs.publish') }}</button>
                 </template>
                 <template x-if="!dk.is_own">
                     <button type="button" @click="toggleDetailSave()"
@@ -115,12 +121,12 @@
                 </template>
                 <template x-if="dkCta.kind === 'apply'">
                     <button type="button" @click="openApply()"
-                            class="flex-1 h-[50px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition"
+                            class="kb-on-yellow flex-1 h-[50px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition"
                             x-text="dkCta.label"></button>
                 </template>
                 <template x-if="dkCta.kind === 'link'">
                     <a :href="dkCta.href"
-                       class="flex-1 h-[50px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition flex items-center justify-center"
+                       class="kb-on-yellow flex-1 h-[50px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition flex items-center justify-center"
                        x-text="dkCta.label"></a>
                 </template>
                 <template x-if="dkCta.kind === 'done'">
@@ -194,7 +200,7 @@
         </div>
         <div class="px-7 pt-4 pb-5 border-t border-ink/[.08]">
             <button type="button" @click="submitApply()" :disabled="applyBusy"
-                    class="w-full h-[52px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition disabled:opacity-50">
+                    class="kb-on-yellow w-full h-[52px] rounded-pill bg-primary text-ink text-[15px] font-bold shadow-btn hover:bg-primary-dark hover:-translate-y-px transition disabled:opacity-50">
                 <span x-text="applyBusy ? t('detail.sending') : t('detail.send')">{{ __('webapp.detail.send') }}</span>
             </button>
         </div>
@@ -211,7 +217,7 @@
         <p class="text-xl font-bold text-ink mt-[18px]">{{ __('webapp.detail.sent_title') }}</p>
         <p class="text-sm text-body leading-relaxed mt-2" x-text="t('detail.sent_body', { name: dkName })"></p>
         <a href="{{ $base }}/kolabs?tab=requests"
-           class="w-full h-[50px] rounded-pill bg-primary text-ink text-sm font-bold shadow-btn hover:bg-primary-dark transition flex items-center justify-center" style="margin-top:22px;">{{ __('webapp.detail.view_my_applications') }}</a>
+           class="kb-on-yellow w-full h-[50px] rounded-pill bg-primary text-ink text-sm font-bold shadow-btn hover:bg-primary-dark transition flex items-center justify-center" style="margin-top:22px;">{{ __('webapp.detail.view_my_applications') }}</a>
         <button type="button" @click="closeSuccess()"
                 class="w-full h-11 mt-2 rounded-pill bg-transparent text-muted hover:text-ink text-[13px] font-semibold transition">{{ __('webapp.detail.keep_exploring') }}</button>
     </div>

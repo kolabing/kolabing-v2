@@ -6,13 +6,17 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\FileUploadType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\ReorderGalleryRequest;
+use App\Http\Requests\Api\V1\UpdateGalleryPhotoRequest;
 use App\Http\Requests\Api\V1\UploadGalleryPhotoRequest;
 use App\Http\Resources\Api\V1\GalleryPhotoResource;
 use App\Models\Profile;
 use App\Models\ProfileGalleryPhoto;
 use App\Services\FileUploadService;
+use App\Services\PhotoOrderingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class GalleryController extends Controller
 {
@@ -96,6 +100,62 @@ class GalleryController extends Controller
                 ? GalleryPhotoResource::collection($created)
                 : new GalleryPhotoResource($created[0]),
         ], 201);
+    }
+
+    /**
+     * PATCH /api/v1/me/gallery/{photo} — edit a caption.
+     */
+    public function update(UpdateGalleryPhotoRequest $request, ProfileGalleryPhoto $photo): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        if ($photo->profile_id !== $profile->id) {
+            return response()->json([
+                'success' => false,
+                'message' => __('You are not authorized to edit this photo.'),
+            ], 403);
+        }
+
+        $photo->update(['caption' => $request->validated('caption')]);
+
+        return response()->json([
+            'success' => true,
+            'data' => new GalleryPhotoResource($photo->fresh()),
+        ]);
+    }
+
+    /**
+     * PUT /api/v1/me/gallery/order — set the display order.
+     *
+     * Returns the caller's FULL ordered gallery so the client never has to infer
+     * where the omitted photos landed.
+     */
+    public function reorder(ReorderGalleryRequest $request, PhotoOrderingService $ordering): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        $owned = $profile->galleryPhotos()
+            ->orderBy('sort_order')
+            ->orderByDesc('created_at')
+            ->pluck('id')
+            ->all();
+
+        $ordered = $ordering->resolve($request->validated('ids'), $owned);
+
+        DB::transaction(function () use ($ordered): void {
+            foreach ($ordered as $index => $id) {
+                ProfileGalleryPhoto::query()->whereKey($id)->update(['sort_order' => $index]);
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => GalleryPhotoResource::collection(
+                $profile->galleryPhotos()->orderBy('sort_order')->orderByDesc('created_at')->get()
+            ),
+        ]);
     }
 
     /**
