@@ -303,7 +303,9 @@ class ChallengeLibraryTest extends TestCase
         $id = $this->initiate($a, $event, $challenge, $b)->assertSuccessful()->json('data.id');
         $this->actingAs($b)->postJson("/api/v1/challenge-completions/{$id}/verify")->assertSuccessful();
 
-        $this->initiate($a, $event, $challenge, $b)->assertStatus(409);
+        $this->initiate($a, $event, $challenge, $b)
+            ->assertStatus(409)
+            ->assertJsonPath('error', 'already_completed');
     }
 
     public function test_a_pair_can_repeat_when_their_community_allows_it(): void
@@ -339,7 +341,12 @@ class ChallengeLibraryTest extends TestCase
         ]);
 
         $this->initiate($a, $event, $challenge, $b)->assertSuccessful();
-        $this->initiate($a, $event, $challenge, $b)->assertStatus(409);
+
+        // A distinct reason, because "you already asked them" and "you two have
+        // already done this" want different words on screen.
+        $this->initiate($a, $event, $challenge, $b)
+            ->assertStatus(409)
+            ->assertJsonPath('error', 'already_pending');
     }
 
     public function test_requires_new_person_refuses_a_pair_who_have_played_before(): void
@@ -364,7 +371,9 @@ class ChallengeLibraryTest extends TestCase
             'points_earned' => 5,
         ]);
 
-        $this->initiate($a, $event, $challenge, $b)->assertStatus(409);
+        $this->initiate($a, $event, $challenge, $b)
+            ->assertStatus(409)
+            ->assertJsonPath('error', 'needs_new_person');
     }
 
     public function test_requires_new_person_allows_a_pair_who_have_not(): void

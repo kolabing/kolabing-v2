@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\ChallengeCompletionStatus;
 use App\Enums\MissionTrigger;
+use App\Exceptions\ChallengeRuleException;
 use App\Models\Challenge;
 use App\Models\ChallengeCompletion;
 use App\Models\CommunityChallenge;
@@ -146,7 +147,10 @@ class ChallengeCompletionService
 
         if ($pending) {
             Log::warning('Challenge initiate blocked: already pending for this pair', $ctx);
-            throw new \LogicException('You have already asked them to confirm this challenge.');
+            throw new ChallengeRuleException(
+                'already_pending',
+                'You have already asked them to confirm this challenge.'
+            );
         }
 
         // Repeating a finished one is the COMMUNITY's choice (§6). Off by
@@ -162,7 +166,10 @@ class ChallengeCompletionService
 
             if ($done) {
                 Log::warning('Challenge initiate blocked: duplicate pair', $ctx);
-                throw new \LogicException('This challenge has already been initiated between these two attendees.');
+                throw new ChallengeRuleException(
+                    'already_completed',
+                    'This challenge has already been initiated between these two attendees.'
+                );
             }
         }
 
@@ -172,7 +179,10 @@ class ChallengeCompletionService
         if ($rules?->requires_new_person === true
             && $this->pairHasPlayedBefore($challenger->id, $verifierProfileId)) {
             Log::warning('Challenge initiate blocked: not a new person', $ctx);
-            throw new \LogicException('This challenge is for meeting someone you have not played with before.');
+            throw new ChallengeRuleException(
+                'needs_new_person',
+                'This challenge is for meeting someone you have not played with before.'
+            );
         }
 
         // Validate: challenger hasn't exceeded event's max_challenges_per_attendee.
@@ -189,7 +199,10 @@ class ChallengeCompletionService
                 'completed_count' => $completedCount,
                 'max_per_attendee' => $maxPerAttendee,
             ]);
-            throw new \LogicException('You have reached the maximum number of challenges for this event.');
+            throw new ChallengeRuleException(
+                'event_limit_reached',
+                'You have reached the maximum number of challenges for this event.'
+            );
         }
 
         Log::info('Challenge initiated', $ctx);
