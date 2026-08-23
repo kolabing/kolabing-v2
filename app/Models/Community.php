@@ -160,6 +160,19 @@ class Community extends Model
     }
 
     /**
+     * The challenges this community has chosen to play (kolabing-app#150).
+     *
+     * An EMPTY relation is meaningful: it means the community has not curated,
+     * and its events get the whole library. See ChallengeService::listForEvent().
+     *
+     * @return HasMany<CommunityChallenge, $this>
+     */
+    public function enabledChallenges(): HasMany
+    {
+        return $this->hasMany(CommunityChallenge::class);
+    }
+
+    /**
      * The questions asked before admitting a member, newest set first in
      * display order. Includes retired ones — scope with `activeOrdered()` for
      * the set an applicant should actually see.

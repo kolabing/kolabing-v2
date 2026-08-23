@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exceptions\ChallengeRuleException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\AttachChallengeProofRequest;
 use App\Http\Requests\Api\V1\InitiateChallengeRequest;
@@ -43,6 +44,14 @@ class ChallengeCompletionController extends Controller
                 'success' => false,
                 'message' => $e->getMessage(),
             ], 422);
+        } catch (ChallengeRuleException $e) {
+            // A rule refused it, and WHICH rule is what the app needs to say
+            // something specific instead of a generic failure (#150).
+            return response()->json([
+                'success' => false,
+                'error' => $e->reason,
+                'message' => $e->getMessage(),
+            ], 409);
         } catch (\LogicException $e) {
             return response()->json([
                 'success' => false,
