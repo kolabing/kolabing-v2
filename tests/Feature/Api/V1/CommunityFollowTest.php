@@ -175,6 +175,97 @@ class CommunityFollowTest extends TestCase
         $this->assertNotContains($community->id, $ids);
     }
 
+    // -------------------------------------------------------------------------
+    // The feed: a followed community's events show up without joining
+    // -------------------------------------------------------------------------
+
+    private function eventFor(Community $community, string $name, int $daysAhead = 3): \App\Models\Event
+    {
+        return \App\Models\Event::query()->create([
+            'profile_id' => $community->owner_profile_id,
+            'community_id' => $community->id,
+            'name' => $name,
+            'partner_name' => $community->name,
+            'partner_type' => UserType::Community->value,
+            'event_date' => Carbon::today()->addDays($daysAhead),
+            'starts_at' => Carbon::today()->addDays($daysAhead)->setTime(18, 0),
+            'visibility' => 'public',
+            'is_active' => true,
+        ]);
+    }
+
+    public function test_following_puts_a_communitys_events_in_my_feed(): void
+    {
+        $followed = $this->community();
+        $ignored = $this->community();
+        $this->eventFor($followed, 'Followed run');
+        $this->eventFor($ignored, 'Someone elses run');
+
+        $person = $this->person();
+        $this->actingAs($person)->postJson("/api/v1/communities/{$followed->id}/follow");
+
+        $response = $this->actingAs($person)
+            ->getJson('/api/v1/events?following=me&time=upcoming');
+
+        $response->assertStatus(200);
+        $names = collect($response->json('data.events'))->pluck('name')->all();
+
+        $this->assertSame(['Followed run'], $names);
+    }
+
+    /**
+     * `following=me` has to count as a scoping filter. Without that the
+     * controller's back-compat branch would AND it with "my own events" and the
+     * feed would always be empty.
+     */
+    public function test_the_feed_is_not_narrowed_to_my_own_events(): void
+    {
+        $followed = $this->community();
+        $this->eventFor($followed, 'Followed run');
+
+        $person = $this->person();
+        $this->actingAs($person)->postJson("/api/v1/communities/{$followed->id}/follow");
+
+        // The viewer hosts nothing, so a `profile_id = me` fallback would hide
+        // everything.
+        $this->actingAs($person)
+            ->getJson('/api/v1/events?following=me')
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data.events');
+    }
+
+    public function test_unfollowing_takes_the_events_back_out_of_the_feed(): void
+    {
+        $followed = $this->community();
+        $this->eventFor($followed, 'Followed run');
+        $person = $this->person();
+
+        $this->actingAs($person)->postJson("/api/v1/communities/{$followed->id}/follow");
+        $this->actingAs($person)->deleteJson("/api/v1/communities/{$followed->id}/follow");
+
+        $this->actingAs($person)
+            ->getJson('/api/v1/events?following=me')
+            ->assertStatus(200)
+            ->assertJsonCount(0, 'data.events');
+    }
+
+    /**
+     * The default listing still means "my own events" — the existing contract
+     * every shipped build relies on.
+     */
+    public function test_the_unfiltered_listing_is_unchanged(): void
+    {
+        $followed = $this->community();
+        $this->eventFor($followed, 'Followed run');
+        $person = $this->person();
+        $this->actingAs($person)->postJson("/api/v1/communities/{$followed->id}/follow");
+
+        $this->actingAs($person)
+            ->getJson('/api/v1/events')
+            ->assertStatus(200)
+            ->assertJsonCount(0, 'data.events');
+    }
+
     /**
      * The two relationships are independent axes: a member who never tapped
      * follow is not a follower, and being one does not imply the other.

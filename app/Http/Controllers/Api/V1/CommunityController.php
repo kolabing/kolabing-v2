@@ -246,6 +246,16 @@ class CommunityController extends Controller
         try {
             $member = $this->memberService->join($community, $profile);
         } catch (DomainException $e) {
+            // The leader chose to ask something before admitting members, so
+            // this is not a refusal — it is a redirect to the application.
+            if ($e->getMessage() === 'join_requires_application') {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'join_requires_application',
+                    'message' => __('This community asks a few questions before you join.'),
+                ], 409);
+            }
+
             return response()->json([
                 'success' => false,
                 'error' => 'invite_only',

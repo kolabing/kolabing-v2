@@ -380,6 +380,70 @@ class CommunityJoinApplicationTest extends TestCase
         $this->assertSame(['Q1', 'Q3', 'Q4', 'Q5', 'Replacement'], $set);
     }
 
+    // -------------------------------------------------------------------------
+    // Questions are the leader's optional choice, and /join honours it
+    // -------------------------------------------------------------------------
+
+    /**
+     * No questions → joining stays exactly one tap, as it always has. This is
+     * the default and the common case.
+     */
+    public function test_one_tap_join_still_works_when_a_community_asks_nothing(): void
+    {
+        $community = $this->community(JoinPolicy::Open);
+        $applicant = $this->applicant();
+
+        $this->actingAs($applicant)
+            ->postJson("/api/v1/communities/{$community->id}/join")
+            ->assertStatus(201);
+
+        $this->assertTrue($community->members()
+            ->where('profile_id', $applicant->id)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->exists());
+    }
+
+    /**
+     * Questions → /join redirects to the application instead of handing out
+     * membership. Without this the leader's choice to ask something would do
+     * nothing: an open community could ask five required questions and still
+     * take one-tap members through /join.
+     */
+    public function test_one_tap_join_is_refused_once_a_community_asks_something(): void
+    {
+        $community = $this->community(JoinPolicy::Open);
+        $this->ask($community, 'Why join?', true, 1);
+        $applicant = $this->applicant();
+
+        $this->actingAs($applicant)
+            ->postJson("/api/v1/communities/{$community->id}/join")
+            ->assertStatus(409)
+            ->assertJsonPath('error', 'join_requires_application');
+
+        $this->assertFalse($community->members()
+            ->where('profile_id', $applicant->id)
+            ->exists());
+    }
+
+    /**
+     * And retiring the last question hands one-tap join back.
+     */
+    public function test_retiring_every_question_restores_one_tap_join(): void
+    {
+        $community = $this->community(JoinPolicy::Open);
+        $q = $this->ask($community, 'Why join?', true, 1);
+
+        $this->actingAs($this->applicant())
+            ->postJson("/api/v1/communities/{$community->id}/join")
+            ->assertStatus(409);
+
+        $q->update(['is_active' => false]);
+
+        $this->actingAs($this->applicant())
+            ->postJson("/api/v1/communities/{$community->id}/join")
+            ->assertStatus(201);
+    }
+
     public function test_answers_are_length_validated(): void
     {
         $community = $this->community(JoinPolicy::InviteOnly);
