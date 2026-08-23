@@ -82,7 +82,20 @@ class EventService
             $query->whereHas(
                 'community.followers',
                 fn ($f) => $f->where('profile_id', $followerId)
-            );
+            )
+                // A follower is NOT a member (kolabing-app#138). Without this,
+                // following a community — one tap, no approval, nobody asked —
+                // returned its member- and tier-only events too, ids included,
+                // which is the exact privilege the split exists to withhold.
+                // The gate lives on this branch alone: `profile_id` (a leader
+                // listing their OWN events) and `attendee_profile_id` (events
+                // they were admitted to) must keep seeing everything.
+                //
+                // Someone who is both a member and a follower sees a little
+                // less here than they are entitled to; their member events are
+                // on the community's own surfaces. Under-showing to a member
+                // beats over-showing to a follower.
+                ->where('visibility', EventVisibility::Public->value);
         }
 
         $time = $filters['time'] ?? null;
