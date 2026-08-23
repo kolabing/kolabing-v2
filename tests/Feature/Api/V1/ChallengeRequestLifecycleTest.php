@@ -27,6 +27,23 @@ class ChallengeRequestLifecycleTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
+    /**
+     * Unfreeze the clock here rather than at the end of each test.
+     *
+     * Several of these travel in time, and a test that FAILS never reaches a
+     * reset written in its own body — so the frozen `now()` leaks into whatever
+     * runs next. That is not hypothetical: it broke
+     * `EventSelfCheckinTest::checking_in_before_the_event_starts` on the
+     * integration branch, where the file ordering put it after this one.
+     * tearDown runs either way.
+     */
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
+
     private function attendee(): Profile
     {
         $profile = Profile::factory()->attendee()->create();
@@ -177,7 +194,6 @@ class ChallengeRequestLifecycleTest extends TestCase
         );
         $this->assertSame(0, $b->attendeeProfile->fresh()->total_points);
 
-        Carbon::setTestNow();
     }
 
     /**
@@ -197,7 +213,6 @@ class ChallengeRequestLifecycleTest extends TestCase
             ->postJson("/api/v1/challenge-completions/{$id}/verify")
             ->assertSuccessful();
 
-        Carbon::setTestNow();
     }
 
     public function test_the_sweep_command_expires_stale_requests(): void
@@ -214,7 +229,6 @@ class ChallengeRequestLifecycleTest extends TestCase
             ChallengeCompletion::query()->findOrFail($id)->status
         );
 
-        Carbon::setTestNow();
     }
 
     public function test_the_sweep_leaves_live_requests_alone(): void
