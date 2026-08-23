@@ -94,6 +94,40 @@ class CheckinController extends Controller
     }
 
     /**
+     * Check the caller in to an event they are going to, no token needed.
+     *
+     * POST /api/v1/events/{event}/checkin
+     *
+     * 201 on success, so a client can tell it from the QR door's 200. Every
+     * refusal is a 422 with a message the app renders verbatim, except an
+     * existing check-in which is a **409** — the caller's intent is already
+     * satisfied and the app treats it as "you are in" rather than an error.
+     */
+    public function selfCheckin(Request $request, Event $event): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        try {
+            $checkin = $this->checkinService->selfCheckin($event, $profile);
+
+            return response()->json([
+                'success' => true,
+                'message' => __('Checked in successfully.'),
+                'data' => new EventCheckinResource($checkin),
+            ], 201);
+        } catch (\LogicException $e) {
+            $already = str_contains($e->getMessage(), 'already checked in');
+
+            return response()->json([
+                'success' => false,
+                'error' => $already ? 'already_checked_in' : 'self_checkin_refused',
+                'message' => $e->getMessage(),
+            ], $already ? 409 : 422);
+        }
+    }
+
+    /**
      * List check-ins for an event.
      *
      * GET /api/v1/events/{event}/checkins
