@@ -95,7 +95,14 @@ class EventService
                 // less here than they are entitled to; their member events are
                 // on the community's own surfaces. Under-showing to a member
                 // beats over-showing to a follower.
-                ->where('visibility', EventVisibility::Public->value);
+                // Public plus `followers` — the viewer follows by definition
+                // (kolabing-app#157). Not members/tier: see
+                // EventDiscoveryService::applyFollowingFilter for why that
+                // under-shows to a member on purpose.
+                ->whereIn('visibility', [
+                    EventVisibility::Public->value,
+                    EventVisibility::Followers->value,
+                ]);
         }
 
         $time = $filters['time'] ?? null;
