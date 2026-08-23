@@ -234,6 +234,56 @@ class CommunityFollowTest extends TestCase
             ->assertJsonCount(1, 'data.events');
     }
 
+    /**
+     * The one that was wrong. `following=me` scoped by follow and nothing else,
+     * so following a community — one tap, no approval, nobody asked — handed
+     * over its member-only events, ids included. That is the precise privilege
+     * the follower/member split exists to withhold (kolabing-app#138), and this
+     * listing is worse than the signup gap in BACKLOG IF-28, because it is what
+     * hands out the ids in the first place.
+     */
+    public function test_the_feed_does_not_include_a_followed_communitys_member_only_events(): void
+    {
+        $followed = $this->community();
+        $person = $this->person();
+
+        $this->eventFor($followed, 'Open to all');
+        $this->eventFor($followed, 'Members only')->update(['visibility' => 'members']);
+
+        $this->actingAs($person)
+            ->postJson("/api/v1/communities/{$followed->id}/follow")
+            ->assertSuccessful();
+
+        $names = collect(
+            $this->actingAs($person)
+                ->getJson('/api/v1/events?following=me&time=upcoming')
+                ->json('data.events')
+        )->pluck('name')->all();
+
+        $this->assertContains('Open to all', $names);
+        $this->assertNotContains('Members only', $names, 'a follower is not a member');
+    }
+
+    /**
+     * The gate belongs to the follows branch alone: a leader listing their OWN
+     * events must still see the member-only ones.
+     */
+    public function test_the_public_only_gate_does_not_narrow_a_leaders_own_listing(): void
+    {
+        $community = $this->community();
+        $this->eventFor($community, 'Members only')->update(['visibility' => 'members']);
+
+        $owner = Profile::query()->findOrFail($community->owner_profile_id);
+
+        $names = collect(
+            $this->actingAs($owner)
+                ->getJson('/api/v1/events?time=upcoming')
+                ->json('data.events')
+        )->pluck('name')->all();
+
+        $this->assertContains('Members only', $names);
+    }
+
     public function test_unfollowing_takes_the_events_back_out_of_the_feed(): void
     {
         $followed = $this->community();
