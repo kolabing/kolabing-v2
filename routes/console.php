@@ -54,3 +54,10 @@ Schedule::command('app:generate-suggestions')
 Schedule::command('app:send-onboarding-drip')
     ->hourly()
     ->withoutOverlapping();
+
+/*
+ * A challenge request nobody answered dies with its event (kolabing-app#154).
+ * Nightly rather than hourly: the read paths already refuse an expired request,
+ * so this only tidies the data, and there is nothing to race.
+ */
+Schedule::command('app:expire-pending-challenges')->dailyAt('03:30');

@@ -220,6 +220,117 @@ class ChallengeCompletionService
     }
 
     /**
+     * The challenger withdraws a request before it is answered
+     * (kolabing-app#154).
+     *
+     * Only the challenger, because it is their ask. The verifier already has a
+     * way out — Reject — and the two should stay distinct: "I changed my mind"
+     * and "no, we did not do that" are different facts, and the second is the
+     * one that says something about the pair.
+     *
+     * This became necessary with the flow reversal (kolabing-app#152): choosing
+     * a challenge and then scanning means a mis-scan sends a real request to the
+     * wrong person, and until now there was no way to take it back.
+     *
+     * @throws \InvalidArgumentException not the challenger
+     * @throws \LogicException already answered
+     */
+    public function cancel(Profile $challenger, ChallengeCompletion $completion): ChallengeCompletion
+    {
+        if ($completion->challenger_profile_id !== $challenger->id) {
+            throw new \InvalidArgumentException('Only the person who asked can cancel this.');
+        }
+
+        if (! $completion->isPending()) {
+            throw new \LogicException('This challenge has already been answered.');
+        }
+
+        $completion->update(['status' => ChallengeCompletionStatus::Cancelled->value]);
+
+        Log::info('Challenge cancelled by challenger', [
+            'completion_id' => $completion->id,
+            'challenger_profile_id' => $challenger->id,
+        ]);
+
+        return $completion->fresh(['challenge', 'event', 'challenger', 'verifier']);
+    }
+
+    /**
+     * How long a request stays answerable after it is made, regardless of what
+     * the event's dates say.
+     *
+     * 12 hours, matching the app's active check-in session
+     * (`kActiveEventSessionTtl`), because the model's rule is "the end of the
+     * event **or** the check-in session" and that session is what the two people
+     * are actually inside.
+     */
+    private const REQUEST_TTL_HOURS = 12;
+
+    /**
+     * Whether a pending request has run out (kolabing-app#154).
+     *
+     * The event's window **or** REQUEST_TTL_HOURS from when it was asked,
+     * whichever is LATER.
+     *
+     * "Later" is load-bearing, and it is the event's dates that make it
+     * necessary. An event's recorded schedule is not always the truth: events
+     * exist with only a date and no times, with dates in the past (retroactive
+     * showcases are a first-class thing here), and with schedules that were
+     * edited after the fact. Keying expiry on the window alone would mean a
+     * request made ten seconds ago is already dead because someone typed
+     * yesterday's date — so the session gives every request its own floor, and
+     * the window is what closes a request that outlives a long event.
+     */
+    public function hasExpired(ChallengeCompletion $completion): bool
+    {
+        $askedAt = $completion->created_at;
+
+        if ($askedAt === null) {
+            return false;
+        }
+
+        $sessionEndsAt = $askedAt->copy()->addHours(self::REQUEST_TTL_HOURS);
+        $windowEndsAt = $completion->event?->challengesCloseAt();
+
+        $expiresAt = $windowEndsAt !== null && $windowEndsAt->isAfter($sessionEndsAt)
+            ? $windowEndsAt
+            : $sessionEndsAt;
+
+        return $expiresAt->isPast();
+    }
+
+    /**
+     * Mark every pending request whose event has closed (kolabing-app#154).
+     *
+     * Read paths refuse an expired request anyway, so this is about the data
+     * telling the truth rather than about correctness — a table slowly filling
+     * with rows that say "pending" about last month is how a status stops
+     * meaning anything.
+     *
+     * @return int how many were expired
+     */
+    public function expireStale(): int
+    {
+        $expired = 0;
+
+        ChallengeCompletion::query()
+            ->where('status', ChallengeCompletionStatus::Pending->value)
+            ->with('event')
+            ->chunkById(200, function ($completions) use (&$expired): void {
+                foreach ($completions as $completion) {
+                    if (! $this->hasExpired($completion)) {
+                        continue;
+                    }
+
+                    $completion->update(['status' => ChallengeCompletionStatus::Expired->value]);
+                    $expired++;
+                }
+            });
+
+        return $expired;
+    }
+
+    /**
      * Verify a pending challenge completion and award points.
      */
     public function verify(Profile $verifier, ChallengeCompletion $completion): ChallengeCompletion
@@ -231,6 +342,19 @@ class ChallengeCompletionService
                 'designated_verifier_id' => $completion->verifier_profile_id,
             ]);
             throw new \InvalidArgumentException('You are not the designated verifier for this challenge.');
+        }
+
+        // A request that outlived its event is not waiting for anything
+        // (kolabing-app#154). Without this it could be confirmed days later, for
+        // XP neither person earned in the room — and the sweep command runs
+        // daily, so there is always a window where the row still says pending.
+        if ($completion->isPending() && $this->hasExpired($completion)) {
+            $completion->update(['status' => ChallengeCompletionStatus::Expired->value]);
+
+            Log::warning('Challenge verify blocked: expired', [
+                'completion_id' => $completion->id,
+            ]);
+            throw new \LogicException('This challenge expired when the event ended.');
         }
 
         if (! $completion->isPending()) {
@@ -312,8 +436,24 @@ class ChallengeCompletionService
     public function getMyCompletions(Profile $profile, int $perPage = 10): LengthAwarePaginator
     {
         return ChallengeCompletion::query()
-            ->where('challenger_profile_id', $profile->id)
-            ->orWhere('verifier_profile_id', $profile->id)
+            // Grouped, not chained: adding the status filter below to a bare
+            // `where()->orWhere()` would read as
+            // "(challenger = me) OR (verifier = me AND ...)" and quietly stop
+            // filtering half the rows.
+            ->where(function ($mine) use ($profile): void {
+                $mine->where('challenger_profile_id', $profile->id)
+                    ->orWhere('verifier_profile_id', $profile->id);
+            })
+            // Cancelled and expired requests are excluded, and this is a
+            // COMPATIBILITY decision as much as a product one: shipped app
+            // builds parse an unknown status by falling back to `pending`, so
+            // any status they do not know about would surface on their poller as
+            // a live request that can never be answered. Excluding them here is
+            // what keeps those builds honest (kolabing-app#154).
+            ->whereNotIn('status', [
+                ChallengeCompletionStatus::Cancelled->value,
+                ChallengeCompletionStatus::Expired->value,
+            ])
             ->with(['challenge', 'event', 'challenger', 'verifier'])
             ->orderByDesc('created_at')
             ->paginate($perPage);

@@ -449,6 +449,10 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.challenge-completions.reject');
 
         // My challenge completions
+        // The challenger takes back a request nobody answered yet (#154).
+        Route::post('challenge-completions/{challengeCompletion}/cancel', [ChallengeCompletionController::class, 'cancel'])
+            ->name('api.v1.challenge-completions.cancel');
+
         Route::get('me/challenge-completions', [ChallengeCompletionController::class, 'myCompletions'])
             ->name('api.v1.me.challenge-completions');
 
