@@ -16,6 +16,7 @@ use App\Http\Resources\Api\V1\CommunityMemberResource;
 use App\Http\Resources\Api\V1\CommunityResource;
 use App\Http\Resources\Api\V1\CommunityTierResource;
 use App\Models\Community;
+use App\Models\CommunityMember;
 use App\Models\Profile;
 use App\Services\CommunityMemberService;
 use App\Services\CommunityMembershipHydrator;
@@ -183,6 +184,23 @@ class CommunityController extends Controller
         return response()->json([
             'success' => true,
             'data' => new CommunityResource($community),
+            // The two public numbers (kolabing-app#147): Followers and ACTIVE
+            // Members. Not the total membership — that only ever grows, so after
+            // a couple of years it stops describing a community and starts
+            // flattering it. Leaders get all three from /stats.
+            //
+            // Beside the resource, not inside it: CommunityResource is
+            // serialized in lists, and per-row counts on it took
+            // /me/rewards-overview from 12 queries to 21 the last time. Here it
+            // is one community and two counts.
+            'audience' => [
+                'followers' => $community->followers()->count(),
+                'active_members' => $community->members()
+                    ->where('status', CommunityMemberStatus::Active->value)
+                    ->where('last_attended_at', '>=', now()->subDays(CommunityMember::ACTIVE_WINDOW_DAYS))
+                    ->count(),
+                'active_window_days' => CommunityMember::ACTIVE_WINDOW_DAYS,
+            ],
         ]);
     }
 
