@@ -41,6 +41,7 @@ class ChallengeCompletion extends Model
         'verifier_profile_id',
         'status',
         'points_earned',
+        'proof_photo_url',
         'completed_at',
     ];
 

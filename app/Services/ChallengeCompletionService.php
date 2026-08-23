@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\ChallengeCompletionStatus;
+use App\Enums\FileUploadType;
 use App\Enums\MissionTrigger;
 use App\Models\Challenge;
 use App\Models\ChallengeCompletion;
@@ -12,6 +13,7 @@ use App\Models\Event;
 use App\Models\EventCheckin;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -22,7 +24,106 @@ class ChallengeCompletionService
         private readonly NotificationService $notificationService,
         private readonly CommunityPointsService $communityPointsService,
         private readonly MissionService $missionService,
+        private readonly FileUploadService $fileUploadService,
     ) {}
+
+    /**
+     * Attach (or replace) the photo the pair took (kolabing-v2#216).
+     *
+     * Either participant may do it. Two people are in that picture, and which of
+     * them happened to press the button first is not a permission model.
+     *
+     * Allowed while `pending` and after `verified`, refused once `rejected`:
+     * before, because the camera opens as soon as the pair agrees and the photo
+     * exists before the confirmation does; after, because people remember to
+     * keep it later. Rejected means the thing did not happen, so there is
+     * nothing to illustrate.
+     *
+     * Replacing deletes the old file rather than orphaning it — one completion,
+     * one photo, and the disk should say the same.
+     *
+     * @throws \InvalidArgumentException not a participant
+     * @throws \LogicException the completion was rejected
+     */
+    public function attachProofPhoto(
+        Profile $actor,
+        ChallengeCompletion $completion,
+        UploadedFile $photo
+    ): ChallengeCompletion {
+        $this->assertParticipant($actor, $completion);
+
+        if ($completion->status === ChallengeCompletionStatus::Rejected) {
+            throw new \LogicException('This challenge was not confirmed, so there is nothing to add a photo to.');
+        }
+
+        $previous = $completion->proof_photo_url;
+
+        // Returns an absolute URL; delete() takes either that or a raw path.
+        $url = $this->fileUploadService->uploadFromFile(
+            $photo,
+            FileUploadType::ChallengeProof,
+            $completion->id
+        );
+
+        $completion->update(['proof_photo_url' => $url]);
+
+        if ($previous !== null && $previous !== $url) {
+            // A failed delete must not fail the upload the user just waited for.
+            try {
+                $this->fileUploadService->delete($previous);
+            } catch (\Throwable $e) {
+                Log::warning('Challenge proof photo replace: old file not deleted', [
+                    'completion_id' => $completion->id,
+                    'path' => $previous,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $completion->fresh(['challenge', 'challenger', 'verifier']);
+    }
+
+    /**
+     * Remove the photo. Either participant, for the same reason as attaching:
+     * both of them are in it, so both can take it down.
+     *
+     * @throws \InvalidArgumentException not a participant
+     */
+    public function removeProofPhoto(Profile $actor, ChallengeCompletion $completion): ChallengeCompletion
+    {
+        $this->assertParticipant($actor, $completion);
+
+        $url = $completion->proof_photo_url;
+        $completion->update(['proof_photo_url' => null]);
+
+        if ($url !== null) {
+            try {
+                $this->fileUploadService->delete($url);
+            } catch (\Throwable $e) {
+                // The row is already clear, which is what the caller asked for.
+                Log::warning('Challenge proof photo delete: file not removed', [
+                    'completion_id' => $completion->id,
+                    'url' => $url,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $completion->fresh(['challenge', 'challenger', 'verifier']);
+    }
+
+    /**
+     * @throws \InvalidArgumentException
+     */
+    private function assertParticipant(Profile $actor, ChallengeCompletion $completion): void
+    {
+        $isParticipant = $actor->id === $completion->challenger_profile_id
+            || $actor->id === $completion->verifier_profile_id;
+
+        if (! $isParticipant) {
+            throw new \InvalidArgumentException('Only the two people in this challenge can change its photo.');
+        }
+    }
 
     /**
      * Initiate a peer-to-peer challenge between two checked-in attendees.

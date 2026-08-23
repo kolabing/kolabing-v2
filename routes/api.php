@@ -460,6 +460,14 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.challenge-completions.reject');
 
         // My challenge completions
+        // The photo the pair took (#216). Either participant may attach, replace
+        // or remove it — both of them are in it.
+        Route::post('challenge-completions/{challengeCompletion}/photo', [ChallengeCompletionController::class, 'attachPhoto'])
+            ->name('api.v1.challenge-completions.photo.store');
+
+        Route::delete('challenge-completions/{challengeCompletion}/photo', [ChallengeCompletionController::class, 'removePhoto'])
+            ->name('api.v1.challenge-completions.photo.destroy');
+
         Route::get('me/challenge-completions', [ChallengeCompletionController::class, 'myCompletions'])
             ->name('api.v1.me.challenge-completions');
 
