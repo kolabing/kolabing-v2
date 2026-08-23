@@ -416,10 +416,55 @@ communities (id uuid PK, owner_profile_id FK->profiles cascade,
                            joined_at, tier_assigned_at?, timestamps,
                            UNIQUE(community_id, profile_id))
 
+ ├─1:N─ community_followers (kolabing-app#138 — id uuid PK,
+ │                         community_id FK->communities cascade,
+ │                         profile_id FK->profiles cascade,
+ │                         followed_at, timestamps,
+ │                         UNIQUE(community_id, profile_id))
+ └─1:N─ community_join_questions (kolabing-app#138 — id uuid PK,
+                           community_id FK->communities cascade,
+                           position smallint (1..5), prompt string(280),
+                           required bool default true,
+                           is_active bool default true (RETIRE, never delete),
+                           timestamps)
+                             └─1:N─ community_join_answers (id uuid PK,
+                                     join_request_id FK->community_join_requests cascade,
+                                     question_id FK->community_join_questions cascade,
+                                     answer text, timestamps,
+                                     UNIQUE(join_request_id, question_id))
+
 events.community_id  FK->communities nullOnDelete null   ← the §8.6 linkage
 ```
 
-Enums (`app/Enums`): `CommunityType`, `TierAssignmentRule`, `JoinPolicy`, `CommunityMemberStatus`. Models: `Community`, `CommunityTier`, `CommunityMember` (+ `Profile::ownedCommunities()` / `communityMemberships()`, `Event::community()`).
+### 12.1a Follower vs member (added 2026-08-22, kolabing-app#138)
+
+**Two relationships, two tables.** `community_followers` is interest;
+`community_members` is belonging. A follower may see the community and sign up
+to its **public** events — and so play the QR check-in / challenge loop, whose
+XP is global and not community-scoped. Membership is what gates the chat,
+member/tier events, community points, badges, the leaderboard and tiers.
+
+**Why not one table with a `kind` column.** Every member gate reads
+`community_members`. Keeping followers out of it means none of those queries can
+begin matching a follower by accident; a discriminator column fails the other
+way — the unfiltered query would include followers, so missing one call site
+would leak privilege silently. `CommunityMemberAccessRegressionTest` locks both
+directions.
+
+**Membership gate.** `community_join_questions` (max 5 active, enforced in
+`CommunityJoinQuestionService`) + `community_join_answers` on the existing
+`CommunityJoinRequest`. `join_policy` now reads as: `invite_only` → a leader
+decides; `open` → refuses the request path **unless** the community has active
+questions, in which case the application is accepted and auto-approved in one
+transaction. No community has questions until a leader creates one, so this
+changed nothing on deploy.
+
+**Follower state is not on `CommunityResource`** — it is serialized in lists and
+a per-row count is an N+1 (`MeRewardsOverviewNPlusOneTest` caught exactly that).
+It is served by `GET /me/community-follows` and by the follow/unfollow responses
+instead.
+
+Enums (`app/Enums`): `CommunityType`, `TierAssignmentRule`, `JoinPolicy`, `CommunityMemberStatus`. Models: `Community`, `CommunityTier`, `CommunityMember`, `CommunityFollower`, `CommunityJoinQuestion`, `CommunityJoinAnswer` (+ `Profile::ownedCommunities()` / `communityMemberships()` / `communityFollows()`, `Community::followers()` / `joinQuestions()`, `Event::community()`).
 
 ### 12.2 The cap gate — NOT the paywall
 
