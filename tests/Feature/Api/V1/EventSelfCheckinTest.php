@@ -11,6 +11,7 @@ use App\Models\EventCheckin;
 use App\Models\EventSignup;
 use App\Models\Profile;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 /**
@@ -29,6 +30,17 @@ use Tests\TestCase;
 class EventSelfCheckinTest extends TestCase
 {
     use LazilyRefreshDatabase;
+
+    /**
+     * Unfreeze here rather than in a test body: a failing test never reaches its
+     * own reset, and a leaked `now()` breaks whatever runs next.
+     */
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
 
     private function attendee(): Profile
     {
@@ -164,13 +176,21 @@ class EventSelfCheckinTest extends TestCase
 
     /**
      * Arriving early must work: the day is the resolution, not the start time.
+     *
+     * The clock is frozen, and that is the point of this comment. This test used
+     * to say `now()->addHours(6)` — which is "still today" only before 18:00 UTC,
+     * so it passed all morning and failed in the evening. A test about what
+     * counts as today cannot be written relative to whatever time it happens to
+     * run at.
      */
     public function test_checking_in_before_the_event_starts_is_allowed_on_the_day(): void
     {
+        Carbon::setTestNow(Carbon::today()->setTime(9, 0));
+
         $attendee = $this->attendee();
         $event = $this->event([
-            'starts_at' => now()->addHours(6),
-            'ends_at' => now()->addHours(8),
+            'starts_at' => Carbon::today()->setTime(18, 0),
+            'ends_at' => Carbon::today()->setTime(22, 0),
         ]);
         $this->going($event, $attendee);
 
