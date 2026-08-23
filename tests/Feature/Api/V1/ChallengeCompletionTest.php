@@ -357,6 +357,103 @@ class ChallengeCompletionTest extends TestCase
             ->assertJsonPath('success', false);
     }
 
+    /**
+     * The point of kolabing-app#140: a challenge is something two people did,
+     * so it pays both of them.
+     *
+     * Before this, only the challenger was credited — which made confirming
+     * unpaid labour and gave the other person no reason to take part beyond
+     * politeness.
+     */
+    public function test_both_participants_earn_points(): void
+    {
+        $setup = $this->setupCheckedInPair();
+        $points = $setup['challenge']->points;
+
+        $this->assertEquals(0, $setup['challenger']->attendeeProfile->total_points);
+        $this->assertEquals(0, $setup['verifier']->attendeeProfile->total_points);
+
+        $completion = ChallengeCompletion::factory()->create([
+            'challenge_id' => $setup['challenge']->id,
+            'event_id' => $setup['event']->id,
+            'challenger_profile_id' => $setup['challenger']->id,
+            'verifier_profile_id' => $setup['verifier']->id,
+            'status' => ChallengeCompletionStatus::Pending,
+            'points_earned' => 0,
+        ]);
+
+        $response = $this->actingAs($setup['verifier'])
+            ->postJson("/api/v1/challenge-completions/{$completion->id}/verify");
+
+        $response->assertStatus(200);
+
+        // `points_earned` is what EACH side earned, not a total to split.
+        $this->assertSame($points, $response->json('data.points_earned'));
+
+        $this->assertEquals(
+            $points,
+            $setup['challenger']->attendeeProfile->fresh()->total_points,
+            'the challenger earns'
+        );
+        $this->assertEquals(
+            $points,
+            $setup['verifier']->attendeeProfile->fresh()->total_points,
+            'and so does the person who did it with them'
+        );
+    }
+
+    public function test_both_participants_completed_count_moves(): void
+    {
+        $setup = $this->setupCheckedInPair();
+
+        $completion = ChallengeCompletion::factory()->create([
+            'challenge_id' => $setup['challenge']->id,
+            'event_id' => $setup['event']->id,
+            'challenger_profile_id' => $setup['challenger']->id,
+            'verifier_profile_id' => $setup['verifier']->id,
+            'status' => ChallengeCompletionStatus::Pending,
+            'points_earned' => 0,
+        ]);
+
+        $this->actingAs($setup['verifier'])
+            ->postJson("/api/v1/challenge-completions/{$completion->id}/verify")
+            ->assertStatus(200);
+
+        $this->assertEquals(
+            1,
+            $setup['challenger']->attendeeProfile->fresh()->total_challenges_completed
+        );
+        $this->assertEquals(
+            1,
+            $setup['verifier']->attendeeProfile->fresh()->total_challenges_completed
+        );
+    }
+
+    /**
+     * Paying both must not become a way to pay twice: a rejected challenge
+     * pays nobody, and a second verify is already blocked.
+     */
+    public function test_a_rejected_challenge_pays_nobody(): void
+    {
+        $setup = $this->setupCheckedInPair();
+
+        $completion = ChallengeCompletion::factory()->create([
+            'challenge_id' => $setup['challenge']->id,
+            'event_id' => $setup['event']->id,
+            'challenger_profile_id' => $setup['challenger']->id,
+            'verifier_profile_id' => $setup['verifier']->id,
+            'status' => ChallengeCompletionStatus::Pending,
+            'points_earned' => 0,
+        ]);
+
+        $this->actingAs($setup['verifier'])
+            ->postJson("/api/v1/challenge-completions/{$completion->id}/reject")
+            ->assertStatus(200);
+
+        $this->assertEquals(0, $setup['challenger']->attendeeProfile->fresh()->total_points);
+        $this->assertEquals(0, $setup['verifier']->attendeeProfile->fresh()->total_points);
+    }
+
     public function test_points_added_to_attendee_profile(): void
     {
         $setup = $this->setupCheckedInPair();
