@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\V1\CollaborationChallengeController;
 use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\CollaborationQrCodeController;
 use App\Http\Controllers\Api\V1\CommunityBadgeController;
+use App\Http\Controllers\Api\V1\CommunityChallengeController;
 use App\Http\Controllers\Api\V1\CommunityController;
 use App\Http\Controllers\Api\V1\CommunityFollowController;
 use App\Http\Controllers\Api\V1\CommunityGoalController;
@@ -404,6 +405,14 @@ Route::prefix('v1')->group(function (): void {
         | Gamification - Challenges
         |--------------------------------------------------------------------------
         */
+
+        // The challenge library, and which of it a community plays (#150).
+        Route::get('challenge-library', [CommunityChallengeController::class, 'library'])
+            ->name('api.v1.challenge-library');
+        Route::get('communities/{community}/challenges', [CommunityChallengeController::class, 'index'])
+            ->name('api.v1.communities.challenges.index');
+        Route::put('communities/{community}/challenges', [CommunityChallengeController::class, 'sync'])
+            ->name('api.v1.communities.challenges.sync');
 
         // List challenges for an event (system + custom)
         Route::get('events/{event}/challenges', [ChallengeController::class, 'index'])
