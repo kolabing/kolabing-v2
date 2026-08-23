@@ -193,6 +193,38 @@ class ChallengeCompletionController extends Controller
     }
 
     /**
+     * The challenger withdraws a pending request.
+     *
+     * POST /api/v1/challenge-completions/{challengeCompletion}/cancel
+     */
+    public function cancel(Request $request, ChallengeCompletion $challengeCompletion): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        try {
+            $completion = $this->challengeCompletionService->cancel($profile, $challengeCompletion);
+
+            return response()->json([
+                'success' => true,
+                'data' => new ChallengeCompletionResource($completion),
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'not_the_challenger',
+                'message' => $e->getMessage(),
+            ], 403);
+        } catch (\LogicException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'already_answered',
+                'message' => $e->getMessage(),
+            ], 409);
+        }
+    }
+
+    /**
      * Get the authenticated user's challenge completions.
      *
      * GET /api/v1/me/challenge-completions
