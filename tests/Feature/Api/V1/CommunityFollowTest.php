@@ -320,31 +320,72 @@ class CommunityFollowTest extends TestCase
      * The two relationships are independent axes: a member who never tapped
      * follow is not a follower, and being one does not imply the other.
      */
-    public function test_membership_and_following_are_independent(): void
+    /**
+     * The rule CHANGED here — this test used to assert that a membership row
+     * carries no follow, and that was a correct statement of the old rule
+     * (kolabing-v2#211). The product model now says a Member is always a
+     * Follower (kolabing-app#146), so the assertion inverts.
+     *
+     * Note it goes through the API rather than creating the row directly: the
+     * follow is granted by CommunityMemberService, so a test that inserts a
+     * membership behind the service's back proves nothing about the rule.
+     */
+    public function test_joining_makes_you_a_follower_too(): void
     {
         $community = $this->community();
-        $member = $this->person();
+        $person = $this->person();
 
-        $community->members()->create([
-            'profile_id' => $member->id,
-            'can_manage' => false,
-            'status' => CommunityMemberStatus::Active->value,
-            'joined_at' => Carbon::now(),
-        ]);
+        $this->actingAs($person)
+            ->postJson("/api/v1/communities/{$community->id}/join")
+            ->assertSuccessful();
 
-        $this->assertFalse(CommunityFollower::query()
-            ->where('community_id', $community->id)
-            ->where('profile_id', $member->id)
-            ->exists());
+        $this->assertTrue(
+            CommunityFollower::query()
+                ->where('community_id', $community->id)
+                ->where('profile_id', $person->id)
+                ->exists(),
+            'a member should not have to press Follow separately'
+        );
+    }
 
-        // A member may still follow; it changes nothing about their membership.
-        $this->actingAs($member)
+    /**
+     * The half that has NOT changed, and must not: following grants nothing.
+     * This is the direction the separate tables exist to protect — every
+     * member-gated query in the app reads `community_members`, and a follower
+     * must never appear in it.
+     */
+    public function test_following_still_does_not_make_you_a_member(): void
+    {
+        $community = $this->community();
+        $person = $this->person();
+
+        $this->actingAs($person)
             ->postJson("/api/v1/communities/{$community->id}/follow")
             ->assertStatus(201);
 
-        $this->assertTrue($community->members()
-            ->where('profile_id', $member->id)
-            ->where('status', CommunityMemberStatus::Active->value)
-            ->exists());
+        $this->assertFalse(
+            $community->members()->where('profile_id', $person->id)->exists(),
+            'following is interest, not membership'
+        );
+    }
+
+    /**
+     * Leaving must not take the follow with it: losing membership is not losing
+     * interest, and unfollowing is something a person does deliberately.
+     */
+    public function test_leaving_a_community_keeps_the_follow(): void
+    {
+        $community = $this->community();
+        $person = $this->person();
+
+        $this->actingAs($person)->postJson("/api/v1/communities/{$community->id}/join")->assertSuccessful();
+        $community->members()->where('profile_id', $person->id)->delete();
+
+        $this->assertTrue(
+            CommunityFollower::query()
+                ->where('community_id', $community->id)
+                ->where('profile_id', $person->id)
+                ->exists()
+        );
     }
 }
