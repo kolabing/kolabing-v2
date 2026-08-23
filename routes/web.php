@@ -5,6 +5,7 @@ use App\Enums\UserType;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
 use App\Http\Controllers\Admin\BlogController as AdminBlogController;
+use App\Http\Controllers\Admin\BusinessVisibilityBoostController as AdminBusinessVisibilityBoostController;
 use App\Http\Controllers\Admin\ChallengeController as AdminChallengeController;
 use App\Http\Controllers\Admin\ChallengeDefaultsController as AdminChallengeDefaultsController;
 use App\Http\Controllers\Admin\CommunityVerificationController as AdminCommunityVerificationController;
@@ -397,6 +398,9 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
 
         Route::get('/economics', [AdminRewardEconomicsController::class, 'edit'])->name('economics.edit');
         Route::put('/economics', [AdminRewardEconomicsController::class, 'update'])->name('economics.update');
+
+        Route::get('/business-visibility-boost', [AdminBusinessVisibilityBoostController::class, 'edit'])->name('business-visibility-boost.edit');
+        Route::put('/business-visibility-boost', [AdminBusinessVisibilityBoostController::class, 'update'])->name('business-visibility-boost.update');
     });
 });
 
