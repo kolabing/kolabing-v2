@@ -520,13 +520,33 @@ return [
     'account' => [
         'phone' => [
             'title' => 'On a phone',
+            /*
+             | Everything below the title is the APP's own copy, lifted from
+             | kolabing-app/lib/l10n/app_*.arb, so the replica reads exactly like the
+             | screen it mirrors. Do not "improve" the wording here — that is drift.
+             |
+             | `gallery` stays untranslated on purpose: public_gallery_section.dart
+             | hardcodes 'Gallery' in every language, so the app shows that too.
+             |
+             | `*_one` keys exist because window.t() has no plural support and the app
+             | pluralises these ("1 review" vs "2 reviews").
+             */
             'about' => 'About',
             'gallery' => 'Gallery',
-            'past_events' => 'Past events',
-            'collaborations' => 'Collaborations',
-            'links' => 'Links',
+            'past_events' => 'Past Events',
+            'past_kolabs' => 'Past Kolabs',
+            'no_past_kolabs' => 'No past kolabs yet',
+            'recent_reviews' => 'Recent Reviews',
+            'view_more' => 'View more',
+            'links' => 'Social Links',
             'reviews' => ':count reviews',
+            'reviews_one' => '1 review',
+            'partners' => ':count partners',
+            'partners_one' => '1 partner',
             'completed' => ':count completed',
+            'completed_one' => '1 completed',
+            'reputation_empty_title' => 'No reviews yet',
+            'reputation_empty_body' => 'Completed Kolabs will appear here once partners leave reviews.',
             'error' => 'Could not load the preview.',
             'note' => 'A read-only replica of the Kolabing app profile screen. It updates as you edit.',
         ],
