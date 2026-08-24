@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property string $id
@@ -58,6 +59,17 @@ class CommunityJoinRequest extends Model
     /**
      * @return BelongsTo<Community, $this>
      */
+    /**
+     * What the applicant answered. Eager-load this wherever a leader reviews
+     * the queue — the answers are the substance they decide on.
+     *
+     * @return HasMany<CommunityJoinAnswer, $this>
+     */
+    public function answers(): HasMany
+    {
+        return $this->hasMany(CommunityJoinAnswer::class, 'join_request_id');
+    }
+
     public function community(): BelongsTo
     {
         return $this->belongsTo(Community::class);

@@ -25,6 +25,18 @@
             <div class="mt-5 rounded-2xl bg-bad-surface text-bad-ink text-sm px-4 py-3 whitespace-pre-line" x-text="error"></div>
         </template>
 
+        {{-- Arrived from a suggestion card (BE-NF-39), and the prefill landed.
+             Bound to `suggestionApplied`, never to the `?suggestion=` parameter:
+             a suggestion that 404s or 403s leaves a blank working form and says
+             nothing at all. What it does say is the only thing that matters
+             about a prefill — every field is still the user's to change. --}}
+        <template x-if="suggestionApplied">
+            <div class="mt-5 rounded-2xl bg-primary-tint border border-primary px-4 py-3 flex items-start gap-2.5">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 mt-px text-amber"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>
+                <p class="text-[13px] font-semibold text-ink leading-relaxed">{{ __('webapp.form.from_suggestion') }}</p>
+            </div>
+        </template>
+
         {{-- ══ Intent picker ═══════════════════════════════════════════ --}}
         <template x-if="!loading && !intent">
             <div class="mt-7">
@@ -292,9 +304,23 @@
         const parts = location.pathname.slice((window.KB_BASE || '').length).split('/');
         const editId = parts[3] === 'edit' ? parts[2] : null;
 
+        /*
+         * /kolabs/create?suggestion={id} — the end of the suggestion funnel
+         * (BE-NF-39). Read once, here, so nothing downstream re-parses the URL.
+         *
+         * The flag is resolved server-side: with `suggestions.enabled` off the
+         * API 404s, so there is no prefill to chase and the form does not ask
+         * for one. Creating a Kolab is never gated by this flag.
+         */
+        const suggestionsEnabled = @json((bool) config('suggestions.enabled'));
+        const wantedSuggestion = new URLSearchParams(location.search).get('suggestion') || '';
+
         return {
             loading: true, busy: false, uploading: false, error: '',
             isEdit: !!editId, editId,
+            // Dropped the moment the fetch fails — see applySuggestion().
+            suggestionId: editId ? '' : wantedSuggestion,
+            suggestionApplied: false,
             pastEvents: [], pastEventBusy: false,
             intent: null, stepIndex: 0, doneOpen: false, doneTitle: '', doneBody: '',
             cities: [],
@@ -457,6 +483,9 @@
                 await this.loadLookups();
                 if (this.isEdit) await this.loadExisting();
                 else if (this.isCommunity) this.intent = 'community'; // communities have a single path
+                // After the lookups: a pre-filled chip is filtered against the
+                // options actually on screen (see knownOptions).
+                await this.applySuggestion();
                 this.loading = false;
             },
             async loadLookups() {
@@ -533,6 +562,100 @@
                         partner_name: e.partner_name.trim() || null,
                         photos: e.photos,
                     }));
+            },
+
+            /**
+             * Pre-fill from `GET /suggestions/{id}` (BE-NF-39).
+             *
+             * Two rules govern everything in here.
+             *
+             * **A broken suggestion never blocks Kolab creation.** Every failure
+             * path — flag off, 404 (expired, dismissed or unknown), 403 (someone
+             * else's row), network — leaves a blank working form and shows
+             * nothing. No banner, no error, no dead end. `suggestion_id` is
+             * dropped with it: CreateKolabRequest deliberately accepts a stale
+             * row of the caller's own, but it cannot tell that apart from a
+             * stranger's id here, and posting one that fails `exists` would turn
+             * a bad link into a 422 the user cannot get past. Losing the
+             * attribution for a card that never reached the screen is the
+             * cheaper of the two.
+             *
+             * **A prefill is a starting point, never a lock.** Nothing is
+             * disabled, nothing is re-applied, and a field the user clears stays
+             * cleared — this runs exactly once, before the first paint.
+             */
+            async applySuggestion() {
+                if (!suggestionsEnabled || this.isEdit || !this.suggestionId) return;
+
+                const res = await window.kb.api('/suggestions/' + encodeURIComponent(this.suggestionId));
+                if (!res.ok) { this.suggestionId = ''; return; }
+
+                // A blurred card carries `counterpart.name`, `avatar_url` and
+                // `id` as null (a free business). Nothing below reads them: the
+                // prefill is built from `suggested_format` alone, so the form
+                // works identically either side of the paywall.
+                const fmt = res.json?.data?.suggested_format || {};
+
+                const intent = { community_seeking: 'community', venue_promotion: 'venue', product_promotion: 'product' }[fmt.intent_type];
+                // Only an intent this account may actually create. The generator
+                // already picks by audience, but the picker is the authority on
+                // what a role may post and this must not contradict it.
+                const allowed = this.isCommunity ? ['community'] : ['venue', 'product'];
+                if (intent && allowed.includes(intent)) this.intent = intent;
+
+                // Already a sentence in the caller's locale (SuggestionResource
+                // renders `title_key`/`title_params`); clamped to what the field
+                // accepts so a long title cannot fail validation invisibly.
+                if (fmt.title) this.form.title = String(fmt.title).slice(0, 255);
+
+                // ISO 1..7 — the convention `recurring_days` stores and the API
+                // validates (`between:1,7`), which is why no shifting happens.
+                const weekday = Number(fmt.weekday);
+                if (Number.isInteger(weekday) && weekday >= 1 && weekday <= 7) {
+                    this.form.recurring_days = [weekday];
+                }
+
+                // `selected_time` is validated `date_format:H:i`. FormatSuggester
+                // already normalises, so this only refuses what would 422.
+                if (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(fmt.time_of_day || ''))) {
+                    this.form.selected_time = fmt.time_of_day;
+                }
+
+                /*
+                 * `offer` is what the viewer would give and `expects` what it
+                 * would ask for, both in the *viewer's* own taxonomy
+                 * (FormatSuggester::expects) — so they land in the viewer's own
+                 * fields and never in the counterpart's vocabulary.
+                 *
+                 * `expected_attendance` is the community's expected turnout, so
+                 * it fills `typical_attendance` and nothing else. It is
+                 * deliberately not written to a business `capacity`, which is a
+                 * fact about a venue rather than a guess about an event.
+                 */
+                if (this.intent === 'community') {
+                    const attendance = Number(fmt.expected_attendance);
+                    if (Number.isInteger(attendance) && attendance >= 1) this.form.typical_attendance = attendance;
+                    this.form.offers_in_return = this.knownOptions('deliverables', fmt.offer);
+                    this.form.needs = this.knownOptions('needs', fmt.expects);
+                } else {
+                    this.form.offering = this.knownOptions('offerings', fmt.offer);
+                    // A business `expects` has no step in this wizard and the
+                    // payload never sends one, so it is left out rather than
+                    // pre-filled into a field the user cannot see or undo.
+                }
+
+                this.suggestionApplied = true;
+            },
+
+            /**
+             * The subset of `values` that the loaded lookup actually offers. A
+             * chip whose option is not on screen could not be un-picked, which
+             * would make the prefill a lock; and a slug retired from the taxonomy
+             * would fail the API's `in:` rule at submit. Both cases drop it.
+             */
+            knownOptions(source, values) {
+                const known = new Set((this.lookups[source] || []).map(o => o.value));
+                return (Array.isArray(values) ? values : []).filter(v => known.has(v));
             },
 
             pickIntent(v) { this.intent = v; this.stepIndex = 0; this.error = ''; },
@@ -617,6 +740,16 @@
                 if (f.availability_start || f.recurring_days.length) {
                     body.availability_mode = f.recurring_days.length ? 'recurring' : 'flexible';
                 }
+                /*
+                 * What closes the funnel (BE-NF-39): KolabService::create writes
+                 * `converted_kolab_id` from this and the telemetry emits
+                 * `suggestion_converted`. It goes even if the user rewrote every
+                 * other field — the Kolab still came from that card. And it is
+                 * *absent* rather than null when they arrived without one: the
+                 * rule is `sometimes|nullable`, but a body with no key beats one
+                 * carrying null.
+                 */
+                if (!this.isEdit && this.suggestionId) body.suggestion_id = this.suggestionId;
 
                 if (this.intent === 'community') {
                     return {

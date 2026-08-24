@@ -16,6 +16,7 @@ use App\Models\Kolab;
 use App\Models\MultiKolabEvent;
 use App\Models\MultiKolabRole;
 use App\Models\Profile;
+use App\Support\Matching\CategoryFitMatrix;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator as LengthAwarePaginatorContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -73,62 +74,6 @@ class DiscoveryOpportunityService
         ['key' => 'location', 'label' => 'Location', 'weight' => 0.20],
         ['key' => 'value_fit', 'label' => 'Value fit', 'weight' => 0.20],
         ['key' => 'past_activity', 'label' => 'Past activity', 'weight' => 0.15],
-    ];
-
-    /**
-     * @var array<string, array<string, float>>
-     */
-    private const COMMUNITY_BUSINESS_CATEGORY_SCORES = [
-        'food_community' => [
-            'cafe' => 1.0,
-            'restaurant' => 0.98,
-            'food_truck' => 0.95,
-            'bakery' => 0.9,
-            'bar' => 0.72,
-            'bar_lounge' => 0.72,
-            'beverage' => 0.88,
-            'food_product' => 0.86,
-            'coworking' => 0.22,
-        ],
-        'run_club' => [
-            'sports_facility' => 1.0,
-            'gym' => 0.96,
-            'cafe' => 0.87,
-            'restaurant' => 0.7,
-            'hotel' => 0.55,
-            'retail' => 0.42,
-        ],
-        'fitness_community' => [
-            'sports_facility' => 1.0,
-            'gym' => 0.96,
-            'cafe' => 0.82,
-            'restaurant' => 0.68,
-            'health_beauty' => 0.75,
-        ],
-        'wellness_community' => [
-            'health_beauty' => 0.95,
-            'salon' => 0.92,
-            'cafe' => 0.78,
-            'hotel' => 0.74,
-            'gym' => 0.72,
-        ],
-        'tech_startup_community' => [
-            'coworking' => 1.0,
-            'hotel' => 0.76,
-            'cafe' => 0.7,
-            'tech_gadget' => 0.85,
-        ],
-        'professional_networking_community' => [
-            'coworking' => 0.98,
-            'hotel' => 0.82,
-            'cafe' => 0.74,
-        ],
-        'student_community' => [
-            'coworking' => 0.84,
-            'cafe' => 0.8,
-            'restaurant' => 0.72,
-            'retail' => 0.66,
-        ],
     ];
 
     /**
@@ -1538,7 +1483,7 @@ class DiscoveryOpportunityService
 
     private function resolveCategoryAffinityScore(string $communityType, string $businessCategory): float
     {
-        $mappedScore = self::COMMUNITY_BUSINESS_CATEGORY_SCORES[$communityType][$businessCategory] ?? null;
+        $mappedScore = CategoryFitMatrix::score($communityType, $businessCategory);
         if ($mappedScore !== null) {
             return $mappedScore;
         }
@@ -1552,13 +1497,14 @@ class DiscoveryOpportunityService
         };
     }
 
+    /**
+     * Delegates to the matrix's own normaliser so Explore and the nightly
+     * suggestion scorer can never disagree about what a stored category
+     * normalises to — they both feed the same exact-match table.
+     */
     private function normalizeCategoryValue(string $value): string
     {
-        return Str::of($value)
-            ->trim()
-            ->lower()
-            ->replace([' ', '-'], '_')
-            ->value();
+        return CategoryFitMatrix::normalize($value);
     }
 
     /**

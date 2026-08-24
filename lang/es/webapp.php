@@ -18,6 +18,7 @@ return [
         'community' => 'Comunidad',
         'home' => 'Inicio',
         'explore' => 'Explorar',
+        'suggestions' => 'Sugerencias',
         'my_kolabs' => 'Mis Kolabs',
         'events' => 'Eventos',
         'messages' => 'Mensajes',
@@ -231,6 +232,68 @@ return [
         'load_more' => 'Cargar más',
         'load_error' => 'No pudimos cargar los Kolabs.',
         'a_partner' => 'Un socio',
+        'by' => 'De',
+        'a_kolab' => 'Un Kolab',
+        'group_open' => 'Abierto ya',
+        'group_open_sub' => 'Fechas flexibles',
+        'group_tomorrow' => 'Mañana',
+        'when_until' => 'Abierto hasta el :date',
+        'when_flexible' => 'Horario flexible',
+    ],
+    /*
+     * Socios sugeridos (BE-NF-28). Aquí no hay copy de motivos a propósito:
+     * `signals[].reason` y el título del formato llegan de GET /suggestions ya
+     * como frases completas con los números reales dentro, traducidas al idioma
+     * de quien llama desde lang/{locale}/suggestions.php. Este bloque es solo el
+     * marco que los rodea.
+     */
+    'suggestions' => [
+        'title' => 'Socios sugeridos',
+        'subtitle_business' => 'Comunidades que merecen un Kolab, con los números que lo respaldan',
+        'subtitle_community' => 'Negocios que merecen un Kolab, con los números que lo respaldan',
+        'score_badge' => ':score% de afinidad',
+        'confidence_high' => 'Evidencia sólida',
+        'confidence_medium' => 'Buena evidencia',
+        'confidence_low' => 'Señal inicial',
+        'why_this' => 'Por qué este socio',
+        'format_title' => 'Formato sugerido',
+        'weekday_time' => ':weekday a las :time',
+        'expected_attendance' => 'Se esperan unas :count personas',
+        /*
+         * De dónde sale un número de la tarjeta. El motor nunca se inventa una
+         * cifra, y aquí es donde eso se ve en pantalla: «unas 45 personas» merece
+         * otra confianza si es la mediana de eventos reales que si es una fracción
+         * del número de miembros que la propia comunidad declara.
+         *
+         * La clave es `{campo}_{base}` para que el pie encaje con el número al que
+         * acompaña: `past_events` no dice lo mismo de la asistencia que del día de
+         * la semana. Faltan a propósito `attendance_profile_only` y `weekday_none`,
+         * las dos bases vacías. La tarjeta los busca con tOr(), así que una clave
+         * que no existe — o una base que añada un despliegue posterior de la API —
+         * no muestra ningún pie en lugar de una clave en crudo.
+         */
+        'basis' => [
+            'attendance_past_events' => 'Según la asistencia a sus eventos anteriores',
+            'attendance_community_size' => 'Estimado a partir de los miembros que declaran',
+            'weekday_series' => 'El día en que se repite su serie',
+            'weekday_past_events' => 'El día en que cayeron la mayoría de sus eventos',
+        ],
+        'offer_title' => 'Lo que ofrecerías',
+        'expects_title' => 'Lo que pedirías',
+        'create_cta' => 'Crear este Kolab',
+        'dismiss_cta' => 'No me interesa',
+        'blurred_title' => 'Comunidad oculta en el plan gratuito',
+        'blurred_body' => 'La afinidad, todos los motivos y el formato propuesto de arriba son reales. Solo se reservan el nombre y el logo.',
+        'blurred_cta' => 'Ver a quién te diriges',
+        'empty_title' => 'Aún no hay sugerencias',
+        'empty_body_business' => 'Cruzamos lo que dice tu perfil con lo que ya has hecho: tu local o producto, tu zona, tus Kolabs anteriores. Complétalo y empezarán a llegar comunidades sugeridas.',
+        'empty_body_community' => 'Cruzamos lo que dice tu perfil con lo que ya has hecho: tu tipo de comunidad, su tamaño, tu zona, tus eventos anteriores. Complétalo y empezarán a llegar negocios sugeridos.',
+        'empty_cta' => 'Completar mi perfil',
+        'load_more' => 'Cargar más',
+        'load_error' => 'No pudimos cargar tus sugerencias.',
+        'dismiss_error' => 'No pudimos descartar esta sugerencia.',
+        'dashboard_block_title' => ':count sugerencias esta semana',
+        'dashboard_block_title_one' => ':count sugerencia esta semana',
     ],
     'kolabs' => [
         'title' => 'Mis Kolabs',
@@ -289,6 +352,30 @@ return [
         'view_my_applications' => 'Ver mis solicitudes',
         'keep_exploring' => 'Seguir explorando',
         'back_to_explore' => 'Volver a Explorar',
+        'copy_link' => 'Copiar enlace',
+        'link_copied' => 'Copiado',
+        'copy_failed' => 'No se pudo copiar el enlace — puedes compartir la página del Kolab.',
+        'full_page' => 'Página completa',
+        'previous' => 'Kolab anterior',
+        'next' => 'Kolab siguiente',
+        'in_city' => 'En',
+        'open' => 'Abierto',
+        'dates_flexible' => 'Sin fechas fijas — propón un día',
+        'location_tbc' => 'El punto exacto se acuerda con el socio',
+        'about' => 'Sobre este Kolab',
+        'the_deal' => 'El acuerdo',
+        'on_offer' => 'Qué ofrece',
+        'looking_for' => 'Qué busca',
+        'posted_by' => 'Publicado por',
+        'view_profile' => 'Ver perfil',
+        'your_kolab' => 'Este es tu Kolab',
+        'your_kolab_draft' => 'Sigue en borrador — nadie lo ve ni puede postularse hasta que lo publiques.',
+        'your_kolab_live' => 'Está publicado. Las solicitudes llegan a Mis Kolabs → Solicitudes.',
+        'applied_title' => 'Ya te has postulado',
+        'applied_body' => 'Lo revisarán y te responderán. Míralo en Mis Kolabs → Solicitudes.',
+        'not_open' => 'No acepta solicitudes',
+        'not_open_body' => 'Este Kolab está cerrado o no publicado, así que ahora no se puede solicitar.',
+        'apply_card_body' => 'Elige las fechas que te sirvan y envía un mensaje corto. Las comunidades se postulan gratis.',
     ],
     'form' => [
         'past_events' => [
@@ -301,6 +388,7 @@ return [
         ],
         'create_title' => 'Crear un Kolab',
         'edit_title' => 'Editar Kolab',
+        'from_suggestion' => 'Rellenado desde un socio sugerido. Cambia lo que quieras: nada queda fijado.',
         'free' => 'GRATIS',
         'headline' => 'Titular',
         'typical_attendance' => 'Asistencia habitual',
@@ -723,6 +811,7 @@ return [
             'apply' => 'Aplicar a un Kolab requiere un plan activo. Elige uno abajo para continuar.',
             'create' => 'Crear un Kolab requiere un plan activo. Elige uno abajo para continuar.',
             'welcome' => 'Tu cuenta está lista. Elige un plan para empezar a publicar Kolabs.',
+            'suggestion' => 'El nombre y el logo de la comunidad detrás de una sugerencia siguen ocultos en el plan gratuito, igual que en Explorar. Un plan los revela y desbloquea las dos acciones que limita: aceptar una solicitud y aplicar a un Kolab.',
         ],
         'success' => [
             'confirming' => 'Confirmando tu pago…',

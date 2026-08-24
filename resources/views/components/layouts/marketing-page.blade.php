@@ -115,6 +115,9 @@
             <nav class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium text-off-black/70">
                 <a href="{{ route('for-businesses') }}" class="hover:text-off-black">Businesses</a>
                 <a href="{{ route('for-communities') }}" class="hover:text-off-black">Communities</a>
+                {{-- Header: Kolabs only. `/events` is a footer link until BE-NF-40
+                     retargets it at confirmed Kolabs (ROLES §7.5). --}}
+                <a href="{{ route('public-kolabs') }}" class="hover:text-off-black">Kolabs</a>
                 <a href="{{ route('pricing') }}" class="hover:text-off-black">Pricing</a>
                 <a href="{{ route('blog.index') }}" class="hover:text-off-black">Blog</a>
                 <a href="{{ route('support') }}" class="hidden hover:text-off-black md:inline">Support</a>
@@ -139,6 +142,8 @@
             <div class="flex flex-wrap gap-4 text-sm text-white/70">
                 <a href="{{ $webappRegister }}" class="font-bold text-primary hover:text-primary/80">Get started</a>
                 <a href="{{ $webappLogin }}" class="hover:text-primary">Log in</a>
+                <a href="{{ route('public-events') }}" class="hover:text-primary">What's on</a>
+                <a href="{{ route('public-kolabs') }}" class="hover:text-primary">Kolabs</a>
                 <a href="{{ route('pricing') }}" class="hover:text-primary">Pricing</a>
                 <a href="{{ route('blog.index') }}" class="hover:text-primary">Blog</a>
                 <a href="{{ route('support') }}" class="hover:text-primary">Support</a>

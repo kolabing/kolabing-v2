@@ -9,10 +9,34 @@ use App\Models\Event;
 use App\Support\CommunityTypeVocabulary;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
 
 class EventDiscoveryService
 {
+    /**
+     * Great-circle distance in km from a bound (lat, lng) to `events.location_*`,
+     * as the `atan2`/`asin` form of the Haversine formula. Bindings, in order:
+     * `[lat, lat, lng]`.
+     *
+     * Portable on purpose: `radians`, `sin`, `cos`, `power`, `sqrt` and `asin` are
+     * standard in PostgreSQL and available in SQLite from 3.35 (math functions),
+     * so the SAME expression runs in production and under `php artisan test`.
+     * `EventDiscoverySqlDialectTest` fails loudly if a build lacks them.
+     *
+     * Deliberately NOT the law-of-cosines `6371 * acos(cos·cos·cos + sin·sin)`
+     * this used to be: that inner term floats to 1 + ε for an event AT the query
+     * point, and PostgreSQL's `acos()` raises "input is out of range" rather than
+     * returning NaN. `asin(sqrt(a))` keeps its argument in range at zero distance.
+     */
+    private const HAVERSINE_KM = '(
+            2 * 6371 * asin(
+                sqrt(
+                    power(sin(radians(location_lat - ?) / 2), 2)
+                    + cos(radians(?)) * cos(radians(location_lat))
+                    * power(sin(radians(location_lng - ?) / 2), 2)
+                )
+            )
+        )';
+
     /**
      * Discover active events, optionally near a lat/lng and optionally filtered by
      * the host community's city / type, and by date (today | upcoming).
@@ -40,10 +64,24 @@ class EventDiscoveryService
     }
 
     /**
-     * Find active events near a given latitude/longitude within a radius (km).
+     * Find events near a given latitude/longitude within a radius (km), nearest
+     * first, with a transient `distance_km` on every row.
      *
-     * Uses the Haversine formula to calculate great-circle distances.
-     * The query approach varies by database driver for compatibility.
+     * ONE implementation, on every driver (BE-FX-23). The service used to branch:
+     * SQLite got a bounding box plus a PHP calculation, Postgres got trigonometry
+     * in SQL — and because `phpunit.xml` pins the suite to SQLite, the branch that
+     * runs in production was never executed by CI. That is the same blind spot
+     * that let BE-FX-12 ship a `max(uuid)` Postgres 500.
+     *
+     * The distance STAYS in SQL rather than moving to PHP, because filtering and
+     * ordering by it is what makes this query bounded: `paginate()` resolves to a
+     * COUNT plus a LIMIT/OFFSET over the radius. Computing it in PHP would mean
+     * loading every candidate inside the radius (client-supplied, up to 200 km)
+     * into memory on each request just to sort and slice it — a real regression,
+     * and the reason the old SQLite branch was wrong in two further ways: it
+     * paginated BEFORE filtering, so the exact-radius filter and the distance sort
+     * only ever applied within one page, and `total` counted bounding-box corners
+     * that were never returned.
      *
      * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
      * @return LengthAwarePaginator<Event>
@@ -55,13 +93,23 @@ class EventDiscoveryService
         int $perPage = 10,
         array $filters = []
     ): LengthAwarePaginator {
-        $driver = DB::getDriverName();
+        $haversine = self::HAVERSINE_KM;
 
-        if ($driver === 'sqlite') {
-            return $this->discoverNearbySqlite($lat, $lng, $radiusKm, $perPage, $filters);
-        }
-
-        return $this->discoverNearbyPostgres($lat, $lng, $radiusKm, $perPage, $filters);
+        return $this->baseQuery($filters)
+            ->whereNotNull('location_lat')
+            ->whereNotNull('location_lng')
+            ->select('events.*')
+            ->selectRaw("{$haversine} AS distance_km", [$lat, $lat, $lng])
+            // CAST is load-bearing, not decoration. PDO binds a float as a STRING,
+            // and SQLite compares across storage classes — every numeric value is
+            // "less than" any text value, so `179.3 <= '50'` is TRUE and the radius
+            // filter silently passes everything. PostgreSQL infers float8 from
+            // context and was never affected, which is exactly the class of
+            // divergence this ticket is about. `double precision` carries REAL
+            // affinity in SQLite and is the native type in PostgreSQL.
+            ->whereRaw("{$haversine} <= CAST(? AS double precision)", [$lat, $lat, $lng, $radiusKm])
+            ->orderBy('distance_km')
+            ->paginate($perPage);
     }
 
     /**
@@ -207,106 +255,5 @@ class EventDiscoveryService
                 $query->whereRaw("{$effective} >= ?", [now()->toDateString()]);
                 break;
         }
-    }
-
-    /**
-     * PostgreSQL implementation using native trigonometric functions.
-     *
-     * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
-     * @return LengthAwarePaginator<Event>
-     */
-    private function discoverNearbyPostgres(
-        float $lat,
-        float $lng,
-        float $radiusKm,
-        int $perPage,
-        array $filters = []
-    ): LengthAwarePaginator {
-        $haversine = '(
-            6371 * acos(
-                cos(radians(?)) * cos(radians(location_lat)) *
-                cos(radians(location_lng) - radians(?)) +
-                sin(radians(?)) * sin(radians(location_lat))
-            )
-        )';
-
-        $query = $this->baseQuery($filters)
-            ->whereNotNull('location_lat')
-            ->whereNotNull('location_lng')
-            ->select('events.*')
-            ->selectRaw("{$haversine} AS distance_km", [$lat, $lng, $lat])
-            ->whereRaw("{$haversine} <= ?", [$lat, $lng, $lat, $radiusKm])
-            ->orderBy('distance_km');
-
-        return $query->paginate($perPage);
-    }
-
-    /**
-     * SQLite-compatible implementation using bounding box approximation.
-     *
-     * Uses a latitude/longitude bounding box for the initial filter,
-     * then calculates the precise Haversine distance in PHP.
-     *
-     * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
-     * @return LengthAwarePaginator<Event>
-     */
-    private function discoverNearbySqlite(
-        float $lat,
-        float $lng,
-        float $radiusKm,
-        int $perPage,
-        array $filters = []
-    ): LengthAwarePaginator {
-        $latDelta = $radiusKm / 111.0;
-        $lngDelta = $radiusKm / (111.0 * cos(deg2rad($lat)));
-
-        $minLat = $lat - $latDelta;
-        $maxLat = $lat + $latDelta;
-        $minLng = $lng - $lngDelta;
-        $maxLng = $lng + $lngDelta;
-
-        $paginator = $this->baseQuery($filters)
-            ->whereNotNull('location_lat')
-            ->whereNotNull('location_lng')
-            ->whereBetween('location_lat', [$minLat, $maxLat])
-            ->whereBetween('location_lng', [$minLng, $maxLng])
-            ->paginate($perPage);
-
-        /** @var \Illuminate\Support\Collection<int, Event> $filtered */
-        $filtered = collect($paginator->items())->map(function (Event $event) use ($lat, $lng): Event {
-            $event->setAttribute('distance_km', $this->haversineDistance(
-                $lat,
-                $lng,
-                (float) $event->location_lat,
-                (float) $event->location_lng
-            ));
-
-            return $event;
-        })->filter(function (Event $event) use ($radiusKm): bool {
-            return $event->distance_km <= $radiusKm;
-        })->sortBy('distance_km')->values();
-
-        $paginator->setCollection($filtered);
-
-        return $paginator;
-    }
-
-    /**
-     * Calculate the Haversine distance between two points in km.
-     */
-    private function haversineDistance(float $lat1, float $lng1, float $lat2, float $lng2): float
-    {
-        $earthRadius = 6371.0;
-
-        $latDelta = deg2rad($lat2 - $lat1);
-        $lngDelta = deg2rad($lng2 - $lng1);
-
-        $a = sin($latDelta / 2) * sin($latDelta / 2)
-            + cos(deg2rad($lat1)) * cos(deg2rad($lat2))
-            * sin($lngDelta / 2) * sin($lngDelta / 2);
-
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
-        return $earthRadius * $c;
     }
 }

@@ -40,6 +40,19 @@
                 if (!await this.loadShell()) return;
                 await Promise.all([this.openDetail(this.id), this.loadAppliedIds()]);
                 if (!this.dk) this.pageError = this.detailError || t('detail.not_found');
+
+                /*
+                 * ?apply=1 is the hand-off from the public Kolab page on kolabing.com.
+                 * That page cannot apply for anyone — the token lives in this host's
+                 * storage — so it sends people here with the intent attached and login
+                 * carries it through ?next=. The modal is opened, not submitted:
+                 * applying needs dates and a message, and the paywall may still bite
+                 * for a business (§2.7), so the decision stays with the user.
+                 */
+                if (this.dk && new URLSearchParams(location.search).get('apply') === '1'
+                    && !this.appliedIds.includes(this.id)) {
+                    this.openApply();
+                }
             },
             // Closing the overlay on a deep link returns to Explore rather than
             // leaving the user on an empty shell.

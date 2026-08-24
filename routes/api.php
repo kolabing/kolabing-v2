@@ -18,8 +18,10 @@ use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\CollaborationQrCodeController;
 use App\Http\Controllers\Api\V1\CommunityBadgeController;
 use App\Http\Controllers\Api\V1\CommunityController;
+use App\Http\Controllers\Api\V1\CommunityFollowController;
 use App\Http\Controllers\Api\V1\CommunityGoalController;
 use App\Http\Controllers\Api\V1\CommunityInvitationController;
+use App\Http\Controllers\Api\V1\CommunityJoinQuestionController;
 use App\Http\Controllers\Api\V1\CommunityJoinRequestController;
 use App\Http\Controllers\Api\V1\CommunityMemberController;
 use App\Http\Controllers\Api\V1\CommunityRewardController;
@@ -59,6 +61,7 @@ use App\Http\Controllers\Api\V1\SavedKolabController;
 use App\Http\Controllers\Api\V1\SpinWheelController;
 use App\Http\Controllers\Api\V1\StripeWebhookController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
+use App\Http\Controllers\Api\V1\SuggestionController;
 use App\Http\Controllers\Api\V1\SystemChallengeController;
 use App\Http\Controllers\Api\V1\UploadController;
 use Illuminate\Support\Facades\Route;
@@ -483,6 +486,27 @@ Route::prefix('v1')->group(function (): void {
         Route::post('communities/{community}/join', [CommunityController::class, 'join'])
             ->name('api.v1.communities.join');
 
+        Route::get('me/community-follows', [CommunityFollowController::class, 'mine'])
+            ->name('api.v1.me.community-follows');
+
+        // Following: interest without membership (kolabing-app#138). One tap,
+        // no approval, grants none of what membership grants.
+        Route::post('communities/{community}/follow', [CommunityFollowController::class, 'store'])
+            ->name('api.v1.communities.follow.store');
+        Route::delete('communities/{community}/follow', [CommunityFollowController::class, 'destroy'])
+            ->name('api.v1.communities.follow.destroy');
+
+        // The questions a leader asks before admitting a member. Reading the
+        // set is open (an applicant must see it); changing it needs `manage`.
+        Route::get('communities/{community}/join-questions', [CommunityJoinQuestionController::class, 'index'])
+            ->name('api.v1.communities.join-questions.index');
+        Route::post('communities/{community}/join-questions', [CommunityJoinQuestionController::class, 'store'])
+            ->name('api.v1.communities.join-questions.store');
+        Route::patch('communities/{community}/join-questions/{question}', [CommunityJoinQuestionController::class, 'update'])
+            ->name('api.v1.communities.join-questions.update');
+        Route::delete('communities/{community}/join-questions/{question}', [CommunityJoinQuestionController::class, 'destroy'])
+            ->name('api.v1.communities.join-questions.destroy');
+
         // Invite-only join requests (request → leader approves/declines).
         Route::post('communities/{community}/join-requests', [CommunityJoinRequestController::class, 'store'])
             ->name('api.v1.communities.join-requests.store');
@@ -734,6 +758,35 @@ Route::prefix('v1')->group(function (): void {
         // Role-aware discovery feed for Explore
         Route::get('discovery/opportunities', DiscoveryOpportunityController::class)
             ->name('api.v1.discovery.opportunities');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Suggestions (BE-NF-39)
+        |--------------------------------------------------------------------------
+        |
+        | Generated pairings, one side at a time. Behind `feature:suggestions`
+        | so a flag that ships false 404s the whole surface rather than
+        | advertising it with a 403.
+        |
+        | No `whereUuid` on the bindings: `kolab_suggestions.id` is a uuid column
+        | and a non-uuid comparison raises 22P02 on Postgres, but KolabSuggestion
+        | uses HasUuids, and HasUniqueStringIds::resolveRouteBindingQuery() throws
+        | ModelNotFoundException for a malformed key *before* it builds a query.
+        | A route constraint on top of that would guard nothing; the contract is
+        | pinned by SuggestionApiTest instead.
+        |
+        */
+        Route::middleware('feature:suggestions')->group(function (): void {
+            Route::get('suggestions', [SuggestionController::class, 'index'])
+                ->name('api.v1.suggestions.index');
+
+            Route::get('suggestions/{suggestion}', [SuggestionController::class, 'show'])
+                ->name('api.v1.suggestions.show');
+
+            Route::post('suggestions/{suggestion}/dismiss', [SuggestionController::class, 'dismiss'])
+                ->middleware('throttle:30,1')
+                ->name('api.v1.suggestions.dismiss');
+        });
 
         // Browse opportunities (public list of published)
         Route::get('opportunities', [OpportunityController::class, 'index'])

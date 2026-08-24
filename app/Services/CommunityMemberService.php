@@ -8,6 +8,7 @@ use App\Enums\CommunityMemberStatus;
 use App\Enums\JoinPolicy;
 use App\Enums\MissionTrigger;
 use App\Models\Community;
+use App\Models\CommunityJoinQuestion;
 use App\Models\CommunityMember;
 use App\Models\Profile;
 use DomainException;
@@ -31,6 +32,23 @@ class CommunityMemberService
     {
         if ($community->join_policy !== JoinPolicy::Open) {
             throw new DomainException('invite_only');
+        }
+
+        // Questions are the leader's OPTIONAL choice: add none and joining stays
+        // one tap through here; add one and joining goes through the
+        // application. Letting /join through anyway would make that choice do
+        // nothing — an open community could ask five required questions and
+        // still take one-tap members.
+        //
+        // Costs nothing today: no community has questions until a leader
+        // creates one, and creating one is itself a deliberate act.
+        $hasQuestions = CommunityJoinQuestion::query()
+            ->where('community_id', $community->id)
+            ->where('is_active', true)
+            ->exists();
+
+        if ($hasQuestions) {
+            throw new DomainException('join_requires_application');
         }
 
         $member = $this->upsertMember($community, $profile->id);
