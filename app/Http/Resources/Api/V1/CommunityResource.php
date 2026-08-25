@@ -54,6 +54,15 @@ class CommunityResource extends JsonResource
             // owned community from a co-run one and show the management surface.
             'my_can_manage' => $viewer !== null && $this->resolveViewerCanManage($viewer),
             'my_join_request_status' => $viewer !== null ? $this->resolveViewerJoinRequestStatus($viewer) : null,
+            // NOTE (kolabing-app#138): follower state is deliberately NOT here.
+            // This resource is serialized in lists, and a per-row count or
+            // exists() check is an N+1 — MeRewardsOverviewNPlusOneTest caught
+            // exactly that (12 queries → 21). The follower axis is served by
+            // its own endpoints instead, where the data is already at hand:
+            // GET /me/community-follows for the set, and the follow/unfollow
+            // responses for the authoritative is_following + count.
+            // Adding it here would need preloading through
+            // CommunityMembershipHydrator, the way viewer_is_member does.
             // Viewer's per-community POINTS balance + tier (null when not a member).
             'my_points' => $viewer !== null ? $this->resolveViewerPoints($viewer) : 0,
             'my_tier' => $viewer !== null ? $this->resolveViewerTier($viewer) : null,

@@ -114,6 +114,14 @@ $webappRoutes = function (): void {
     // The design folds applications into My Kolabs → Requests; this route keeps
     // the standalone URL working by opening that same tab.
     Route::view('/applications', 'webapp.kolabs', ['initialTab' => 'requests']);
+    /*
+     * One collaboration, end to end (BE-NF-45). The panel had the list and nothing
+     * behind it, so a web-only user could accept an application and then never start,
+     * confirm, finish or review the thing — while the dashboard was already telling
+     * them to leave the review. Everything the page needs already existed on
+     * /api/v1/collaborations/{id}; only the screen was missing.
+     */
+    Route::view('/collaborations/{collaboration}', 'webapp.collaboration-detail');
     // Public profile of any business/community, seen from inside the app.
     Route::view('/profiles/{profile}', 'webapp.profile');
     // Public invitation landing page. On the APP host because Alpine needs

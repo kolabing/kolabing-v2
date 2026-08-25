@@ -492,10 +492,15 @@ class PairCandidateFinderTest extends TestCase
             'time_of_day' => '18:30',
         ]);
 
-        // The most recent Sunday: `Carbon::dayOfWeek` is 0 on a Sunday, which is
-        // exactly the convention both `byweekday` and the assertion below use.
+        // The most recent Sunday that is genuinely in the PAST: `Carbon::dayOfWeek`
+        // is 0 on a Sunday, which is the convention both `byweekday` and the
+        // assertion below use — but `subDays(0)` on a Sunday lands on today, and
+        // today is not a past event, so `past_event_weekdays` came back empty and
+        // this test failed every Sunday. Step back a full week in that case.
+        $daysBack = now()->dayOfWeek === 0 ? 7 : now()->dayOfWeek;
+
         Event::factory()->forProfile($community)->create([
-            'event_date' => now()->subDays(now()->dayOfWeek)->toDateString(),
+            'event_date' => now()->subDays($daysBack)->toDateString(),
             'attendee_count' => 25,
         ]);
 

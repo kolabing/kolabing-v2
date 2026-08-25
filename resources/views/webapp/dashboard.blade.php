@@ -127,6 +127,50 @@
                        class="inline-flex items-center justify-center h-10 px-5 mt-4 rounded-pill bg-inverse text-on-inverse text-[13px] font-bold hover:-translate-y-px transition">{{ __('webapp.dashboard.complete_profile') }}</a>
                 </div>
 
+                {{-- Next up. The server now answers this for a community too; it
+                     used to be business-only, which is why this dashboard had nothing
+                     to say. Suppressed while the profile-strength card above is
+                     showing, so the two never argue about the same thing. --}}
+                <template x-if="d.next_action && !duplicateProfilePrompt">
+                    <a :href="kbPath(nextActionHref)"
+                       class="flex items-center gap-4 rounded-3xl bg-primary-tint border border-primary p-5 hover:-translate-y-px transition">
+                        <span class="w-11 h-11 rounded-2xl bg-white/70 flex items-center justify-center shrink-0">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>
+                        </span>
+                        <span class="flex-1 min-w-0">
+                            <span class="block text-[11px] font-bold tracking-[1px] uppercase text-amber">{{ __('webapp.dashboard.next_up') }}</span>
+                            <span class="block text-sm font-bold text-ink mt-0.5" x-text="nextActionTitle"></span>
+                            <span class="block text-xs text-body mt-0.5" x-text="nextActionBody"></span>
+                        </span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted shrink-0"><path d="m9 18 6-6-6-6"/></svg>
+                    </a>
+                </template>
+
+                {{-- The community they run. The shell already fetched these numbers for
+                     the nav badge, so this costs no extra request. Hidden entirely for
+                     a community that has not created one yet — the Hub is where that
+                     happens, and nagging here would be a second front door. --}}
+                <div x-show="communityStats && activeCommunity" x-cloak
+                     class="rounded-3xl bg-white border border-ink/[.08] p-5 shadow-card">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-bold tracking-[1px] uppercase text-muted">{{ __('webapp.dashboard.your_community') }}</p>
+                            <p class="text-[17px] font-bold text-ink mt-1 truncate" x-text="activeCommunity?.name"></p>
+                        </div>
+                        <a :href="kbPath('/community/members')"
+                           class="shrink-0 h-9 px-4 rounded-pill bg-white border border-line text-[12.5px] font-bold text-ink hover:border-ink transition flex items-center">{{ __('webapp.dashboard.manage') }}</a>
+                    </div>
+                    <div class="flex gap-2 mt-4">
+                        <template x-for="s in communityTiles" :key="s.label">
+                            <a :href="kbPath(s.href)"
+                               class="flex-1 rounded-xl bg-cream-input px-2 py-3 text-center hover:bg-ink/[.06] transition">
+                                <p class="font-anton text-xl text-ink" x-text="s.n"></p>
+                                <p class="text-[9px] font-medium tracking-[.5px] text-muted mt-0.5" x-text="s.label"></p>
+                            </a>
+                        </template>
+                    </div>
+                </div>
+
                 @include('webapp.partials.upcoming')
 
                 <div class="flex gap-2 flex-wrap">
@@ -162,8 +206,8 @@
                         </span>
                         <span class="flex-1 min-w-0">
                             <span class="block text-[11px] font-bold tracking-[1px] uppercase text-amber">{{ __('webapp.dashboard.next_up') }}</span>
-                            <span class="block text-sm font-bold text-ink mt-0.5" x-text="d.next_action?.title"></span>
-                            <span class="block text-xs text-body mt-0.5" x-text="d.next_action?.body"></span>
+                            <span class="block text-sm font-bold text-ink mt-0.5" x-text="nextActionTitle"></span>
+                            <span class="block text-xs text-body mt-0.5" x-text="nextActionBody"></span>
                         </span>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted shrink-0"><path d="m9 18 6-6-6-6"/></svg>
                     </a>
@@ -313,13 +357,69 @@
             },
             get commStats() {
                 const a = this.d.applications_sent || {}, c = this.d.collaborations || {};
+                const r = this.d.applications_received || {};
                 // Each tile links to the screen that explains the number.
-                return [
+                const tiles = [
                     { n: a.pending ?? 0, label: t('status.pending').toUpperCase(), href: '/kolabs?tab=requests' },
                     { n: c.active ?? 0, label: t('status.active').toUpperCase(), href: '/kolabs?tab=active' },
                     { n: c.completed ?? 0, label: t('status.completed').toUpperCase(), href: '/kolabs?tab=finished' },
                     { n: this.savedCount, label: t('feed.tab_saved'), href: '/feed?tab=saved' },
                 ];
+                /*
+                 * Communities post Kolabs too, and then receive applications. The
+                 * backend only started reporting this for communities in BE-FX-29, so
+                 * the tile appears only once there is something in it — a permanent
+                 * "0 RECEIVED" would be noise for the majority who only apply.
+                 */
+                if ((r.total ?? 0) > 0) {
+                    tiles.splice(1, 0, {
+                        n: r.pending ?? 0,
+                        label: t('dashboard.received').toUpperCase(),
+                        href: '/kolabs?tab=requests&sub=received',
+                    });
+                }
+                return tiles;
+            },
+
+            /** The community they run, from the shell's already-loaded stats. */
+            get communityTiles() {
+                const m = this.communityStats?.members || {};
+                const p = this.communityStats?.pending || {};
+                return [
+                    { n: m.active ?? 0, label: t('dashboard.members').toUpperCase(), href: '/community/members' },
+                    { n: p.join_requests ?? 0, label: t('dashboard.requests').toUpperCase(), href: '/community/requests' },
+                    { n: m.new_this_month ?? 0, label: t('dashboard.new_this_month').toUpperCase(), href: '/community/members' },
+                ];
+            },
+
+            /*
+             * The server's `complete_profile` and the profile-strength card above are
+             * the same advice measured two ways (four fields vs seven). Showing both
+             * reads as nagging, and they can even disagree — so while the meter is up,
+             * the card stands down.
+             */
+            get duplicateProfilePrompt() {
+                return this.d.next_action?.key === 'complete_profile' && this.profileScore.percent < 100;
+            },
+
+            /*
+             * next_action's title/body are English strings built server-side (and read
+             * by mobile in that form), so translating them here — by key, falling back
+             * to whatever the server sent — is what makes the card speak Spanish and
+             * Catalan without changing the API contract. An unknown key still renders.
+             */
+            get nextActionTitle() {
+                const na = this.d.next_action;
+                if (!na) return '';
+                const count = this.d.applications_received?.pending ?? 0;
+                // One waiting application is a different sentence from three.
+                const one = na.key === 'review_pending_applications' && count === 1 ? '_one' : '';
+                return window.tOr('dashboard.na_' + na.key + one + '_title', na.title).replace(':count', count);
+            },
+            get nextActionBody() {
+                const na = this.d.next_action;
+                if (!na) return '';
+                return window.tOr('dashboard.na_' + na.key + '_body', na.body);
             },
 
             /**
@@ -368,9 +468,10 @@
             get nextActionHref() {
                 return {
                     complete_profile: '/account?edit=1',
+                    apply_to_first: '/feed',
                     create_first_offer: '/kolabs/create',
                     create_second_offer: '/kolabs/create',
-                    review_pending_applications: '/kolabs?tab=requests',
+                    review_pending_applications: '/kolabs?tab=requests&sub=received',
                     leave_review: '/kolabs?tab=finished',
                 }[this.d.next_action?.key] || '/kolabs';
             },

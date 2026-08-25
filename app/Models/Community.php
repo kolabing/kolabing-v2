@@ -149,6 +149,31 @@ class Community extends Model
     }
 
     /**
+     * People following this community — interest without membership.
+     * See CommunityFollower for why this is a separate relation.
+     *
+     * @return HasMany<CommunityFollower, $this>
+     */
+    public function followers(): HasMany
+    {
+        return $this->hasMany(CommunityFollower::class);
+    }
+
+    /**
+     * The questions asked before admitting a member, newest set first in
+     * display order. Includes retired ones — scope with `activeOrdered()` for
+     * the set an applicant should actually see.
+     *
+     * @return HasMany<CommunityJoinQuestion, $this>
+     */
+    public function joinQuestions(): HasMany
+    {
+        return $this->hasMany(CommunityJoinQuestion::class)
+            ->orderBy('position')
+            ->orderBy('created_at');
+    }
+
+    /**
      * @return HasMany<CommunityGoal, $this>
      */
     public function goals(): HasMany

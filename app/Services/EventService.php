@@ -75,6 +75,16 @@ class EventService
             });
         }
 
+        if (! empty($filters['follower_profile_id'])) {
+            $followerId = $filters['follower_profile_id'];
+            // Only a community's events can be followed — an event with no
+            // community has no one to follow.
+            $query->whereHas(
+                'community.followers',
+                fn ($f) => $f->where('profile_id', $followerId)
+            );
+        }
+
         $time = $filters['time'] ?? null;
         if ($time === 'upcoming') {
             $query->whereRaw("$effective >= ?", [now()])

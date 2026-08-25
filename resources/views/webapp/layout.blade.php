@@ -623,33 +623,115 @@
          * from the page's init() and refreshPreview() after any successful
          * mutation, so the phone is never stale relative to what the tab did.
          *
-         * The markup lives in webapp/partials/phone-preview.blade.php, which
-         * mirrors kolabing-app's public_profile_screen.dart.
+         * The markup lives in webapp/partials/phone-preview.blade.php, whose header
+         * comment lists every Dart file this replica tracks.
+         *
+         * ⚠️ THE ENDPOINTS ARE PART OF THE MIRROR. The Flutter screen makes three
+         * calls, so this makes the same three. The earlier single call to
+         * /profiles/{id}/public-profile caused most of the drift:
+         * CommunityPublicProfileResource carries no `reputation`, no `recent_reviews`,
+         * no `completed_kolabs_count` and no `type_label` — so the reputation card was
+         * permanently "— · 0 reviews · 0 completed", the reviews card could not exist,
+         * and the header printed the raw slug (`run_club`) instead of "Run Club".
+         *
+         *   GET /profiles/{id}                 → PublicProfileResource: identity,
+         *                                        type_label, about, socials, gallery,
+         *                                        reputation, recent_reviews,
+         *                                        completed_kolabs_count
+         *   GET /profiles/{id}/collaborations  → PublicCollaborationResource, the
+         *                                        past-Kolabs rail
+         *   GET /events?profile_id={id}        → EventResource, the past-events rail.
+         *                                        The app sends no time filter here, so
+         *                                        neither do we — its rail can carry a
+         *                                        future-dated event and so does this.
          */
         window.kbPhonePreview = function () {
+            /* Both app formatters hardcode English month abbreviations. */
+            const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
             return {
                 previewProfile: null,
+                previewCollaborations: [],
+                previewEvents: [],
                 previewLoading: true,
                 previewError: '',
 
                 get previewAvatar() {
                     return this.previewProfile?.avatar_url || this.previewProfile?.profile_photo || '';
                 },
+                /** `type_label` is the formatted label ("Run Club"); `type` is the raw slug. */
+                get previewTypeLabel() { return this.previewProfile?.type_label || ''; },
                 get previewGallery() { return this.previewProfile?.gallery || []; },
-                get previewPastEvents() { return this.previewProfile?.past_events || []; },
-                get previewCollaborations() { return this.previewProfile?.past_collaborations || []; },
+                get previewReputation() { return this.previewProfile?.reputation || null; },
+                get previewReviewCount() { return Number(this.previewReputation?.review_count || 0); },
+                /** Reputation.hasReviews — the switch between the card and the empty state. */
+                get previewHasReviews() { return this.previewReviewCount > 0; },
+                get previewPartnerCount() { return Number(this.previewReputation?.unique_partner_count || 0); },
+                get previewCompletedCount() {
+                    return Number(
+                        this.previewProfile?.completed_kolabs_count
+                        ?? this.previewReputation?.completed_kolabs_count
+                        ?? 0
+                    );
+                },
                 get previewRating() {
-                    const rating = this.previewProfile?.reputation?.average_rating;
+                    const rating = this.previewReputation?.average_rating;
                     return rating ? Number(rating).toFixed(1) : '—';
                 },
-                get previewSocials() {
+                get previewReviews() { return this.previewProfile?.recent_reviews || []; },
+                /** PublicProfile.kolabsCount — the count, falling back to the list length. */
+                get previewKolabsCount() {
+                    return this.previewCompletedCount || this.previewCollaborations.length;
+                },
+                get previewHasSocials() {
                     const p = this.previewProfile || {};
-                    return [p.instagram, p.tiktok, p.website].filter(Boolean);
+                    return Boolean(p.instagram || p.tiktok || p.website);
                 },
 
+                /**
+                 * `@handle`. The Dart interpolates the stored value raw, so a handle
+                 * saved as "@foo" prints "@@foo" there; stripping is the one place this
+                 * replica knowingly renders better than the screen it mirrors.
+                 */
+                previewHandle(value) { return '@' + String(value || '').replace(/^@+/, ''); },
+
+                /** Event.coverPhotoUrl — photos.first.url (the API emits no videos). */
                 previewEventCover(event) {
-                    const first = (event?.media || [])[0];
+                    const first = (event?.photos || [])[0];
                     return first ? (first.url || first) : null;
+                },
+                previewEventPhotoCount(event) { return (event?.photos || []).length; },
+                /** Event.formattedAttendeeCount — "1.2K" from a thousand up. */
+                previewAttendeeCount(event) {
+                    const n = Number(event?.attendee_count || 0);
+                    if (n < 1000) { return String(n); }
+                    const k = n / 1000;
+                    return (k === Math.trunc(k) ? k.toFixed(0) : k.toFixed(1)) + 'K';
+                },
+                /** Event.formattedDate — "Mar 12, 2026". Not locale-aware in the app. */
+                previewDateBadge(iso) {
+                    const d = iso ? new Date(iso) : null;
+                    if (!d || isNaN(d)) { return ''; }
+                    return MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+                },
+                /** _formatReviewDate — "12 Mar 2026". Day first, unlike the badge above. */
+                previewReviewDate(iso) {
+                    const d = iso ? new Date(iso) : null;
+                    if (!d || isNaN(d)) { return ''; }
+                    return d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+                },
+                /** PastCollaborationCard's DateFormat('MMM yyyy') — locale-aware there. */
+                previewCollabMonth(iso) {
+                    const d = iso ? new Date(iso) : null;
+                    if (!d || isNaN(d)) { return ''; }
+                    return d.toLocaleDateString(window.KB_LOCALE || 'en', { month: 'short', year: 'numeric' });
+                },
+                /** window.t() has no plural support; every one of these app strings has one. */
+                previewCount(key, count) {
+                    const n = Number(count || 0);
+                    return n === 1
+                        ? window.t('account.phone.' + key + '_one')
+                        : window.t('account.phone.' + key, { count: n });
                 },
 
                 async initPreview() { await this.refreshPreview(); },
@@ -658,14 +740,24 @@
                     if (!this.me?.id) { this.previewLoading = false; return; }
 
                     this.previewError = '';
-                    const res = await window.kb.api('/profiles/' + this.me.id + '/public-profile');
+                    const id = this.me.id;
+                    const [profile, collaborations, events] = await Promise.all([
+                        window.kb.api('/profiles/' + id),
+                        window.kb.api('/profiles/' + id + '/collaborations?per_page=10'),
+                        window.kb.api('/events?profile_id=' + encodeURIComponent(id) + '&limit=10'),
+                    ]);
                     this.previewLoading = false;
 
-                    if (!res.ok) {
-                        this.previewError = window.kb.errorText(res, window.t('account.phone.error'));
+                    if (!profile.ok) {
+                        this.previewError = window.kb.errorText(profile, window.t('account.phone.error'));
                         return;
                     }
-                    this.previewProfile = res.json?.data || null;
+                    this.previewProfile = profile.json?.data || null;
+                    // The two rails are decoration: a failure there empties its own card
+                    // instead of blanking the phone — which is what the app does too, it
+                    // gives each section its own loading/error state.
+                    this.previewCollaborations = collaborations.ok ? window.kb.rows(collaborations) : [];
+                    this.previewEvents = events.ok ? window.kb.rows(events, 'events') : [];
                 },
             };
         };
@@ -735,7 +827,7 @@
                  | an attendee account carrying can_manage on their membership
                  | (ROLES §8.1 / §8.3 D1). A leader owns their community outright.
                  */
-                communities: [], communityPending: 0,
+                communities: [], communityPending: 0, communityStats: null,
                 get canManageCommunity() { return this.communities.length > 0; },
                 /**
                  * Whether the Hub is reachable at all. A community user with no
@@ -821,12 +913,19 @@
                         ? window.t('community.create.limit_reached')
                         : window.kb.errorText(res, window.t('community.create.error'));
                 },
+                /*
+                 | The badge, and now the numbers behind it. This call already fetched
+                 | members/tiers/engagement and threw all but `pending` away; keeping
+                 | the payload lets the dashboard show the community summary without a
+                 | second request on every page load.
+                 */
                 async loadCommunityPending() {
                     const community = this.activeCommunity;
                     if (!community) return;
                     const res = await window.kb.api('/communities/' + community.id + '/stats');
                     if (!res.ok) return;
-                    const p = res.json?.data?.pending || {};
+                    this.communityStats = res.json?.data || null;
+                    const p = this.communityStats?.pending || {};
                     this.communityPending = (p.join_requests || 0) + (p.invitations || 0);
                 },
                 async loadShell() {
