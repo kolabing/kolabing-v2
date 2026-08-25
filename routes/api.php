@@ -409,6 +409,12 @@ Route::prefix('v1')->group(function (): void {
         Route::post('checkin', [CheckinController::class, 'checkin'])
             ->name('api.v1.checkin');
 
+        // Self check-in: no token, for an event you said you were going to
+        // (kolabing-app#144). The token door above stays; this is the one that
+        // works when no organizer is standing there with a QR.
+        Route::post('events/{event}/checkin', [CheckinController::class, 'selfCheckin'])
+            ->name('api.v1.events.checkin');
+
         // List check-ins for an event
         Route::get('events/{event}/checkins', [CheckinController::class, 'index'])
             ->name('api.v1.events.checkins');
