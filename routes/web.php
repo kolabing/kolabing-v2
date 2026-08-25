@@ -5,6 +5,7 @@ use App\Enums\UserType;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
 use App\Http\Controllers\Admin\BlogController as AdminBlogController;
+use App\Http\Controllers\Admin\BusinessVisibilityBoostController as AdminBusinessVisibilityBoostController;
 use App\Http\Controllers\Admin\ChallengeController as AdminChallengeController;
 use App\Http\Controllers\Admin\ChallengeDefaultsController as AdminChallengeDefaultsController;
 use App\Http\Controllers\Admin\CommunityVerificationController as AdminCommunityVerificationController;
@@ -91,6 +92,21 @@ $webappRoutes = function (): void {
     Route::view('/events', 'webapp.events');
     Route::view('/events/{event}', 'webapp.event-detail');
     Route::view('/checkin/{token}', 'webapp.checkin');
+    /*
+     * Tickets, and the other side of the door.
+     *
+     * `/tickets` is the attendee's wallet — the seats they hold, each with the QR
+     * that gets them in. `/admit/{code}` is what that QR points at, opened by the
+     * HOST's camera: the person admitted is not the person signed in, which is the
+     * whole difference from /checkin/{token} above (there the attendee scans a code
+     * the host is displaying). Neither route is auth-gated at the route level; both
+     * pages call requireAuth(), which carries the destination in `?next=` so a QR
+     * scanned on a phone that is not signed in still completes after login.
+     */
+    Route::view('/tickets', 'webapp.tickets');
+    Route::view('/admit/{code}', 'webapp.admit');
+    // Attendee onboarding: the four steps the mobile app runs, same endpoint.
+    Route::view('/onboarding/attendee', 'webapp.onboarding-attendee');
     // Kolabs — order matters: literal + edit before the {kolab} catch-all.
     Route::view('/kolabs', 'webapp.kolabs');
     Route::view('/kolabs/create', 'webapp.kolab-form');
@@ -99,6 +115,14 @@ $webappRoutes = function (): void {
     // The design folds applications into My Kolabs → Requests; this route keeps
     // the standalone URL working by opening that same tab.
     Route::view('/applications', 'webapp.kolabs', ['initialTab' => 'requests']);
+    /*
+     * One collaboration, end to end (BE-NF-45). The panel had the list and nothing
+     * behind it, so a web-only user could accept an application and then never start,
+     * confirm, finish or review the thing — while the dashboard was already telling
+     * them to leave the review. Everything the page needs already existed on
+     * /api/v1/collaborations/{id}; only the screen was missing.
+     */
+    Route::view('/collaborations/{collaboration}', 'webapp.collaboration-detail');
     // Public profile of any business/community, seen from inside the app.
     Route::view('/profiles/{profile}', 'webapp.profile');
     // Public invitation landing page. On the APP host because Alpine needs
@@ -198,11 +222,15 @@ Route::get('/', function (\App\Services\PublicKolabFeedService $kolabFeed) {
      * a page whose whole subject is the listings should fail loudly rather than render
      * an empty one and imply nothing is open.
      */
-    try {
-        $activeKolabs = $kolabFeed->highlights(6);
-    } catch (\Throwable $exception) {
-        report($exception);
-        $activeKolabs = collect();
+    $activeKolabs = collect();
+
+    // Nothing to show, and nothing to ask the database, while the surface is off.
+    if (config('kolabing.public_kolabs.enabled')) {
+        try {
+            $activeKolabs = $kolabFeed->highlights(6);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     return view('welcome', ['activeKolabs' => $activeKolabs]);
@@ -378,6 +406,9 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
 
         Route::get('/economics', [AdminRewardEconomicsController::class, 'edit'])->name('economics.edit');
         Route::put('/economics', [AdminRewardEconomicsController::class, 'update'])->name('economics.update');
+
+        Route::get('/business-visibility-boost', [AdminBusinessVisibilityBoostController::class, 'edit'])->name('business-visibility-boost.edit');
+        Route::put('/business-visibility-boost', [AdminBusinessVisibilityBoostController::class, 'update'])->name('business-visibility-boost.update');
     });
 });
 
@@ -481,7 +512,7 @@ Route::get('/sitemap.xml', function () {
      * `noindex` under the same flag (BE-FX-20), and a sitemap that advertises URLs the
      * page asks Google to ignore is a contradiction, so both read one config value.
      */
-    if (config('kolabing.public_kolabs.indexable')) {
+    if (config('kolabing.public_kolabs.enabled') && config('kolabing.public_kolabs.indexable')) {
         $publicKolabs = app(\App\Services\PublicKolabFeedService::class)
             ->publishable()
             ->orderByDesc('published_at')

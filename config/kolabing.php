@@ -39,7 +39,20 @@ return [
     */
 
     'public_kolabs' => [
+        /*
+         * Whether the open web shows Kolabs at all: `/kolabs`, `/kolabs/{slug}` and
+         * the homepage strip. Off by default — the marketplace surface is built and
+         * tested, but production still holds test listings (BE-FX-24), and a shop
+         * window full of "Clark Biz Test" is worse than no shop window. One env var
+         * turns the whole thing on once the data is clean.
+         *
+         * Off means *gone*, not merely unlinked: the routes 404, the nav and footer
+         * links disappear, the homepage does not even run the query, and the sitemap
+         * stays silent. A page nobody links to is still a page a crawler finds.
+         */
+        'enabled' => (bool) env('KOLABING_PUBLIC_KOLABS_ENABLED', false),
         'min_description_length' => (int) env('KOLABING_PUBLIC_KOLAB_MIN_DESCRIPTION', 20),
+        /* Indexing is a second, narrower switch: visible to people, invisible to crawlers. */
         'indexable' => (bool) env('KOLABING_PUBLIC_KOLABS_INDEXABLE', false),
     ],
 

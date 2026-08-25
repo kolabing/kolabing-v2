@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\ChallengeDifficulty;
+use App\Enums\ChallengeProofType;
 use App\Models\Challenge;
 use App\Models\Community;
 use App\Models\CommunityChallenge;
@@ -165,6 +166,9 @@ class ChallengeService
             'points' => $data['points'] ?? $difficulty->points(),
             'is_system' => false,
             'event_id' => $event->id,
+            // How it is played (#216). Absent means text, which is what every
+            // challenge was before the column existed.
+            'proof_type' => ChallengeProofType::from($data['proof_type'] ?? ChallengeProofType::Text->value),
         ]);
     }
 
@@ -183,6 +187,10 @@ class ChallengeService
 
         if (isset($data['description'])) {
             $updateData['description'] = $data['description'];
+        }
+
+        if (isset($data['proof_type'])) {
+            $updateData['proof_type'] = ChallengeProofType::from($data['proof_type']);
         }
 
         if (isset($data['difficulty'])) {

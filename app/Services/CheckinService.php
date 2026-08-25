@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\CommunityMemberStatus;
+use App\Enums\EventSignupStatus;
 use App\Enums\MissionTrigger;
 use App\Events\AttendeeCheckedIn;
 use App\Models\Community;
 use App\Models\CommunityMember;
 use App\Models\Event;
 use App\Models\EventCheckin;
+use App\Models\EventSignup;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
@@ -148,6 +150,97 @@ class CheckinService
             throw new \LogicException('Check-in for this event has closed.');
         }
 
+        return $this->record($event, $profile);
+    }
+
+    /**
+     * Check the caller in to an event they are going to, with no token
+     * (kolabing-app#144).
+     *
+     * A second door into the same room. The existing one needs another person
+     * present: the attendee scans a code the organizer is displaying. If nobody
+     * is holding a phone at the entrance — most small community events — the
+     * whole challenge loop is unreachable, because
+     * ChallengeCompletionService::initiate requires an `event_checkins` row for
+     * BOTH attendees and no client can fake one.
+     *
+     * What is asked instead: an RSVP, and the right day.
+     *
+     * That is a **weaker claim** than proof of a code the organizer was
+     * physically showing, and "this person was in the room" is the claim the
+     * platform sells. Accepted deliberately: a loop nobody can start is worth
+     * less than a slightly softer claim, and the QR door is still there for when
+     * the claim has to be strong. If it needs tightening, the next step is a
+     * per-event organizer switch — not removing this.
+     *
+     * @throws \LogicException not going, wrong day, or already present
+     */
+    public function selfCheckin(Event $event, Profile $profile): EventCheckin
+    {
+        if (! $event->is_active) {
+            throw new \LogicException('This event is not currently accepting check-ins.');
+        }
+
+        $going = EventSignup::query()
+            ->where('event_id', $event->id)
+            ->where('profile_id', $profile->id)
+            ->where('status', '!=', EventSignupStatus::Cancelled->value)
+            ->exists();
+
+        if (! $going) {
+            throw new \LogicException('Say you are going to this event before checking in.');
+        }
+
+        if (! $this->isHappeningToday($event)) {
+            throw new \LogicException('You can only check in on the day of the event.');
+        }
+
+        return $this->record($event, $profile);
+    }
+
+    /**
+     * Whether [$event] is on today, in the app timezone.
+     *
+     * A whole day rather than the exact starts_at..ends_at window, on purpose:
+     * people arrive early and check in late, and a check-in refused because the
+     * event starts in nine minutes reads as broken. The day is also the
+     * resolution the rest of the app already uses — discover filters on
+     * DATE(COALESCE(starts_at, event_date)) — so anything visible as "today" can
+     * be checked in to.
+     */
+    private function isHappeningToday(Event $event): bool
+    {
+        $effective = $event->starts_at ?? $event->event_date;
+
+        if ($effective === null) {
+            return false;
+        }
+
+        return Carbon::parse($effective)->isSameDay(Carbon::now());
+    }
+
+    /**
+     * Record someone as present, with every consequence that carries.
+     *
+     * Extracted because there are now THREE doors into the same room and they have
+     * to agree on what happens once someone is through one of them:
+     *
+     *  - {@see checkin()} — the attendee scans a code the host is displaying.
+     *  - {@see selfCheckin()} — the attendee picks an event they already said they
+     *    were going to, on the day. The weakest claim of the three; see that
+     *    method for why it is accepted deliberately.
+     *  - {@see \App\Services\TicketService::admit()} — the host scans a code the
+     *    attendee is carrying, so the authenticated party is the host.
+     *
+     * Different proof, different party authenticated — identical outcome: one
+     * `event_checkins` row, arrivals broadcast, `total_events_attended`
+     * incremented, badges re-checked, community points awarded, tiers
+     * re-evaluated, missions progressed.
+     *
+     * @throws \LogicException already present
+     */
+    public function record(Event $event, Profile $profile): EventCheckin
+    {
         $existing = EventCheckin::query()
             ->where('event_id', $event->id)
             ->where('profile_id', $profile->id)
@@ -192,6 +285,11 @@ class CheckinService
             ]);
         }
 
+        // Active Member is "attended within 90 days" (kolabing-app#147), so the
+        // stamp goes in before tiers are re-evaluated: a tier rule that reads
+        // attendance should see this check-in, not the previous one.
+        $this->stampAttendance($event, $profile);
+
         $this->evaluateCommunityTiers($profile);
 
         // Missions (guarded): the check-in itself progresses the attendee's
@@ -200,7 +298,7 @@ class CheckinService
         // missions. Mirrors the community-points scoping. Never breaks check-in.
         $this->recordCheckinMissions($event, $profile, $checkin);
 
-        return $checkin->load(['event', 'profile']);
+        return $checkin->load(['event.community', 'profile']);
     }
 
     /**
@@ -259,6 +357,37 @@ class CheckinService
      * waiting for the nightly app:evaluate-community-tiers job. A failure here
      * must never break the check-in itself.
      */
+    /**
+     * Record that a member turned up (kolabing-app#147).
+     *
+     * Only for the community whose event this is, and only if they are a member
+     * of it: attending a community's event as a stranger is not membership
+     * activity, and writing it anyway would make "active member" mean "person
+     * who came once".
+     *
+     * Guarded like everything else in this method: a failed stamp costs an
+     * Active-Member flag, and must never cost the check-in itself.
+     */
+    private function stampAttendance(Event $event, Profile $profile): void
+    {
+        if ($event->community_id === null) {
+            return;
+        }
+
+        try {
+            CommunityMember::query()
+                ->where('community_id', $event->community_id)
+                ->where('profile_id', $profile->id)
+                ->update(['last_attended_at' => now()]);
+        } catch (\Throwable $e) {
+            Log::warning('Member attendance stamp failed', [
+                'profile_id' => $profile->id,
+                'community_id' => $event->community_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
     private function evaluateCommunityTiers(Profile $profile): void
     {
         try {

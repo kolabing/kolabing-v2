@@ -64,6 +64,7 @@ use App\Http\Controllers\Api\V1\StripeWebhookController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\SuggestionController;
 use App\Http\Controllers\Api\V1\SystemChallengeController;
+use App\Http\Controllers\Api\V1\TicketController;
 use App\Http\Controllers\Api\V1\UploadController;
 use Illuminate\Support\Facades\Route;
 
@@ -374,6 +375,19 @@ Route::prefix('v1')->group(function (): void {
         Route::post('events/{event}/chat', [ChatController::class, 'storeEventChat'])
             ->name('api.v1.events.chat.store');
 
+        /*
+         * Tickets. A sign-up with a code: the holder carries it, the host scans it.
+         * `me/tickets` is a wallet; `tickets/{code}/admit` is a door. The code in the
+         * path is not a secret — admitting is authorised on the *scanner* being the
+         * event's host, which is why the route can be this plain.
+         */
+        Route::get('me/tickets', [TicketController::class, 'index'])
+            ->name('api.v1.me.tickets.index');
+        Route::get('tickets/{code}', [TicketController::class, 'show'])
+            ->name('api.v1.tickets.show');
+        Route::post('tickets/{code}/admit', [TicketController::class, 'admit'])
+            ->name('api.v1.tickets.admit');
+
         // NF-16 — add/remove photos on an existing event (creator / can_manage)
         Route::put('events/{event}/photos/order', [EventPhotoController::class, 'reorder'])
             ->name('api.v1.events.photos.reorder');
@@ -395,6 +409,12 @@ Route::prefix('v1')->group(function (): void {
         // Check in using QR token
         Route::post('checkin', [CheckinController::class, 'checkin'])
             ->name('api.v1.checkin');
+
+        // Self check-in: no token, for an event you said you were going to
+        // (kolabing-app#144). The token door above stays; this is the one that
+        // works when no organizer is standing there with a QR.
+        Route::post('events/{event}/checkin', [CheckinController::class, 'selfCheckin'])
+            ->name('api.v1.events.checkin');
 
         // List check-ins for an event
         Route::get('events/{event}/checkins', [CheckinController::class, 'index'])
@@ -449,6 +469,14 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.challenge-completions.reject');
 
         // My challenge completions
+        // The photo the pair took (#216). Either participant may attach, replace
+        // or remove it — both of them are in it.
+        Route::post('challenge-completions/{challengeCompletion}/photo', [ChallengeCompletionController::class, 'attachPhoto'])
+            ->name('api.v1.challenge-completions.photo.store');
+
+        Route::delete('challenge-completions/{challengeCompletion}/photo', [ChallengeCompletionController::class, 'removePhoto'])
+            ->name('api.v1.challenge-completions.photo.destroy');
+
         // The challenger takes back a request nobody answered yet (#154).
         Route::post('challenge-completions/{challengeCompletion}/cancel', [ChallengeCompletionController::class, 'cancel'])
             ->name('api.v1.challenge-completions.cancel');

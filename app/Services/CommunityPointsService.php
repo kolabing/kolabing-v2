@@ -147,18 +147,8 @@ class CommunityPointsService
         }
 
         $community = Community::query()->find($event->community_id);
-        $profileId = $completion->challenger_profile_id;
 
-        if ($community === null || ! $this->isActiveMember($community, $profileId)) {
-            return;
-        }
-
-        $already = CommunityPointLedger::query()
-            ->where('source', CommunityPointSource::ChallengeVerified->value)
-            ->where('reference_id', $completion->id)
-            ->exists();
-
-        if ($already) {
+        if ($community === null) {
             return;
         }
 
@@ -168,17 +158,44 @@ class CommunityPointsService
             $points = PointEventType::CommunityChallengeVerified->defaultPoints();
         }
 
-        $this->award(
-            $community,
-            $profileId,
-            $points,
-            CommunityPointSource::ChallengeVerified,
-            PointEventType::CommunityChallengeVerified,
-            $completion->id,
-            'Challenge verified',
-        );
+        // Both participants earn (kolabing-app#140) — a challenge is something
+        // the two of them did. Each is gated on their own membership, so a
+        // follower playing alongside a member does not get community points.
+        $participants = array_unique(array_filter([
+            $completion->challenger_profile_id,
+            $completion->verifier_profile_id,
+        ]));
 
-        $this->completeGoals($community, $profileId);
+        foreach ($participants as $profileId) {
+            if (! $this->isActiveMember($community, $profileId)) {
+                continue;
+            }
+
+            // Dedupe PER PROFILE: one completion now legitimately produces two
+            // ledger rows, so the reference id alone can no longer identify a
+            // duplicate.
+            $already = CommunityPointLedger::query()
+                ->where('source', CommunityPointSource::ChallengeVerified->value)
+                ->where('reference_id', $completion->id)
+                ->where('profile_id', $profileId)
+                ->exists();
+
+            if ($already) {
+                continue;
+            }
+
+            $this->award(
+                $community,
+                $profileId,
+                $points,
+                CommunityPointSource::ChallengeVerified,
+                PointEventType::CommunityChallengeVerified,
+                $completion->id,
+                'Challenge verified',
+            );
+
+            $this->completeGoals($community, $profileId);
+        }
     }
 
     /**

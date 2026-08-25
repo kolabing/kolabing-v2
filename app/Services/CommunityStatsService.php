@@ -8,6 +8,7 @@ use App\Enums\CommunityInvitationStatus;
 use App\Enums\CommunityMemberStatus;
 use App\Enums\JoinRequestStatus;
 use App\Models\Community;
+use App\Models\CommunityMember;
 use DateTimeInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -32,10 +33,43 @@ class CommunityStatsService
 
         return [
             'members' => $this->members($community, $window),
+            'audience' => $this->audience($community),
             'pending' => $this->pending($community),
             'tiers' => $this->tiers($community),
             'engagement' => $this->engagement($community, $window),
             'top_members' => $this->topMembers($community),
+        ];
+    }
+
+    /**
+     * Followers, Members, Active Members — the product model's three numbers
+     * (kolabing-app#147).
+     *
+     * Its own block rather than more keys on `members`, because `members.active`
+     * already means something different there: status = active, i.e. "not
+     * removed". An **Active Member** is one who attended within
+     * CommunityMember::ACTIVE_WINDOW_DAYS. Two meanings of "active" in one
+     * payload is how a definition rots, so they live apart and this one uses the
+     * model's vocabulary.
+     *
+     * @return array<string, int>
+     */
+    private function audience(Community $community): array
+    {
+        return [
+            'followers' => DB::table('community_followers')
+                ->where('community_id', $community->id)
+                ->count(),
+            'members' => DB::table('community_members')
+                ->where('community_id', $community->id)
+                ->where('status', CommunityMemberStatus::Active->value)
+                ->count(),
+            'active_members' => DB::table('community_members')
+                ->where('community_id', $community->id)
+                ->where('status', CommunityMemberStatus::Active->value)
+                ->where('last_attended_at', '>=', now()->subDays(CommunityMember::ACTIVE_WINDOW_DAYS))
+                ->count(),
+            'active_window_days' => CommunityMember::ACTIVE_WINDOW_DAYS,
         ];
     }
 
