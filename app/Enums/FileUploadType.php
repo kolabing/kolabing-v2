@@ -17,6 +17,14 @@ enum FileUploadType: string
     case EventPhoto = 'event_photo';
 
     /**
+     * The photo two attendees took while completing a challenge together
+     * (kolabing-v2#216). Images only — a proof photo is a photo, and allowing
+     * video here would put 50 MB uploads behind a button people press at events
+     * on venue wifi.
+     */
+    case ChallengeProof = 'challenge_proof';
+
+    /**
      * Get the storage directory for this upload type.
      *
      * @return string The directory path within the public disk
@@ -29,6 +37,7 @@ enum FileUploadType: string
             self::OpportunityPhoto => 'opportunities',
             self::GalleryPhoto => 'gallery',
             self::EventPhoto => 'events',
+            self::ChallengeProof => 'challenge-proofs',
         };
     }
 
@@ -45,6 +54,7 @@ enum FileUploadType: string
             self::OpportunityPhoto => 5 * 1024 * 1024, // 5MB
             self::GalleryPhoto => 5 * 1024 * 1024, // 5MB
             self::EventPhoto => 5 * 1024 * 1024, // 5MB
+            self::ChallengeProof => 5 * 1024 * 1024, // 5MB
         };
     }
 
@@ -56,7 +66,7 @@ enum FileUploadType: string
     public function getAllowedMimeTypes(): array
     {
         return match ($this) {
-            self::ProfilePhoto, self::OpportunityPhoto, self::GalleryPhoto, self::EventPhoto => [
+            self::ProfilePhoto, self::OpportunityPhoto, self::GalleryPhoto, self::EventPhoto, self::ChallengeProof => [
                 'image/jpeg',
                 'image/jpg',
                 'image/png',
@@ -84,7 +94,7 @@ enum FileUploadType: string
     public function getAllowedExtensions(): array
     {
         return match ($this) {
-            self::ProfilePhoto, self::OpportunityPhoto, self::GalleryPhoto, self::EventPhoto => [
+            self::ProfilePhoto, self::OpportunityPhoto, self::GalleryPhoto, self::EventPhoto, self::ChallengeProof => [
                 'jpeg',
                 'jpg',
                 'png',
