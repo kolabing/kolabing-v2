@@ -23,13 +23,25 @@
                 {{-- ── Identity ─────────────────────────────────────────── --}}
                 <header class="flex flex-col sm:flex-row sm:items-center gap-5">
                     <div class="w-[92px] h-[92px] rounded-3xl bg-primary/40 overflow-hidden shrink-0 flex items-center justify-center text-3xl font-semibold text-ink">
-                        <template x-if="p.avatar_url"><img :src="p.avatar_url" :alt="p.display_name" class="w-full h-full object-cover"></template>
-                        <template x-if="!p.avatar_url"><span x-text="initialOf(p.display_name)"></span></template>
+                        {{-- Withheld, not substituted: the same treatment /suggestions
+                             gives a blurred card. The server has already nulled the
+                             identity (CommunityIdentityMask), so this only decides how
+                             the absence looks — it never re-derives the rule. --}}
+                        <template x-if="p.identity_masked">
+                            <div class="w-full h-full bg-primary/60 blur-sm select-none" aria-hidden="true"></div>
+                        </template>
+                        <template x-if="!p.identity_masked && p.avatar_url"><img :src="p.avatar_url" :alt="p.display_name" class="w-full h-full object-cover"></template>
+                        <template x-if="!p.identity_masked && !p.avatar_url"><span x-text="initialOf(p.display_name)"></span></template>
                     </div>
 
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 flex-wrap">
-                            <h1 class="font-anton text-[28px] tracking-[1px] text-ink" x-text="p.display_name"></h1>
+                            {{-- The name is held back, so the heading is hidden from
+                                 readers and the accessible text comes from the card below. --}}
+                            <template x-if="p.identity_masked">
+                                <h1 class="font-anton text-[28px] tracking-[1px] text-ink blur-sm select-none" aria-hidden="true">●●●●●●●●●●</h1>
+                            </template>
+                            <h1 x-show="!p.identity_masked" class="font-anton text-[28px] tracking-[1px] text-ink" x-text="p.display_name"></h1>
                             <span x-show="p.is_verified" x-cloak
                                   class="inline-flex items-center gap-1 px-2 py-[3px] rounded-pill bg-ok-surface text-ok-ink text-[11px] font-bold"
                                   :title="t('profile.verified')">
@@ -48,6 +60,19 @@
                                     class="h-9 px-4 rounded-pill bg-white border border-line text-[13px] font-bold hover:border-ink transition"
                                     x-text="copied ? t('profile.shared') : t('profile.share')"></button>
                         </div>
+
+                        {{-- A blur is a sales moment, not a dead end: the type, the city,
+                             the completed-Kolab count and the reputation above stay
+                             readable, which is what proves the name is worth paying for
+                             (ROLES §2.5 — never a full-screen block). --}}
+                        <template x-if="p.identity_masked">
+                            <div class="mt-4 rounded-2xl bg-primary-tint border border-primary/70 px-4 py-3.5">
+                                <p class="text-[13.5px] font-bold text-ink">{{ __('webapp.profile.masked_title') }}</p>
+                                <p class="text-[12.5px] text-body mt-1 leading-relaxed">{{ __('webapp.profile.masked_body') }}</p>
+                                <a href="{{ $base }}/subscription?reason=profile"
+                                   class="mt-3 inline-flex h-9 px-4 rounded-pill bg-ink text-primary text-[12.5px] font-bold items-center hover:-translate-y-px transition">{{ __('webapp.profile.masked_cta') }}</a>
+                            </div>
+                        </template>
                         <p x-show="isMe" x-cloak class="mt-2 text-[12px] text-muted">{{ __('webapp.profile.public_hint') }}</p>
                     </div>
                 </header>

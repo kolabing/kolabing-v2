@@ -792,6 +792,10 @@ return [
         'action_error' => 'No ha funcionado.',
     ],
     'profile' => [
+        // A community's identity withheld from a free business (ROLES §2.5).
+        'masked_title' => 'Comunidad oculta en el plan gratuito',
+        'masked_body' => 'El tipo, la ciudad, los Kolabs completados y la reputación de esta página son reales. Solo se reservan el nombre, el logo, los enlaces de contacto y el portafolio.',
+        'masked_cta' => 'Ver quién es',
         'title' => 'Perfil',
         'not_found' => 'Este perfil no está disponible.',
         'load_error' => 'No se pudo cargar este perfil.',

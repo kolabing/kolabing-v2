@@ -792,6 +792,10 @@ return [
         'action_error' => 'Això no ha funcionat.',
     ],
     'profile' => [
+        // A community's identity withheld from a free business (ROLES §2.5).
+        'masked_title' => 'Comunitat oculta al pla gratuït',
+        'masked_body' => "El tipus, la ciutat, els Kolabs completats i la reputació d'aquesta pàgina són reals. Només es reserven el nom, el logo, els enllaços de contacte i el portafoli.",
+        'masked_cta' => 'Veure qui és',
         'title' => 'Perfil',
         'not_found' => 'Aquest perfil no està disponible.',
         'load_error' => 'No s\'ha pogut carregar aquest perfil.',

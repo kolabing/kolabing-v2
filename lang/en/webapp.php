@@ -823,6 +823,10 @@ return [
         'action_error' => 'That did not work.',
     ],
     'profile' => [
+        // A community's identity withheld from a free business (ROLES §2.5).
+        'masked_title' => 'Community hidden on the free plan',
+        'masked_body' => 'The type, the city, the completed Kolabs and the reputation on this page are real. Only the name, the logo, the contact links and the portfolio are held back.',
+        'masked_cta' => 'See who this is',
         'title' => 'Profile',
         'not_found' => 'This profile is not available.',
         'load_error' => 'Could not load this profile.',
