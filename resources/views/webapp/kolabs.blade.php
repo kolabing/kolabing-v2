@@ -209,6 +209,14 @@
                                :aria-label="t('chats.title')" :title="t('chats.title')">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                             </a>
+                            {{-- Into the collaboration itself: start it, confirm it, finish
+                                 it, review it. The row cannot be one big link — the
+                                 partner name and the chat are already anchors. --}}
+                            <a :href="window.kbPath('/collaborations/' + cl.id)"
+                               class="shrink-0 w-9 h-9 rounded-full bg-cream-low hover:bg-cream-low-hover transition flex items-center justify-center text-ink"
+                               :aria-label="t('collab.title')" :title="t('collab.title')">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                            </a>
                         </div>
                     </template>
                 </div>
