@@ -383,16 +383,30 @@
             /**
              * Share the link that works for the person receiving it.
              *
-             * A published Kolab has a page on the open web (kolabing.com/kolabs/{id}),
-             * which opens for someone with no account — that is the useful link. A draft
-             * has no public page at all (it 404s by design, ROLES §4.3), so the only
-             * honest thing to hand over is the in-app URL.
+             * A published Kolab *can* have a page on the open web
+             * (kolabing.com/kolabs/{id}), which opens for someone with no account — that
+             * is the useful link when it exists. Three things have to be true for it to
+             * exist, and all three are checked here:
+             *
+             *  - the Kolab is published (a draft has no public page, ROLES §4.3),
+             *  - we know the marketing host,
+             *  - and **the open-web marketplace is switched on at all**.
+             *
+             * That last one is the one this button got wrong (BE-FX-31).
+             * `public_kolabs.enabled` is off in production while test listings are still
+             * in the data (BE-FX-24), and off means the routes 404 — so for every
+             * published Kolab this button copied a dead URL and the sharer had no way to
+             * know. When the marketplace is off the in-app URL is the only honest link,
+             * exactly as for a draft.
              */
             async copyLink() {
                 const k = this.dk;
                 if (!k) return;
                 const marketing = String(window.KB_CONFIG?.marketingUrl || '').replace(/\/$/, '');
-                const url = (k.status === 'published' && marketing)
+                const publicPageExists = k.status === 'published'
+                    && !!marketing
+                    && !!window.KB_CONFIG?.publicKolabs;
+                const url = publicPageExists
                     ? marketing + '/kolabs/' + k.id
                     : location.origin + window.kbPath('/kolabs/' + k.id);
                 try {

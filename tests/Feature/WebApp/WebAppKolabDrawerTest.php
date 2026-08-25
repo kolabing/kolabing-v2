@@ -131,14 +131,18 @@ class WebAppKolabDrawerTest extends TestCase
     }
 
     /**
-     * A published Kolab has a page on the open web that opens without an account, so
-     * that is the link worth sharing. A draft's public page 404s by design (ROLES
-     * §4.3), so sharing it can only mean the in-app URL.
+     * A published Kolab *can* have a page on the open web that opens without an
+     * account, and that is the link worth sharing when it exists. Three things make
+     * it exist — published, a known marketing host, and the marketplace switched on
+     * (BE-FX-31) — and anything else can only honestly mean the in-app URL.
      */
     public function test_copy_link_shares_the_public_url_only_when_there_is_one(): void
     {
         $this->feed()
-            ->assertSee("(k.status === 'published' && marketing)", false)
+            ->assertSee("const publicPageExists = k.status === 'published'", false)
+            ->assertSee('&& !!marketing', false)
+            ->assertSee('&& !!window.KB_CONFIG?.publicKolabs;', false)
+            ->assertSee('const url = publicPageExists', false)
             ->assertSee("? marketing + '/kolabs/' + k.id", false)
             ->assertSee(": location.origin + window.kbPath('/kolabs/' + k.id)", false);
     }
@@ -206,5 +210,26 @@ class WebAppKolabDrawerTest extends TestCase
         $this->feed()
             ->assertSee('motion-reduce:transition-none', false)
             ->assertSee('@media (prefers-reduced-motion: reduce)', false);
+    }
+
+    // ── Copy link (BE-FX-31) ─────────────────────────────────────────────
+
+    public function test_the_panel_is_told_whether_the_marketplace_is_on(): void
+    {
+        config(['kolabing.public_kolabs.enabled' => false]);
+        $this->feed()->assertSee('publicKolabs: false', false);
+
+        config(['kolabing.public_kolabs.enabled' => true]);
+        $this->feed()->assertSee('publicKolabs: true', false);
+    }
+
+    /** With the marketplace off, the copied link stays on the panel's own host. */
+    public function test_a_published_kolab_falls_back_to_the_in_app_url_when_the_marketplace_is_off(): void
+    {
+        config(['kolabing.public_kolabs.enabled' => false]);
+
+        $this->feed()
+            ->assertSee('publicKolabs: false', false)
+            ->assertSee("location.origin + window.kbPath('/kolabs/' + k.id)", false);
     }
 }
