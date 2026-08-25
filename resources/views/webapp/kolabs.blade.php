@@ -285,8 +285,14 @@
                 const params = new URLSearchParams(location.search);
                 const wanted = params.get('tab');
                 if (['offers', 'requests', 'active', 'finished'].includes(wanted)) this.tab = wanted;
-                // Businesses land on the applications they received; communities on the ones they sent.
-                this.reqSub = this.isBusiness ? 'received' : 'sent';
+                // Businesses land on the applications they received; communities on the
+                // ones they sent — but a caller can say which, and the dashboard's
+                // "review N pending applications" does, because a community that
+                // POSTED a Kolab needs the received side, not its default.
+                const sub = params.get('sub');
+                this.reqSub = ['sent', 'received'].includes(sub)
+                    ? sub
+                    : (this.isBusiness ? 'received' : 'sent');
                 await this.load();
             },
             setTab(tab) { if (this.tab === tab) return; this.tab = tab; this.error = ''; this.load(); },

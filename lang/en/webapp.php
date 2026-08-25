@@ -214,6 +214,31 @@ return [
         'bd_completed' => 'Kolabs done',
         'bd_reviews' => 'reviews',
         'bd_repeat' => 'repeat partners',
+        // The community they run — numbers the shell already loaded for the nav badge.
+        'your_community' => 'Your community',
+        'manage' => 'Manage',
+        'members' => 'members',
+        'requests' => 'requests',
+        'new_this_month' => 'new this month',
+        'received' => 'received',
+        /*
+         | next_action arrives from the API as English prose (mobile reads it that
+         | way). The panel translates it by `key` and falls back to whatever the
+         | server sent, so a key added server-side still renders here.
+         */
+        'na_complete_profile_title' => 'Complete your profile',
+        'na_complete_profile_body' => 'A complete profile is what makes a partner trust you enough to say yes.',
+        'na_create_first_offer_title' => 'Create your first Kolab',
+        'na_create_first_offer_body' => 'Publish an offer so communities can discover and apply to it.',
+        'na_create_second_offer_title' => 'Ready for your next Kolab?',
+        'na_create_second_offer_body' => 'Build on the momentum and create your next offer.',
+        'na_apply_to_first_title' => 'Find your first Kolab',
+        'na_apply_to_first_body' => 'Applying is free and always will be. Pick one that fits your members.',
+        'na_review_pending_applications_title' => 'Review :count pending applications',
+        'na_review_pending_applications_one_title' => 'Review 1 pending application',
+        'na_review_pending_applications_body' => 'Someone has applied to one of your Kolabs.',
+        'na_leave_review_title' => 'Leave your review',
+        'na_leave_review_body' => 'Your review helps future partners collaborate with confidence.',
     ],
     'feed' => [
         'title' => 'Explore',

@@ -804,7 +804,7 @@
                  | an attendee account carrying can_manage on their membership
                  | (ROLES §8.1 / §8.3 D1). A leader owns their community outright.
                  */
-                communities: [], communityPending: 0,
+                communities: [], communityPending: 0, communityStats: null,
                 get canManageCommunity() { return this.communities.length > 0; },
                 /**
                  * Whether the Hub is reachable at all. A community user with no
@@ -872,12 +872,19 @@
                         ? window.t('community.create.limit_reached')
                         : window.kb.errorText(res, window.t('community.create.error'));
                 },
+                /*
+                 | The badge, and now the numbers behind it. This call already fetched
+                 | members/tiers/engagement and threw all but `pending` away; keeping
+                 | the payload lets the dashboard show the community summary without a
+                 | second request on every page load.
+                 */
                 async loadCommunityPending() {
                     const community = this.activeCommunity;
                     if (!community) return;
                     const res = await window.kb.api('/communities/' + community.id + '/stats');
                     if (!res.ok) return;
-                    const p = res.json?.data?.pending || {};
+                    this.communityStats = res.json?.data || null;
+                    const p = this.communityStats?.pending || {};
                     this.communityPending = (p.join_requests || 0) + (p.invitations || 0);
                 },
                 async loadShell() {
