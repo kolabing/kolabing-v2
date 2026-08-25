@@ -2,6 +2,8 @@
 .DS_Store
 .env
 .env.backup
+.env.backup*
+.env.*.backup
 .env.production
 .env.pgsql.task6
 .phpactor.json
