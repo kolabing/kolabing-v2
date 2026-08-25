@@ -271,7 +271,10 @@
         </template>
 
         <label class="flex items-start gap-3 mt-1 cursor-pointer">
-            <input x-model="form.accepted_terms" type="checkbox" class="mt-0.5 w-5 h-5 rounded-md border-ink/20 text-ink focus:ring-0">
+            {{-- `kb-checkbox` (layout.blade.php), never a `text-*` colour: the forms
+                 plugin paints the tick white over `currentColor`, so an ink-coloured
+                 box is invisible when ticked in dark theme. --}}
+            <input x-model="form.accepted_terms" type="checkbox" class="kb-checkbox mt-0.5 w-5 h-5 rounded-md focus:ring-0">
             <span class="text-[13px] text-body leading-snug">{!! __('webapp.register.terms', ['terms' => '<a href="https://kolabing.com/terms" target="_blank" rel="noopener" class="font-semibold text-ink underline">'.__('webapp.register.terms_word').'</a>', 'privacy' => '<a href="https://kolabing.com/privacy" target="_blank" rel="noopener" class="font-semibold text-ink underline">'.__('webapp.register.privacy_word').'</a>']) !!}</span>
         </label>
 
