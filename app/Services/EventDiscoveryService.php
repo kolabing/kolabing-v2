@@ -250,6 +250,23 @@ class EventDiscoveryService
         $query->whereHas('community.followers', function (Builder $sub) use ($viewerProfileId): void {
             $sub->where('profile_id', $viewerProfileId);
         });
+
+        // The follows feed also carries `followers`-visibility events, because
+        // the viewer is one by definition (kolabing-app#157). baseQuery()
+        // narrowed everything to `public`, which is right for the city feed —
+        // a stranger browsing Barcelona must not see them — and wrong here.
+        //
+        // Still NOT members/active_members/tier events. A member who also
+        // follows sees slightly less here than they are entitled to; those
+        // events are on the community's own surfaces. Under-showing to a member
+        // beats over-showing to a follower, and expressing "attended within 90
+        // days" in this query would put the audience rule in a second place.
+        $query->orWhere(function (Builder $followerVisible) use ($viewerProfileId): void {
+            $followerVisible->where('visibility', EventVisibility::Followers->value)
+                ->whereHas('community.followers', function (Builder $sub) use ($viewerProfileId): void {
+                    $sub->where('profile_id', $viewerProfileId);
+                });
+        });
     }
 
     /**

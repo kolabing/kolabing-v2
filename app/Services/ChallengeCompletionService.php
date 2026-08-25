@@ -286,16 +286,20 @@ class ChallengeCompletionService
             );
         }
 
-        // Validate: challenger hasn't exceeded event's max_challenges_per_attendee.
-        // Guard the null case: a raw-created event with no value must not coerce
-        // `0 >= null` to true and block the very first challenge.
-        $maxPerAttendee = $event->max_challenges_per_attendee ?? 10;
-        $completedCount = ChallengeCompletion::query()
+        // A cap only if this event actually has one (kolabing-app#156).
+        //
+        // **Null means unlimited**, and that is now the default: the column used
+        // to default to 10, so every event carried a limit nobody chose and
+        // nothing in the product ever mentioned. §8 of the product model says no
+        // cap for MVP — see what people do before restricting it. The mechanism
+        // stays for the organizer who eventually wants one.
+        $maxPerAttendee = $event->max_challenges_per_attendee;
+        $completedCount = $maxPerAttendee === null ? 0 : ChallengeCompletion::query()
             ->where('event_id', $event->id)
             ->where('challenger_profile_id', $challenger->id)
             ->count();
 
-        if ($completedCount >= $maxPerAttendee) {
+        if ($maxPerAttendee !== null && $completedCount >= $maxPerAttendee) {
             Log::warning('Challenge initiate blocked: max challenges reached', $ctx + [
                 'completed_count' => $completedCount,
                 'max_per_attendee' => $maxPerAttendee,

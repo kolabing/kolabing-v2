@@ -24,6 +24,11 @@ class DatabaseSeeder extends Seeder
             IconSeeder::class,
             BadgeSeeder::class,
             SystemChallengeSeeder::class,
+            // The peer-playable library communities curate from (#150). Kept
+            // separate from SystemChallengeSeeder because that one seeds
+            // trigger-driven missions, and mixing the two would blur the line
+            // that decides which surface a challenge appears on.
+            PeerChallengeLibrarySeeder::class,
             XpEarnRuleSeeder::class,
             XpLevelSeeder::class,
             RewardEconomicsSeeder::class,
