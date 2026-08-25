@@ -6,9 +6,9 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Collaboration;
-use App\Models\Event;
 use App\Models\Profile;
 use App\Services\CheckinService;
+use App\Services\CollaborationHappeningService;
 use App\Support\CheckinLink;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +17,8 @@ use Illuminate\Support\Facades\DB;
 class CollaborationQrCodeController extends Controller
 {
     public function __construct(
-        private readonly CheckinService $checkinService
+        private readonly CheckinService $checkinService,
+        private readonly CollaborationHappeningService $happenings,
     ) {}
 
     /**
@@ -35,20 +36,19 @@ class CollaborationQrCodeController extends Controller
         }
 
         $result = DB::transaction(function () use ($collaboration): array {
-            $event = $collaboration->event;
+            /*
+             * One place builds a happening: CollaborationHappeningService. This used
+             * to create the Event inline, which had two consequences worth naming.
+             * It set `partner_name` from `$profile->display_name` — an attribute that
+             * does not exist on Profile — so every generated event was hosted with
+             * "Partner". And it left `visibility` at the `members` default with no
+             * `community_id`, which is exactly the combination EventSignupService
+             * refuses, so nobody could ever sign up to a Kolab's happening.
+             */
+            $event = $this->happenings->ensureFor($collaboration);
 
-            if (! $event) {
-                $collaboration->loadMissing(['kolab', 'applicantProfile']);
-
-                $event = Event::create([
-                    'profile_id' => $collaboration->creator_profile_id,
-                    'name' => $collaboration->kolab?->title ?? 'Collaboration Event',
-                    'partner_name' => $collaboration->applicantProfile?->display_name ?? 'Partner',
-                    'partner_type' => $collaboration->applicantProfile?->user_type?->value ?? 'community',
-                    'event_date' => $collaboration->scheduled_date ?? now(),
-                ]);
-
-                $collaboration->update(['event_id' => $event->id]);
+            if ($event === null) {
+                throw new \LogicException('A cancelled collaboration has no door.');
             }
 
             // One place mints tokens, so every event gets the typable code and the

@@ -25,6 +25,76 @@
             <p class="mt-8 text-muted">{{ __('webapp.common.loading') }}</p>
         </template>
 
+        {{--
+            ── Attendee home ─────────────────────────────────────────────
+
+            An attendee's dashboard is not a smaller version of a seller's. There are
+            no kolabs, no applications, no plan and no profile-strength score to
+            chase — there is one question ("what am I going to?") and one action
+            ("find something"). So: the next ticket first, because at 7pm on a
+            Thursday that is the only thing on the screen that matters, then what is
+            on near them.
+        --}}
+        <template x-if="!loading && isAttendee">
+            <div class="flex flex-col gap-7 mt-7 kb-fade-up">
+
+                {{-- The next ticket, as a boarding pass rather than a list row. --}}
+                <template x-if="nextTicket">
+                    <a :href="kbPath('/tickets?t=' + nextTicket.code)"
+                       class="block rounded-[22px] bg-ink text-white p-5 sm:p-6 shadow-cardhover hover:-translate-y-px transition">
+                        <p class="text-[11px] font-bold tracking-[1.4px] uppercase text-white/60">{{ __('webapp.dashboard.next_up') }}</p>
+                        <p class="font-anton text-[24px] sm:text-[28px] leading-tight tracking-[.5px] mt-2" x-text="nextTicket.event?.name"></p>
+                        <p class="text-[13.5px] text-white/75 mt-1.5" x-text="ticketWhen(nextTicket)"></p>
+                        <div class="flex items-center gap-2 mt-4">
+                            <span class="px-3 py-1.5 rounded-pill bg-primary text-on-primary text-[12px] font-bold">{{ __('webapp.dashboard.show_ticket') }}</span>
+                            <span class="font-anton text-[15px] tracking-[2px] text-white/80" x-text="nextTicket.code"></span>
+                        </div>
+                    </a>
+                </template>
+
+                <template x-if="!nextTicket">
+                    <div class="rounded-[22px] border-[1.5px] border-dashed border-ink/20 p-6 text-center">
+                        <p class="text-sm text-muted">{{ __('webapp.dashboard.no_tickets') }}</p>
+                    </div>
+                </template>
+
+                {{-- What's on. Driven by the attendee's own city when they set one,
+                     which is what step 2 of onboarding is for. --}}
+                <div>
+                    <div class="flex items-end justify-between gap-3">
+                        <div>
+                            <p class="text-[13px] font-semibold tracking-[1px] uppercase text-ink">{{ __('webapp.dashboard.whats_on') }}</p>
+                            <p class="text-[12.5px] text-muted mt-0.5" x-text="whatsOnScope"></p>
+                        </div>
+                        <a :href="kbPath('/tickets')" class="text-[12.5px] font-bold text-muted hover:text-ink transition">{{ __('webapp.nav.tickets') }} →</a>
+                    </div>
+
+                    <p x-show="loadingExtras" x-cloak class="text-sm text-muted mt-4">{{ __('webapp.common.loading') }}</p>
+
+                    <div class="mt-4 flex flex-col gap-2.5">
+                        <template x-for="ev in whatsOn" :key="ev.id">
+                            <a :href="kbPath('/events/' + ev.id)"
+                               class="flex items-center gap-3.5 bg-white border border-ink/[.08] rounded-2xl p-4 shadow-card hover:border-ink/25 hover:-translate-y-px transition">
+                                <span class="w-[46px] shrink-0 rounded-xl border border-ink/[.10] overflow-hidden text-center">
+                                    <span class="block text-[9px] font-bold tracking-[.7px] uppercase text-white bg-ink py-[3px]" x-text="evMonth(ev)"></span>
+                                    <span class="block text-[17px] font-bold text-ink leading-none py-1.5 tabular-nums" x-text="evDay(ev)"></span>
+                                </span>
+                                <span class="min-w-0 flex-1">
+                                    <span class="block text-[14.5px] font-bold text-ink truncate" x-text="ev.name"></span>
+                                    <span class="block text-[12.5px] text-muted truncate" x-text="evMeta(ev)"></span>
+                                </span>
+                                <span class="shrink-0 text-[12px] font-bold px-2.5 py-1 rounded-pill"
+                                      :class="ev.viewer_signup_status === 'going' ? 'bg-ok-surface text-ok-ink' : 'bg-cream-low text-body'"
+                                      x-text="ev.viewer_signup_status === 'going' ? t('dashboard.going') : t('dashboard.open')"></span>
+                            </a>
+                        </template>
+                        <p x-show="!loadingExtras && whatsOn.length === 0" x-cloak
+                           class="rounded-2xl border-[1.5px] border-dashed border-ink/20 py-10 text-center text-sm text-muted">{{ __('webapp.dashboard.nothing_on') }}</p>
+                    </div>
+                </div>
+            </div>
+        </template>
+
         {{-- ── Community dashboard ─────────────────────────────────────── --}}
         <template x-if="!loading && isCommunity">
             <div class="flex flex-col gap-7 mt-7 kb-fade-up">
@@ -55,6 +125,50 @@
                     </div>
                     <a href="{{ $base }}/account?edit=1"
                        class="inline-flex items-center justify-center h-10 px-5 mt-4 rounded-pill bg-inverse text-on-inverse text-[13px] font-bold hover:-translate-y-px transition">{{ __('webapp.dashboard.complete_profile') }}</a>
+                </div>
+
+                {{-- Next up. The server now answers this for a community too; it
+                     used to be business-only, which is why this dashboard had nothing
+                     to say. Suppressed while the profile-strength card above is
+                     showing, so the two never argue about the same thing. --}}
+                <template x-if="d.next_action && !duplicateProfilePrompt">
+                    <a :href="kbPath(nextActionHref)"
+                       class="flex items-center gap-4 rounded-3xl bg-primary-tint border border-primary p-5 hover:-translate-y-px transition">
+                        <span class="w-11 h-11 rounded-2xl bg-white/70 flex items-center justify-center shrink-0">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>
+                        </span>
+                        <span class="flex-1 min-w-0">
+                            <span class="block text-[11px] font-bold tracking-[1px] uppercase text-amber">{{ __('webapp.dashboard.next_up') }}</span>
+                            <span class="block text-sm font-bold text-ink mt-0.5" x-text="nextActionTitle"></span>
+                            <span class="block text-xs text-body mt-0.5" x-text="nextActionBody"></span>
+                        </span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted shrink-0"><path d="m9 18 6-6-6-6"/></svg>
+                    </a>
+                </template>
+
+                {{-- The community they run. The shell already fetched these numbers for
+                     the nav badge, so this costs no extra request. Hidden entirely for
+                     a community that has not created one yet — the Hub is where that
+                     happens, and nagging here would be a second front door. --}}
+                <div x-show="communityStats && activeCommunity" x-cloak
+                     class="rounded-3xl bg-white border border-ink/[.08] p-5 shadow-card">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-bold tracking-[1px] uppercase text-muted">{{ __('webapp.dashboard.your_community') }}</p>
+                            <p class="text-[17px] font-bold text-ink mt-1 truncate" x-text="activeCommunity?.name"></p>
+                        </div>
+                        <a :href="kbPath('/community/members')"
+                           class="shrink-0 h-9 px-4 rounded-pill bg-white border border-line text-[12.5px] font-bold text-ink hover:border-ink transition flex items-center">{{ __('webapp.dashboard.manage') }}</a>
+                    </div>
+                    <div class="flex gap-2 mt-4">
+                        <template x-for="s in communityTiles" :key="s.label">
+                            <a :href="kbPath(s.href)"
+                               class="flex-1 rounded-xl bg-cream-input px-2 py-3 text-center hover:bg-ink/[.06] transition">
+                                <p class="font-anton text-xl text-ink" x-text="s.n"></p>
+                                <p class="text-[9px] font-medium tracking-[.5px] text-muted mt-0.5" x-text="s.label"></p>
+                            </a>
+                        </template>
+                    </div>
                 </div>
 
                 @include('webapp.partials.upcoming')
@@ -92,8 +206,8 @@
                         </span>
                         <span class="flex-1 min-w-0">
                             <span class="block text-[11px] font-bold tracking-[1px] uppercase text-amber">{{ __('webapp.dashboard.next_up') }}</span>
-                            <span class="block text-sm font-bold text-ink mt-0.5" x-text="d.next_action?.title"></span>
-                            <span class="block text-xs text-body mt-0.5" x-text="d.next_action?.body"></span>
+                            <span class="block text-sm font-bold text-ink mt-0.5" x-text="nextActionTitle"></span>
+                            <span class="block text-xs text-body mt-0.5" x-text="nextActionBody"></span>
                         </span>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted shrink-0"><path d="m9 18 6-6-6-6"/></svg>
                     </a>
@@ -225,20 +339,87 @@
 
         return {
             loading: true, loadingExtras: true, greeting: '', d: {}, upcoming: [],
+            // Attendee home: their next ticket, and what is on near them.
+            tickets: [], whatsOn: [],
             recommended: [], activity: [], savedCount: 0,
             // Null until there is a real suggestion to name — the block renders
             // nothing rather than saying "0 suggestions".
             suggestionTop: null, suggestionCount: 0,
-            get dashTitle() { return this.isBusiness ? t('dashboard.title_business') : t('dashboard.title_community'); },
+            get dashTitle() {
+                if (this.isBusiness) return t('dashboard.title_business');
+                if (this.isAttendee) return t('dashboard.title_attendee');
+                return t('dashboard.title_community');
+            },
+            /** Where "what's on" is looking, so an empty list is explained rather than blamed. */
+            get whatsOnScope() {
+                const city = this.me?.city?.name;
+                return city ? t('dashboard.whats_on_city', { city }) : t('dashboard.whats_on_any');
+            },
             get commStats() {
                 const a = this.d.applications_sent || {}, c = this.d.collaborations || {};
+                const r = this.d.applications_received || {};
                 // Each tile links to the screen that explains the number.
-                return [
+                const tiles = [
                     { n: a.pending ?? 0, label: t('status.pending').toUpperCase(), href: '/kolabs?tab=requests' },
                     { n: c.active ?? 0, label: t('status.active').toUpperCase(), href: '/kolabs?tab=active' },
                     { n: c.completed ?? 0, label: t('status.completed').toUpperCase(), href: '/kolabs?tab=finished' },
                     { n: this.savedCount, label: t('feed.tab_saved'), href: '/feed?tab=saved' },
                 ];
+                /*
+                 * Communities post Kolabs too, and then receive applications. The
+                 * backend only started reporting this for communities in BE-FX-29, so
+                 * the tile appears only once there is something in it — a permanent
+                 * "0 RECEIVED" would be noise for the majority who only apply.
+                 */
+                if ((r.total ?? 0) > 0) {
+                    tiles.splice(1, 0, {
+                        n: r.pending ?? 0,
+                        label: t('dashboard.received').toUpperCase(),
+                        href: '/kolabs?tab=requests&sub=received',
+                    });
+                }
+                return tiles;
+            },
+
+            /** The community they run, from the shell's already-loaded stats. */
+            get communityTiles() {
+                const m = this.communityStats?.members || {};
+                const p = this.communityStats?.pending || {};
+                return [
+                    { n: m.active ?? 0, label: t('dashboard.members').toUpperCase(), href: '/community/members' },
+                    { n: p.join_requests ?? 0, label: t('dashboard.requests').toUpperCase(), href: '/community/requests' },
+                    { n: m.new_this_month ?? 0, label: t('dashboard.new_this_month').toUpperCase(), href: '/community/members' },
+                ];
+            },
+
+            /*
+             * The server's `complete_profile` and the profile-strength card above are
+             * the same advice measured two ways (four fields vs seven). Showing both
+             * reads as nagging, and they can even disagree — so while the meter is up,
+             * the card stands down.
+             */
+            get duplicateProfilePrompt() {
+                return this.d.next_action?.key === 'complete_profile' && this.profileScore.percent < 100;
+            },
+
+            /*
+             * next_action's title/body are English strings built server-side (and read
+             * by mobile in that form), so translating them here — by key, falling back
+             * to whatever the server sent — is what makes the card speak Spanish and
+             * Catalan without changing the API contract. An unknown key still renders.
+             */
+            get nextActionTitle() {
+                const na = this.d.next_action;
+                if (!na) return '';
+                const count = this.d.applications_received?.pending ?? 0;
+                // One waiting application is a different sentence from three.
+                const one = na.key === 'review_pending_applications' && count === 1 ? '_one' : '';
+                return window.tOr('dashboard.na_' + na.key + one + '_title', na.title).replace(':count', count);
+            },
+            get nextActionBody() {
+                const na = this.d.next_action;
+                if (!na) return '';
+                return window.tOr('dashboard.na_' + na.key + '_body', na.body);
             },
 
             /**
@@ -287,9 +468,10 @@
             get nextActionHref() {
                 return {
                     complete_profile: '/account?edit=1',
+                    apply_to_first: '/feed',
                     create_first_offer: '/kolabs/create',
                     create_second_offer: '/kolabs/create',
-                    review_pending_applications: '/kolabs?tab=requests',
+                    review_pending_applications: '/kolabs?tab=requests&sub=received',
                     leave_review: '/kolabs?tab=finished',
                 }[this.d.next_action?.key] || '/kolabs';
             },
@@ -330,10 +512,12 @@
                 this.greeting = this.displayName
                     ? t('dashboard.welcome_name', { name: this.displayName })
                     : t('dashboard.welcome');
-                const dash = await window.kb.api('/me/dashboard');
-                if (dash.ok) {
-                    this.d = dash.json?.data || {};
-                    this.upcoming = this.d.upcoming_collaborations || [];
+                if (!this.isAttendee) {
+                    const dash = await window.kb.api('/me/dashboard');
+                    if (dash.ok) {
+                        this.d = dash.json?.data || {};
+                        this.upcoming = this.d.upcoming_collaborations || [];
+                    }
                 }
                 this.loading = false;
                 // Secondary panels load after the numbers are on screen, so a slow
@@ -341,7 +525,57 @@
                 this.loadExtras();
             },
 
+            get nextTicket() { return this.tickets[0] || null; },
+            ticketWhen(tk) {
+                const w = tk.event?.starts_at || tk.event?.event_date;
+                if (!w) return '';
+                const d = new Date(w);
+                const day = d.toLocaleDateString(window.KB_LOCALE || 'en', { weekday: 'long', day: 'numeric', month: 'long' });
+                return tk.event?.starts_at
+                    ? day + ' · ' + d.toLocaleTimeString(window.KB_LOCALE || 'en', { hour: '2-digit', minute: '2-digit' })
+                    : day;
+            },
+            evWhen(ev) { return ev.starts_at || ev.event_date || null; },
+            evMonth(ev) {
+                const w = this.evWhen(ev);
+                return w ? new Date(w).toLocaleDateString(window.KB_LOCALE || 'en', { month: 'short' }) : '—';
+            },
+            evDay(ev) {
+                const w = this.evWhen(ev);
+                return w ? String(new Date(w).getDate()) : '—';
+            },
+            evMeta(ev) {
+                const w = this.evWhen(ev);
+                const time = w && ev.starts_at
+                    ? new Date(w).toLocaleTimeString(window.KB_LOCALE || 'en', { hour: '2-digit', minute: '2-digit' })
+                    : '';
+                return [time, ev.partner_name, ev.address || ev.location].filter(Boolean).join(' · ');
+            },
+
+            /**
+             * An attendee's panels, kept separate from the seller ones because none
+             * of those queries mean anything for this role — /me/dashboard is about
+             * kolabs and collaborations, and asking for it would return a shape this
+             * screen never reads.
+             */
+            async loadAttendeeExtras() {
+                const params = new URLSearchParams({ per_page: '6', date: 'upcoming' });
+                const cityId = this.me?.city?.id || this.me?.city_id;
+                if (cityId) params.set('city_id', cityId);
+
+                const [tickets, events] = await Promise.all([
+                    window.kb.api('/me/tickets'),
+                    window.kb.api('/events/discover?' + params.toString()),
+                ]);
+
+                if (tickets?.ok) this.tickets = tickets.json?.data || [];
+                if (events?.ok) this.whatsOn = window.kb.rows(events);
+                this.loadingExtras = false;
+            },
+
             async loadExtras() {
+                if (this.isAttendee) { await this.loadAttendeeExtras(); return; }
+
                 const [rec, notes, saved, sugg] = await Promise.all([
                     window.kb.api('/discovery/opportunities?feed=recommended&page=1&per_page=3'),
                     window.kb.api('/me/notifications?per_page=4'),

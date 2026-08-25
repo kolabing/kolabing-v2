@@ -39,12 +39,13 @@ class EventDiscoveryService
 
     /**
      * Discover active events, optionally near a lat/lng and optionally filtered by
-     * the host community's city / type, and by date (today | upcoming).
+     * the host community's city / type, by date (today | upcoming), and by
+     * whether the viewer follows the host community.
      *
      * Geo filtering is applied only when both $lat and $lng are provided; a
      * city_id alone (no coordinates) drives a non-geo, city-scoped query.
      *
-     * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
+     * @param  array{city_id?: ?string, date?: ?string, type?: ?string, following?: ?bool, viewer_profile_id?: ?string}  $filters
      * @return LengthAwarePaginator<Event>
      */
     public function discover(
@@ -83,7 +84,7 @@ class EventDiscoveryService
      * only ever applied within one page, and `total` counted bounding-box corners
      * that were never returned.
      *
-     * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
+     * @param  array{city_id?: ?string, date?: ?string, type?: ?string, following?: ?bool, viewer_profile_id?: ?string}  $filters
      * @return LengthAwarePaginator<Event>
      */
     public function discoverNearby(
@@ -115,7 +116,7 @@ class EventDiscoveryService
     /**
      * Non-geo discovery: city / date / type filters only, ordered by start.
      *
-     * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
+     * @param  array{city_id?: ?string, date?: ?string, type?: ?string, following?: ?bool, viewer_profile_id?: ?string}  $filters
      * @return LengthAwarePaginator<Event>
      */
     private function discoverFiltered(int $perPage, array $filters): LengthAwarePaginator
@@ -140,7 +141,7 @@ class EventDiscoveryService
      * artefact of the old geo "active now" path; the public/city upcoming surface
      * is governed entirely by visibility + date, so dropping it here is safe.
      *
-     * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
+     * @param  array{city_id?: ?string, date?: ?string, type?: ?string, following?: ?bool, viewer_profile_id?: ?string}  $filters
      * @return Builder<Event>
      */
     private function baseQuery(array $filters): Builder
@@ -170,9 +171,12 @@ class EventDiscoveryService
      * - date     → restricts on the effective start date COALESCE(starts_at,
      *   event_date) — the same column the resource exposes. See applyDateFilter
      *   for the exact range boundaries.
+     * - following → only events whose host community the VIEWER follows. See
+     *   applyFollowingFilter; it composes with the filters above rather than
+     *   replacing them.
      *
      * @param  Builder<Event>  $query
-     * @param  array{city_id?: ?string, date?: ?string, type?: ?string}  $filters
+     * @param  array{city_id?: ?string, date?: ?string, type?: ?string, following?: ?bool, viewer_profile_id?: ?string}  $filters
      */
     private function applyFilters(Builder $query, array $filters): void
     {
@@ -202,6 +206,50 @@ class EventDiscoveryService
         }
 
         $this->applyDateFilter($query, $filters['date'] ?? null);
+        $this->applyFollowingFilter($query, $filters);
+    }
+
+    /**
+     * Restrict to events hosted by a community the viewer FOLLOWS
+     * (kolabing-app#142).
+     *
+     * This is the payoff for following: the follow was recorded and then used
+     * nowhere, so the tap had no consequence. Following needs no city — it is
+     * an explicit relationship, where a city is only ever a guess at relevance
+     * — which is why the request makes lat/lng optional once it is set.
+     *
+     * A follower is NOT a member, and this changes nothing about that. The
+     * visibility gate stays where baseQuery() puts it: `visibility = public`.
+     * A followed community's member- or tier-only event stays invisible here,
+     * exactly as it is for a stranger. See kolabing-app#138 for why the two
+     * relationships are separate tables in the first place.
+     *
+     * With `following` asked for but no viewer to resolve it against, this
+     * matches NOTHING rather than falling through. Falling through would turn
+     * "the communities I follow" into "every public event on the platform" —
+     * the failure that looks like success, and the one worth being explicit
+     * about.
+     *
+     * @param  Builder<Event>  $query
+     * @param  array{city_id?: ?string, date?: ?string, type?: ?string, following?: ?bool, viewer_profile_id?: ?string}  $filters
+     */
+    private function applyFollowingFilter(Builder $query, array $filters): void
+    {
+        if (($filters['following'] ?? false) !== true) {
+            return;
+        }
+
+        $viewerProfileId = $filters['viewer_profile_id'] ?? null;
+
+        if (! is_string($viewerProfileId) || $viewerProfileId === '') {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $query->whereHas('community.followers', function (Builder $sub) use ($viewerProfileId): void {
+            $sub->where('profile_id', $viewerProfileId);
+        });
     }
 
     /**
