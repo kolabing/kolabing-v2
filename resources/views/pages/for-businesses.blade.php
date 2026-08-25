@@ -1,6 +1,6 @@
 @php
     $title = 'For Businesses';
-    $description = 'See how Kolabing helps local businesses drive foot traffic, activate neighborhoods, and launch community partnerships without wasted ad spend.';
+    $description = 'See how Kolabing helps local businesses drive footfall, activate neighborhoods, and launch community partnerships without wasted ad spend.';
     $canonical = route('for-businesses');
 @endphp
 
@@ -11,7 +11,7 @@
         <p class="mt-6 max-w-3xl text-lg text-off-black/70">Kolabing helps neighborhood businesses launch collaborations with clubs, teams, creators, and community organizers that bring real people into real spaces.</p>
         <div class="mt-10 grid gap-6 md:grid-cols-3">
             <article class="rounded-3xl border border-off-black/10 bg-white p-7 shadow-sm">
-                <h2 class="text-xl font-bold">Fill quiet hours</h2>
+                <h2 class="text-xl font-bold">Fill quiet nights</h2>
                 <p class="mt-3 text-off-black/70">Create campaigns for mornings, midweek evenings, seasonal launches, or product drops without relying on discounts alone.</p>
             </article>
             <article class="rounded-3xl border border-off-black/10 bg-white p-7 shadow-sm">
@@ -26,6 +26,20 @@
         <div class="mt-12 rounded-[2rem] bg-primary/20 p-8">
             <h2 class="text-2xl font-bold">What businesses launch on Kolabing</h2>
             <p class="mt-4 max-w-3xl text-off-black/75">Coffee shops host running groups, studios partner with wellness communities, venues test new formats, and local brands create events that generate both user-generated content and real-world conversion. The best partnerships feel relevant to the neighborhood, easy to join, and valuable to both sides.</p>
+        </div>
+
+        {{-- The visitor's role is already known here, so ?type=business skips the
+             register form's role-picker step. --}}
+        <div class="mt-12 rounded-[2rem] bg-off-black p-8 text-white md:flex md:items-center md:justify-between md:gap-10">
+            <div>
+                <h2 class="font-montserrat text-2xl font-black uppercase leading-tight md:text-3xl">Launch your first kolab this week</h2>
+                <p class="mt-3 max-w-xl text-white/70">Create your business account in the browser — no app needed. Post a kolab, read the applications that come in, and pick the communities you want to work with.</p>
+            </div>
+            <div class="mt-6 flex shrink-0 flex-col gap-3 md:mt-0">
+                <a href="{{ rtrim(config('webapp.url'), '/') }}/register?type=business" class="rounded-full bg-primary px-7 py-3 text-center font-bold text-off-black transition hover:bg-primary/90">Create your business account</a>
+                <a href="{{ config('kolabing.book_a_call_url_business') }}" target="_blank" rel="noopener" class="text-center text-sm font-medium text-white/75 underline decoration-white/30 underline-offset-4 hover:text-white">Prefer to talk first? Book a 20-min call</a>
+                <a href="{{ rtrim(config('webapp.url'), '/') }}/login" class="text-center text-sm font-medium text-white/60 hover:text-white">Already have an account? Log in</a>
+            </div>
         </div>
     </section>
 </x-layouts.marketing-page>

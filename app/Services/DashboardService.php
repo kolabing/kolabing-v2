@@ -27,7 +27,8 @@ class DashboardService
      *     collaborations: array{total: int, active: int, upcoming: int, completed: int},
      *     upcoming_collaborations: \Illuminate\Database\Eloquent\Collection,
      *     partner_status: array{status: string, label: string, icon: string, breakdown: array<string, mixed>},
-     *     next_action: array{key: string, title: string, body: string}|null
+     *     next_action: array{key: string, title: string, body: string}|null,
+     *     monthly_goal: array{completed: int, goal: int, met: bool}
      * }
      */
     public function getBusinessDashboard(Profile $profile): array
@@ -43,6 +44,31 @@ class DashboardService
             'upcoming_collaborations' => $this->getUpcomingCollaborations($profile),
             'partner_status' => $this->getPartnerStatus($profile),
             'next_action' => $this->getNextAction($profile, $opportunities, $applicationsReceived, $collaborations),
+            'monthly_goal' => $this->getMonthlyGoal($profile),
+        ];
+    }
+
+    /**
+     * Rolling calendar-month collaboration goal. Deliberately not a streak:
+     * a quiet month just resets to 0/goal, never shown as "broken" — business
+     * collaboration cadence is naturally seasonal, see
+     * config('gamification_business.monthly_goal_count') for the target.
+     *
+     * @return array{completed: int, goal: int, met: bool}
+     */
+    private function getMonthlyGoal(Profile $profile): array
+    {
+        $goal = (int) config('gamification_business.monthly_goal_count');
+
+        $completed = $this->getAllCollaborationsQuery($profile)
+            ->where('status', CollaborationStatus::Completed)
+            ->where('completed_at', '>=', now()->startOfMonth())
+            ->count();
+
+        return [
+            'completed' => $completed,
+            'goal' => $goal,
+            'met' => $completed >= $goal,
         ];
     }
 
@@ -161,19 +187,139 @@ class DashboardService
     /**
      * Get dashboard stats for a community user.
      *
+     * Three keys used to come back here against the business dashboard's seven, and
+     * the asymmetry was not a product decision — it was an omission with consequences
+     * on both clients:
+     *
+     *  - Communities post Kolabs too (`IntentType::CommunitySeeking`) and therefore
+     *    RECEIVE applications, but `applications_received` was business-only. The
+     *    Flutter client has parsed `applications_received` on the community dashboard
+     *    since it was written (`CommunityDashboard.fromJson`) and silently defaulted
+     *    it to all-zeros, so a community with people waiting saw "0" (BE-FX-29).
+     *  - `opportunities` was business-only for the same reason, so a community could
+     *    not see how many of its own Kolabs were live.
+     *  - `next_action` was business-only, which is why the web panel could tell a
+     *    business what to do next and had nothing to say to a community.
+     *
      * @return array{
+     *     opportunities: array{total: int, published: int, draft: int, closed: int},
      *     applications_sent: array{total: int, pending: int, accepted: int, declined: int, withdrawn: int},
+     *     applications_received: array{total: int, pending: int, accepted: int, declined: int},
      *     collaborations: array{total: int, active: int, upcoming: int, completed: int},
-     *     upcoming_collaborations: \Illuminate\Database\Eloquent\Collection
+     *     upcoming_collaborations: \Illuminate\Database\Eloquent\Collection,
+     *     next_action: array{key: string, title: string, body: string}|null
      * }
      */
     public function getCommunityDashboard(Profile $profile): array
     {
+        $opportunities = $this->getOpportunityStats($profile);
+        $applicationsSent = $this->getSentApplicationStats($profile);
+        $applicationsReceived = $this->getReceivedApplicationStats($profile);
+        $collaborations = $this->getCollaborationStats($profile);
+
         return [
-            'applications_sent' => $this->getSentApplicationStats($profile),
-            'collaborations' => $this->getCollaborationStats($profile),
+            'opportunities' => $opportunities,
+            'applications_sent' => $applicationsSent,
+            'applications_received' => $applicationsReceived,
+            'collaborations' => $collaborations,
             'upcoming_collaborations' => $this->getUpcomingCollaborations($profile),
+            'next_action' => $this->getCommunityNextAction(
+                $profile,
+                $opportunities,
+                $applicationsSent,
+                $applicationsReceived,
+                $collaborations,
+            ),
         ];
+    }
+
+    /**
+     * Single next-best-action for the community dashboard.
+     *
+     * Same shape and the same keys as the business chain wherever the step means the
+     * same thing, so both clients keep one `key` → destination map. The chain itself
+     * is different because the roles are: a community's first move is to APPLY to
+     * something, not to publish — communities browse free and applying is never
+     * paywalled (ROLES §3.5), so pushing "create a Kolab" first would be pushing the
+     * rarer path.
+     *
+     * @param  array{total: int, published: int, draft: int, closed: int}  $opportunities
+     * @param  array{total: int, pending: int, accepted: int, declined: int, withdrawn: int}  $applicationsSent
+     * @param  array{total: int, pending: int, accepted: int, declined: int}  $applicationsReceived
+     * @param  array{total: int, active: int, upcoming: int, completed: int}  $collaborations
+     * @return array{key: string, title: string, body: string}|null
+     */
+    private function getCommunityNextAction(
+        Profile $profile,
+        array $opportunities,
+        array $applicationsSent,
+        array $applicationsReceived,
+        array $collaborations,
+    ): ?array {
+        if (! $this->isCommunityProfileComplete($profile)) {
+            return [
+                'key' => 'complete_profile',
+                'title' => 'Complete your profile',
+                'body' => 'Businesses read this before they accept — a thin profile is the usual reason an application is passed over.',
+            ];
+        }
+
+        // Someone is waiting on an answer. That outranks anything this community
+        // might go and do next.
+        if ($applicationsReceived['pending'] > 0) {
+            $count = $applicationsReceived['pending'];
+
+            return [
+                'key' => 'review_pending_applications',
+                'title' => $count === 1 ? 'Review 1 pending application' : "Review {$count} pending applications",
+                'body' => 'A business has applied to one of your Kolabs.',
+            ];
+        }
+
+        if ($applicationsSent['total'] === 0 && $opportunities['published'] === 0) {
+            return [
+                'key' => 'apply_to_first',
+                'title' => 'Find your first Kolab',
+                'body' => 'Applying is free and always will be. Pick one that fits your members.',
+            ];
+        }
+
+        if ($collaborations['completed'] === 0) {
+            return null;
+        }
+
+        if ($this->hasUnreviewedCompletedCollaboration($profile)) {
+            return [
+                'key' => 'leave_review',
+                'title' => 'Leave your review',
+                'body' => 'Your review helps future partners collaborate with confidence.',
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * The community mirror of {@see isProfileComplete()} — the same four fields, on
+     * the community's own extended profile.
+     *
+     * Deliberately NOT the same list as the web panel's profile-strength meter, which
+     * checks seven fields including photo and socials. This is the floor ("is this
+     * profile presentable at all"); that is a completeness score. The panel hides this
+     * prompt while its own meter is showing so the two never argue on screen.
+     */
+    private function isCommunityProfileComplete(Profile $profile): bool
+    {
+        $communityProfile = $profile->communityProfile;
+
+        if ($communityProfile === null) {
+            return false;
+        }
+
+        return filled($communityProfile->name)
+            && filled($communityProfile->about)
+            && filled($communityProfile->community_type)
+            && filled($communityProfile->city_id);
     }
 
     /**

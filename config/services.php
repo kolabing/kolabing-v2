@@ -52,6 +52,7 @@ return [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_id_ios' => env('GOOGLE_CLIENT_ID_IOS'),
         'client_id_android' => env('GOOGLE_CLIENT_ID_ANDROID'),
+        'client_id_web' => env('GOOGLE_CLIENT_ID_WEB'),
     ],
 
     'google_places' => [
@@ -82,6 +83,28 @@ return [
         'app_id' => env('ONESIGNAL_APP_ID'),
         'rest_api_key' => env('ONESIGNAL_REST_API_KEY'),
         'base_url' => env('ONESIGNAL_BASE_URL', 'https://api.onesignal.com'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Stripe (web checkout for sales-driven business subscriptions)
+    |--------------------------------------------------------------------------
+    |
+    | Bypasses Apple's IAP fee for subscriptions closed on the web / Android.
+    | `allowed_return_hosts` is the https-host allowlist for the checkout
+    | success/cancel URLs (the app deep-link scheme `kolabing://` is always
+    | allowed); anything else is rejected so the endpoint cannot be abused as an
+    | open redirect. Prices are Stripe Price IDs; the EUR amounts are set on
+    | those Prices in the Stripe dashboard (see config/subscriptions.php).
+    |
+    */
+    'stripe' => [
+        'secret' => env('STRIPE_SECRET_KEY'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        'allowed_return_hosts' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('STRIPE_ALLOWED_RETURN_HOSTS', 'kolabing.com,www.kolabing.com,app.kolabing.com')),
+        ))),
     ],
 
 ];

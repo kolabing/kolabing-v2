@@ -79,6 +79,21 @@ class ChatActiveListTest extends TestCase
             ->assertJsonPath('data.0.unread_count', 1);
     }
 
+    public function test_active_chats_include_last_message_preview(): void
+    {
+        // #8: the chat list must carry the latest message so the app shows a
+        // preview instead of a "Tap to open" placeholder.
+        [$business, $community, $application] = $this->makeConversation();
+
+        $this->actingAs($community)
+            ->postJson("/api/v1/applications/{$application->id}/messages", ['content' => 'See you at 6!'])
+            ->assertStatus(201);
+
+        $this->actingAs($business)->getJson('/api/v1/chats')
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.last_message.content', 'See you at 6!');
+    }
+
     public function test_active_chats_bulk_loads_community_thread_unread_counts(): void
     {
         $member = Profile::factory()->attendee()->create();

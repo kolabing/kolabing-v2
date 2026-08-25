@@ -4,7 +4,49 @@
     'canonical',
     'locale' => 'en',
     'alternates' => null,
+    'image' => null,
+    'ogType' => 'website',
+    /*
+     * Overridable so a surface can opt out of indexing without a second layout:
+     * a private page (an invite-only community's join page) or one that has no
+     * content yet (an empty blog, a directory with no published cities). Null
+     * means the indexable default below, so an opting-out caller passes only
+     * 'noindex,follow' rather than restating the whole string.
+     */
+    'robots' => null,
 ])
+@php
+
+    $ogImage = $image
+        ? (str_starts_with($image, 'http') ? $image : url($image))
+        : url('/social-preview.svg');
+
+    /**
+     * The web app is on another host, so its links are absolute rather than route()
+     * calls. Shared here so every page using this layout gets the same CTAs.
+     */
+    $webapp = rtrim(config('webapp.url'), '/');
+    $webappLogin = $webapp.'/login';
+    $webappRegister = $webapp.'/register';
+
+    /**
+     * JSON-LD is built here, NOT inline in the <script> tag. Blade compiles
+     * directives inside `{!! !!}` expressions, and Laravel 12 has an `@context`
+     * directive — so a literal '@context' key written there is replaced by compiled
+     * PHP and the emitted structured data loses its @context entirely. Inside a
+     * @php block the compiler leaves it alone. See PublicProfilePageTest /
+     * MarketingSeoTest for the guard.
+     */
+    $organizationSchema = json_encode([
+        '@context' => 'https://schema.org',
+        '@type' => 'Organization',
+        'name' => 'Kolabing',
+        'url' => route('home'),
+        'logo' => url('/brand/kolabing-logo.png'),
+        'description' => 'Kolabing helps local businesses and communities plan partnerships that turn events into footfall, member value, and repeat visits.',
+        'email' => 'support@kolabing.com',
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+@endphp
 <!DOCTYPE html>
 <html lang="{{ $locale }}">
 <head>
@@ -12,24 +54,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $title }} | Kolabing</title>
     <meta name="description" content="{{ $description }}">
-    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+    <meta name="robots" content="{{ $robots ?? 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1' }}">
     <link rel="canonical" href="{{ $canonical }}">
     @isset($alternates)
         @foreach ($alternates as $alternate)
             <link rel="alternate" hreflang="{{ $alternate['hreflang'] }}" href="{{ $alternate['href'] }}">
         @endforeach
     @endisset
-    <meta property="og:type" content="website">
+    <meta property="og:type" content="{{ $ogType }}">
     <meta property="og:site_name" content="Kolabing">
     <meta property="og:title" content="{{ $title }} | Kolabing">
     <meta property="og:description" content="{{ $description }}">
     <meta property="og:url" content="{{ $canonical }}">
-    <meta property="og:image" content="{{ url('/social-preview.svg') }}">
-    <meta property="og:image:alt" content="Kolabing local business and community collaboration platform">
+    <meta property="og:image" content="{{ $ogImage }}">
+    <meta property="og:image:alt" content="{{ $title }}">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ $title }} | Kolabing">
     <meta name="twitter:description" content="{{ $description }}">
-    <meta name="twitter:image" content="{{ url('/social-preview.svg') }}">
+    <meta name="twitter:image" content="{{ $ogImage }}">
     <meta name="theme-color" content="#0D1216">
     <link rel="icon" href="/favicon.ico?v=3" sizes="any">
     <link rel="icon" type="image/png" href="/favicon-512.png?v=3">
@@ -56,19 +98,36 @@
             },
         };
     </script>
+    <script type="application/ld+json">
+        {!! $organizationSchema !!}
+    </script>
+    {{ $head ?? '' }}
 </head>
 <body class="bg-off-white text-off-black font-sans">
     <header class="border-b border-off-black/10 bg-white/90 backdrop-blur">
         <div class="mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-4">
             <a href="{{ route('home') }}" class="flex items-center gap-3 text-off-black">
-                <img src="/brand/logo-wordmark.svg" alt="Kolabing" width="1200" height="260" class="h-8 w-auto">
+                <img src="/brand/kolabing-logo.webp" alt="Kolabing" width="560" height="250" fetchpriority="high" class="h-9 w-auto">
             </a>
-            <nav class="flex flex-wrap items-center gap-4 text-sm font-medium text-off-black/70">
+            {{-- Every marketing page funnels into the web app from here; the legal
+                 links stay in the DOM for crawlers but collapse on small screens so
+                 the two CTAs keep their weight. --}}
+            <nav class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium text-off-black/70">
                 <a href="{{ route('for-businesses') }}" class="hover:text-off-black">Businesses</a>
                 <a href="{{ route('for-communities') }}" class="hover:text-off-black">Communities</a>
-                <a href="{{ route('support') }}" class="hover:text-off-black">Support</a>
-                <a href="{{ route('privacy') }}" class="hover:text-off-black">Privacy</a>
-                <a href="{{ route('terms') }}" class="hover:text-off-black">Terms</a>
+                {{-- Header: Kolabs only. `/events` is a footer link until BE-NF-40
+                     retargets it at confirmed Kolabs (ROLES §7.5). Both vanish when
+                     `public_kolabs.enabled` is off — the route 404s (BE-FX-24). --}}
+                @if (config('kolabing.public_kolabs.enabled'))
+                    <a href="{{ route('public-kolabs') }}" class="hover:text-off-black">Kolabs</a>
+                @endif
+                <a href="{{ route('pricing') }}" class="hover:text-off-black">Pricing</a>
+                <a href="{{ route('blog.index') }}" class="hover:text-off-black">Blog</a>
+                <a href="{{ route('support') }}" class="hidden hover:text-off-black md:inline">Support</a>
+                <a href="{{ route('privacy') }}" class="hidden hover:text-off-black md:inline">Privacy</a>
+                <a href="{{ route('terms') }}" class="hidden hover:text-off-black md:inline">Terms</a>
+                <a href="{{ $webappLogin }}" class="font-bold text-off-black hover:text-off-black/60">Log in</a>
+                <a href="{{ $webappRegister }}" class="rounded-full bg-off-black px-5 py-2 font-bold text-primary transition hover:bg-off-black/90">Get started</a>
             </nav>
         </div>
     </header>
@@ -81,9 +140,17 @@
         <div class="mx-auto flex max-w-6xl flex-col gap-6 px-6 md:flex-row md:items-center md:justify-between">
             <div>
                 <p class="font-montserrat text-xl font-black uppercase tracking-wide">Kolabing</p>
-                <p class="mt-2 max-w-xl text-sm text-white/70">Kolabing helps local businesses and communities plan partnerships that turn events into foot traffic, member value, and repeat visits.</p>
+                <p class="mt-2 max-w-xl text-sm text-white/70">Kolabing helps local businesses and communities plan partnerships that turn events into footfall, member value, and repeat visits.</p>
             </div>
             <div class="flex flex-wrap gap-4 text-sm text-white/70">
+                <a href="{{ $webappRegister }}" class="font-bold text-primary hover:text-primary/80">Get started</a>
+                <a href="{{ $webappLogin }}" class="hover:text-primary">Log in</a>
+                <a href="{{ route('public-events') }}" class="hover:text-primary">What's on</a>
+                @if (config('kolabing.public_kolabs.enabled'))
+                    <a href="{{ route('public-kolabs') }}" class="hover:text-primary">Kolabs</a>
+                @endif
+                <a href="{{ route('pricing') }}" class="hover:text-primary">Pricing</a>
+                <a href="{{ route('blog.index') }}" class="hover:text-primary">Blog</a>
                 <a href="{{ route('support') }}" class="hover:text-primary">Support</a>
                 <a href="mailto:support@kolabing.com" class="hover:text-primary">support@kolabing.com</a>
                 <a href="{{ route('sitemap') }}" class="hover:text-primary">Sitemap</a>

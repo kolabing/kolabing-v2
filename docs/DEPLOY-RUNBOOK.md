@@ -21,6 +21,7 @@ php artisan migrate                                   # see migrations below
 php artisan db:seed --class=Database\Seeders\OfferOptionSeeder   # offering/need/deliverable/product_type/venue_type
 php artisan db:seed --class=Database\Seeders\IconSeeder          # 24 personalised SVGs -> storage/app/public/category-icons
 php artisan db:seed --class=Database\Seeders\BusinessTypeSeeder  # applies_to + icon facets (idempotent upsert — confirm it upserts, not duplicates)
+php artisan db:seed --class=Database\Seeders\BlogPostSeeder      # Community-Commerce blog articles (idempotent upsert by slug; re-run to ship edits)
 php artisan storage:link                             # public symlink for icon SVGs
 php artisan config:cache && php artisan route:cache && php artisan view:cache
 ```

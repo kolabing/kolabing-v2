@@ -18,14 +18,14 @@
         </div>
         <h1 class="mt-4 font-montserrat text-4xl font-black uppercase md:text-5xl">Privacy Policy</h1>
         <div class="prose prose-lg mt-8 max-w-none prose-headings:font-montserrat prose-headings:uppercase prose-a:text-off-black">
-            <p>This Privacy Policy explains how Kolabing collects, uses, shares and protects your personal data when you use our platform, mobile applications and related services (the "Service"). We are committed to protecting your privacy and complying with the EU General Data Protection Regulation (GDPR) and the Spanish Organic Law on Data Protection and Guarantee of Digital Rights (LOPDGDD).</p>
+            <p>This Privacy Policy explains how Kolabing collects, uses, shares and protects your personal data when you use our platform, mobile applications and related services (the "Service"). We are committed to protecting your privacy and complying with the EU General Data Protection Regulation (GDPR) and the Estonian Personal Data Protection Act (Isikuandmete kaitse seadus).</p>
 
             <h2>1. Who We Are</h2>
             <p>The data controller responsible for your personal data is:</p>
             <ul>
                 <li><strong>{{ $company->legal_name }}</strong></li>
                 <li>Registered address: {{ $company->registered_address }}</li>
-                <li>Company registration / NIF: {{ $company->registration_number }}</li>
+                <li>Company registration number: {{ $company->registration_number }}</li>
                 <li>Privacy contact: <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a></li>
             </ul>
 
@@ -37,7 +37,7 @@
                 <li><strong>Location data.</strong> With your permission, we process your approximate or precise location (latitude and longitude) to show you nearby events and to enable event check-in.</li>
                 <li><strong>Push notifications.</strong> If you enable notifications, we process a device push token (through Firebase Cloud Messaging) and your notification preferences.</li>
                 <li><strong>Messaging.</strong> In-app chat threads and messages exchanged between users.</li>
-                <li><strong>Payment data.</strong> If you are a business user with a monthly subscription, payments are processed by Stripe. We do not store your full card number; we retain limited transaction and subscription details.</li>
+                <li><strong>Payment data.</strong> If you are a business user with a monthly subscription, the payment is processed by <strong>Apple</strong> through your App Store account (in-app purchase). We do not receive or store your card details; we retain limited subscription status and transaction identifiers returned by Apple.</li>
                 <li><strong>Usage and analytics data.</strong> Product analytics collected through PostHog to understand how the Service is used and to improve it. You can opt out of analytics.</li>
                 <li><strong>Support communications.</strong> The content of any messages you send us for support.</li>
             </ul>
@@ -64,7 +64,7 @@
             <p>We do not sell your personal data. We share it only with trusted service providers ("processors") who process it on our behalf under contract, and where required by law. These include:</p>
             <ul>
                 <li><strong>Google</strong> and <strong>Apple</strong> — sign-in and authentication.</li>
-                <li><strong>Stripe</strong> — payment processing.</li>
+                <li><strong>Apple</strong> (App Store / In-App Purchase) — subscription billing and payment processing.</li>
                 <li><strong>Firebase Cloud Messaging</strong> and the <strong>Apple Push Notification service</strong> — delivery of push notifications.</li>
                 <li><strong>Cloud hosting providers</strong> — hosting and storage of the Service and its data.</li>
                 <li><strong>PostHog</strong> — product analytics.</li>
@@ -78,7 +78,7 @@
             <p>We keep your personal data only for as long as necessary for the purposes described in this policy. In general, we keep account data for as long as your account is active. When you delete your account, we soft-delete it and then remove or anonymise your personal data within a reasonable period, except where we must retain certain information to comply with legal obligations (such as tax and accounting records) or to resolve disputes.</p>
 
             <h2>8. Your Rights</h2>
-            <p>Under the GDPR and LOPDGDD, you have the right to:</p>
+            <p>Under the GDPR and the Estonian Personal Data Protection Act, you have the right to:</p>
             <ul>
                 <li><strong>Access</strong> — obtain a copy of the personal data we hold about you.</li>
                 <li><strong>Rectification</strong> — correct inaccurate or incomplete data.</li>
@@ -88,13 +88,13 @@
                 <li><strong>Objection</strong> — object to processing based on our legitimate interests.</li>
                 <li><strong>Withdraw consent</strong> — withdraw any consent you have given, at any time, without affecting prior processing.</li>
             </ul>
-            <p>To exercise your rights, contact us at <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a>. You also have the right to lodge a complaint with the Spanish supervisory authority, the Agencia Española de Protección de Datos (AEPD), at <a href="https://www.aepd.es">www.aepd.es</a>.</p>
+            <p>To exercise your rights, contact us at <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a>. You also have the right to lodge a complaint with the Estonian supervisory authority, the Data Protection Inspectorate (Andmekaitse Inspektsioon), at <a href="https://www.aki.ee">www.aki.ee</a>.</p>
 
             <h2>9. Children</h2>
             <p>The Service is intended only for people aged 18 or older. We do not knowingly collect personal data from anyone under 18. If you believe a person under 18 has provided us with personal data, please contact us so we can delete it.</p>
 
             <h2>10. Security</h2>
-            <p>We use appropriate technical and organisational measures to protect your personal data against loss, misuse and unauthorised access, including encryption in transit, access controls and secure hosting. No system is completely secure, but we work continuously to protect your data and will notify you and the AEPD of a personal data breach where required by law.</p>
+            <p>We use appropriate technical and organisational measures to protect your personal data against loss, misuse and unauthorised access, including encryption in transit, access controls and secure hosting. No system is completely secure, but we work continuously to protect your data and will notify you and the Data Protection Inspectorate of a personal data breach where required by law.</p>
 
             <h2>11. Changes to This Policy</h2>
             <p>We may update this Privacy Policy from time to time. If we make material changes, we will notify you (for example, in the app or by email) and update the "Last updated" date above. We encourage you to review this policy periodically.</p>
@@ -104,7 +104,7 @@
             <ul>
                 <li><strong>{{ $company->legal_name }}</strong></li>
                 <li>Registered address: {{ $company->registered_address }}</li>
-                <li>Company registration / NIF: {{ $company->registration_number }}</li>
+                <li>Company registration number: {{ $company->registration_number }}</li>
                 <li>Privacy: <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a></li>
                 <li>Support: <a href="mailto:{{ $company->support_email }}">{{ $company->support_email }}</a></li>
             </ul>

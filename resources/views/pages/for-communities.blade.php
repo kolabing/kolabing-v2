@@ -27,5 +27,19 @@
             <h2 class="text-2xl font-bold text-primary">How community leaders use Kolabing</h2>
             <p class="mt-4 max-w-3xl text-white/75">Running clubs, creative groups, alumni networks, sports teams, and local interest communities can use Kolabing to build calendars, deepen loyalty, and create better partner conversations with less manual outreach.</p>
         </div>
+
+        {{-- The visitor's role is already known here, so ?type=community skips the
+             register form's role-picker step. Communities are free — say so. --}}
+        <div class="mt-12 rounded-[2rem] border border-off-black/10 bg-primary/25 p-8 md:flex md:items-center md:justify-between md:gap-10">
+            <div>
+                <h2 class="font-montserrat text-2xl font-black uppercase leading-tight md:text-3xl">Free for communities. Always.</h2>
+                <p class="mt-3 max-w-xl text-off-black/75">Create your community account in the browser — no app needed. Browse what local businesses are offering, apply in a couple of clicks, and bring your members something worth showing up for.</p>
+            </div>
+            <div class="mt-6 flex shrink-0 flex-col gap-3 md:mt-0">
+                <a href="{{ rtrim(config('webapp.url'), '/') }}/register?type=community" class="rounded-full bg-off-black px-7 py-3 text-center font-bold text-primary transition hover:bg-off-black/90">Create your community account</a>
+                <a href="{{ config('kolabing.book_a_call_url_community') }}" target="_blank" rel="noopener" class="text-center text-sm font-medium text-off-black/70 underline decoration-off-black/30 underline-offset-4 hover:text-off-black">Prefer to talk first? Book a 20-min call</a>
+                <a href="{{ rtrim(config('webapp.url'), '/') }}/login" class="text-center text-sm font-medium text-off-black/60 hover:text-off-black">Already have an account? Log in</a>
+            </div>
+        </div>
     </section>
 </x-layouts.marketing-page>

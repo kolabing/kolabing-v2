@@ -39,6 +39,18 @@ enum NotificationType: string
     case SecondOfferPrompt = 'second_offer_prompt';
     case PartnerStatusUpgraded = 'partner_status_upgraded';
     case ReactivationPrompt = 'reactivation_prompt';
+    case TierPromoted = 'tier_promoted';
+
+    // Multi-Kolab Event MVP — deliberately new cases, never overloading the
+    // attendee EventCancelled case above (different domain entirely).
+    case MultiKolabApplicationReceived = 'multi_kolab_application_received';
+    case MultiKolabApplicantAccepted = 'multi_kolab_applicant_accepted';
+    case MultiKolabApplicantDeclined = 'multi_kolab_applicant_declined';
+    case MultiKolabPartnerWithdrew = 'multi_kolab_partner_withdrew';
+    case MultiKolabRoleFilled = 'multi_kolab_role_filled';
+    case MultiKolabEventConfirmed = 'multi_kolab_event_confirmed';
+    case MultiKolabEventCancelled = 'multi_kolab_event_cancelled';
+    case MultiKolabEventDraftIncomplete = 'multi_kolab_event_draft_incomplete';
 
     /**
      * @return array<string>

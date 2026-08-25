@@ -10,8 +10,10 @@ use App\Enums\MissionTrigger;
 use App\Enums\PointEventType;
 use App\Exceptions\SubscriptionRequiredException;
 use App\Models\Kolab;
+use App\Models\KolabSuggestion;
 use App\Models\PointLedger;
 use App\Models\Profile;
+use App\Services\Suggestions\SuggestionTelemetry;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -26,6 +28,7 @@ class KolabService
         private readonly GamificationWalletService $walletService,
         private readonly MissionService $missionService,
         private readonly NotificationService $notificationService,
+        private readonly SuggestionTelemetry $suggestionTelemetry,
     ) {}
 
     /**
@@ -83,6 +86,12 @@ class KolabService
             });
         } else {
             $this->excludeAlreadyAppliedKolabs($query, $viewer);
+            // Don't surface kolabs whose application dates are all in the past —
+            // the applicant would hit a dead-end date picker ("No available
+            // dates for this kolab"). Mirrors the apply-time guard in
+            // ApplicationService. The saved list is left untouched: a saved
+            // kolab that has since expired still shows so the user can see why.
+            $query->withSelectableDates();
         }
 
         $this->applyFilters($query, $filters);
@@ -202,8 +211,56 @@ class KolabService
         ]);
 
         $this->notificationReminderService->syncKolabDraftReminder($kolab);
+        $this->markSuggestionConverted($creator, $kolab, $data);
 
         return $kolab;
+    }
+
+    /**
+     * Close the suggestion funnel (BE-NF-39 §3.9): the row this Kolab came from
+     * records which Kolab it produced, which is the only link between a card
+     * being shown and a real collaboration existing.
+     *
+     * The viewer check repeats the `exists` scope in CreateKolabRequest on
+     * purpose. That rule is what turns a stranger's id into a 422, but it is one
+     * edit away from being weakened by someone who does not know it is
+     * load-bearing, and without this second check the weakening would silently
+     * mark another profile's row converted — retiring their suggestion and
+     * crediting the wrong side of the funnel. One extra predicate on an indexed
+     * primary-key lookup is a cheap price for that.
+     *
+     * `whereNull('converted_kolab_id')` makes the *first* conversion win, like
+     * every other funnel marker on the row (`shown_at`, `clicked_at`,
+     * `dismissed_at`): overwriting would lose which Kolab the suggestion
+     * actually caused.
+     *
+     * Liveness is deliberately not required — see the rule's docblock: an
+     * expired or dismissed row of the caller's own still converts, because a
+     * stale card must never block Kolab creation.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function markSuggestionConverted(Profile $creator, Kolab $kolab, array $data): void
+    {
+        $suggestionId = $data['suggestion_id'] ?? null;
+
+        if (! is_string($suggestionId) || $suggestionId === '') {
+            return;
+        }
+
+        $suggestion = KolabSuggestion::query()
+            ->whereKey($suggestionId)
+            ->where('viewer_profile_id', $creator->id)
+            ->whereNull('converted_kolab_id')
+            ->first();
+
+        if ($suggestion === null) {
+            return;
+        }
+
+        $suggestion->forceFill(['converted_kolab_id' => $kolab->id])->save();
+
+        $this->suggestionTelemetry->converted($creator, $suggestion, $kolab);
     }
 
     /**

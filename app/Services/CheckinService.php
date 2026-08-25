@@ -6,17 +6,22 @@ namespace App\Services;
 
 use App\Enums\CommunityMemberStatus;
 use App\Enums\MissionTrigger;
+use App\Events\AttendeeCheckedIn;
 use App\Models\Community;
 use App\Models\CommunityMember;
 use App\Models\Event;
 use App\Models\EventCheckin;
 use App\Models\Profile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class CheckinService
 {
+    /** How long a door stays open at minimum, measured from the host opening it. */
+    private const MINIMUM_DOOR_HOURS = 4;
+
     public function __construct(
         private readonly BadgeService $badgeService,
         private readonly TierAssignmentService $tierAssignmentService,
@@ -27,11 +32,45 @@ class CheckinService
     /**
      * Generate a unique QR check-in token for an event.
      */
+    /**
+     * Open the door, reusing the existing code when it is still valid.
+     *
+     * Idempotency matters because there are two clients. A host who opens the door
+     * on a laptop and then opens it again on a phone must not invalidate the QR that
+     * is still on the laptop screen — people would be standing in front of a dead
+     * code with nothing to tell them. Rotating is therefore explicit: it is how a
+     * host retires a code they think has leaked.
+     */
+    public function openDoor(Event $event, bool $rotate = false): string
+    {
+        $stillValid = $event->checkin_token !== null
+            && $event->is_active
+            && ($event->checkin_token_expires_at === null || $event->checkin_token_expires_at->isFuture());
+
+        if ($stillValid && ! $rotate) {
+            // Reopening extends the window without changing what is on screen.
+            $event->update(['checkin_token_expires_at' => $this->checkinWindowEndsAt($event)]);
+
+            return (string) $event->checkin_token;
+        }
+
+        return $this->generateCheckinToken($event);
+    }
+
+    /**
+     * Mint a fresh token, code and window. Retires whatever came before it, so
+     * prefer openDoor() unless you mean to invalidate the old code.
+     */
     public function generateCheckinToken(Event $event): string
     {
         $token = Str::random(64);
+
         $event->update([
             'checkin_token' => $token,
+            'checkin_code' => $this->uniqueCheckinCode(),
+            // Opening the door is deliberate (is_active), but closing it must not
+            // depend on anyone remembering: the token dies with the event window.
+            'checkin_token_expires_at' => $this->checkinWindowEndsAt($event),
             'is_active' => true,
         ]);
 
@@ -39,11 +78,63 @@ class CheckinService
     }
 
     /**
+     * When the door closes.
+     *
+     * Anchored on the moment the host opened it, because opening is a deliberate
+     * act: pressing the button must always give you a door, even for an event whose
+     * recorded date is wrong or which only ever had a date and no times. The event's
+     * own end can only ever *extend* that window, never cut it short — the first
+     * version of this shortened it, and a legacy date-only event slammed shut the
+     * instant it was opened.
+     *
+     * It still expires, which is the point: a QR photographed at one event cannot
+     * manufacture attendance weeks later. A host who suspects a leaked code re-opens
+     * the door, which mints a fresh token and code.
+     */
+    private function checkinWindowEndsAt(Event $event): Carbon
+    {
+        $floor = now()->addHours(self::MINIMUM_DOOR_HOURS);
+
+        $fromEvent = match (true) {
+            $event->ends_at !== null => $event->ends_at->copy()->addHour(),
+            $event->starts_at !== null => $event->starts_at->copy()->addHours(6),
+            default => null,
+        };
+
+        return $fromEvent !== null && $fromEvent->isAfter($floor) ? $fromEvent : $floor;
+    }
+
+    /**
+     * A short code someone can read off a screen and type. The alphabet drops the
+     * characters people confuse out loud — O/0, I/1/L — because this gets shouted
+     * across a room.
+     */
+    private function uniqueCheckinCode(): string
+    {
+        $alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+        do {
+            $code = '';
+            for ($i = 0; $i < 8; $i++) {
+                $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+            }
+        } while (Event::query()->where('checkin_code', $code)->exists());
+
+        return $code;
+    }
+
+    /**
      * Check in an attendee using a QR token.
      */
     public function checkin(Profile $profile, string $token): EventCheckin
     {
-        $event = Event::query()->where('checkin_token', $token)->first();
+        // The QR carries the long token; the typed fallback carries the short code.
+        // Both are the same permission, so both are accepted here.
+        $event = Event::query()
+            ->where(fn ($query) => $query
+                ->where('checkin_token', $token)
+                ->orWhere('checkin_code', strtoupper($token)))
+            ->first();
 
         if (! $event) {
             throw new \InvalidArgumentException('Invalid check-in token.');
@@ -53,6 +144,28 @@ class CheckinService
             throw new \LogicException('This event is not currently accepting check-ins.');
         }
 
+        if ($event->checkin_token_expires_at !== null && $event->checkin_token_expires_at->isPast()) {
+            throw new \LogicException('Check-in for this event has closed.');
+        }
+
+        return $this->record($event, $profile);
+    }
+
+    /**
+     * Record someone as present, with every consequence that carries.
+     *
+     * Extracted because there are two doors into the same room and they must agree
+     * on what happens once someone is through it. In {@see checkin()} the attendee
+     * scans a code the host is displaying; in {@see TicketService::admit()} the host
+     * scans a code the attendee is carrying. Different proof, different party
+     * authenticated — identical outcome: one `event_checkins` row, arrivals
+     * broadcast, `total_events_attended` incremented, badges re-checked, community
+     * points awarded, tiers re-evaluated, missions progressed.
+     *
+     * @throws \LogicException already present
+     */
+    public function record(Event $event, Profile $profile): EventCheckin
+    {
         $existing = EventCheckin::query()
             ->where('event_id', $event->id)
             ->where('profile_id', $profile->id)
@@ -67,6 +180,15 @@ class CheckinService
             'profile_id' => $profile->id,
             'checked_in_at' => now(),
         ]);
+
+        /*
+         * The door is watched from more than one screen — a laptop at the entrance
+         * and the host's phone, web and mobile. Polling makes them disagree for a
+         * few seconds each time; broadcasting makes the count move on all of them at
+         * once. Clients keep polling as a fallback, so this is an improvement rather
+         * than a dependency.
+         */
+        broadcast(new AttendeeCheckedIn($checkin->fresh(['profile'])));
 
         // Increment total_events_attended on attendee profile
         if ($profile->isAttendee() && $profile->attendeeProfile) {

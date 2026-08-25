@@ -8,10 +8,14 @@ use App\Models\Application;
 use App\Models\Collaboration;
 use App\Models\Community;
 use App\Models\Kolab;
+use App\Models\MultiKolabEvent;
+use App\Models\MultiKolabRoleApplication;
 use App\Policies\ApplicationPolicy;
 use App\Policies\CollaborationPolicy;
 use App\Policies\CommunityPolicy;
 use App\Policies\KolabPolicy;
+use App\Policies\MultiKolabEventPolicy;
+use App\Policies\MultiKolabRoleApplicationPolicy;
 use App\Services\Admin\CompanySettingService;
 use App\Services\PostmarkClient;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -48,6 +52,54 @@ class AppServiceProvider extends ServiceProvider
         $this->initializePostHog();
         $this->configurePasswordReset();
         $this->shareLegalPageData();
+        $this->shareWebappLocaleData();
+    }
+
+    /**
+     * Share locale helpers with every Kolabing Web App view: the current-locale
+     * base path (''/'/es'/'/ca') for building locale-aware links, plus the absolute
+     * per-locale URLs (hreflang/canonical) and relative paths (language switcher)
+     * for the current page.
+     */
+    private function shareWebappLocaleData(): void
+    {
+        View::composer('webapp.*', function ($view): void {
+            $loc = app()->getLocale();
+            $default = (string) config('webapp.default_locale', 'en');
+            $all = (array) config('webapp.locales', ['en']);
+            $prefixed = (array) config('webapp.prefixed_locales', []);
+
+            $rawPath = ltrim(request()->path(), '/');
+            foreach ($prefixed as $pl) {
+                if ($rawPath === $pl) {
+                    $rawPath = '';
+                    break;
+                }
+                if (str_starts_with($rawPath, $pl.'/')) {
+                    $rawPath = substr($rawPath, strlen($pl) + 1);
+                    break;
+                }
+            }
+            $suffix = $rawPath === '' ? '/' : '/'.$rawPath;
+            $origin = 'https://'.config('webapp.host');
+
+            $paths = [];
+            $urls = [];
+            foreach ($all as $l) {
+                $lb = $l === $default ? '' : '/'.$l;
+                $paths[$l] = $lb.($suffix === '/' ? '/' : $suffix);
+                $urls[$l] = $origin.$paths[$l];
+            }
+
+            $view->with([
+                'loc' => $loc,
+                'defaultLocale' => $default,
+                'base' => $loc === $default ? '' : '/'.$loc,
+                'allLocales' => $all,
+                'localeUrls' => $urls,
+                'localePaths' => $paths,
+            ]);
+        });
     }
 
     /**
@@ -83,6 +135,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Collaboration::class, CollaborationPolicy::class);
         Gate::policy(Kolab::class, KolabPolicy::class);
         Gate::policy(Community::class, CommunityPolicy::class);
+        Gate::policy(MultiKolabEvent::class, MultiKolabEventPolicy::class);
+        Gate::policy(MultiKolabRoleApplication::class, MultiKolabRoleApplicationPolicy::class);
     }
 
     private function initializePostHog(): void

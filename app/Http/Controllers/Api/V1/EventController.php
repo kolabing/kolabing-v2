@@ -44,16 +44,23 @@ class EventController extends Controller
         $profileId = $request->query('profile_id');
         $time = $request->query('time'); // upcoming | past | null
         $attendeeId = $request->query('attendee') === 'me' ? $authProfile->id : null;
+        // `following=me` — events from the communities the viewer follows. This
+        // is what puts a followed community's programme in the member's feed
+        // without them having to join it (kolabing-app#138).
+        $followingId = $request->query('following') === 'me' ? $authProfile->id : null;
 
         $filters = array_filter([
             'community_id' => $communityId,
             'profile_id' => $profileId,
             'attendee_profile_id' => $attendeeId,
+            'follower_profile_id' => $followingId,
             'time' => $time,
         ], static fn ($value) => $value !== null);
 
         // Back-compat: with no scoping filter, list the viewer's own events.
-        if ($communityId === null && $profileId === null && $attendeeId === null) {
+        // `following` counts as one, or it would be ANDed with "my own events"
+        // and always come back empty.
+        if ($communityId === null && $profileId === null && $attendeeId === null && $followingId === null) {
             $filters['profile_id'] = $authProfile->id;
         }
 

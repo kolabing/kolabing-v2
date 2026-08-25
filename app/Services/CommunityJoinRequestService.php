@@ -9,6 +9,8 @@ use App\Enums\JoinPolicy;
 use App\Enums\JoinRequestStatus;
 use App\Enums\NotificationType;
 use App\Models\Community;
+use App\Models\CommunityJoinAnswer;
+use App\Models\CommunityJoinQuestion;
 use App\Models\CommunityJoinRequest;
 use App\Models\Profile;
 use DomainException;
@@ -31,9 +33,37 @@ class CommunityJoinRequestService
      *
      * @throws DomainException 'community_is_open'
      */
-    public function request(Community $community, Profile $profile): CommunityJoinRequest
-    {
-        if ($community->join_policy === JoinPolicy::Open) {
+    /**
+     * Apply to join.
+     *
+     * @param  array<int, array{question_id: string, answer: string}>  $answers
+     *
+     * @throws DomainException `community_is_open` when an open community asks
+     *                         nothing (the caller should use /join), or
+     *                         `missing_required_answers`
+     */
+    public function request(
+        Community $community,
+        Profile $profile,
+        array $answers = [],
+        bool $answersProvided = false
+    ): CommunityJoinRequest {
+        $questions = CommunityJoinQuestion::query()
+            ->where('community_id', $community->id)
+            ->activeOrdered()
+            ->get();
+
+        // An open community that asks nothing has no application to make — the
+        // client should call /join, which is what it has always done. An open
+        // community that DOES ask something now has a real application, so the
+        // request path opens up and self-approves once answered.
+        //
+        // No community has questions until a leader creates one, so on the day
+        // this deploys every existing community keeps behaving exactly as it
+        // does today.
+        $isOpen = $community->join_policy === JoinPolicy::Open;
+
+        if ($isOpen && $questions->isEmpty()) {
             throw new DomainException('community_is_open');
         }
 
@@ -47,15 +77,108 @@ class CommunityJoinRequestService
             return $pending;
         }
 
-        $joinRequest = $community->joinRequests()->create([
-            'profile_id' => $profile->id,
-            'status' => JoinRequestStatus::Pending->value,
-            'requested_at' => now(),
-        ]);
+        // Only enforce the required questions when the client actually took
+        // part in the questions flow. Every app build already installed posts
+        // no `answers` at all (CommunityService::requestToJoin sends an empty
+        // body), and 422-ing those would leave existing users unable to join
+        // the moment a leader adds a required question. A client that knows
+        // about answers sends the key — even as an empty array — and is held to
+        // the rules.
+        if ($answersProvided) {
+            $this->assertRequiredAnswered($questions, $answers);
+        }
 
-        $this->notifyManagersOfNewRequest($community, $profile);
+        return DB::transaction(function () use ($community, $profile, $questions, $answers, $isOpen): CommunityJoinRequest {
+            $joinRequest = $community->joinRequests()->create([
+                'profile_id' => $profile->id,
+                'status' => JoinRequestStatus::Pending->value,
+                'requested_at' => now(),
+            ]);
 
-        return $joinRequest;
+            $this->storeAnswers($joinRequest, $questions, $answers);
+
+            if ($isOpen) {
+                // Open + questions: the answers are collected for the record,
+                // and membership is granted immediately. Neither notification
+                // fires — nobody is waiting on a decision, and telling the
+                // applicant their own action was approved is noise.
+                $this->memberService->addMember($community, $profile->id);
+
+                $joinRequest->update([
+                    'status' => JoinRequestStatus::Approved->value,
+                    'decided_at' => now(),
+                ]);
+
+                return $joinRequest->refresh();
+            }
+
+            $this->notifyManagersOfNewRequest($community, $profile);
+
+            return $joinRequest;
+        });
+    }
+
+    /**
+     * Every question marked required must have a non-empty answer.
+     *
+     * @param  \Illuminate\Database\Eloquent\Collection<int, CommunityJoinQuestion>  $questions
+     * @param  array<int, array{question_id: string, answer: string}>  $answers
+     *
+     * @throws DomainException
+     */
+    private function assertRequiredAnswered($questions, array $answers): void
+    {
+        $given = [];
+        foreach ($answers as $answer) {
+            $id = $answer['question_id'] ?? null;
+            $text = trim((string) ($answer['answer'] ?? ''));
+            if ($id !== null && $text !== '') {
+                $given[$id] = $text;
+            }
+        }
+
+        foreach ($questions as $question) {
+            if ($question->required && ! array_key_exists($question->id, $given)) {
+                throw new DomainException('missing_required_answers');
+            }
+        }
+    }
+
+    /**
+     * Persists the answers, ignoring anything that does not belong to this
+     * community's active set — a client cannot smuggle in an answer to another
+     * community's question.
+     *
+     * @param  \Illuminate\Database\Eloquent\Collection<int, CommunityJoinQuestion>  $questions
+     * @param  array<int, array{question_id: string, answer: string}>  $answers
+     */
+    private function storeAnswers(
+        CommunityJoinRequest $joinRequest,
+        $questions,
+        array $answers
+    ): void {
+        $allowed = $questions->pluck('id')->all();
+
+        foreach ($answers as $answer) {
+            $questionId = $answer['question_id'] ?? null;
+            $text = trim((string) ($answer['answer'] ?? ''));
+
+            if ($questionId === null || $text === '' || ! in_array($questionId, $allowed, true)) {
+                continue;
+            }
+
+            $question = $questions->firstWhere('id', $questionId);
+
+            CommunityJoinAnswer::query()->updateOrCreate(
+                ['join_request_id' => $joinRequest->id, 'question_id' => $questionId],
+                [
+                    'answer' => $text,
+                    // Snapshot the wording: the question may be reworded later,
+                    // and this application must keep reading as it was asked.
+                    'prompt_snapshot' => $question?->prompt,
+                ],
+            );
+        }
     }
 
     /**
@@ -67,7 +190,12 @@ class CommunityJoinRequestService
     {
         return $community->joinRequests()
             ->where('status', JoinRequestStatus::Pending->value)
-            ->with(['profile.attendeeProfile', 'profile.communityProfile', 'profile.businessProfile'])
+            ->with([
+                'profile.attendeeProfile', 'profile.communityProfile', 'profile.businessProfile',
+                // The answers are the point of the queue; loading the question
+                // too keeps a retired one's prompt readable.
+                'answers.question',
+            ])
             ->orderBy('requested_at')
             ->get();
     }

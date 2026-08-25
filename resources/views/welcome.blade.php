@@ -1,9 +1,75 @@
-<!DOCTYPE html><html lang="en" class="scroll-smooth"><head>
+@php
 
+    /**
+     * Absolute web-app URLs. The app lives on another host (app.kolabing.com), so
+     * these cannot be route() calls. `?type=` lands straight on the register form
+     * with the role already picked — one step fewer than the generic /register.
+     */
+    $app = rtrim(config('webapp.url'), '/');
+    $appRegister = $app.'/register';
+    $appLogin = $app.'/login';
+    $appRegisterBusiness = $appRegister.'?type=business';
+    $appRegisterCommunity = $appRegister.'?type=community';
+
+    /**
+     * JSON-LD is built here, NOT inline in the <script> tag. Blade compiles
+     * directives inside `{!! !!}` expressions, and Laravel 12 has an `@context`
+     * directive — so a literal '@context' key written there is replaced by compiled
+     * PHP and the emitted structured data loses its @context entirely. Inside a
+     * @php block the compiler leaves it alone. See PublicProfilePageTest /
+     * MarketingSeoTest for the guard.
+     */
+    $homeSchema = json_encode([
+      '@context' => 'https://schema.org',
+      '@graph' => [
+          [
+              '@type' => 'Organization',
+              'name' => 'Kolabing',
+              'url' => route('home'),
+              'logo' => url('/brand/kolabing-logo.png'),
+              'description' => 'Kolabing helps local businesses and communities plan partnerships that turn events into footfall, member value, and repeat visits.',
+              'email' => 'support@kolabing.com',
+          ],
+          [
+              '@type' => 'WebSite',
+              'name' => 'Kolabing',
+              'url' => route('home'),
+          ],
+          [
+              '@type' => 'FAQPage',
+              'mainEntity' => [
+                  ['@type' => 'Question', 'name' => 'Is it free for communities?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'Yes, Kolabing is always free for community leaders and groups.']],
+                  ['@type' => 'Question', 'name' => 'How do businesses get matched?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'You post a Kolab and our system surfaces communities that match your location, audience, and goal.']],
+                  ['@type' => 'Question', 'name' => 'What kind of collaborations can I create?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'Events, venue partnerships, product trials, UGC sessions, weekly recurring meetups, anything involving real people in real places.']],
+                  ['@type' => 'Question', 'name' => 'Where is Kolabing available?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'Currently live in Barcelona, expanding to more cities soon.']],
+                  ['@type' => 'Question', 'name' => 'Can I cancel anytime?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'Yes, no long-term commitment. Paid plans for businesses can be cancelled at any time.']],
+              ],
+          ],
+      ],
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+@endphp
+<!DOCTYPE html><html lang="en" class="scroll-smooth"><head>
 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Kolabing — Local Business &amp; Community Collaboration</title>
+  <meta name="description" content="Kolabing connects local businesses with nearby communities to plan real-world collaborations that drive footfall, members, and repeat visits. Live in Barcelona.">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <link rel="canonical" href="{{ route('home') }}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Kolabing">
+  <meta property="og:title" content="Kolabing — Local Business &amp; Community Collaboration">
+  <meta property="og:description" content="Connect with nearby communities to plan real-world collaborations that drive footfall, members, and repeat visits.">
+  <meta property="og:url" content="{{ route('home') }}">
+  <meta property="og:image" content="{{ url('/social-preview.svg') }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Kolabing — Local Business &amp; Community Collaboration">
+  <meta name="twitter:description" content="Connect with nearby communities to plan real-world collaborations that drive footfall, members, and repeat visits.">
+  <meta name="twitter:image" content="{{ url('/social-preview.svg') }}">
+  <script type="application/ld+json">
+  {!! $homeSchema !!}
+  </script>
   <link rel="icon" href="/favicon.ico?v=3" sizes="any">
   <link rel="icon" type="image/png" href="/favicon-512.png?v=3">
   <link rel="apple-touch-icon" href="/favicon-512.png?v=3">
@@ -35,26 +101,36 @@
     .logo { display: flex; align-items: center; }
     .logo-mark {
       display: block;
-      height: 48px;
+      height: 38px;
       width: auto;
       transform: rotate(-2deg);
       transform-origin: left center;
-      margin: -8px 0;
     }
     .logo-mark--footer {
+      height: 46px;
       transform: rotate(-2deg);
+      /* Gold letters read on the dark footer; the black cloud blends into it. */
       filter: drop-shadow(0 6px 16px rgba(0,0,0,0.35));
     }
     nav { display: flex; align-items: center; gap: 32px; }
     nav a { text-decoration: none; color: var(--dark); font-size: 13px; font-weight: 600; opacity: 0.75; transition: opacity .2s, color .2s; }
-    nav a:hover { opacity: 1; color: var(--dark); }
+    /* Plain nav links only. The filled CTA is a dark pill with white text, so
+       letting this reach it repainted its label near-black on near-black. */
+    nav a:not(.btn-nav):hover { opacity: 1; color: var(--dark); }
+    /* In-page section anchors — these drop away on mobile so the two web-app
+       CTAs are the only things left in the header. */
+    .nav-links { display: flex; align-items: center; gap: 32px; }
+    .nav-login { font-weight: 700; opacity: 0.9; }
     .btn-nav {
-      background: var(--dark); color: var(--yellow); padding: 11px 26px;
-      border-radius: 999px; font-weight: 700; font-size: 13px; text-decoration: none; opacity: 1 !important;
-      letter-spacing: 0.02em;
+      /* White, not the brand yellow: the header itself is yellow, so pale-yellow
+         text on the dark pill washed out against the surrounding field. */
+      background: var(--dark); color: #fff; padding: 12px 28px;
+      border-radius: 999px; font-weight: 800; font-size: 14px; text-decoration: none; opacity: 1 !important;
+      letter-spacing: 0.01em;
       transition: background .2s, transform .2s;
     }
-    .btn-nav:hover { background: #1c2025; transform: translateY(-1px); }
+    /* Restates the colour so no nav-wide rule can wash the label out again. */
+    .btn-nav:hover, .btn-nav:focus-visible { background: #1c2025; color: #fff; transform: translateY(-1px); }
     .menu-icon {
       display: none;
       width: 34px; height: 34px;
@@ -149,18 +225,25 @@
 
     .social-proof { color: rgba(255,255,255,0.25); font-size: 11px; margin-bottom: 24px; }
 
-    .download-btns { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
-    .dl-btn {
-      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.13);
-      color: #fff; display: flex; align-items: center;
-      gap: 9px; padding: 9px 14px; border-radius: 11px; text-decoration: none;
-      backdrop-filter: blur(10px); transition: background .2s; min-width: 130px;
+    /* ── HERO WEB-APP CTA ──
+       The mobile apps are not published yet, so the browser app is the only live
+       acquisition path: one primary pill to /register plus a quiet log-in link. */
+    .hero-cta { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; margin-bottom: 10px; }
+    .hero-cta-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--yellow); color: var(--dark);
+      padding: 16px 32px; border-radius: 999px;
+      font-size: 15px; font-weight: 800; letter-spacing: 0.01em;
+      text-decoration: none; white-space: nowrap;
+      box-shadow: 0 10px 30px rgba(255,226,140,0.26);
+      transition: transform .2s, box-shadow .2s;
     }
-    .dl-btn:hover { background: rgba(255,255,255,0.15); }
-    .dl-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
-    .dl-btn-label { text-align: left; }
-    .dl-btn-label small { display: block; font-size: 9px; text-transform: uppercase; font-weight: 600; opacity: 0.5; line-height: 1; }
-    .dl-btn-label span { display: block; font-size: 13px; font-weight: 600; line-height: 1.2; }
+    .hero-cta-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 38px rgba(255,226,140,0.42); }
+    .hero-cta-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+    .hero-cta-login { color: rgba(255,255,255,0.5); font-size: 12px; font-weight: 500; text-decoration: none; }
+    .hero-cta-login span { color: #fff; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+    .hero-cta-login:hover span { color: var(--yellow); }
+
     .hero-fine { color: rgba(255,255,255,0.2); font-size: 10px; }
 
     /* ── Right: vertical cloud matcher ── */
@@ -472,13 +555,66 @@
       margin: 12px 0;
     }
 
-    /* RIGHT column — phone mockup */
+    /* RIGHT column — the two surfaces Kolabing ships on: the web panel
+       (browser frame, the larger of the two) with the mobile app overlapping it.
+       The panel is drawn in CSS rather than screenshotted so it never goes stale
+       against the real app. */
     .manifesto-phone {
       position: relative;
-      display: flex; align-items: center; justify-content: center;
-      min-height: 520px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 480px;
     }
     .manifesto-phone .phone-wrap { transform: rotate(-4deg); }
+
+    .surface-stack { position: relative; width: 100%; max-width: 500px; }
+
+    .browser-frame {
+      position: relative; z-index: 1;
+      border-radius: 14px; overflow: hidden; background: #fff;
+      transform: rotate(-1.5deg);
+      box-shadow: 0 26px 64px rgba(13,17,20,0.20), 0 2px 8px rgba(13,17,20,0.08);
+    }
+    .browser-bar {
+      display: flex; align-items: center; gap: 6px;
+      padding: 9px 12px; background: #ECE9E2; border-bottom: 1px solid rgba(13,17,20,0.07);
+    }
+    .browser-dot { width: 9px; height: 9px; border-radius: 50%; background: #C6C2BA; flex-shrink: 0; }
+    .browser-url {
+      margin-left: 8px; flex: 1; background: #fff; border-radius: 999px;
+      padding: 4px 12px; font-size: 10px; font-weight: 600; color: #7A7770; letter-spacing: 0.02em;
+    }
+    .browser-body { display: grid; grid-template-columns: 78px 1fr; background: #FBF7EF; height: 252px; }
+    .wp-side {
+      background: #fff; border-right: 1px solid rgba(13,17,20,0.07);
+      padding: 12px 10px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .wp-logo { width: 24px; height: 24px; border-radius: 8px; background: var(--yellow); margin-bottom: 4px; }
+    .wp-nav { height: 9px; border-radius: 999px; background: rgba(13,17,20,0.09); }
+    .wp-nav.is-on { background: var(--yellow); }
+    .wp-main { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+    .wp-search { height: 22px; border-radius: 999px; background: #fff; border: 1px solid rgba(13,17,20,0.08); }
+    .wp-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .wp-card { background: #fff; border: 1px solid rgba(13,17,20,0.07); border-radius: 10px; overflow: hidden; }
+    .wp-card-img { height: 44px; background: linear-gradient(135deg, rgba(255,226,140,0.95), rgba(255,97,20,0.35)); }
+    .wp-card-img.alt { background: linear-gradient(135deg, rgba(13,17,20,0.82), rgba(13,17,20,0.42)); }
+    .wp-card-body { padding: 7px 8px; display: flex; flex-direction: column; gap: 5px; }
+    .wp-line { height: 6px; border-radius: 999px; background: rgba(13,17,20,0.14); }
+    .wp-line.short { width: 55%; background: rgba(13,17,20,0.09); }
+    .wp-tag { width: 34px; height: 8px; border-radius: 999px; background: var(--yellow); }
+
+    /* The phone rides on top of the panel. Scaling lives on this wrapper because
+       the tilt script writes directly to #phoneWrap's transform. */
+    .phone-mini {
+      position: absolute; right: -10px; bottom: -54px; z-index: 3;
+      transform: scale(0.56); transform-origin: bottom right;
+    }
+
+    .surface-caption {
+      margin-top: 84px; text-align: center;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+      color: rgba(13,17,20,0.45);
+    }
+    .surface-caption strong { color: var(--dark); font-weight: 800; }
     .manifesto-phone .phone-glow {
       position: absolute; width: 300px; height: 300px; border-radius: 50%;
       background: radial-gradient(circle, rgba(255,226,140,0.5) 0%, transparent 70%);
@@ -811,6 +947,36 @@
     .ideas-foot b { color: var(--yellow); font-weight: 700; }
 
     /* ── FAQ — white, tight, clean contrast after dark examples ── */
+    /* ── LIVE KOLABS ── */
+    .section-live { background: #fff; padding: 112px 0 104px; border-top: 1px solid rgba(13,17,20,0.07); }
+    .live-track { max-width: 1200px; margin: 0 auto; padding: 0 56px; }
+    .live-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+    .live-lead { max-width: 520px; margin-top: 14px; color: rgba(13,17,20,0.62); font-size: 16px; line-height: 1.55; }
+    .live-all {
+      display: inline-flex; align-items: center; gap: 7px; height: 46px; padding: 0 22px;
+      border-radius: 999px; border: 2px solid var(--dark); background: #fff;
+      font-size: 14px; font-weight: 700; color: var(--dark); text-decoration: none;
+      transition: background .18s ease, color .18s ease; white-space: nowrap;
+    }
+    .live-all:hover { background: var(--dark); color: var(--yellow); }
+    .live-grid { margin-top: 36px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .live-card {
+      display: flex; flex-direction: column; padding: 24px 22px 20px;
+      border: 1px solid rgba(13,17,20,0.12); border-radius: 20px; background: #FDFBF7;
+      text-decoration: none; color: var(--dark);
+      transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+    }
+    .live-card:hover { border-color: var(--dark); transform: translateY(-2px); box-shadow: 0 14px 34px rgba(13,17,20,0.08); }
+    .live-kind { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--purple); }
+    .live-title { font-family: 'Anton', sans-serif; text-transform: uppercase; font-size: 21px; line-height: 1.05; margin-top: 9px; }
+    .live-poster { font-size: 13px; color: rgba(13,17,20,0.5); margin-top: 7px; }
+    .live-rows { margin-top: 16px; display: flex; flex-direction: column; gap: 5px; }
+    .live-row { font-size: 13.5px; line-height: 1.4; color: rgba(13,17,20,0.78); }
+    .live-row b { font-weight: 700; color: var(--dark); }
+    .live-meta { margin-top: 16px; font-size: 11.5px; font-weight: 600; color: rgba(13,17,20,0.42); }
+    .live-go { margin-top: auto; padding-top: 16px; font-size: 13px; font-weight: 700; }
+    .live-card:hover .live-go { text-decoration: underline; }
+
     .section-faq { background: #fff; padding: 112px 0; border-top: 1px solid rgba(13,17,20,0.07); }
     .faq-track {
       max-width: 1280px; margin: 0 auto; padding: 0 48px;
@@ -977,11 +1143,40 @@
     .fade.in { opacity: 1; transform: translateY(0); }
 
     /* ── MOBILE ── */
+    /* ── STICKY MOBILE CTA ──
+       The header nav collapses on mobile, so this is the persistent way back to
+       the web app. It slides in only once the hero CTA has scrolled out of view
+       (see the kbSticky script) so the two never compete. */
+    .kb-sticky { display: none; }
+
     @media (max-width: 900px) {
       header { padding: 12px 20px; }
-      nav { display: none; }
-      .menu-icon { display: block; }
-      .logo-mark { height: 40px; margin: -6px 0; }
+      /* Keep the header's log-in + get-started CTAs on mobile; only the in-page
+         section anchors collapse. The old hamburger opened nothing, so it goes. */
+      nav { display: flex; gap: 16px; }
+      .nav-links { display: none; }
+      .btn-nav { padding: 10px 18px; font-size: 12px; }
+      .menu-icon { display: none; }
+      .logo-mark { height: 32px; }
+
+      .kb-sticky {
+        display: flex; align-items: center; justify-content: space-between; gap: 14px;
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 120;
+        padding: 12px 18px; padding-bottom: calc(12px + env(safe-area-inset-bottom));
+        background: rgba(13,17,20,0.96);
+        backdrop-filter: blur(10px);
+        border-top: 1px solid rgba(255,226,140,0.22);
+        transform: translateY(120%); opacity: 0; visibility: hidden;
+        transition: transform .3s ease, opacity .3s ease, visibility .3s;
+      }
+      .kb-sticky.is-visible { transform: translateY(0); opacity: 1; visibility: visible; }
+      .kb-sticky__login { color: rgba(255,255,255,0.7); font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+      .kb-sticky__cta {
+        flex: 1; text-align: center; background: var(--yellow); color: var(--dark);
+        padding: 13px 18px; border-radius: 999px; font-size: 14px; font-weight: 800; text-decoration: none;
+      }
+      .hero-cta { gap: 16px; }
+      .hero-cta-btn { width: 100%; justify-content: center; }
 
       .hero { min-height: 100svh; padding: 96px 8px 40px; overflow: hidden; }
       .hero-inner { grid-template-columns: 1fr; gap: 32px; }
@@ -989,8 +1184,13 @@
       .hero-right { justify-content: center; padding: 0 16px 24px; height: auto; min-height: 440px; }
       .hero h1 { font-size: clamp(2.2rem, 10vw, 56px); width: auto; max-width: 100%; }
       .phone-wrap { transform: rotate(2deg) translateY(0); }
-      .chip-runners { left: 16px; bottom: 20px; }
-      .chip-notification { right: 16px; top: 20px; }
+      .chip-runners { left: 8px; bottom: 4px; }
+      .chip-notification { right: 8px; top: 16px; }
+      .manifesto-phone { min-height: 380px; }
+      .surface-stack { max-width: 400px; }
+      .browser-body { height: 208px; grid-template-columns: 64px 1fr; }
+      .phone-mini { transform: scale(0.46); right: -18px; bottom: -48px; }
+      .surface-caption { margin-top: 58px; }
 
       .manifesto-track { padding: 0 24px; grid-template-columns: 1fr; gap: 40px; }
       .manifesto-headline { font-size: clamp(2.4rem, 10vw, 56px); }
@@ -1003,6 +1203,8 @@
       .reveal-kicker { letter-spacing: 0.24em; gap: 12px; }
 
       .how-header { grid-template-columns: 1fr; padding: 0 24px; gap: 12px; }
+      .live-track { padding: 0 24px; }
+      .live-grid { grid-template-columns: 1fr; gap: 14px; }
       .how-steps { grid-template-columns: 1fr 1fr; padding: 0 24px; }
       .how-step::after { display: none; }
       .how-deco-arrow, .how-deco-squiggle { display: none; }
@@ -1020,7 +1222,8 @@
       .cta-btns { flex-direction: row; flex-wrap: wrap; }
       .cta-polaroid { display: none; }
 
-      footer { padding: 48px 24px 36px; }
+      /* Extra bottom padding clears the sticky CTA bar. */
+      footer { padding: 48px 24px 104px; }
     }
     @media (max-width: 540px) {
       .how-steps { grid-template-columns: 1fr; }
@@ -1033,20 +1236,27 @@
 <!-- NAV -->
 <header>
   <div class="logo">
-    <img class="logo-mark" src="/brand/logo-mark.svg" alt="kolabing"/>
+    <img class="logo-mark" src="/brand/kolabing-logo.webp" alt="Kolabing" width="560" height="250" fetchpriority="high"/>
   </div>
   <nav>
-    <a href="#how-it-works">how it works</a>
-    <a href="#faq">questions</a>
-    <a class="btn-nav" href="#cta">download</a>
+    <span class="nav-links">
+      <a href="{{ route('for-businesses') }}">businesses</a>
+      <a href="{{ route('for-communities') }}">communities</a>
+      {{-- The header teaches one model: Kolabs. `/events` stays reachable from the
+           footer so the page is not orphaned, but the primary nav does not offer a
+           parallel calendar — see ROLES §7.5 and BACKLOG BE-NF-40.
+           Hidden entirely while `public_kolabs.enabled` is off: the route 404s, so a
+           link to it would be a link to nothing (BE-FX-24). --}}
+      @if (config('kolabing.public_kolabs.enabled'))
+        <a href="{{ route('public-kolabs') }}">kolabs</a>
+      @endif
+      <a href="{{ route('pricing') }}">pricing</a>
+      <a href="#how-it-works">how it works</a>
+      <a href="#faq">questions</a>
+    </span>
+    <a class="nav-login" href="{{ $appLogin }}">log in</a>
+    <a class="btn-nav" href="{{ $appRegister }}">get started free</a>
   </nav>
-  <button class="menu-icon" aria-label="Menu">
-    <svg viewBox="0 0 28 22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
-      <path d="M3 5 L 26 4"/>
-      <path d="M4 11 L 24 11"/>
-      <path d="M3 17 L 23 18"/>
-    </svg>
-  </button>
 </header>
 
 <!-- HERO -->
@@ -1055,7 +1265,7 @@
 
   <!-- Left: text panel -->
   <div class="hero-left">
-    <div class="hero-badge">iOS + Android</div>
+    <div class="hero-badge">free · works in your browser</div>
     <h1>
       <span class="line">MAKE <span class="accent">KOLABS.</span></span>
       <span class="line">FILL YOUR BUSINESS.</span>
@@ -1071,17 +1281,14 @@
       </svg>
       made with ☀ in barcelona
     </div>
-    <div class="download-btns" style="gap: 0px">
-      <a href="#" class="dl-btn">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.1 2.48-1.34.03-1.77-.79-3.31-.79-1.54 0-2.02.77-3.31.82-1.34.05-2.33-1.32-3.17-2.54-1.72-2.5-3.04-7.07-1.27-10.13 1.13-1.95 3.12-2.73 4.61-2.73 1.3 0 2.21.72 2.91.72.69 0 1.83-.87 3.37-.87 1.26 0 2.39.54 3.13 1.48-1.07.65-1.58 1.94-1.58 3.39 0 1.82 1.48 3.15 2.92 3.15.11 0 .22 0 .33-.01-.2 1.63-.82 3.03-1.73 4.41M15.97 3.38c.63-.77 1.05-1.83.94-2.88-.91.04-2 .61-2.65 1.37-.58.67-1.09 1.76-.95 2.79.99.08 2.03-.51 2.66-1.28z"></path></svg>
-        <div class="dl-btn-label"><small>Download on the</small><span>App Store</span></div>
+    <div class="hero-cta">
+      <a href="{{ $appRegister }}" class="hero-cta-btn">
+        start free
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13"/><path d="M13 6l6 6-6 6"/></svg>
       </a>
-      <a href="#" class="dl-btn">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 20.5v-17c0-.83.94-1.3 1.6-.8l14 8.5c.6.36.6 1.24 0 1.6l-14 8.5c-.66.5-1.6.03-1.6-.8z"></path></svg>
-        <div class="dl-btn-label"><small>Get it on</small><span>Google Play</span></div>
-      </a>
+      <a href="{{ $appLogin }}" class="hero-cta-login">already on kolabing? <span>log in</span></a>
     </div>
-    <p class="hero-fine">free to download · cancel anytime</p>
+    <p class="hero-fine">free for communities · no app needed · cancel anytime</p>
   </div>
 
   <!-- Right: vertical cloud matcher (community + business) -->
@@ -1221,8 +1428,6 @@
   })();
 </script>
 
-
-
 <!-- JOURNEY + PHONE SECTION -->
 <section class="section-manifesto" data-screen-label="journey">
   <div class="manifesto-track">
@@ -1245,9 +1450,9 @@
       </div>
     </div>
 
-    <!-- RIGHT: phone mockup -->
+    <!-- RIGHT: both surfaces — web panel + mobile app -->
     <div class="manifesto-phone fade in" style="transition-delay:.15s">
-      <div class="phone-wrap" id="phoneWrap">
+      <div class="surface-stack">
 
         <!-- Floating chip: runners -->
         <div class="chip chip-runners">
@@ -1267,22 +1472,68 @@
           </div>
         </div>
 
-        <!-- Phone frame -->
-        <div class="phone-frame">
-          <div class="phone-screen">
-            <video autoplay muted loop playsinline onerror="this.parentElement.style.background='#1a1a2e'">
-              <source src="assets/hero2.mp4" type="video/mp4"/>
-              <source src="assets/hero.mp4" type="video/mp4"/>
-            </video>
+        <!-- Web panel -->
+        <div class="browser-frame" role="img" aria-label="The Kolabing web panel at app.kolabing.com">
+          <div class="browser-bar" aria-hidden="true">
+            <span class="browser-dot"></span>
+            <span class="browser-dot"></span>
+            <span class="browser-dot"></span>
+            <div class="browser-url">app.kolabing.com</div>
           </div>
-          <div class="phone-notch" aria-hidden="true"></div>
-          <div class="phone-btn-right" aria-hidden="true"></div>
-          <div class="phone-btn-left-1" aria-hidden="true"></div>
-          <div class="phone-btn-left-2" aria-hidden="true"></div>
+          <div class="browser-body" aria-hidden="true">
+            <aside class="wp-side">
+              <div class="wp-logo"></div>
+              <div class="wp-nav is-on"></div>
+              <div class="wp-nav"></div>
+              <div class="wp-nav"></div>
+              <div class="wp-nav"></div>
+            </aside>
+            <div class="wp-main">
+              <div class="wp-search"></div>
+              <div class="wp-cards">
+                <div class="wp-card">
+                  <div class="wp-card-img"></div>
+                  <div class="wp-card-body"><div class="wp-line"></div><div class="wp-line short"></div></div>
+                </div>
+                <div class="wp-card">
+                  <div class="wp-card-img alt"></div>
+                  <div class="wp-card-body"><div class="wp-line"></div><div class="wp-tag"></div></div>
+                </div>
+                <div class="wp-card">
+                  <div class="wp-card-img alt"></div>
+                  <div class="wp-card-body"><div class="wp-line"></div><div class="wp-line short"></div></div>
+                </div>
+                <div class="wp-card">
+                  <div class="wp-card-img"></div>
+                  <div class="wp-card-body"><div class="wp-line"></div><div class="wp-tag"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="phone-glow" aria-hidden="true"></div>
+        <!-- Mobile app, riding on top of the panel -->
+        <div class="phone-mini">
+          <div class="phone-wrap" id="phoneWrap">
+            <div class="phone-frame">
+              <div class="phone-screen">
+                <video autoplay muted loop playsinline onerror="this.parentElement.style.background='#1a1a2e'">
+                  <source src="assets/hero2.mp4" type="video/mp4"/>
+                  <source src="assets/hero.mp4" type="video/mp4"/>
+                </video>
+              </div>
+              <div class="phone-notch" aria-hidden="true"></div>
+              <div class="phone-btn-right" aria-hidden="true"></div>
+              <div class="phone-btn-left-1" aria-hidden="true"></div>
+              <div class="phone-btn-left-2" aria-hidden="true"></div>
+            </div>
+            <div class="phone-glow" aria-hidden="true"></div>
+          </div>
+        </div>
+
       </div>
+
+      <p class="surface-caption">one account · <strong>web panel</strong> + <strong>mobile app</strong></p>
     </div>
 
   </div>
@@ -1451,7 +1702,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/Screenshot 2026-05-16 at 22.47.19.png" alt="Run club cheers-ing coffee cups after a morning run" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-app-preview.webp" alt="Run club cheers-ing coffee cups after a morning run" width="1600" height="862" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Run club + café</strong><span>Morning run + coffee</span></figcaption>
       </figure>
     </div>
@@ -1462,7 +1713,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/Gemini_Generated_Image_j3ohygj3ohygj3oh.png" alt="Cycling crew on the road testing gear" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-run-club-cafe.webp" alt="Cycling crew on the road testing gear" width="1600" height="872" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Cycling crew + hydration brand</strong><span>Ride test</span></figcaption>
       </figure>
     </div>
@@ -1473,7 +1724,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/Gemini_Generated_Image_rfno1grfno1grfno.png" alt="Yoga class at sunset on a rooftop" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-yoga-studio-brunch.webp" alt="Yoga class at sunset on a rooftop" width="1600" height="872" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Yoga club + activewear brand</strong><span>Try-on flow</span></figcaption>
       </figure>
     </div>
@@ -1484,7 +1735,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/feedback-skincare.png" alt="Women's group testing skincare products together" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-idea-skincare-feedback.webp" alt="Women's group testing skincare products together" width="1600" height="1200" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Women&rsquo;s group + skincare brand</strong><span>Product testing circle</span></figcaption>
       </figure>
     </div>
@@ -1495,7 +1746,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/content-dog-walk.png" alt="Dog community on a city photo walk with their dogs" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-idea-dog-walk-content.webp" alt="Dog community on a city photo walk with their dogs" width="1600" height="1200" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Dog community + pet brand</strong><span>Dog photo walk</span></figcaption>
       </figure>
     </div>
@@ -1506,7 +1757,7 @@
       </div>
       <svg class="goal-arrow" viewBox="0 0 18 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2 L 9 22"/><path d="M3.5 16.5 L 9 23 L 14.5 16.5"/></svg>
       <figure class="polaroid">
-        <div class="polaroid-img"><img src="uploads/loyalty-wine-book.png" alt="Book club gathered around a table reading with wine in a cellar" loading="lazy"/></div>
+        <div class="polaroid-img"><img src="uploads/kolab-idea-wine-book-loyalty.webp" alt="Book club gathered around a table reading with wine in a cellar" width="1600" height="1200" loading="lazy" decoding="async"/></div>
         <figcaption><strong>Book club + wine bar</strong><span>Monthly tasting night</span></figcaption>
       </figure>
     </div>
@@ -1516,6 +1767,79 @@
 </section>
 
 <!-- FAQ -->
+{{--
+  Live Kolabs. Real rows from the marketplace, not illustrations — the strongest
+  argument that this is a working market is a working market.
+
+  Rendered only when there is something to show: a homepage section announcing
+  "nothing open" is worse than no section. The gate and the card contents come from
+  the same service and the same rules as /kolabs (PublicKolabFeedService,
+  PublicKolabPoster), so the shop window cannot promise what the listing hides. The
+  card markup is written out here rather than reusing <x-kolab-card>, because this
+  page is hand-rolled CSS and that component is Tailwind — sharing it would render
+  unstyled.
+--}}
+@if (($activeKolabs ?? collect())->isNotEmpty())
+<section class="section-live" id="live-kolabs">
+  <div class="live-track">
+    <div class="live-head">
+      <div>
+        <div class="section-label fade">live right now</div>
+        <div class="section-title fade">OPEN KOLABS</div>
+        <p class="live-lead fade" style="transition-delay:.1s">
+          Real collaborations waiting for a partner. Both sides post: a community looking for a venue,
+          a venue looking for a crowd. Browsing is free.
+        </p>
+      </div>
+      <a class="live-all fade" style="transition-delay:.15s" href="{{ route('public-kolabs') }}">
+        see all kolabs
+        <svg width="14" height="10" viewBox="0 0 14 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M1 5h11M8.5 1.5 12 5l-3.5 3.5"/>
+        </svg>
+      </a>
+    </div>
+
+    <div class="live-grid">
+      @foreach ($activeKolabs as $liveKolab)
+        @php
+            $livePoster = \App\Support\PublicKolabPoster::describe($liveKolab);
+            $liveIsAsk = $liveKolab->intent_type === \App\Enums\IntentType::CommunitySeeking;
+            $liveGives = $liveIsAsk
+                ? \App\Support\OfferOptionLabels::many('deliverable', $liveKolab->offers_in_return)
+                : \App\Support\OfferOptionLabels::many('offering', $liveKolab->offering);
+            $liveWants = $liveIsAsk
+                ? \App\Support\OfferOptionLabels::many('need', $liveKolab->needs)
+                : \App\Support\OfferOptionLabels::many('deliverable', $liveKolab->expects);
+            $liveKind = match ($liveKolab->intent_type) {
+                \App\Enums\IntentType::CommunitySeeking => 'community looking',
+                \App\Enums\IntentType::VenuePromotion => 'venue offering',
+                \App\Enums\IntentType::ProductPromotion => 'product offering',
+            };
+            $liveReach = $liveKolab->typical_attendance ?? $liveKolab->community_size;
+        @endphp
+        <a class="live-card fade" href="{{ \App\Support\PublicKolabLink::urlFor($liveKolab) }}">
+          <span class="live-kind">{{ $liveKind }}</span>
+          <span class="live-title">{{ $liveKolab->title }}</span>
+          <span class="live-poster">{{ $livePoster['description'] }}</span>
+          <span class="live-rows">
+            @if ($liveGives !== [])
+              <span class="live-row"><b>offers</b> {{ implode(' · ', array_slice($liveGives, 0, 2)) }}</span>
+            @endif
+            @if ($liveWants !== [])
+              <span class="live-row"><b>wants</b> {{ implode(' · ', array_slice($liveWants, 0, 2)) }}</span>
+            @endif
+          </span>
+          @if ($liveReach)
+            <span class="live-meta">{{ $liveReach }} people</span>
+          @endif
+          <span class="live-go">see the kolab →</span>
+        </a>
+      @endforeach
+    </div>
+  </div>
+</section>
+@endif
+
 <section class="section-faq" id="faq">
   <div class="faq-track">
     <div class="faq-heading-col">
@@ -1565,10 +1889,10 @@ COMMUNITIES GET PERKS.</div>
             <path d="M16 18 L 22 18 L 22 12" />
           </svg>
         </div>
-        <a href="#" class="cta-btn dark">join as a business</a>
-        <a href="#" class="cta-btn white">join as a community</a>
+        <a href="{{ $appRegisterBusiness }}" class="cta-btn dark">join as a business</a>
+        <a href="{{ $appRegisterCommunity }}" class="cta-btn white">join as a community</a>
       </div>
-      <p class="cta-fine">free to download · cancel anytime</p>
+      <p class="cta-fine">free for communities · cancel anytime · <a href="{{ $appLogin }}" style="color:inherit;text-decoration:underline;text-underline-offset:3px">already have an account?</a></p>
     </div>
   </div>
 </section>
@@ -1577,9 +1901,18 @@ COMMUNITIES GET PERKS.</div>
 <footer>
   <div class="footer-inner">
     <div class="logo">
-      <img class="logo-mark logo-mark--footer" src="/brand/logo-mark.svg" alt="kolabing"/>
+      <img class="logo-mark logo-mark--footer" src="/brand/kolabing-logo.webp" alt="Kolabing" width="560" height="250" loading="lazy"/>
     </div>
     <div class="footer-links">
+      <a href="{{ route('for-businesses') }}">businesses</a>
+      <a href="{{ route('for-communities') }}">communities</a>
+      <a href="{{ route('public-events') }}">what's on</a>
+      @if (config('kolabing.public_kolabs.enabled'))
+        <a href="{{ route('public-kolabs') }}">active kolabs</a>
+      @endif
+      <a href="{{ route('pricing') }}">pricing</a>
+      <a href="{{ route('directory.index') }}">community directory</a>
+      <a href="{{ route('blog.index') }}">blog</a>
       <a href="{{ route('terms') }}">terms</a>
       <a href="{{ route('privacy') }}">privacy</a>
       <a href="{{ route('support') }}">support</a>
@@ -1591,6 +1924,26 @@ COMMUNITIES GET PERKS.</div>
     © <span id="yr">2026</span> kolabing. built for real people, in real places.
   </p>
 </footer>
+
+<!-- STICKY MOBILE CTA — mobile only; slides in once the hero scrolls away. -->
+<div class="kb-sticky" id="kbSticky">
+  <a class="kb-sticky__login" href="{{ $appLogin }}">log in</a>
+  <a class="kb-sticky__cta" href="{{ $appRegister }}">start free →</a>
+</div>
+
+<script>
+(function(){
+  var bar = document.getElementById('kbSticky');
+  var hero = document.querySelector('.hero');
+  if (!bar || !hero) return;
+  function sync(){
+    bar.classList.toggle('is-visible', hero.getBoundingClientRect().bottom < 80);
+  }
+  sync();
+  window.addEventListener('scroll', sync, { passive: true });
+  window.addEventListener('resize', sync);
+})();
+</script>
 
 <script>
   // Subtle parallax on phone mockup
@@ -1612,7 +1965,6 @@ COMMUNITIES GET PERKS.</div>
 
   document.getElementById('yr').textContent = new Date().getFullYear();
 
-
   // Scroll fade-in
   const fadeEls = document.querySelectorAll('.fade');
   const obs = new IntersectionObserver((entries) => {
@@ -1631,6 +1983,198 @@ COMMUNITIES GET PERKS.</div>
   });
 </script>
 
+<!-- ============ NEWSLETTER + BOOK-A-CALL POP-UP ============ -->
+<style>
+  .kb-pop{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:20px}
+  .kb-pop.is-open{display:flex}
+  .kb-pop__backdrop{position:absolute;inset:0;background:rgba(13,17,20,.62);backdrop-filter:blur(3px)}
+  .kb-pop__card{position:relative;width:100%;max-width:440px;background:#fff;color:var(--dark,#0D1114);
+    border-radius:22px;padding:34px 30px 30px;box-shadow:0 30px 80px rgba(13,17,20,.35);
+    transform:translateY(14px) scale(.98);opacity:0;transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .28s}
+  .kb-pop.is-open .kb-pop__card{transform:none;opacity:1}
+  .kb-pop__x{position:absolute;top:12px;right:14px;border:0;background:transparent;font-size:28px;line-height:1;
+    color:#9aa0a6;cursor:pointer;padding:4px 8px;border-radius:8px}
+  .kb-pop__x:hover{color:var(--dark,#0D1114);background:#f2f2ef}
+  .kb-pop__kicker{font-family:'Anton',sans-serif;letter-spacing:.14em;text-transform:uppercase;font-size:12px;color:var(--purple,#ff6114);margin-bottom:8px}
+  .kb-pop__title{font-family:'Anton',sans-serif;font-weight:400;line-height:1.02;font-size:30px;text-transform:uppercase;margin-bottom:10px}
+  .kb-pop__sub{font-family:'Inter',sans-serif;font-size:15px;line-height:1.5;color:#4a4f54;margin-bottom:18px}
+  .kb-pop__seg{display:flex;gap:8px;margin-bottom:16px}
+  .kb-pop__seg-btn{flex:1;font-family:'Inter',sans-serif;font-weight:600;font-size:14px;padding:11px 8px;border-radius:12px;
+    border:1.5px solid #e4e4df;background:#fafaf7;color:#4a4f54;cursor:pointer;transition:.15s}
+  .kb-pop__seg-btn.is-on{border-color:var(--dark,#0D1114);background:var(--yellow,#FFE28C);color:var(--dark,#0D1114)}
+  .kb-pop__label{display:block;font-family:'Inter',sans-serif;font-weight:600;font-size:13px;margin-bottom:6px}
+  .kb-pop__input{width:100%;font-family:'Inter',sans-serif;font-size:15px;padding:13px 14px;border-radius:12px;
+    border:1.5px solid #e4e4df;background:#fff;outline:none;transition:border-color .15s}
+  .kb-pop__input:focus{border-color:var(--dark,#0D1114)}
+  .kb-pop__hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+  .kb-pop__err{font-family:'Inter',sans-serif;color:#BA1A1A;font-size:13px;margin-top:8px}
+  .kb-pop__submit{width:100%;margin-top:14px;font-family:'Inter',sans-serif;font-weight:700;font-size:15px;
+    padding:14px;border-radius:12px;border:0;background:var(--dark,#0D1114);color:#fff;cursor:pointer;transition:.15s}
+  .kb-pop__submit:hover{background:#000}
+  .kb-pop__submit:disabled{opacity:.55;cursor:not-allowed}
+  .kb-pop__or{display:flex;align-items:center;text-align:center;color:#9aa0a6;font-family:'Inter',sans-serif;font-size:12px;
+    text-transform:uppercase;letter-spacing:.1em;margin:18px 0 14px}
+  .kb-pop__or::before,.kb-pop__or::after{content:"";flex:1;height:1px;background:#e4e4df}
+  .kb-pop__or span{padding:0 12px}
+  .kb-pop__call{display:block;text-align:center;font-family:'Inter',sans-serif;font-weight:700;font-size:15px;
+    padding:13px;border-radius:12px;border:1.5px solid var(--dark,#0D1114);color:var(--dark,#0D1114);text-decoration:none;transition:.15s}
+  .kb-pop__call:hover{background:var(--dark,#0D1114);color:#fff}
+  .kb-pop__call+.kb-pop__call{margin-top:10px}
+  /* The web-app sign-up is the stronger action of the two, so it reads as filled. */
+  .kb-pop__call--primary{background:var(--dark,#0D1114);color:#fff}
+  .kb-pop__call--primary:hover{background:#1c2025}
+  .kb-pop__done{text-align:center}
+  .kb-pop__check{width:56px;height:56px;margin:0 auto 14px;border-radius:50%;background:var(--yellow,#FFE28C);
+    display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--dark,#0D1114)}
+  @media(max-width:480px){.kb-pop__card{padding:30px 22px 24px}.kb-pop__title{font-size:26px}}
+</style>
 
+<div class="kb-pop" id="kbPop" role="dialog" aria-modal="true" aria-labelledby="kbPopTitle" aria-hidden="true">
+  <div class="kb-pop__backdrop" data-kb-close></div>
+  <div class="kb-pop__card">
+    <button class="kb-pop__x" type="button" aria-label="Close" data-kb-close>&times;</button>
+
+    <div class="kb-pop__body" id="kbPopForm">
+      <p class="kb-pop__kicker">Kolabing</p>
+      <h2 class="kb-pop__title" id="kbPopTitle">Get local collabs in your inbox</h2>
+      <p class="kb-pop__sub">Join the list for communities &amp; businesses — early access, playbooks, and the best local partnerships near you.</p>
+
+      <div class="kb-pop__seg" role="group" aria-label="I am a">
+        <button type="button" class="kb-pop__seg-btn is-on" data-aud="community">A community</button>
+        <button type="button" class="kb-pop__seg-btn" data-aud="business">A business</button>
+      </div>
+
+      <form id="kbPopFormEl" novalidate>
+        <label class="kb-pop__label" for="kbPopEmail">Email</label>
+        <input class="kb-pop__input" type="email" id="kbPopEmail" name="email" placeholder="you@example.com" autocomplete="email" required>
+        <input type="text" name="website" tabindex="-1" autocomplete="off" class="kb-pop__hp" aria-hidden="true">
+        <p class="kb-pop__err" id="kbPopErr" hidden></p>
+        <button class="kb-pop__submit" type="submit" id="kbPopSubmit">Join the list</button>
+      </form>
+
+      <div class="kb-pop__or"><span>or</span></div>
+      <a class="kb-pop__call kb-pop__call--primary" href="{{ $appRegister }}">Create your free account →</a>
+      <a class="kb-pop__call kb-pop__bookcall" data-url-community="{{ config('kolabing.book_a_call_url_community') }}" data-url-business="{{ config('kolabing.book_a_call_url_business') }}" href="{{ config('kolabing.book_a_call_url_community') }}" target="_blank" rel="noopener">Book a call with us →</a>
+    </div>
+
+    <div class="kb-pop__body kb-pop__done" id="kbPopDone" hidden>
+      <div class="kb-pop__check">✓</div>
+      <h2 class="kb-pop__title">You're on the list</h2>
+      <p class="kb-pop__sub">Thanks — we'll be in touch. Want to start now?</p>
+      <a class="kb-pop__call kb-pop__call--primary" href="{{ $appRegister }}">Create your free account →</a>
+      <a class="kb-pop__call kb-pop__bookcall" data-url-community="{{ config('kolabing.book_a_call_url_community') }}" data-url-business="{{ config('kolabing.book_a_call_url_business') }}" href="{{ config('kolabing.book_a_call_url_community') }}" target="_blank" rel="noopener">Book a call with us →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var pop = document.getElementById('kbPop');
+  if (!pop) return;
+  var SEEN_KEY = 'kbPopSeen';
+  var audience = 'community';
+  var opened = false;
+
+  function open(){
+    if (opened) return;
+    opened = true;
+    try { sessionStorage.setItem(SEEN_KEY, '1'); } catch(e){}
+    pop.classList.add('is-open');
+    pop.setAttribute('aria-hidden', 'false');
+    var email = document.getElementById('kbPopEmail');
+    if (email) setTimeout(function(){ email.focus(); }, 300);
+  }
+  function close(){
+    pop.classList.remove('is-open');
+    pop.setAttribute('aria-hidden', 'true');
+  }
+
+  // Audience toggle
+  // Point the "Book a call" CTAs at the discovery call that matches the segment.
+  function syncBookCall(){
+    pop.querySelectorAll('.kb-pop__bookcall').forEach(function(a){
+      var url = a.getAttribute('data-url-' + audience);
+      if (url) a.setAttribute('href', url);
+    });
+  }
+  syncBookCall();
+
+  pop.querySelectorAll('.kb-pop__seg-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      audience = btn.getAttribute('data-aud');
+      pop.querySelectorAll('.kb-pop__seg-btn').forEach(function(b){ b.classList.remove('is-on'); });
+      btn.classList.add('is-on');
+      syncBookCall();
+    });
+  });
+
+  // Close handlers
+  pop.querySelectorAll('[data-kb-close]').forEach(function(el){
+    el.addEventListener('click', close);
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && pop.classList.contains('is-open')) close();
+  });
+
+  // Submit
+  var form = document.getElementById('kbPopFormEl');
+  var submitBtn = document.getElementById('kbPopSubmit');
+  var errEl = document.getElementById('kbPopErr');
+  var token = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    errEl.hidden = true;
+    var email = document.getElementById('kbPopEmail').value.trim();
+    var hp = form.querySelector('input[name="website"]').value;
+    if (!email){ showErr('Please enter your email address.'); return; }
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Joining…';
+
+    fetch('{{ route('newsletter.store') }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-CSRF-TOKEN': token
+      },
+      body: JSON.stringify({ email: email, audience: audience, website: hp })
+    }).then(function(res){
+      if (res.ok){
+        document.getElementById('kbPopForm').hidden = true;
+        document.getElementById('kbPopDone').hidden = false;
+        return;
+      }
+      return res.json().then(function(data){
+        var msg = (data && data.errors && data.errors.email && data.errors.email[0])
+          || (data && data.message) || 'Something went wrong. Please try again.';
+        showErr(msg);
+      }).catch(function(){ showErr('Something went wrong. Please try again.'); });
+    }).catch(function(){
+      showErr('Network error. Please try again.');
+    }).finally(function(){
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Join the list';
+    });
+  });
+
+  function showErr(msg){ errEl.textContent = msg; errEl.hidden = false; }
+
+  // Triggers: once per session, whichever comes first —
+  // exit-intent, 18s dwell, or 45% scroll depth.
+  var already = false;
+  try { already = sessionStorage.getItem(SEEN_KEY) === '1'; } catch(e){}
+  if (!already){
+    var timer = setTimeout(open, 18000);
+    document.addEventListener('mouseout', function(e){
+      if (e.clientY <= 0 && !opened){ clearTimeout(timer); open(); }
+    });
+    window.addEventListener('scroll', function onScroll(){
+      var sc = (window.scrollY + window.innerHeight) / document.body.scrollHeight;
+      if (sc >= 0.45 && !opened){ clearTimeout(timer); open(); window.removeEventListener('scroll', onScroll); }
+    }, { passive: true });
+  }
+})();
+</script>
 
 </body></html>

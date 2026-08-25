@@ -8,15 +8,18 @@ use App\Enums\CommunityMemberStatus;
 use App\Enums\JoinPolicy;
 use App\Enums\MissionTrigger;
 use App\Models\Community;
+use App\Models\CommunityJoinQuestion;
 use App\Models\CommunityMember;
 use App\Models\Profile;
 use DomainException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class CommunityMemberService
 {
     public function __construct(
         private readonly MissionService $missionService,
+        private readonly CommunityRosterQuery $rosterQuery,
     ) {}
 
     /**
@@ -29,6 +32,23 @@ class CommunityMemberService
     {
         if ($community->join_policy !== JoinPolicy::Open) {
             throw new DomainException('invite_only');
+        }
+
+        // Questions are the leader's OPTIONAL choice: add none and joining stays
+        // one tap through here; add one and joining goes through the
+        // application. Letting /join through anyway would make that choice do
+        // nothing — an open community could ask five required questions and
+        // still take one-tap members.
+        //
+        // Costs nothing today: no community has questions until a leader
+        // creates one, and creating one is itself a deliberate act.
+        $hasQuestions = CommunityJoinQuestion::query()
+            ->where('community_id', $community->id)
+            ->where('is_active', true)
+            ->exists();
+
+        if ($hasQuestions) {
+            throw new DomainException('join_requires_application');
         }
 
         $member = $this->upsertMember($community, $profile->id);
@@ -83,6 +103,32 @@ class CommunityMemberService
     }
 
     /**
+     * Apply one change set to many memberships. Every id is verified to belong
+     * to $community first, so a caller can never write across communities.
+     *
+     * @param  array<int, string>  $memberIds
+     * @param  array<string, mixed>  $data
+     * @return array{updated: int, skipped: int}
+     */
+    public function bulkUpdate(Community $community, array $memberIds, array $data): array
+    {
+        $memberIds = array_values(array_unique($memberIds));
+
+        $members = $community->members()->whereIn('id', $memberIds)->get();
+
+        DB::transaction(function () use ($members, $data): void {
+            foreach ($members as $member) {
+                $this->updateMember($member, $data);
+            }
+        });
+
+        return [
+            'updated' => $members->count(),
+            'skipped' => count($memberIds) - $members->count(),
+        ];
+    }
+
+    /**
      * Soft-remove a member (status -> removed; row kept for history).
      */
     public function remove(CommunityMember $member): void
@@ -91,19 +137,14 @@ class CommunityMemberService
     }
 
     /**
-     * Paginated roster with nested tier + profile for one-call rendering.
+     * Paginated roster with nested tier + profile and per-member engagement
+     * metrics, filtered and sorted by the caller. See CommunityRosterQuery.
+     *
+     * @param  array<string, mixed>  $filters
      */
-    public function roster(Community $community, int $perPage = 25): LengthAwarePaginator
+    public function roster(Community $community, int $perPage = 25, array $filters = []): LengthAwarePaginator
     {
-        return $community->members()
-            ->with([
-                'tier',
-                'profile.attendeeProfile',
-                'profile.businessProfile',
-                'profile.communityProfile',
-            ])
-            ->orderBy('created_at')
-            ->paginate($perPage);
+        return $this->rosterQuery->paginate($community, $filters, $perPage);
     }
 
     private function upsertMember(Community $community, string $profileId, ?string $tierId = null): CommunityMember

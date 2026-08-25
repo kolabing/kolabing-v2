@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\AppleWebhookController;
 use App\Http\Controllers\Api\V1\ApplicationController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BadgeController;
+use App\Http\Controllers\Api\V1\BlockController;
 use App\Http\Controllers\Api\V1\ChallengeCompletionController;
 use App\Http\Controllers\Api\V1\ChallengeController;
 use App\Http\Controllers\Api\V1\ChatController;
@@ -17,11 +18,15 @@ use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\CollaborationQrCodeController;
 use App\Http\Controllers\Api\V1\CommunityBadgeController;
 use App\Http\Controllers\Api\V1\CommunityController;
+use App\Http\Controllers\Api\V1\CommunityFollowController;
 use App\Http\Controllers\Api\V1\CommunityGoalController;
+use App\Http\Controllers\Api\V1\CommunityInvitationController;
+use App\Http\Controllers\Api\V1\CommunityJoinQuestionController;
 use App\Http\Controllers\Api\V1\CommunityJoinRequestController;
 use App\Http\Controllers\Api\V1\CommunityMemberController;
 use App\Http\Controllers\Api\V1\CommunityRewardController;
 use App\Http\Controllers\Api\V1\CommunityRewardsHubController;
+use App\Http\Controllers\Api\V1\CommunityStatsController;
 use App\Http\Controllers\Api\V1\CommunityTierController;
 use App\Http\Controllers\Api\V1\ConsentController;
 use App\Http\Controllers\Api\V1\DashboardController;
@@ -42,17 +47,23 @@ use App\Http\Controllers\Api\V1\LeaderboardController;
 use App\Http\Controllers\Api\V1\LookupController;
 use App\Http\Controllers\Api\V1\MeRewardsOverviewController;
 use App\Http\Controllers\Api\V1\MissionController;
+use App\Http\Controllers\Api\V1\MultiKolabEventController;
+use App\Http\Controllers\Api\V1\MultiKolabRoleApplicationController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OnboardingController;
 use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\ReferralController;
+use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\RewardWalletController;
 use App\Http\Controllers\Api\V1\SavedKolabController;
 use App\Http\Controllers\Api\V1\SpinWheelController;
+use App\Http\Controllers\Api\V1\StripeWebhookController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
+use App\Http\Controllers\Api\V1\SuggestionController;
 use App\Http\Controllers\Api\V1\SystemChallengeController;
+use App\Http\Controllers\Api\V1\TicketController;
 use App\Http\Controllers\Api\V1\UploadController;
 use Illuminate\Support\Facades\Route;
 
@@ -105,6 +116,9 @@ Route::prefix('v1')->group(function (): void {
     // Apple Server Notifications V2 Webhook (public — verified via JWS signature)
     Route::post('webhooks/apple', AppleWebhookController::class)
         ->name('api.v1.webhooks.apple');
+
+    Route::post('webhooks/stripe', StripeWebhookController::class)
+        ->name('api.v1.webhooks.stripe');
 
     // Lookups
     Route::get('cities', [LookupController::class, 'cities'])
@@ -223,6 +237,28 @@ Route::prefix('v1')->group(function (): void {
 
         /*
         |--------------------------------------------------------------------------
+        | UGC Moderation — blocks & reports (App Review Guideline 1.2)
+        |--------------------------------------------------------------------------
+        */
+
+        // Blocked profile IDs
+        Route::get('me/blocks', [BlockController::class, 'index'])
+            ->name('api.v1.me.blocks.index');
+
+        // Block a profile (idempotent)
+        Route::post('me/blocks/{profile}', [BlockController::class, 'store'])
+            ->name('api.v1.me.blocks.store');
+
+        // Unblock a profile
+        Route::delete('me/blocks/{profile}', [BlockController::class, 'destroy'])
+            ->name('api.v1.me.blocks.destroy');
+
+        // Report objectionable content
+        Route::post('reports', [ReportController::class, 'store'])
+            ->name('api.v1.reports.store');
+
+        /*
+        |--------------------------------------------------------------------------
         | Notification Preferences
         |--------------------------------------------------------------------------
         */
@@ -252,6 +288,19 @@ Route::prefix('v1')->group(function (): void {
         Route::post('me/subscription/apple-restore', [AppleIAPController::class, 'restore'])
             ->name('api.v1.me.subscription.apple-restore');
 
+        // Web checkout (Stripe) for the sales-driven / Android subscription path.
+        Route::post('me/subscription/checkout', [SubscriptionController::class, 'createCheckoutSession'])
+            ->name('api.v1.me.subscription.checkout');
+
+        // Return-from-Stripe confirmation: activates the subscription without waiting
+        // on the webhook, so a paid buyer is never left on the paywall.
+        Route::post('me/subscription/checkout/confirm', [SubscriptionController::class, 'confirmCheckout'])
+            ->name('api.v1.me.subscription.checkout.confirm');
+
+        // Stripe Billing Portal so a business can manage / cancel its web subscription.
+        Route::post('me/subscription/portal', [SubscriptionController::class, 'billingPortal'])
+            ->name('api.v1.me.subscription.portal');
+
         Route::post('referrals/validate', [ReferralController::class, 'validateCode'])
             ->name('api.v1.referrals.validate');
 
@@ -270,6 +319,10 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.me.gallery.store');
 
         // Delete gallery photo
+        Route::put('me/gallery/order', [GalleryController::class, 'reorder'])
+            ->name('api.v1.me.gallery.reorder');
+        Route::patch('me/gallery/{photo}', [GalleryController::class, 'update'])
+            ->name('api.v1.me.gallery.update');
         Route::delete('me/gallery/{photo}', [GalleryController::class, 'destroy'])
             ->name('api.v1.me.gallery.destroy');
 
@@ -321,7 +374,22 @@ Route::prefix('v1')->group(function (): void {
         Route::post('events/{event}/chat', [ChatController::class, 'storeEventChat'])
             ->name('api.v1.events.chat.store');
 
+        /*
+         * Tickets. A sign-up with a code: the holder carries it, the host scans it.
+         * `me/tickets` is a wallet; `tickets/{code}/admit` is a door. The code in the
+         * path is not a secret — admitting is authorised on the *scanner* being the
+         * event's host, which is why the route can be this plain.
+         */
+        Route::get('me/tickets', [TicketController::class, 'index'])
+            ->name('api.v1.me.tickets.index');
+        Route::get('tickets/{code}', [TicketController::class, 'show'])
+            ->name('api.v1.tickets.show');
+        Route::post('tickets/{code}/admit', [TicketController::class, 'admit'])
+            ->name('api.v1.tickets.admit');
+
         // NF-16 — add/remove photos on an existing event (creator / can_manage)
+        Route::put('events/{event}/photos/order', [EventPhotoController::class, 'reorder'])
+            ->name('api.v1.events.photos.reorder');
         Route::post('events/{event}/photos', [EventPhotoController::class, 'store'])
             ->name('api.v1.events.photos.store');
         Route::delete('events/{event}/photos/{photo}', [EventPhotoController::class, 'destroy'])
@@ -432,6 +500,27 @@ Route::prefix('v1')->group(function (): void {
         Route::post('communities/{community}/join', [CommunityController::class, 'join'])
             ->name('api.v1.communities.join');
 
+        Route::get('me/community-follows', [CommunityFollowController::class, 'mine'])
+            ->name('api.v1.me.community-follows');
+
+        // Following: interest without membership (kolabing-app#138). One tap,
+        // no approval, grants none of what membership grants.
+        Route::post('communities/{community}/follow', [CommunityFollowController::class, 'store'])
+            ->name('api.v1.communities.follow.store');
+        Route::delete('communities/{community}/follow', [CommunityFollowController::class, 'destroy'])
+            ->name('api.v1.communities.follow.destroy');
+
+        // The questions a leader asks before admitting a member. Reading the
+        // set is open (an applicant must see it); changing it needs `manage`.
+        Route::get('communities/{community}/join-questions', [CommunityJoinQuestionController::class, 'index'])
+            ->name('api.v1.communities.join-questions.index');
+        Route::post('communities/{community}/join-questions', [CommunityJoinQuestionController::class, 'store'])
+            ->name('api.v1.communities.join-questions.store');
+        Route::patch('communities/{community}/join-questions/{question}', [CommunityJoinQuestionController::class, 'update'])
+            ->name('api.v1.communities.join-questions.update');
+        Route::delete('communities/{community}/join-questions/{question}', [CommunityJoinQuestionController::class, 'destroy'])
+            ->name('api.v1.communities.join-questions.destroy');
+
         // Invite-only join requests (request → leader approves/declines).
         Route::post('communities/{community}/join-requests', [CommunityJoinRequestController::class, 'store'])
             ->name('api.v1.communities.join-requests.store');
@@ -453,12 +542,30 @@ Route::prefix('v1')->group(function (): void {
 
         Route::get('communities/{community}/members', [CommunityMemberController::class, 'index'])
             ->name('api.v1.communities.members.index');
+        Route::patch('communities/{community}/members', [CommunityMemberController::class, 'bulkUpdate'])
+            ->name('api.v1.communities.members.bulk-update');
+        Route::get('communities/{community}/members/{member}', [CommunityMemberController::class, 'show'])
+            ->name('api.v1.communities.members.show');
         Route::post('communities/{community}/members', [CommunityMemberController::class, 'store'])
             ->name('api.v1.communities.members.store');
         Route::patch('communities/{community}/members/{member}', [CommunityMemberController::class, 'update'])
             ->name('api.v1.communities.members.update');
         Route::delete('communities/{community}/members/{member}', [CommunityMemberController::class, 'destroy'])
             ->name('api.v1.communities.members.destroy');
+
+        Route::get('communities/{community}/stats', [CommunityStatsController::class, 'show'])
+            ->name('api.v1.communities.stats');
+
+        Route::get('communities/{community}/invitations', [CommunityInvitationController::class, 'index'])
+            ->name('api.v1.communities.invitations.index');
+        Route::post('communities/{community}/invitations', [CommunityInvitationController::class, 'store'])
+            ->name('api.v1.communities.invitations.store');
+        Route::post('invitations/{invitation}/resend', [CommunityInvitationController::class, 'resend'])
+            ->name('api.v1.invitations.resend');
+        Route::delete('invitations/{invitation}', [CommunityInvitationController::class, 'destroy'])
+            ->name('api.v1.invitations.destroy');
+        Route::post('invitations/accept/{token}', [CommunityInvitationController::class, 'accept'])
+            ->name('api.v1.invitations.accept');
 
         /*
         |--------------------------------------------------------------------------
@@ -615,6 +722,10 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.profiles.reviews');
 
         // View public-facing community profile
+        // Rich public profile for either role (business or community).
+        Route::get('profiles/{profile}/public-profile', [ProfileController::class, 'publicProfileDetail'])
+            ->name('api.v1.profiles.public-profile');
+
         Route::get('communities/{community}/public-profile', [ProfileController::class, 'communityPublicProfile'])
             ->name('api.v1.communities.public-profile');
 
@@ -661,6 +772,35 @@ Route::prefix('v1')->group(function (): void {
         // Role-aware discovery feed for Explore
         Route::get('discovery/opportunities', DiscoveryOpportunityController::class)
             ->name('api.v1.discovery.opportunities');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Suggestions (BE-NF-39)
+        |--------------------------------------------------------------------------
+        |
+        | Generated pairings, one side at a time. Behind `feature:suggestions`
+        | so a flag that ships false 404s the whole surface rather than
+        | advertising it with a 403.
+        |
+        | No `whereUuid` on the bindings: `kolab_suggestions.id` is a uuid column
+        | and a non-uuid comparison raises 22P02 on Postgres, but KolabSuggestion
+        | uses HasUuids, and HasUniqueStringIds::resolveRouteBindingQuery() throws
+        | ModelNotFoundException for a malformed key *before* it builds a query.
+        | A route constraint on top of that would guard nothing; the contract is
+        | pinned by SuggestionApiTest instead.
+        |
+        */
+        Route::middleware('feature:suggestions')->group(function (): void {
+            Route::get('suggestions', [SuggestionController::class, 'index'])
+                ->name('api.v1.suggestions.index');
+
+            Route::get('suggestions/{suggestion}', [SuggestionController::class, 'show'])
+                ->name('api.v1.suggestions.show');
+
+            Route::post('suggestions/{suggestion}/dismiss', [SuggestionController::class, 'dismiss'])
+                ->middleware('throttle:30,1')
+                ->name('api.v1.suggestions.dismiss');
+        });
 
         // Browse opportunities (public list of published)
         Route::get('opportunities', [OpportunityController::class, 'index'])
@@ -783,6 +923,77 @@ Route::prefix('v1')->group(function (): void {
         // Received applications
         Route::get('me/received-applications', [ApplicationController::class, 'receivedApplications'])
             ->name('api.v1.me.received-applications');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Multi-Kolab Events (MVP)
+        |--------------------------------------------------------------------------
+        | Separate parent domain beside the attendee Event/kolabs marketplace.
+        | See docs/superpowers/specs/2026-08-12-multi-kolab-event-api-contract.md.
+        */
+
+        Route::get('me/organizer-entitlement', [MultiKolabEventController::class, 'entitlement'])
+            ->name('api.v1.me.organizer-entitlement');
+
+        // Explore listing (published/recruiting events, filterable)
+        Route::get('multi-kolab-events', [MultiKolabEventController::class, 'index'])
+            ->name('api.v1.multi-kolab-events.index');
+
+        // My events (MUST be before {event})
+        Route::get('multi-kolab-events/me', [MultiKolabEventController::class, 'myEvents'])
+            ->name('api.v1.multi-kolab-events.me');
+
+        Route::post('multi-kolab-events', [MultiKolabEventController::class, 'store'])
+            ->name('api.v1.multi-kolab-events.store');
+
+        Route::get('multi-kolab-events/{event}', [MultiKolabEventController::class, 'show'])
+            ->name('api.v1.multi-kolab-events.show');
+
+        Route::patch('multi-kolab-events/{event}', [MultiKolabEventController::class, 'update'])
+            ->name('api.v1.multi-kolab-events.update');
+
+        Route::post('multi-kolab-events/{event}/roles', [MultiKolabEventController::class, 'storeRole'])
+            ->name('api.v1.multi-kolab-events.roles.store');
+
+        Route::post('multi-kolab-events/{event}/publish', [MultiKolabEventController::class, 'publish'])
+            ->name('api.v1.multi-kolab-events.publish');
+
+        Route::post('multi-kolab-events/{event}/confirm', [MultiKolabEventController::class, 'confirm'])
+            ->name('api.v1.multi-kolab-events.confirm');
+
+        Route::post('multi-kolab-events/{event}/complete', [MultiKolabEventController::class, 'complete'])
+            ->name('api.v1.multi-kolab-events.complete');
+
+        Route::post('multi-kolab-events/{event}/cancel', [MultiKolabEventController::class, 'cancel'])
+            ->name('api.v1.multi-kolab-events.cancel');
+
+        Route::get('multi-kolab-events/{event}/dashboard', [MultiKolabEventController::class, 'dashboard'])
+            ->name('api.v1.multi-kolab-events.dashboard');
+
+        Route::patch('multi-kolab-roles/{role}', [MultiKolabEventController::class, 'updateRole'])
+            ->name('api.v1.multi-kolab-roles.update');
+
+        Route::delete('multi-kolab-roles/{role}', [MultiKolabEventController::class, 'destroyRole'])
+            ->name('api.v1.multi-kolab-roles.destroy');
+
+        // Organizer review list for a role's applications (MUST be before the store route)
+        Route::get('multi-kolab-roles/{role}/applications', [MultiKolabRoleApplicationController::class, 'forRole'])
+            ->name('api.v1.multi-kolab-roles.applications.index');
+
+        Route::post('multi-kolab-roles/{role}/applications', [MultiKolabRoleApplicationController::class, 'store'])
+            ->name('api.v1.multi-kolab-roles.applications.store');
+
+        Route::post('multi-kolab-role-applications/{application}/shortlist', [MultiKolabRoleApplicationController::class, 'shortlist'])
+            ->name('api.v1.multi-kolab-role-applications.shortlist');
+
+        Route::post('multi-kolab-role-applications/{application}/decline', [MultiKolabRoleApplicationController::class, 'decline'])
+            ->name('api.v1.multi-kolab-role-applications.decline');
+
+        Route::post('multi-kolab-role-applications/{application}/withdraw', [MultiKolabRoleApplicationController::class, 'withdraw'])
+            ->name('api.v1.multi-kolab-role-applications.withdraw');
+
+        Route::post('multi-kolab-role-applications/{application}/accept', [MultiKolabRoleApplicationController::class, 'accept'])
+            ->name('api.v1.multi-kolab-role-applications.accept');
 
         /*
         |--------------------------------------------------------------------------

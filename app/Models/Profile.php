@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\IntentType;
+use App\Enums\OrganizerCapability;
 use App\Enums\UserType;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -201,6 +202,16 @@ class Profile extends Authenticatable
     }
 
     /**
+     * Get the onboarding email drip state for this profile.
+     *
+     * @return HasOne<OnboardingDripState, $this>
+     */
+    public function onboardingDripState(): HasOne
+    {
+        return $this->hasOne(OnboardingDripState::class);
+    }
+
+    /**
      * Get applications submitted by this profile.
      *
      * @return HasMany<Application, $this>
@@ -208,6 +219,18 @@ class Profile extends Authenticatable
     public function applications(): HasMany
     {
         return $this->hasMany(Application::class, 'applicant_profile_id');
+    }
+
+    /**
+     * Maintainer-granted organizer capabilities (e.g. Multi-Kolab Event
+     * Creator). Independent of {@see hasActiveSubscription()} — see Task 3
+     * for the live-read helper.
+     *
+     * @return HasMany<OrganizerEntitlement, $this>
+     */
+    public function organizerEntitlements(): HasMany
+    {
+        return $this->hasMany(OrganizerEntitlement::class, 'profile_id');
     }
 
     /**
@@ -235,6 +258,16 @@ class Profile extends Authenticatable
      *
      * @return HasMany<ProfileGalleryPhoto, $this>
      */
+    /**
+     * Reviews this profile has RECEIVED (it is the reviewed party).
+     *
+     * @return HasMany<CollaborationReview, $this>
+     */
+    public function receivedReviews(): HasMany
+    {
+        return $this->hasMany(CollaborationReview::class, 'reviewed_profile_id');
+    }
+
     public function galleryPhotos(): HasMany
     {
         return $this->hasMany(ProfileGalleryPhoto::class);
@@ -258,6 +291,17 @@ class Profile extends Authenticatable
     public function ownedCommunities(): HasMany
     {
         return $this->hasMany(Community::class, 'owner_profile_id');
+    }
+
+    /**
+     * Communities this profile follows. Distinct from
+     * [communityMemberships] — following is interest, membership is belonging.
+     *
+     * @return HasMany<CommunityFollower, $this>
+     */
+    public function communityFollows(): HasMany
+    {
+        return $this->hasMany(CommunityFollower::class);
     }
 
     /**
@@ -452,6 +496,24 @@ class Profile extends Authenticatable
         }
 
         return $this->subscription?->isActive() ?? false;
+    }
+
+    /**
+     * Live-read check for the maintainer-granted Multi-Kolab Event Creator
+     * capability. Deliberately independent of {@see hasActiveSubscription()}
+     * — a Business or a Community can hold this entitlement, and holding (or
+     * lacking) it must never affect the ordinary Kolab paywall or a
+     * community's free access (ROLES-AND-PERMISSIONS.md golden rule 1).
+     */
+    public function hasEventCreatorEntitlement(): bool
+    {
+        return $this->organizerEntitlements()
+            ->where('capability', OrganizerCapability::EventCreator)
+            ->whereNull('revoked_at')
+            ->where(function ($query): void {
+                $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->exists();
     }
 
     /**

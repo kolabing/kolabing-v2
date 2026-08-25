@@ -11,15 +11,45 @@ use App\Models\Application;
 use App\Models\ChallengeCompletion;
 use App\Models\ChatMessage;
 use App\Models\Collaboration;
+use App\Models\CommunityMember;
+use App\Models\CommunityTier;
 use App\Models\Kolab;
+use App\Models\MultiKolabEvent;
+use App\Models\MultiKolabRole;
+use App\Models\MultiKolabRoleApplication;
 use App\Models\Notification;
 use App\Models\Profile;
 use App\Models\RewardClaim;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class NotificationService
 {
+    /**
+     * Notification types that also send a transactional email, mapped to their
+     * Postmark template alias + preference category. Every notification flows
+     * through {@see createNotification()}; a type present here gets an email
+     * side-effect there, gated by the recipient's preferences. Types absent
+     * from this map are push/in-app only.
+     *
+     * @var array<string, array{0: string, 1: string}>
+     */
+    private const EMAIL_MAP = [
+        'application_received' => ['application-received', EmailService::CATEGORY_APPLICATION],
+        'application_accepted' => ['application-accepted', EmailService::CATEGORY_COLLABORATION],
+        'application_declined' => ['application-declined', EmailService::CATEGORY_COLLABORATION],
+        'collaboration_created' => ['collab-confirmed', EmailService::CATEGORY_COLLABORATION],
+        'collab_followup_reminder' => ['feedback-request', EmailService::CATEGORY_COLLABORATION],
+        'badge_awarded' => ['badge-earned', EmailService::CATEGORY_GAMIFICATION],
+        'reward_won' => ['reward-won', EmailService::CATEGORY_GAMIFICATION],
+        'tier_promoted' => ['tier-promotion', EmailService::CATEGORY_GAMIFICATION],
+    ];
+
+    public function __construct(
+        private readonly EmailService $emailService,
+    ) {}
+
     /**
      * Get paginated notifications for a profile.
      *
@@ -68,6 +98,11 @@ class NotificationService
 
     /**
      * Create a notification record and dispatch a push notification for the recipient.
+     * If the type is in {@see EMAIL_MAP}, also queues a transactional email
+     * (gated + isolated) using the merge vars in $emailModel.
+     *
+     * @param  array<string, mixed>  $pushOptions
+     * @param  array<string, mixed>  $emailModel  template-specific merge vars ({{first_name}} is added automatically)
      */
     public function createNotification(
         Profile $recipient,
@@ -78,6 +113,7 @@ class NotificationService
         ?string $targetId = null,
         ?string $targetType = null,
         array $pushOptions = [],
+        array $emailModel = [],
     ): Notification {
         $notification = Notification::create([
             'profile_id' => $recipient->id,
@@ -91,7 +127,50 @@ class NotificationService
 
         SendPushNotification::dispatch($recipient, $title, $body, $type, $targetId, $pushOptions);
 
+        $this->sendEmailSideEffect($recipient, $type, $emailModel);
+
         return $notification;
+    }
+
+    /**
+     * Optional transactional-email side-effect of a notification, isolated from
+     * the push path so an email failure never affects the in-app notification.
+     *
+     * @param  array<string, mixed>  $emailModel
+     */
+    private function sendEmailSideEffect(Profile $recipient, NotificationType $type, array $emailModel): void
+    {
+        $mapping = self::EMAIL_MAP[$type->value] ?? null;
+
+        if ($mapping === null) {
+            return;
+        }
+
+        [$alias, $category] = $mapping;
+
+        try {
+            $this->emailService->send(
+                $recipient,
+                $alias,
+                ['first_name' => $this->recipientFirstName($recipient)] + $emailModel,
+                $category,
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Notification email side-effect failed', [
+                'profile_id' => $recipient->id,
+                'type' => $type->value,
+                'exception' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Greeting name for a recipient: the business/community name for those
+     * types, the person's name for attendees (mirrors the drip's convention).
+     */
+    private function recipientFirstName(Profile $recipient): ?string
+    {
+        return $recipient->getExtendedProfile()?->name ?? $recipient->name;
     }
 
     /**
@@ -102,6 +181,7 @@ class NotificationService
      *
      * @param  array<string, string|int>  $replace
      * @param  array<string, mixed>  $pushOptions
+     * @param  array<string, mixed>  $emailModel  template-specific merge vars ({{first_name}} is added automatically)
      */
     public function createLocalizedNotification(
         Profile $recipient,
@@ -113,6 +193,7 @@ class NotificationService
         ?string $targetId = null,
         ?string $targetType = null,
         array $pushOptions = [],
+        array $emailModel = [],
     ): Notification {
         $locale = $recipient->preferred_locale ?? config('app.fallback_locale');
 
@@ -128,6 +209,7 @@ class NotificationService
             targetId: $targetId,
             targetType: $targetType,
             pushOptions: $pushOptions,
+            emailModel: $emailModel,
         );
     }
 
@@ -271,6 +353,7 @@ class NotificationService
             actor: $actor,
             targetId: $application->id,
             targetType: 'application',
+            emailModel: ['applicant_name' => $actorName, 'opportunity_title' => $opportunityTitle],
         );
     }
 
@@ -293,6 +376,7 @@ class NotificationService
         $recipient = $application->applicantProfile;
         $actor = $opportunity->creatorProfile;
         $opportunityTitle = $opportunity->title;
+        $partnerName = $actor?->getExtendedProfile()?->name ?? 'your partner';
 
         $this->createLocalizedNotification(
             recipient: $recipient,
@@ -303,6 +387,7 @@ class NotificationService
             actor: $actor,
             targetId: $application->id,
             targetType: 'application',
+            emailModel: ['partner_name' => $partnerName, 'opportunity_title' => $opportunityTitle],
         );
     }
 
@@ -325,6 +410,7 @@ class NotificationService
         $recipient = $application->applicantProfile;
         $actor = $opportunity->creatorProfile;
         $opportunityTitle = $opportunity->title;
+        $partnerName = $actor?->getExtendedProfile()?->name ?? 'your partner';
 
         $this->createLocalizedNotification(
             recipient: $recipient,
@@ -335,6 +421,7 @@ class NotificationService
             actor: $actor,
             targetId: $application->id,
             targetType: 'application',
+            emailModel: ['partner_name' => $partnerName, 'opportunity_title' => $opportunityTitle],
         );
     }
 
@@ -445,6 +532,11 @@ class NotificationService
             if ($this->reminderAlreadySent($profile->id, NotificationType::CollabFollowUpReminder, $collaboration->id)) {
                 continue;
             }
+
+            $counterpart = $profile->id === $collaboration->creatorProfile?->id
+                ? $collaboration->applicantProfile
+                : $collaboration->creatorProfile;
+
             $this->createLocalizedNotification(
                 recipient: $profile,
                 type: NotificationType::CollabFollowUpReminder,
@@ -452,6 +544,7 @@ class NotificationService
                 bodyKey: 'notifications.collab.follow_up_reminder.body',
                 targetId: $collaboration->id,
                 targetType: 'collaboration',
+                emailModel: ['partner_name' => $counterpart?->getExtendedProfile()?->name ?? 'your partner'],
             );
         }
     }
@@ -616,6 +709,10 @@ class NotificationService
                 ?? $counterpartBodyKey
                 ?? $actorBodyKey;
 
+            $counterpart = $profile->id === $collaboration->creatorProfile?->id
+                ? $collaboration->applicantProfile
+                : $collaboration->creatorProfile;
+
             $this->createLocalizedNotification(
                 recipient: $profile,
                 type: $type,
@@ -625,6 +722,10 @@ class NotificationService
                 actor: $actor,
                 targetId: $collaboration->id,
                 targetType: 'collaboration',
+                emailModel: [
+                    'partner_name' => $counterpart?->getExtendedProfile()?->name ?? 'your partner',
+                    'scheduled_date' => $collaboration->scheduled_date?->format('l, j M Y') ?? 'soon',
+                ],
             );
         }
     }
@@ -727,6 +828,229 @@ class NotificationService
             replace: ['reward' => $claim->eventReward->name],
             targetId: $claim->id,
             targetType: 'reward_claim',
+            emailModel: ['reward_name' => $claim->eventReward->name],
         );
+    }
+
+    /**
+     * Notify a community member they were promoted to a new tier. System event
+     * (no actor). Also queues the `tier-promotion` email via the funnel.
+     */
+    public function notifyTierPromoted(CommunityMember $member, CommunityTier $tier): void
+    {
+        $member->loadMissing('profile');
+
+        $recipient = $member->profile;
+
+        if ($recipient === null) {
+            return;
+        }
+
+        $this->createNotification(
+            recipient: $recipient,
+            type: NotificationType::TierPromoted,
+            title: "You've reached {$tier->name}",
+            body: "Your activity in the community earned you the {$tier->name} tier.",
+            targetId: $member->id,
+            targetType: 'community_member',
+            emailModel: ['tier_name' => $tier->name],
+        );
+    }
+
+    // --- Multi-Kolab Event MVP ------------------------------------------------
+    // Callers are responsible for only invoking these on the actual
+    // state-changing path (never on an idempotent early-return), so retrying
+    // a request never sends a duplicate notification — see
+    // MultiKolabRoleApplicationService::accept()/withdraw() and
+    // MultiKolabEventService::confirm()/cancel().
+
+    /**
+     * Notify the event organizer that a new application landed on one of
+     * their roles.
+     */
+    public function notifyMultiKolabApplicationReceived(MultiKolabRoleApplication $application): void
+    {
+        $application->loadMissing(['role.event.creatorProfile', 'applicantProfile']);
+        $role = $application->role;
+        $event = $role?->event;
+        $organizer = $event?->creatorProfile;
+
+        if ($organizer === null || $event === null || $role === null) {
+            return;
+        }
+
+        $applicant = $application->applicantProfile;
+        $applicantName = $applicant?->getExtendedProfile()?->name ?? 'Someone';
+
+        $this->createLocalizedNotification(
+            recipient: $organizer,
+            type: NotificationType::MultiKolabApplicationReceived,
+            titleKey: 'notifications.multi_kolab.application.received.title',
+            bodyKey: 'notifications.multi_kolab.application.received.body',
+            replace: ['name' => $applicantName, 'role' => $role->title, 'event' => $event->title],
+            actor: $applicant,
+            targetId: $application->id,
+            targetType: 'multi_kolab_role_application',
+        );
+    }
+
+    /**
+     * Notify the applicant their application was accepted.
+     */
+    public function notifyMultiKolabApplicantAccepted(MultiKolabRoleApplication $application): void
+    {
+        $application->loadMissing(['role.event.creatorProfile', 'applicantProfile']);
+        $role = $application->role;
+        $event = $role?->event;
+        $applicant = $application->applicantProfile;
+
+        if ($applicant === null || $event === null || $role === null) {
+            return;
+        }
+
+        $this->createLocalizedNotification(
+            recipient: $applicant,
+            type: NotificationType::MultiKolabApplicantAccepted,
+            titleKey: 'notifications.multi_kolab.application.accepted.title',
+            bodyKey: 'notifications.multi_kolab.application.accepted.body',
+            replace: ['role' => $role->title, 'event' => $event->title],
+            actor: $event->creatorProfile,
+            targetId: $application->id,
+            targetType: 'multi_kolab_role_application',
+        );
+    }
+
+    /**
+     * Notify the applicant their application was declined.
+     */
+    public function notifyMultiKolabApplicantDeclined(MultiKolabRoleApplication $application): void
+    {
+        $application->loadMissing(['role.event.creatorProfile', 'applicantProfile']);
+        $role = $application->role;
+        $event = $role?->event;
+        $applicant = $application->applicantProfile;
+
+        if ($applicant === null || $event === null || $role === null) {
+            return;
+        }
+
+        $this->createLocalizedNotification(
+            recipient: $applicant,
+            type: NotificationType::MultiKolabApplicantDeclined,
+            titleKey: 'notifications.multi_kolab.application.declined.title',
+            bodyKey: 'notifications.multi_kolab.application.declined.body',
+            replace: ['role' => $role->title, 'event' => $event->title],
+            actor: $event->creatorProfile,
+            targetId: $application->id,
+            targetType: 'multi_kolab_role_application',
+        );
+    }
+
+    /**
+     * Notify the organizer that an already-accepted partner withdrew.
+     * Deliberately not called for a pending/shortlisted withdrawal — only a
+     * "partner withdrawal" (post-acceptance) needs organizer attention.
+     */
+    public function notifyMultiKolabPartnerWithdrew(MultiKolabRoleApplication $application): void
+    {
+        $application->loadMissing(['role.event.creatorProfile', 'applicantProfile']);
+        $role = $application->role;
+        $event = $role?->event;
+        $organizer = $event?->creatorProfile;
+
+        if ($organizer === null || $event === null || $role === null) {
+            return;
+        }
+
+        $applicant = $application->applicantProfile;
+        $applicantName = $applicant?->getExtendedProfile()?->name ?? 'Your partner';
+
+        $this->createLocalizedNotification(
+            recipient: $organizer,
+            type: NotificationType::MultiKolabPartnerWithdrew,
+            titleKey: 'notifications.multi_kolab.application.withdrawn.title',
+            bodyKey: 'notifications.multi_kolab.application.withdrawn.body',
+            replace: ['name' => $applicantName, 'role' => $role->title, 'event' => $event->title],
+            actor: $applicant,
+            targetId: $application->id,
+            targetType: 'multi_kolab_role_application',
+        );
+    }
+
+    /**
+     * Notify the organizer that a role is now fully filled.
+     */
+    public function notifyMultiKolabRoleFilled(MultiKolabRole $role): void
+    {
+        $role->loadMissing('event.creatorProfile');
+        $event = $role->event;
+        $organizer = $event?->creatorProfile;
+
+        if ($organizer === null || $event === null) {
+            return;
+        }
+
+        $this->createLocalizedNotification(
+            recipient: $organizer,
+            type: NotificationType::MultiKolabRoleFilled,
+            titleKey: 'notifications.multi_kolab.role.filled.title',
+            bodyKey: 'notifications.multi_kolab.role.filled.body',
+            replace: ['role' => $role->title, 'event' => $event->title],
+            targetId: $role->id,
+            targetType: 'multi_kolab_role',
+        );
+    }
+
+    /**
+     * Notify every accepted partner that the event is now confirmed.
+     */
+    public function notifyMultiKolabEventConfirmed(MultiKolabEvent $event): void
+    {
+        $applicants = $this->acceptedApplicants($event);
+
+        foreach ($applicants as $applicant) {
+            $this->createLocalizedNotification(
+                recipient: $applicant,
+                type: NotificationType::MultiKolabEventConfirmed,
+                titleKey: 'notifications.multi_kolab.event.confirmed.title',
+                bodyKey: 'notifications.multi_kolab.event.confirmed.body',
+                replace: ['event' => $event->title],
+                targetId: $event->id,
+                targetType: 'multi_kolab_event',
+            );
+        }
+    }
+
+    /**
+     * Notify every accepted partner that the event was cancelled.
+     */
+    public function notifyMultiKolabEventCancelled(MultiKolabEvent $event, string $reason): void
+    {
+        $applicants = $this->acceptedApplicants($event);
+
+        foreach ($applicants as $applicant) {
+            $this->createLocalizedNotification(
+                recipient: $applicant,
+                type: NotificationType::MultiKolabEventCancelled,
+                titleKey: 'notifications.multi_kolab.event.cancelled.title',
+                bodyKey: 'notifications.multi_kolab.event.cancelled.body',
+                replace: ['event' => $event->title, 'reason' => $reason],
+                targetId: $event->id,
+                targetType: 'multi_kolab_event',
+            );
+        }
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, Profile>
+     */
+    private function acceptedApplicants(MultiKolabEvent $event): \Illuminate\Support\Collection
+    {
+        return Profile::query()
+            ->whereIn('id', MultiKolabRoleApplication::query()
+                ->whereIn('multi_kolab_role_id', $event->roles()->pluck('id'))
+                ->where('status', \App\Enums\MultiKolabRoleApplicationStatus::Accepted)
+                ->pluck('applicant_profile_id'))
+            ->get();
     }
 }

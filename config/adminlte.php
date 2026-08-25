@@ -338,6 +338,12 @@ return [
             'icon' => 'fas fa-fw fa-star',
             'active' => ['admin/reviews', 'admin/reviews/*'],
         ],
+        [
+            'text' => 'Blog',
+            'route' => 'admin.blog.index',
+            'icon' => 'fas fa-fw fa-newspaper',
+            'active' => ['admin/blog', 'admin/blog/*'],
+        ],
         ['header' => 'INSIGHTS'],
         [
             'text' => 'Statistics',

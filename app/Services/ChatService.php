@@ -250,6 +250,8 @@ class ChatService
             $thread->unread_count = $unreadByApplication[$thread->application_id] ?? 0;
         }
 
+        $this->attachLatestMessages($threads);
+
         return $threads;
     }
 
@@ -432,10 +434,28 @@ class ChatService
      * Send a message into any thread (community/event). Sets last_message_at and
      * broadcasts. Access must be checked by the caller.
      *
+     * A thread that carries an `application_id` is a Kolab conversation, and it
+     * DELEGATES to `sendMessage()` — the one and only collaboration send path.
+     * Keeping a single implementation is deliberate (BE-FX-13): the collaboration
+     * notification lives in `NotificationService::notifyNewMessage()` plus the two
+     * `syncUnreadMessageReminder()` calls, and `threadRecipientIds()` returns [] for
+     * collaboration threads, so a second implementation here would either notify
+     * nobody (the bug) or notify twice. Delegation makes drift impossible.
+     *
      * @param  array{content: string}  $data
+     *
+     * @throws InvalidArgumentException
      */
     public function sendThreadMessage(Profile $sender, ChatThread $thread, array $data): ChatMessage
     {
+        if ($thread->application_id !== null) {
+            $thread->loadMissing('application');
+
+            if ($thread->application !== null) {
+                return $this->sendMessage($sender, $thread->application, $data);
+            }
+        }
+
         $message = ChatMessage::query()->create([
             'application_id' => $thread->application_id,
             'thread_id' => $thread->id,
@@ -535,6 +555,7 @@ class ChatService
         });
 
         $this->attachUnreadCounts($profile, $visible);
+        $this->attachLatestMessages($visible);
 
         return $visible->values();
     }
@@ -625,6 +646,7 @@ class ChatService
         $threads = $threads->reject(fn (ChatThread $thread): bool => $bannedThreadIds->contains($thread->id));
 
         $this->attachUnreadCounts($profile, $threads);
+        $this->attachLatestMessages($threads);
 
         return $threads->values();
     }
@@ -711,7 +733,10 @@ class ChatService
     /**
      * Profile ids that should be notified of a new message in a thread, minus the
      * sender. Mirrors `canAccessThread` as a SET. Collaboration threads return []
-     * (those notify via NotificationService::notifyNewMessage).
+     * — they never reach the fan-out job at all, because `sendThreadMessage()`
+     * delegates every application-backed thread to `sendMessage()`, which notifies
+     * through NotificationService::notifyNewMessage. Returning [] here is the
+     * second line of defence against a double-notify.
      *
      * @return array<int, string>
      */
@@ -883,6 +908,54 @@ class ChatService
     /**
      * @param  Collection<int, ChatThread>  $threads
      */
+    /**
+     * Attach each thread's newest message as the `latestMessage` relation, so the
+     * `ChatThreadResource` preview (#8) resolves without an N+1.
+     *
+     * Done here instead of `with('latestMessage')` because the relation cannot be
+     * an `ofMany()` one: Eloquent always adds `MAX(<primary key>)` to that
+     * sub-query and `chat_messages.id` is a `uuid`, which Postgres has no `max()`
+     * for — that is what made `GET /chats` a 500 in production (#146).
+     *
+     * Two grouped queries, both served by the `(thread_id, created_at)` index.
+     *
+     * @param  Collection<int, ChatThread>  $threads
+     */
+    private function attachLatestMessages(Collection $threads): void
+    {
+        $threadIds = $threads->pluck('id')->filter()->values();
+        if ($threadIds->isEmpty()) {
+            return;
+        }
+
+        $latestAtByThread = ChatMessage::query()
+            ->whereIn('thread_id', $threadIds)
+            ->selectRaw('thread_id, MAX(created_at) as latest_at')
+            ->groupBy('thread_id')
+            ->pluck('latest_at', 'thread_id');
+
+        $messages = collect();
+
+        if ($latestAtByThread->isNotEmpty()) {
+            $messages = ChatMessage::query()
+                ->where(function ($query) use ($latestAtByThread): void {
+                    foreach ($latestAtByThread as $threadId => $latestAt) {
+                        $query->orWhere(function ($clause) use ($threadId, $latestAt): void {
+                            $clause->where('thread_id', $threadId)
+                                ->where('created_at', $latestAt);
+                        });
+                    }
+                })
+                ->orderBy('created_at')
+                ->get()
+                ->keyBy('thread_id');
+        }
+
+        foreach ($threads as $thread) {
+            $thread->setRelation('latestMessage', $messages[$thread->id] ?? null);
+        }
+    }
+
     private function attachUnreadCounts(Profile $profile, Collection $threads): void
     {
         $threadIds = $threads->pluck('id')->filter()->values();

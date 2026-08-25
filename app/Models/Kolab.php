@@ -55,9 +55,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property \Illuminate\Support\Carbon|null $published_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property string|null $multi_kolab_event_id
+ * @property string|null $multi_kolab_role_id
  * @property-read Profile $creatorProfile
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Application> $applications
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Collaboration> $collaborations
+ * @property-read MultiKolabEvent|null $multiKolabEvent
+ * @property-read MultiKolabRole|null $multiKolabRole
  */
 class Kolab extends Model
 {
@@ -114,6 +118,8 @@ class Kolab extends Model
         'past_events',
         'highlights',
         'published_at',
+        'multi_kolab_event_id',
+        'multi_kolab_role_id',
     ];
 
     /**
@@ -184,6 +190,29 @@ class Kolab extends Model
     }
 
     /**
+     * The parent Multi-Kolab Event this Kolab was created for, if it was
+     * created by accepting a {@see MultiKolabRoleApplication}. Null for every
+     * ordinary Kolab.
+     *
+     * @return BelongsTo<MultiKolabEvent, $this>
+     */
+    public function multiKolabEvent(): BelongsTo
+    {
+        return $this->belongsTo(MultiKolabEvent::class, 'multi_kolab_event_id');
+    }
+
+    /**
+     * The parent Multi-Kolab role this Kolab fulfils, if any. Null for every
+     * ordinary Kolab.
+     *
+     * @return BelongsTo<MultiKolabRole, $this>
+     */
+    public function multiKolabRole(): BelongsTo
+    {
+        return $this->belongsTo(MultiKolabRole::class, 'multi_kolab_role_id');
+    }
+
+    /**
      * Profiles that have saved/bookmarked this kolab.
      *
      * @return BelongsToMany<Profile, $this>
@@ -228,6 +257,23 @@ class Kolab extends Model
     }
 
     /**
+     * Limit to kolabs that still have at least one selectable application date
+     * from today onward — the SQL-expressible form of {@see hasSelectableDatesFrom()}:
+     * an open (null) or not-yet-passed availability_end. The one case this can't
+     * express in portable SQL is a recurring kolab whose remaining (< 7-day)
+     * window contains no matching weekday; the apply-time guard in
+     * ApplicationService still rejects that, so the feed never surfaces a Kolab
+     * you cannot actually apply to (dead-end date picker).
+     */
+    public function scopeWithSelectableDates(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q): void {
+            $q->whereNull('availability_end')
+                ->orWhereDate('availability_end', '>=', now()->toDateString());
+        });
+    }
+
+    /**
      * Check if the kolab is in draft status.
      */
     public function isDraft(): bool
@@ -249,5 +295,77 @@ class Kolab extends Model
     public function isClosed(): bool
     {
         return $this->status === KolabStatus::Closed;
+    }
+
+    /**
+     * Whether $date falls inside this kolab's availability window and, for a
+     * recurring kolab, matches one of its recurring weekdays (ISO 1..7).
+     *
+     * Single source of truth for date validity — mirrors the app's
+     * buildSelectableApplicationDates logic and the accept-time window check.
+     */
+    public function isDateWithinAvailability(\Carbon\CarbonInterface $date): bool
+    {
+        $day = $date->copy()->startOfDay();
+
+        $start = $this->availability_start?->copy()->startOfDay();
+        if ($start !== null && $day->lt($start)) {
+            return false;
+        }
+
+        $end = $this->availability_end?->copy()->startOfDay();
+        if ($end !== null && $day->gt($end)) {
+            return false;
+        }
+
+        if ($this->availability_mode !== 'recurring') {
+            return true;
+        }
+
+        $recurringDays = collect($this->recurring_days ?? [])
+            ->filter(fn (mixed $d): bool => is_numeric($d))
+            ->map(fn (mixed $d): int => (int) $d)
+            ->values()
+            ->all();
+
+        if ($recurringDays === []) {
+            return true;
+        }
+
+        return in_array($day->dayOfWeekIso, $recurringDays, true);
+    }
+
+    /**
+     * Whether at least one application date is still selectable from $from
+     * onward (today, in practice). Used to close applications on
+     * date-exhausted kolabs at apply time, matching accept-time validation.
+     */
+    public function hasSelectableDatesFrom(\Carbon\CarbonInterface $from): bool
+    {
+        $fromDay = $from->copy()->startOfDay();
+
+        $cursor = $this->availability_start?->copy()->startOfDay() ?? $fromDay;
+        if ($cursor->lt($fromDay)) {
+            $cursor = $fromDay;
+        }
+
+        $end = $this->availability_end?->copy()->startOfDay();
+        if ($end !== null && $cursor->gt($end)) {
+            return false;
+        }
+
+        // Scan day-by-day within the window (bounded by its length). For an
+        // open-ended window cap the look-ahead so this can never loop away.
+        $scanEnd = $end ?? $cursor->copy()->addDays(90);
+
+        $day = $cursor->copy();
+        while ($day->lte($scanEnd)) {
+            if ($this->isDateWithinAvailability($day)) {
+                return true;
+            }
+            $day = $day->addDay();
+        }
+
+        return false;
     }
 }

@@ -73,6 +73,7 @@ class PublicProfileResource extends JsonResource
             'friends_count' => app(FriendshipService::class)->friendsCountFor($this->resource),
             'recent_reviews' => $this->buildRecentReviews(),
             'reputation' => $reputation,
+            ...$this->portfolioFields(),
         ];
     }
 
@@ -145,5 +146,27 @@ class PublicProfileResource extends JsonResource
             'food_drink', 'food_and_drink' => 'Food & Drink',
             default => Str::of($key)->replace('_', ' ')->title()->value(),
         };
+    }
+
+    /**
+     * The public portfolio, present only when the controller hydrated it —
+     * which it does for business and community profiles only. An attendee keeps
+     * exactly the payload they had before, and their gallery stays private.
+     *
+     * @return array<string, mixed>
+     */
+    private function portfolioFields(): array
+    {
+        if (! array_key_exists('community_public_past_events', $this->resource->getAttributes())) {
+            return [];
+        }
+
+        $pastEvents = $this->getAttribute('community_public_past_events') ?? [];
+
+        return [
+            'gallery' => $this->getAttribute('community_public_gallery') ?? [],
+            'past_events' => $pastEvents,
+            'past_events_count' => count($pastEvents),
+        ];
     }
 }

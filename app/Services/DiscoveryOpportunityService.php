@@ -7,11 +7,17 @@ namespace App\Services;
 use App\Enums\CollaborationStatus;
 use App\Enums\IntentType;
 use App\Enums\KolabStatus;
+use App\Enums\MultiKolabEligibleAccountType;
+use App\Enums\MultiKolabEventStatus;
+use App\Enums\MultiKolabRoleStatus;
 use App\Enums\UserType;
 use App\Models\Collaboration;
 use App\Models\Kolab;
+use App\Models\MultiKolabEvent;
+use App\Models\MultiKolabRole;
 use App\Models\Profile;
 use App\Services\Admin\BusinessVisibilityBoostService;
+use App\Support\Matching\CategoryFitMatrix;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator as LengthAwarePaginatorContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -77,62 +83,6 @@ class DiscoveryOpportunityService
     ];
 
     /**
-     * @var array<string, array<string, float>>
-     */
-    private const COMMUNITY_BUSINESS_CATEGORY_SCORES = [
-        'food_community' => [
-            'cafe' => 1.0,
-            'restaurant' => 0.98,
-            'food_truck' => 0.95,
-            'bakery' => 0.9,
-            'bar' => 0.72,
-            'bar_lounge' => 0.72,
-            'beverage' => 0.88,
-            'food_product' => 0.86,
-            'coworking' => 0.22,
-        ],
-        'run_club' => [
-            'sports_facility' => 1.0,
-            'gym' => 0.96,
-            'cafe' => 0.87,
-            'restaurant' => 0.7,
-            'hotel' => 0.55,
-            'retail' => 0.42,
-        ],
-        'fitness_community' => [
-            'sports_facility' => 1.0,
-            'gym' => 0.96,
-            'cafe' => 0.82,
-            'restaurant' => 0.68,
-            'health_beauty' => 0.75,
-        ],
-        'wellness_community' => [
-            'health_beauty' => 0.95,
-            'salon' => 0.92,
-            'cafe' => 0.78,
-            'hotel' => 0.74,
-            'gym' => 0.72,
-        ],
-        'tech_startup_community' => [
-            'coworking' => 1.0,
-            'hotel' => 0.76,
-            'cafe' => 0.7,
-            'tech_gadget' => 0.85,
-        ],
-        'professional_networking_community' => [
-            'coworking' => 0.98,
-            'hotel' => 0.82,
-            'cafe' => 0.74,
-        ],
-        'student_community' => [
-            'coworking' => 0.84,
-            'cafe' => 0.8,
-            'restaurant' => 0.72,
-            'retail' => 0.66,
-        ],
-    ];
-
-    /**
      * @return array{
      *     paginator: LengthAwarePaginatorContract,
      *     meta: array<string, mixed>
@@ -170,7 +120,24 @@ class DiscoveryOpportunityService
             });
         $scoredResults = $this->enrichDiscoveryCardMetadata($scoredResults);
 
-        $sortedResults = $this->sortScoredResults($scoredResults, $normalizedFilters['sort'], $normalizedFilters['feed']);
+        $kolabItems = $scoredResults->map(fn (Kolab $kolab): array => [
+            'item_type' => 'kolab',
+            'model' => $kolab,
+            'score' => (int) ($kolab->getAttribute('discovery_match_score') ?? 0),
+            'timestamp' => $kolab->published_at?->timestamp ?? 0,
+            'sort_date' => ($kolab->availability_end ?? $kolab->availability_start)?->toDateString(),
+        ]);
+
+        $multiKolabBaseQuery = $this->makeMultiKolabRoleBaseQuery($viewer, $viewerRole);
+        $hasPublishedResults = $hasPublishedResults || (clone $multiKolabBaseQuery)->exists();
+
+        $multiKolabQuery = $this->makeMultiKolabRoleBaseQuery($viewer, $viewerRole);
+        $this->applyMultiKolabRoleFilters($multiKolabQuery, $normalizedFilters);
+        $multiKolabItems = $this->buildMultiKolabRoleItems($multiKolabQuery, $viewer, $normalizedFilters);
+
+        $combinedItems = $kolabItems->concat($multiKolabItems);
+
+        $sortedResults = $this->sortCombinedItems($combinedItems, $normalizedFilters['sort'], $normalizedFilters['feed']);
         $currentPage = $normalizedFilters['page'];
         $total = $sortedResults->count();
         $pageItems = $sortedResults
@@ -519,6 +486,11 @@ class DiscoveryOpportunityService
         $query = Kolab::query()
             ->where('status', KolabStatus::Published)
             ->where('creator_profile_id', '!=', $viewer->id)
+            // Canonical child Kolabs created by Multi-Kolab role acceptance
+            // are internal partnership records, not ordinary open offers —
+            // they surface through the typed multi_kolab_role projection
+            // instead (Review item #7).
+            ->whereNull('multi_kolab_event_id')
             ->with([
                 'creatorProfile' => function ($query): void {
                     $query->select('id', 'user_type', 'avatar_url')
@@ -533,8 +505,24 @@ class DiscoveryOpportunityService
         $this->applyRoleScope($query, $viewerRole);
         $this->applyActiveAvailabilityFilter($query);
         $this->excludeAlreadyAppliedKolabs($query, $viewer);
+        $this->excludeBlockedCreators($query, $viewer);
 
         return $query;
+    }
+
+    /**
+     * UGC moderation (App Review Guideline 1.2): drop kolabs whose creator the
+     * viewer has blocked, or who has blocked the viewer.
+     */
+    private function excludeBlockedCreators(Builder $query, Profile $viewer): void
+    {
+        $blockedIds = app(ModerationService::class)->blockedIds($viewer);
+
+        if ($blockedIds === []) {
+            return;
+        }
+
+        $query->whereNotIn('kolabs.creator_profile_id', $blockedIds);
     }
 
     private function excludeAlreadyAppliedKolabs(Builder $query, Profile $viewer): void
@@ -889,49 +877,277 @@ class DiscoveryOpportunityService
     }
 
     /**
-     * @param  Collection<int, Kolab>  $results
-     * @return Collection<int, Kolab>
+     * Base query for Multi-Kolab roles eligible for the Explore feed: the
+     * role must be `open` with remaining capacity, on a `recruiting` event,
+     * matching the viewer's account type (or `either`), and never on an
+     * event the viewer themselves organizes. Search/city are applied
+     * separately by {@see applyMultiKolabRoleFilters()} (mirroring the
+     * Kolab base-query/common-filter split above) so `hasPublishedResults`
+     * can be checked before those filters narrow the result set.
+     *
+     * @return Builder<MultiKolabRole>
      */
-    private function sortScoredResults(Collection $results, string $sort, string $feed): Collection
+    private function makeMultiKolabRoleBaseQuery(Profile $viewer, string $viewerRole): Builder
+    {
+        $eligibleTypes = $viewerRole === 'business'
+            ? [MultiKolabEligibleAccountType::Business, MultiKolabEligibleAccountType::Either]
+            : [MultiKolabEligibleAccountType::Community, MultiKolabEligibleAccountType::Either];
+
+        return MultiKolabRole::query()
+            ->where('status', MultiKolabRoleStatus::Open)
+            ->whereColumn('positions_filled', '<', 'positions_needed')
+            ->whereIn('eligible_account_type', $eligibleTypes)
+            ->whereHas('event', function (Builder $eventQuery) use ($viewer): void {
+                $eventQuery->where('status', MultiKolabEventStatus::Recruiting)
+                    ->where('creator_profile_id', '!=', $viewer->id);
+            });
+    }
+
+    /**
+     * Filter support matrix for Multi-Kolab role items (Review item #6):
+     *
+     * A. Directly supported — semantically meaningful and applied below:
+     *    `city` (event city), `search` (role/event title, need, city).
+     * B. Safely translatable — none currently; every other filter either
+     *    has no Multi-Kolab equivalent or would require guessing intent.
+     * C. Unsupported / not semantically meaningful for a role item, so an
+     *    active filter here must EXCLUDE role items rather than silently
+     *    ignore the filter and still return them: `availability_mode`,
+     *    `availability_from`, `availability_to` (ordinary Kolabs have an
+     *    explicit availability window; Multi-Kolab roles don't), plus every
+     *    ordinary-Kolab-only facet (`need_types`, `community_types`,
+     *    `audience_size_band`, `offers_in_return`, `venue_preferences`,
+     *    `intent_types`, `offer_types`, `venue_types`, `product_types`,
+     *    `expected_deliverables`, `community_requirement_band`).
+     *
+     * @var array<int, string>
+     */
+    private const MULTI_KOLAB_ROLE_UNSUPPORTED_FILTER_KEYS = [
+        'availability_mode',
+        'availability_from',
+        'availability_to',
+        'need_types',
+        'community_types',
+        'audience_size_band',
+        'offers_in_return',
+        'venue_preferences',
+        'intent_types',
+        'offer_types',
+        'venue_types',
+        'product_types',
+        'expected_deliverables',
+        'community_requirement_band',
+    ];
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function hasUnsupportedMultiKolabRoleFilter(array $filters): bool
+    {
+        foreach (self::MULTI_KOLAB_ROLE_UNSUPPORTED_FILTER_KEYS as $key) {
+            $value = $filters[$key] ?? null;
+
+            if (is_array($value) ? $value !== [] : $value !== null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  Builder<MultiKolabRole>  $query
+     * @param  array<string, mixed>  $filters
+     */
+    private function applyMultiKolabRoleFilters(Builder $query, array $filters): void
+    {
+        if ($this->hasUnsupportedMultiKolabRoleFilter($filters)) {
+            // The response must never claim a filter is applied while
+            // returning role items that ignored it — exclude rather than
+            // leak (Review item #6).
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        if ($filters['city'] !== null) {
+            $query->whereHas('event', function (Builder $eventQuery) use ($filters): void {
+                $eventQuery->where('city', $filters['city']);
+            });
+        }
+
+        if ($filters['search'] !== null) {
+            $searchTerm = '%'.strtolower($filters['search']).'%';
+            $likeOperator = $this->getCaseInsensitiveLikeOperator();
+
+            $query->where(function (Builder $searchQuery) use ($searchTerm, $likeOperator): void {
+                if ($likeOperator === 'ilike') {
+                    $searchQuery->where('title', 'ilike', $searchTerm)
+                        ->orWhere('need', 'ilike', $searchTerm)
+                        ->orWhereHas('event', function (Builder $eventQuery) use ($searchTerm): void {
+                            $eventQuery->where('title', 'ilike', $searchTerm)
+                                ->orWhere('city', 'ilike', $searchTerm);
+                        });
+
+                    return;
+                }
+
+                $searchQuery->whereRaw('LOWER(title) LIKE ?', [$searchTerm])
+                    ->orWhereRaw('LOWER(need) LIKE ?', [$searchTerm])
+                    ->orWhereHas('event', function (Builder $eventQuery) use ($searchTerm): void {
+                        $eventQuery->whereRaw('LOWER(title) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(city) LIKE ?', [$searchTerm]);
+                    });
+            });
+        }
+    }
+
+    /**
+     * @param  Builder<MultiKolabRole>  $query
+     * @param  array<string, mixed>  $filters
+     * @return Collection<int, array{item_type: string, model: MultiKolabRole, score: int, timestamp: int, sort_date: ?string}>
+     */
+    private function buildMultiKolabRoleItems(Builder $query, Profile $viewer, array $filters): Collection
+    {
+        $roles = $query
+            ->with([
+                'event' => function ($eventQuery): void {
+                    $eventQuery->with([
+                        'creatorProfile' => function ($profileQuery): void {
+                            $profileQuery->select('id', 'user_type', 'avatar_url')
+                                ->with([
+                                    'businessProfile:profile_id,name',
+                                    'communityProfile:profile_id,name',
+                                ]);
+                        },
+                    ]);
+                },
+            ])
+            ->get();
+
+        return $roles->map(function (MultiKolabRole $role) use ($viewer): array {
+            $event = $role->event;
+            $score = $this->buildMultiKolabRoleScore($role, $event, $viewer);
+            $role->setAttribute('discovery_match_score', $score);
+
+            return [
+                'item_type' => 'multi_kolab_role',
+                'model' => $role,
+                'score' => $score,
+                'timestamp' => $event->published_at?->timestamp ?? 0,
+                'sort_date' => $this->resolveMultiKolabRoleTargetDate($event),
+            ];
+        });
+    }
+
+    private function buildMultiKolabRoleScore(MultiKolabRole $role, MultiKolabEvent $event, Profile $viewer): int
+    {
+        $score = 0;
+        $publishedAt = $event->published_at;
+
+        if ($publishedAt !== null) {
+            if ($publishedAt->greaterThanOrEqualTo(Carbon::now()->subDays(7))) {
+                $score += 10;
+            } elseif ($publishedAt->greaterThanOrEqualTo(Carbon::now()->subDays(30))) {
+                $score += 5;
+            }
+        }
+
+        $viewerCity = $this->resolveViewerCity($viewer);
+
+        if ($viewerCity !== null && $event->city !== null && $event->city === $viewerCity) {
+            $score += 40;
+        }
+
+        return $score;
+    }
+
+    /**
+     * Analogous "sortable target date" for a Multi-Kolab role, used by the
+     * `ending_soon` sort: an exact-date event sorts by its `event_date`; a
+     * ranged event sorts by the end of its range (falling back to the start
+     * if no end is set) — the same "soonest deadline first" intent as the
+     * ordinary Kolab `availability_end`/`availability_start` pair.
+     */
+    private function resolveMultiKolabRoleTargetDate(MultiKolabEvent $event): ?string
+    {
+        if ($event->date_mode === 'exact') {
+            return $event->event_date?->toDateString();
+        }
+
+        return ($event->date_range_end ?? $event->date_range_start)?->toDateString();
+    }
+
+    /**
+     * Generic replacement for {@see sortScoredResults()} that sorts a
+     * heterogeneous collection of wrapped feed items (Kolabs and Multi-Kolab
+     * roles) using only the scalar `score`/`timestamp`/`sort_date` keys
+     * every item is tagged with, so both item types share one deterministic
+     * order, pagination, and tie-break (by the underlying model's UUID —
+     * every item's model has a unique `id`, so this never produces
+     * duplicates/omissions across pages regardless of item type).
+     *
+     * @param  Collection<int, array{item_type: string, model: \Illuminate\Database\Eloquent\Model, score: int, timestamp: int, sort_date: ?string}>  $items
+     * @return Collection<int, array{item_type: string, model: \Illuminate\Database\Eloquent\Model, score: int, timestamp: int, sort_date: ?string}>
+     */
+    private function sortCombinedItems(Collection $items, string $sort, string $feed): Collection
     {
         $resolvedSort = $sort !== '' ? $sort : ($feed === 'recommended' ? 'recommended' : 'recent');
 
         if ($resolvedSort === 'ending_soon') {
-            return $results
-                ->sort(function (Kolab $left, Kolab $right): int {
-                    $leftHasNoEnd = $left->availability_end === null && $left->availability_start === null;
-                    $rightHasNoEnd = $right->availability_end === null && $right->availability_start === null;
+            return $items
+                ->sort(function (array $left, array $right): int {
+                    $leftHasNoDate = $left['sort_date'] === null;
+                    $rightHasNoDate = $right['sort_date'] === null;
 
-                    if ($leftHasNoEnd !== $rightHasNoEnd) {
-                        return $leftHasNoEnd <=> $rightHasNoEnd;
+                    if ($leftHasNoDate !== $rightHasNoDate) {
+                        return $leftHasNoDate <=> $rightHasNoDate;
                     }
 
-                    $leftDate = ($left->availability_end ?? $left->availability_start)?->toDateString() ?? '9999-12-31';
-                    $rightDate = ($right->availability_end ?? $right->availability_start)?->toDateString() ?? '9999-12-31';
+                    $leftDate = $left['sort_date'] ?? '9999-12-31';
+                    $rightDate = $right['sort_date'] ?? '9999-12-31';
 
                     if ($leftDate !== $rightDate) {
                         return $leftDate <=> $rightDate;
                     }
 
-                    return ($right->published_at?->timestamp ?? 0) <=> ($left->published_at?->timestamp ?? 0);
+                    if ($right['timestamp'] !== $left['timestamp']) {
+                        return $right['timestamp'] <=> $left['timestamp'];
+                    }
+
+                    return $this->itemModelId($left) <=> $this->itemModelId($right);
                 })
                 ->values();
         }
 
         if ($resolvedSort === 'recommended') {
-            return $results
-                ->sortByDesc(function (Kolab $kolab): string {
-                    $score = str_pad((string) ((int) $kolab->getAttribute('discovery_match_score')), 3, '0', STR_PAD_LEFT);
-                    $publishedAt = str_pad((string) (($kolab->published_at?->timestamp) ?? 0), 12, '0', STR_PAD_LEFT);
+            return $items
+                ->sortByDesc(function (array $item): string {
+                    $score = str_pad((string) $item['score'], 3, '0', STR_PAD_LEFT);
+                    $timestamp = str_pad((string) $item['timestamp'], 12, '0', STR_PAD_LEFT);
 
-                    return $score.$publishedAt;
+                    return $score.$timestamp.'_'.$this->itemModelId($item);
                 })
                 ->values();
         }
 
-        return $results
-            ->sortByDesc(fn (Kolab $kolab): int => $kolab->published_at?->timestamp ?? 0)
+        return $items
+            ->sort(function (array $left, array $right): int {
+                if ($right['timestamp'] !== $left['timestamp']) {
+                    return $right['timestamp'] <=> $left['timestamp'];
+                }
+
+                return $this->itemModelId($left) <=> $this->itemModelId($right);
+            })
             ->values();
+    }
+
+    /**
+     * @param  array{item_type: string, model: \Illuminate\Database\Eloquent\Model, score: int, timestamp: int, sort_date: ?string}  $item
+     */
+    private function itemModelId(array $item): string
+    {
+        return (string) $item['model']->id;
     }
 
     private function resolveViewerCity(Profile $viewer): ?string
@@ -1303,7 +1519,7 @@ class DiscoveryOpportunityService
 
     private function resolveCategoryAffinityScore(string $communityType, string $businessCategory): float
     {
-        $mappedScore = self::COMMUNITY_BUSINESS_CATEGORY_SCORES[$communityType][$businessCategory] ?? null;
+        $mappedScore = CategoryFitMatrix::score($communityType, $businessCategory);
         if ($mappedScore !== null) {
             return $mappedScore;
         }
@@ -1317,13 +1533,14 @@ class DiscoveryOpportunityService
         };
     }
 
+    /**
+     * Delegates to the matrix's own normaliser so Explore and the nightly
+     * suggestion scorer can never disagree about what a stored category
+     * normalises to — they both feed the same exact-match table.
+     */
     private function normalizeCategoryValue(string $value): string
     {
-        return Str::of($value)
-            ->trim()
-            ->lower()
-            ->replace([' ', '-'], '_')
-            ->value();
+        return CategoryFitMatrix::normalize($value);
     }
 
     /**

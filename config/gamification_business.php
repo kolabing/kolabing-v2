@@ -66,4 +66,19 @@ return [
     'reactivation_inactivity_days' => 14,
     'reactivation_resend_after_days' => 14,
 
+    /*
+    |--------------------------------------------------------------------
+    | Monthly goal
+    |--------------------------------------------------------------------
+    |
+    | A rolling calendar-month collaboration goal, shown as progress toward
+    | a target — deliberately NOT a streak. There is no "broken streak"
+    | state: a quiet month resets cleanly to 0/goal next month rather than
+    | penalising the business, since collaboration cadence for cafes,
+    | studios, and venues is naturally seasonal/lumpy (see the gamification
+    | audit, Part 4G).
+    |
+    */
+    'monthly_goal_count' => 1,
+
 ];

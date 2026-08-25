@@ -2,7 +2,12 @@
 .DS_Store
 .env
 .env.backup
+# Any dated/suffixed env backup. One of these was sitting untracked in the
+# working tree holding production database credentials.
+.env.backup*
+.env.*.backup
 .env.production
+.env.pgsql.task6
 .phpactor.json
 .phpunit.result.cache
 /.fleet
@@ -13,6 +18,7 @@
 /.zed
 /.worktrees
 /auth.json
+/ds-bundle
 /node_modules
 /public/build
 /public/hot

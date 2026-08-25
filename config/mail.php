@@ -115,4 +115,17 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Moderation Alert Address
+    |--------------------------------------------------------------------------
+    |
+    | Address the developer/moderation team is notified at when a user reports
+    | objectionable content or blocks another user (App Review Guideline 1.2).
+    | Falls back to the global "from" address when MODERATION_EMAIL is unset.
+    |
+    */
+
+    'moderation_address' => env('MODERATION_EMAIL', env('MAIL_FROM_ADDRESS', 'hello@example.com')),
+
 ];

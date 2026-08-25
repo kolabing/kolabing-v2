@@ -1,5 +1,5 @@
 @php
-    $title = 'Careers';
+    $title = 'Work at Kolabing';
     $description = 'Learn how Kolabing approaches hiring and how to contact the team about future opportunities in product, growth, and community operations.';
     $canonical = route('careers');
 @endphp

@@ -6,18 +6,19 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Collaboration;
-use App\Models\Event;
 use App\Models\Profile;
 use App\Services\CheckinService;
+use App\Services\CollaborationHappeningService;
+use App\Support\CheckinLink;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class CollaborationQrCodeController extends Controller
 {
     public function __construct(
-        private readonly CheckinService $checkinService
+        private readonly CheckinService $checkinService,
+        private readonly CollaborationHappeningService $happenings,
     ) {}
 
     /**
@@ -35,30 +36,35 @@ class CollaborationQrCodeController extends Controller
         }
 
         $result = DB::transaction(function () use ($collaboration): array {
-            $event = $collaboration->event;
+            /*
+             * One place builds a happening: CollaborationHappeningService. This used
+             * to create the Event inline, which had two consequences worth naming.
+             * It set `partner_name` from `$profile->display_name` — an attribute that
+             * does not exist on Profile — so every generated event was hosted with
+             * "Partner". And it left `visibility` at the `members` default with no
+             * `community_id`, which is exactly the combination EventSignupService
+             * refuses, so nobody could ever sign up to a Kolab's happening.
+             */
+            $event = $this->happenings->ensureFor($collaboration);
 
-            if (! $event) {
-                $collaboration->loadMissing(['kolab', 'applicantProfile']);
-
-                $event = Event::create([
-                    'profile_id' => $collaboration->creator_profile_id,
-                    'name' => $collaboration->kolab?->title ?? 'Collaboration Event',
-                    'partner_name' => $collaboration->applicantProfile?->display_name ?? 'Partner',
-                    'partner_type' => $collaboration->applicantProfile?->user_type?->value ?? 'community',
-                    'event_date' => $collaboration->scheduled_date ?? now(),
-                    'is_active' => true,
-                    'checkin_token' => Str::random(64),
-                ]);
-
-                $collaboration->update(['event_id' => $event->id]);
+            if ($event === null) {
+                throw new \LogicException('A cancelled collaboration has no door.');
             }
 
-            if (! $event->checkin_token) {
+            // One place mints tokens, so every event gets the typable code and the
+            // expiry window too. Re-minting also reopens a door that has closed.
+            if (! $event->checkin_token || $event->checkin_token_expires_at?->isPast()) {
                 $this->checkinService->generateCheckinToken($event);
-                $event->refresh();
             }
 
-            $qrCodeUrl = url("/api/v1/events/{$event->id}/checkin?token={$event->checkin_token}");
+            /*
+             * This used to build url("/api/v1/events/{id}/checkin?token=…") — a route
+             * that does not exist (check-in is POST /api/v1/checkin with the token in
+             * the body), so a phone scanning the QR got a 404. It also put the secret
+             * in a query string, where it lands in logs and browser history. The QR
+             * now carries the panel page that performs the check-in.
+             */
+            $qrCodeUrl = CheckinLink::urlFor($event->refresh());
 
             $collaboration->update(['qr_code_url' => $qrCodeUrl]);
 

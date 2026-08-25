@@ -18,14 +18,14 @@
         </div>
         <h1 class="mt-4 font-montserrat text-4xl font-black uppercase md:text-5xl">Política de Privacidad</h1>
         <div class="prose prose-lg mt-8 max-w-none prose-headings:font-montserrat prose-headings:uppercase prose-a:text-off-black">
-            <p>Esta Política de Privacidad explica cómo Kolabing recopila, usa, comparte y protege tus datos personales cuando utilizas nuestra plataforma, aplicaciones móviles y servicios relacionados (el "Servicio"). Nos comprometemos a proteger tu privacidad y a cumplir con el Reglamento General de Protección de Datos de la UE (RGPD) y con la Ley Orgánica de Protección de Datos Personales y garantía de los derechos digitales española (LOPDGDD).</p>
+            <p>Esta Política de Privacidad explica cómo Kolabing recopila, usa, comparte y protege tus datos personales cuando utilizas nuestra plataforma, aplicaciones móviles y servicios relacionados (el "Servicio"). Nos comprometemos a proteger tu privacidad y a cumplir con el Reglamento General de Protección de Datos de la UE (RGPD) y con la Ley de Protección de Datos Personales de Estonia (Isikuandmete kaitse seadus).</p>
 
             <h2>1. Quiénes somos</h2>
             <p>El responsable del tratamiento de tus datos personales es:</p>
             <ul>
                 <li><strong>{{ $company->legal_name }}</strong></li>
                 <li>Domicilio social: {{ $company->registered_address }}</li>
-                <li>Número de registro mercantil / NIF: {{ $company->registration_number }}</li>
+                <li>Número de registro de la empresa: {{ $company->registration_number }}</li>
                 <li>Contacto de privacidad: <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a></li>
             </ul>
 
@@ -37,7 +37,7 @@
                 <li><strong>Datos de ubicación.</strong> Con tu permiso, tratamos tu ubicación aproximada o precisa (latitud y longitud) para mostrarte eventos cercanos y permitir el check-in en eventos.</li>
                 <li><strong>Notificaciones push.</strong> Si activas las notificaciones, tratamos un token push del dispositivo (a través de Firebase Cloud Messaging) y tus preferencias de notificación.</li>
                 <li><strong>Mensajería.</strong> Hilos de chat y mensajes intercambiados entre usuarios dentro de la aplicación.</li>
-                <li><strong>Datos de pago.</strong> Si eres un usuario de negocio con una suscripción mensual, los pagos son procesados por Stripe. No almacenamos el número completo de tu tarjeta; conservamos datos limitados de la transacción y de la suscripción.</li>
+                <li><strong>Datos de pago.</strong> Si eres un usuario de negocio con una suscripción mensual, el pago lo procesa <strong>Apple</strong> a través de tu cuenta de la App Store (compra dentro de la aplicación). No recibimos ni almacenamos los datos de tu tarjeta; conservamos datos limitados del estado de la suscripción e identificadores de transacción proporcionados por Apple.</li>
                 <li><strong>Datos de uso y analítica.</strong> Analítica de producto recopilada a través de PostHog para entender cómo se usa el Servicio y mejorarlo. Puedes optar por no participar en la analítica.</li>
                 <li><strong>Comunicaciones de soporte.</strong> El contenido de cualquier mensaje que nos envíes para obtener soporte.</li>
             </ul>
@@ -64,7 +64,7 @@
             <p>No vendemos tus datos personales. Los compartimos únicamente con proveedores de confianza ("encargados del tratamiento") que los tratan por cuenta nuestra bajo contrato, y cuando lo exige la ley. Entre ellos:</p>
             <ul>
                 <li><strong>Google</strong> y <strong>Apple</strong> — inicio de sesión y autenticación.</li>
-                <li><strong>Stripe</strong> — procesamiento de pagos.</li>
+                <li><strong>Apple</strong> (App Store / compra dentro de la aplicación) — facturación y procesamiento de pagos de la suscripción.</li>
                 <li><strong>Firebase Cloud Messaging</strong> y el <strong>servicio de notificaciones push de Apple</strong> — envío de notificaciones push.</li>
                 <li><strong>Proveedores de alojamiento en la nube</strong> — alojamiento y almacenamiento del Servicio y de sus datos.</li>
                 <li><strong>PostHog</strong> — analítica de producto.</li>
@@ -78,7 +78,7 @@
             <p>Conservamos tus datos personales únicamente durante el tiempo necesario para los fines descritos en esta política. Por lo general, conservamos los datos de la cuenta mientras esta permanezca activa. Cuando eliminas tu cuenta, la marcamos como eliminada (borrado lógico) y luego suprimimos o anonimizamos tus datos personales en un plazo razonable, salvo cuando debamos conservar determinada información para cumplir obligaciones legales (como registros fiscales y contables) o para resolver disputas.</p>
 
             <h2>8. Tus derechos</h2>
-            <p>Conforme al RGPD y a la LOPDGDD, tienes derecho a:</p>
+            <p>Conforme al RGPD y a la Ley de Protección de Datos Personales de Estonia, tienes derecho a:</p>
             <ul>
                 <li><strong>Acceso</strong> — obtener una copia de los datos personales que tenemos sobre ti.</li>
                 <li><strong>Rectificación</strong> — corregir datos inexactos o incompletos.</li>
@@ -88,13 +88,13 @@
                 <li><strong>Oposición</strong> — oponerte al tratamiento basado en nuestros intereses legítimos.</li>
                 <li><strong>Retirar el consentimiento</strong> — retirar cualquier consentimiento que hayas otorgado, en cualquier momento, sin que ello afecte al tratamiento previo.</li>
             </ul>
-            <p>Para ejercer tus derechos, contáctanos en <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a>. También tienes derecho a presentar una reclamación ante la autoridad de control española, la Agencia Española de Protección de Datos (AEPD), en <a href="https://www.aepd.es">www.aepd.es</a>.</p>
+            <p>Para ejercer tus derechos, contáctanos en <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a>. También tienes derecho a presentar una reclamación ante la autoridad de control estonia, la Inspección de Protección de Datos (Andmekaitse Inspektsioon), en <a href="https://www.aki.ee">www.aki.ee</a>.</p>
 
             <h2>9. Menores</h2>
             <p>El Servicio está destinado únicamente a personas de 18 años o más. No recopilamos conscientemente datos personales de menores de 18 años. Si crees que un menor de 18 años nos ha facilitado datos personales, contáctanos para que podamos eliminarlos.</p>
 
             <h2>10. Seguridad</h2>
-            <p>Aplicamos medidas técnicas y organizativas adecuadas para proteger tus datos personales frente a pérdidas, usos indebidos y accesos no autorizados, incluidas el cifrado en tránsito, controles de acceso y alojamiento seguro. Ningún sistema es completamente seguro, pero trabajamos continuamente para proteger tus datos y notificaremos a ti y a la AEPD cualquier brecha de datos personales cuando la ley así lo exija.</p>
+            <p>Aplicamos medidas técnicas y organizativas adecuadas para proteger tus datos personales frente a pérdidas, usos indebidos y accesos no autorizados, incluidas el cifrado en tránsito, controles de acceso y alojamiento seguro. Ningún sistema es completamente seguro, pero trabajamos continuamente para proteger tus datos y notificaremos a ti y a la Inspección de Protección de Datos cualquier brecha de datos personales cuando la ley así lo exija.</p>
 
             <h2>11. Cambios en esta política</h2>
             <p>Podemos actualizar esta Política de Privacidad de vez en cuando. Si realizamos cambios sustanciales, te lo notificaremos (por ejemplo, en la aplicación o por correo electrónico) y actualizaremos la fecha de "Última actualización" indicada arriba. Te animamos a revisar esta política periódicamente.</p>
@@ -104,7 +104,7 @@
             <ul>
                 <li><strong>{{ $company->legal_name }}</strong></li>
                 <li>Domicilio social: {{ $company->registered_address }}</li>
-                <li>Número de registro mercantil / NIF: {{ $company->registration_number }}</li>
+                <li>Número de registro de la empresa: {{ $company->registration_number }}</li>
                 <li>Privacidad: <a href="mailto:{{ $company->privacy_email }}">{{ $company->privacy_email }}</a></li>
                 <li>Soporte: <a href="mailto:{{ $company->support_email }}">{{ $company->support_email }}</a></li>
             </ul>
