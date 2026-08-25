@@ -31,8 +31,24 @@ class PublicKolabPageController extends Controller
 {
     public function __construct(private readonly PublicKolabFeedService $feed) {}
 
+    /**
+     * Hidden means 404, not "unlinked".
+     *
+     * `kolabing.public_kolabs.enabled` is off while production still holds test
+     * listings (BE-FX-24). Removing the nav links would not be enough — a crawler,
+     * a shared link or a guessed URL all reach a route regardless of what links to
+     * it — so the route itself has to deny it. 404 rather than 503 because from the
+     * outside there is simply no such page yet.
+     */
+    private function assertEnabled(): void
+    {
+        abort_unless((bool) config('kolabing.public_kolabs.enabled'), 404);
+    }
+
     public function index(Request $request): View
     {
+        $this->assertEnabled();
+
         $city = trim((string) $request->query('city', ''));
         $intent = trim((string) $request->query('intent', ''));
 
@@ -55,6 +71,8 @@ class PublicKolabPageController extends Controller
 
     public function show(string $slug): View
     {
+        $this->assertEnabled();
+
         $kolab = PublicKolabLink::resolve($slug);
 
         abort_if($kolab === null, 404);

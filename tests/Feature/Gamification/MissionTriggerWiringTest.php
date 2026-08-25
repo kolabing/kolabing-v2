@@ -427,7 +427,7 @@ class MissionTriggerWiringTest extends TestCase
 
     // --- Peer challenge verification → challenge_completed (attendee) ---
 
-    public function test_verifying_peer_challenge_progresses_challenge_completed_mission_for_challenger(): void
+    public function test_verifying_peer_challenge_progresses_challenge_completed_mission_for_both(): void
     {
         $mission = $this->mission(MissionTrigger::ChallengeCompleted, ChallengeAudience::Attendee, 1, 20);
 
@@ -457,13 +457,14 @@ class MissionTriggerWiringTest extends TestCase
 
         $service->verify($verifier, $completion);
 
-        // The challenger (earner) progresses the challenge_completed mission.
+        // BOTH participants progress the mission (kolabing-app#140). A
+        // challenge is something the two of them did together, so since the
+        // change that pays both sides, both of them completed one.
+        //
+        // This assertion used to read "the verifier does not earn the
+        // challenger's mission". The rule changed deliberately; the test was
+        // not wrong before.
         $this->assertCompletedOnce($mission, $challenger, 20);
-
-        // The verifier does not earn the challenger's mission.
-        $this->assertDatabaseMissing('challenge_progress', [
-            'challenge_id' => $mission->id,
-            'profile_id' => $verifier->id,
-        ]);
+        $this->assertCompletedOnce($mission, $verifier, 20);
     }
 }

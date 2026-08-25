@@ -153,26 +153,19 @@
         </template>
 
         {{-- Business: categories --}}
-        {{-- Attendee details: name + @handle. No city or category gate — an
-             attendee is not selling anything, so nothing else is required. --}}
+        {{--
+            Attendee: account only.
+
+            Name, handle, city, interests, communities and photo are collected by the
+            four-step onboarding at /onboarding/attendee — the same flow, in the same
+            order, with the same skippable steps as the mobile app. Two of those need
+            more than a text input can give (a live handle-availability check with
+            suggestions, and a city search), and duplicating a partial version here is
+            how the two clients drifted apart in the first place. So this step asks
+            only what the register endpoint accepts: email, password, terms.
+        --}}
         <template x-if="role === 'attendee'">
-            <div class="flex flex-col gap-[13px]">
-                <div>
-                    <label class="text-[12px] font-semibold text-body">{{ __('webapp.register.attendee_name') }}</label>
-                    <input x-model="form.name" type="text" maxlength="255" placeholder="{{ __('webapp.register.attendee_name_ph') }}"
-                           class="mt-1.5 w-full h-12 px-4 rounded-xl bg-cream-low border border-transparent focus:border-ink/20 focus:bg-white text-[14px] outline-none transition">
-                </div>
-                <div>
-                    <label class="text-[12px] font-semibold text-body">{{ __('webapp.register.attendee_handle') }}</label>
-                    <div class="mt-1.5 flex items-center h-12 px-4 rounded-xl bg-cream-low border border-transparent focus-within:border-ink/20 focus-within:bg-white transition">
-                        <span class="text-[14px] text-muted">@</span>
-                        <input x-model="form.handle" type="text" maxlength="20" autocapitalize="none" spellcheck="false"
-                               placeholder="{{ __('webapp.register.attendee_handle_ph') }}"
-                               class="flex-1 min-w-0 ml-1 bg-transparent text-[14px] outline-none">
-                    </div>
-                    <p class="mt-1 text-[11.5px] text-muted">{{ __('webapp.register.attendee_handle_hint') }}</p>
-                </div>
-            </div>
+            <p class="text-[12.5px] text-muted">{{ __('webapp.register.attendee_next_step') }}</p>
         </template>
 
         <template x-if="role === 'business'">
@@ -457,9 +450,22 @@
              */
             async submitAttendee() {
                 const f = this.form;
-                if (!f.name.trim()) { this.error = t('register.err_name'); return; }
-                if (!/^[a-z0-9_]{3,20}$/.test(f.handle.trim().toLowerCase())) {
-                    this.error = t('register.err_handle');
+
+                /*
+                 * Register creates the ACCOUNT only, then hands off to the four-step
+                 * onboarding — which is exactly the shape of the mobile flow
+                 * (attendee_register_screen → attendee_step1..4). It used to collect
+                 * name and handle here and submit onboarding inline with only those
+                 * two fields, which meant a web attendee ended up without a city,
+                 * interests, communities or a photo while a mobile attendee had all
+                 * four. Two clients, two different notions of who someone is.
+                 *
+                 * `?next=` is preserved through the hand-off: someone who arrived
+                 * from "I'm going" on a public page still lands back on that event
+                 * once their profile exists.
+                 */
+                if (f.password !== f.password_confirmation) {
+                    this.error = t('register.err_password_match');
                     return;
                 }
 
@@ -469,32 +475,20 @@
                     body: {
                         email: f.email,
                         password: f.password,
-                        password_confirmation: f.password,
+                        password_confirmation: f.password_confirmation,
                         accepted_terms: true,
                     },
                 });
+                this.busy = false;
 
                 if (!account.ok || !account.json?.data?.token) {
-                    this.busy = false;
                     this.error = window.kb.errorText(account, t('register.error'));
                     return;
                 }
                 window.kb.setSession(account.json.data);
 
-                const onboard = await window.kb.api('/onboarding/attendee', {
-                    method: 'PUT',
-                    body: { name: f.name.trim(), handle: f.handle.trim().toLowerCase() },
-                });
-                this.busy = false;
-
-                if (!onboard.ok) {
-                    // The account exists and they are signed in, so this is recoverable
-                    // from the profile page rather than a dead end.
-                    this.error = window.kb.errorText(onboard, t('register.error'));
-                    return;
-                }
-
-                window.nav(this.postAuthPath());
+                const intended = window.kbPostAuthTarget('');
+                window.nav('/onboarding/attendee' + (intended ? '?next=' + encodeURIComponent(intended) : ''));
             },
 
             async submit() {

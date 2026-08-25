@@ -16,6 +16,7 @@ use App\Models\Kolab;
 use App\Models\MultiKolabEvent;
 use App\Models\MultiKolabRole;
 use App\Models\Profile;
+use App\Services\Admin\BusinessVisibilityBoostService;
 use App\Support\Matching\CategoryFitMatrix;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator as LengthAwarePaginatorContract;
 use Illuminate\Database\Eloquent\Builder;
@@ -29,6 +30,11 @@ use InvalidArgumentException;
 
 class DiscoveryOpportunityService
 {
+    public function __construct(
+        private readonly BusinessPartnerStatusService $businessPartnerStatusService,
+        private readonly BusinessVisibilityBoostService $businessVisibilityBoostService,
+    ) {}
+
     /**
      * @var array<string, array<int, string>>
      */
@@ -1266,13 +1272,43 @@ class DiscoveryOpportunityService
             fn (array $signal): float => $signal['weight'] * $signal['score']
         ) * 100);
 
+        $partnerStatusBoost = $this->resolvePartnerStatusBoost($kolab, $viewerRole);
+        $score = min(100, $score + $partnerStatusBoost['points']);
+
         return [
             'feed' => $filters['feed'],
             'score' => $score,
             'tier' => $this->resolveScoreTier($score),
             'reasons' => array_values(array_unique($reasons)),
             'breakdown' => $breakdown,
+            'partner_status_boost' => $partnerStatusBoost,
         ];
+    }
+
+    /**
+     * Additive visibility boost for a business-authored Kolab based on the
+     * business's partner status, kept separate from the fit-relevance
+     * MATCH_SIGNALS so "why this ranked here" stays legible: fit vs. trust
+     * are different concepts, not blended into one weighted average.
+     *
+     * @return array{tier: ?string, points: int}
+     */
+    private function resolvePartnerStatusBoost(Kolab $kolab, string $viewerRole): array
+    {
+        if ($viewerRole !== 'community') {
+            return ['tier' => null, 'points' => 0];
+        }
+
+        $creator = $kolab->creatorProfile;
+
+        if ($creator === null || ! $creator->isBusiness()) {
+            return ['tier' => null, 'points' => 0];
+        }
+
+        $tier = $this->businessPartnerStatusService->statusFor($creator);
+        $points = $this->businessVisibilityBoostService->pointsForTier($tier->value);
+
+        return ['tier' => $tier->value, 'points' => $points];
     }
 
     private function resolveFreshnessScore(?Carbon $publishedAt): int

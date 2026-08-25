@@ -28,6 +28,7 @@ class EventSignupService
 {
     public function __construct(
         private readonly NotificationService $notificationService,
+        private readonly TicketService $ticketService,
     ) {}
 
     /**
@@ -42,13 +43,27 @@ class EventSignupService
             throw new DomainException('event_not_upcoming');
         }
 
-        if ($event->community_id === null) {
+        /*
+         * What makes an event joinable is that it is *public or belongs to a
+         * community* — not that it belongs to a community.
+         *
+         * This used to require `community_id`, which quietly made the main case
+         * impossible: a confirmed Kolab's happening is hosted by the two partners,
+         * and `events.community_id` points at the NF-6 `communities` table, which a
+         * community *profile* may well have no row in. So every Kolab happening
+         * answered "sign-ups are not enabled here" no matter how public it was.
+         *
+         * `visibility` is the honest discriminator, and it is safe: the column
+         * defaults to `members`, so portfolio and past-event rows — the reason the
+         * original guard existed — are still not joinable by anyone.
+         */
+        if ($event->community_id === null && $event->visibility !== EventVisibility::Public) {
             throw new DomainException('event_not_signup_enabled');
         }
 
         $this->assertEligible($event, $profile);
 
-        return DB::transaction(function () use ($event, $profile): EventSignup {
+        $signup = DB::transaction(function () use ($event, $profile): EventSignup {
             // Serialize all sign-ups for this event by locking the EVENT ROW (a
             // single-row `SELECT ... FOR UPDATE`, legal on Postgres). We must NOT
             // lock the count() below: Postgres forbids `FOR UPDATE` with an
@@ -62,7 +77,9 @@ class EventSignupService
                 ->first(); // event-row lock already serializes us
 
             if ($existing !== null && $existing->status !== EventSignupStatus::Cancelled) {
-                return $existing; // already going or waitlisted — idempotent
+                // Idempotent — already going or waitlisted. Ticketing still runs
+                // below, which is what backfills rows that predate tickets.
+                return $existing;
             }
 
             $goingCount = EventSignup::query()
@@ -92,6 +109,22 @@ class EventSignupService
                 ...$attributes,
             ]);
         });
+
+        /*
+         * A seat becomes a ticket, and the ticket is emailed — but only after the
+         * transaction has committed. On a `sync` queue the mail would otherwise be
+         * built and sent inside the transaction, so a later rollback would leave
+         * someone holding a ticket for a sign-up that does not exist.
+         *
+         * A waitlisted row gets nothing: it holds no seat, and a ticket that might
+         * not be honoured is worse than no ticket. It is issued on promotion instead
+         * ({@see promoteNextWaitlisted()}).
+         */
+        if ($signup->status === EventSignupStatus::Going && $signup->ticket_code === null) {
+            $signup = $this->ticketService->issueAndSend($signup);
+        }
+
+        return $signup;
     }
 
     /**
@@ -379,6 +412,9 @@ class EventSignupService
         ]);
 
         $this->resequenceWaitlist($event);
+
+        // They have a seat now, so they get a ticket now.
+        $this->ticketService->issueAndSend($next->refresh());
 
         $this->notificationService->createLocalizedNotification(
             recipient: $next->profile,

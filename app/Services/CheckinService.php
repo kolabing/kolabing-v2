@@ -222,13 +222,20 @@ class CheckinService
     /**
      * Record someone as present, with every consequence that carries.
      *
-     * Extracted because there are two doors into the same room and they have to
-     * agree on what happens once someone is through it: in {@see checkin()} the
-     * attendee scans a code the host is displaying, in {@see selfCheckin()} they
-     * pick an event they already said they were going to. Different proof —
-     * identical outcome: one `event_checkins` row, arrivals broadcast,
-     * `total_events_attended` incremented, badges re-checked, community points
-     * awarded, tiers re-evaluated, missions progressed.
+     * Extracted because there are now THREE doors into the same room and they have
+     * to agree on what happens once someone is through one of them:
+     *
+     *  - {@see checkin()} — the attendee scans a code the host is displaying.
+     *  - {@see selfCheckin()} — the attendee picks an event they already said they
+     *    were going to, on the day. The weakest claim of the three; see that
+     *    method for why it is accepted deliberately.
+     *  - {@see \App\Services\TicketService::admit()} — the host scans a code the
+     *    attendee is carrying, so the authenticated party is the host.
+     *
+     * Different proof, different party authenticated — identical outcome: one
+     * `event_checkins` row, arrivals broadcast, `total_events_attended`
+     * incremented, badges re-checked, community points awarded, tiers
+     * re-evaluated, missions progressed.
      *
      * @throws \LogicException already present
      */
