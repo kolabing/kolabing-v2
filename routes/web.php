@@ -91,6 +91,21 @@ $webappRoutes = function (): void {
     Route::view('/events', 'webapp.events');
     Route::view('/events/{event}', 'webapp.event-detail');
     Route::view('/checkin/{token}', 'webapp.checkin');
+    /*
+     * Tickets, and the other side of the door.
+     *
+     * `/tickets` is the attendee's wallet — the seats they hold, each with the QR
+     * that gets them in. `/admit/{code}` is what that QR points at, opened by the
+     * HOST's camera: the person admitted is not the person signed in, which is the
+     * whole difference from /checkin/{token} above (there the attendee scans a code
+     * the host is displaying). Neither route is auth-gated at the route level; both
+     * pages call requireAuth(), which carries the destination in `?next=` so a QR
+     * scanned on a phone that is not signed in still completes after login.
+     */
+    Route::view('/tickets', 'webapp.tickets');
+    Route::view('/admit/{code}', 'webapp.admit');
+    // Attendee onboarding: the four steps the mobile app runs, same endpoint.
+    Route::view('/onboarding/attendee', 'webapp.onboarding-attendee');
     // Kolabs — order matters: literal + edit before the {kolab} catch-all.
     Route::view('/kolabs', 'webapp.kolabs');
     Route::view('/kolabs/create', 'webapp.kolab-form');
@@ -206,11 +221,15 @@ Route::get('/', function (\App\Services\PublicKolabFeedService $kolabFeed) {
      * a page whose whole subject is the listings should fail loudly rather than render
      * an empty one and imply nothing is open.
      */
-    try {
-        $activeKolabs = $kolabFeed->highlights(6);
-    } catch (\Throwable $exception) {
-        report($exception);
-        $activeKolabs = collect();
+    $activeKolabs = collect();
+
+    // Nothing to show, and nothing to ask the database, while the surface is off.
+    if (config('kolabing.public_kolabs.enabled')) {
+        try {
+            $activeKolabs = $kolabFeed->highlights(6);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     return view('welcome', ['activeKolabs' => $activeKolabs]);
@@ -489,7 +508,7 @@ Route::get('/sitemap.xml', function () {
      * `noindex` under the same flag (BE-FX-20), and a sitemap that advertises URLs the
      * page asks Google to ignore is a contradiction, so both read one config value.
      */
-    if (config('kolabing.public_kolabs.indexable')) {
+    if (config('kolabing.public_kolabs.enabled') && config('kolabing.public_kolabs.indexable')) {
         $publicKolabs = app(\App\Services\PublicKolabFeedService::class)
             ->publishable()
             ->orderByDesc('published_at')

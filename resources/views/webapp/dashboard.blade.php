@@ -25,6 +25,76 @@
             <p class="mt-8 text-muted">{{ __('webapp.common.loading') }}</p>
         </template>
 
+        {{--
+            ── Attendee home ─────────────────────────────────────────────
+
+            An attendee's dashboard is not a smaller version of a seller's. There are
+            no kolabs, no applications, no plan and no profile-strength score to
+            chase — there is one question ("what am I going to?") and one action
+            ("find something"). So: the next ticket first, because at 7pm on a
+            Thursday that is the only thing on the screen that matters, then what is
+            on near them.
+        --}}
+        <template x-if="!loading && isAttendee">
+            <div class="flex flex-col gap-7 mt-7 kb-fade-up">
+
+                {{-- The next ticket, as a boarding pass rather than a list row. --}}
+                <template x-if="nextTicket">
+                    <a :href="kbPath('/tickets?t=' + nextTicket.code)"
+                       class="block rounded-[22px] bg-ink text-white p-5 sm:p-6 shadow-cardhover hover:-translate-y-px transition">
+                        <p class="text-[11px] font-bold tracking-[1.4px] uppercase text-white/60">{{ __('webapp.dashboard.next_up') }}</p>
+                        <p class="font-anton text-[24px] sm:text-[28px] leading-tight tracking-[.5px] mt-2" x-text="nextTicket.event?.name"></p>
+                        <p class="text-[13.5px] text-white/75 mt-1.5" x-text="ticketWhen(nextTicket)"></p>
+                        <div class="flex items-center gap-2 mt-4">
+                            <span class="px-3 py-1.5 rounded-pill bg-primary text-on-primary text-[12px] font-bold">{{ __('webapp.dashboard.show_ticket') }}</span>
+                            <span class="font-anton text-[15px] tracking-[2px] text-white/80" x-text="nextTicket.code"></span>
+                        </div>
+                    </a>
+                </template>
+
+                <template x-if="!nextTicket">
+                    <div class="rounded-[22px] border-[1.5px] border-dashed border-ink/20 p-6 text-center">
+                        <p class="text-sm text-muted">{{ __('webapp.dashboard.no_tickets') }}</p>
+                    </div>
+                </template>
+
+                {{-- What's on. Driven by the attendee's own city when they set one,
+                     which is what step 2 of onboarding is for. --}}
+                <div>
+                    <div class="flex items-end justify-between gap-3">
+                        <div>
+                            <p class="text-[13px] font-semibold tracking-[1px] uppercase text-ink">{{ __('webapp.dashboard.whats_on') }}</p>
+                            <p class="text-[12.5px] text-muted mt-0.5" x-text="whatsOnScope"></p>
+                        </div>
+                        <a :href="kbPath('/tickets')" class="text-[12.5px] font-bold text-muted hover:text-ink transition">{{ __('webapp.nav.tickets') }} →</a>
+                    </div>
+
+                    <p x-show="loadingExtras" x-cloak class="text-sm text-muted mt-4">{{ __('webapp.common.loading') }}</p>
+
+                    <div class="mt-4 flex flex-col gap-2.5">
+                        <template x-for="ev in whatsOn" :key="ev.id">
+                            <a :href="kbPath('/events/' + ev.id)"
+                               class="flex items-center gap-3.5 bg-white border border-ink/[.08] rounded-2xl p-4 shadow-card hover:border-ink/25 hover:-translate-y-px transition">
+                                <span class="w-[46px] shrink-0 rounded-xl border border-ink/[.10] overflow-hidden text-center">
+                                    <span class="block text-[9px] font-bold tracking-[.7px] uppercase text-white bg-ink py-[3px]" x-text="evMonth(ev)"></span>
+                                    <span class="block text-[17px] font-bold text-ink leading-none py-1.5 tabular-nums" x-text="evDay(ev)"></span>
+                                </span>
+                                <span class="min-w-0 flex-1">
+                                    <span class="block text-[14.5px] font-bold text-ink truncate" x-text="ev.name"></span>
+                                    <span class="block text-[12.5px] text-muted truncate" x-text="evMeta(ev)"></span>
+                                </span>
+                                <span class="shrink-0 text-[12px] font-bold px-2.5 py-1 rounded-pill"
+                                      :class="ev.viewer_signup_status === 'going' ? 'bg-ok-surface text-ok-ink' : 'bg-cream-low text-body'"
+                                      x-text="ev.viewer_signup_status === 'going' ? t('dashboard.going') : t('dashboard.open')"></span>
+                            </a>
+                        </template>
+                        <p x-show="!loadingExtras && whatsOn.length === 0" x-cloak
+                           class="rounded-2xl border-[1.5px] border-dashed border-ink/20 py-10 text-center text-sm text-muted">{{ __('webapp.dashboard.nothing_on') }}</p>
+                    </div>
+                </div>
+            </div>
+        </template>
+
         {{-- ── Community dashboard ─────────────────────────────────────── --}}
         <template x-if="!loading && isCommunity">
             <div class="flex flex-col gap-7 mt-7 kb-fade-up">
@@ -269,11 +339,22 @@
 
         return {
             loading: true, loadingExtras: true, greeting: '', d: {}, upcoming: [],
+            // Attendee home: their next ticket, and what is on near them.
+            tickets: [], whatsOn: [],
             recommended: [], activity: [], savedCount: 0,
             // Null until there is a real suggestion to name — the block renders
             // nothing rather than saying "0 suggestions".
             suggestionTop: null, suggestionCount: 0,
-            get dashTitle() { return this.isBusiness ? t('dashboard.title_business') : t('dashboard.title_community'); },
+            get dashTitle() {
+                if (this.isBusiness) return t('dashboard.title_business');
+                if (this.isAttendee) return t('dashboard.title_attendee');
+                return t('dashboard.title_community');
+            },
+            /** Where "what's on" is looking, so an empty list is explained rather than blamed. */
+            get whatsOnScope() {
+                const city = this.me?.city?.name;
+                return city ? t('dashboard.whats_on_city', { city }) : t('dashboard.whats_on_any');
+            },
             get commStats() {
                 const a = this.d.applications_sent || {}, c = this.d.collaborations || {};
                 const r = this.d.applications_received || {};
@@ -431,10 +512,12 @@
                 this.greeting = this.displayName
                     ? t('dashboard.welcome_name', { name: this.displayName })
                     : t('dashboard.welcome');
-                const dash = await window.kb.api('/me/dashboard');
-                if (dash.ok) {
-                    this.d = dash.json?.data || {};
-                    this.upcoming = this.d.upcoming_collaborations || [];
+                if (!this.isAttendee) {
+                    const dash = await window.kb.api('/me/dashboard');
+                    if (dash.ok) {
+                        this.d = dash.json?.data || {};
+                        this.upcoming = this.d.upcoming_collaborations || [];
+                    }
                 }
                 this.loading = false;
                 // Secondary panels load after the numbers are on screen, so a slow
@@ -442,7 +525,57 @@
                 this.loadExtras();
             },
 
+            get nextTicket() { return this.tickets[0] || null; },
+            ticketWhen(tk) {
+                const w = tk.event?.starts_at || tk.event?.event_date;
+                if (!w) return '';
+                const d = new Date(w);
+                const day = d.toLocaleDateString(window.KB_LOCALE || 'en', { weekday: 'long', day: 'numeric', month: 'long' });
+                return tk.event?.starts_at
+                    ? day + ' · ' + d.toLocaleTimeString(window.KB_LOCALE || 'en', { hour: '2-digit', minute: '2-digit' })
+                    : day;
+            },
+            evWhen(ev) { return ev.starts_at || ev.event_date || null; },
+            evMonth(ev) {
+                const w = this.evWhen(ev);
+                return w ? new Date(w).toLocaleDateString(window.KB_LOCALE || 'en', { month: 'short' }) : '—';
+            },
+            evDay(ev) {
+                const w = this.evWhen(ev);
+                return w ? String(new Date(w).getDate()) : '—';
+            },
+            evMeta(ev) {
+                const w = this.evWhen(ev);
+                const time = w && ev.starts_at
+                    ? new Date(w).toLocaleTimeString(window.KB_LOCALE || 'en', { hour: '2-digit', minute: '2-digit' })
+                    : '';
+                return [time, ev.partner_name, ev.address || ev.location].filter(Boolean).join(' · ');
+            },
+
+            /**
+             * An attendee's panels, kept separate from the seller ones because none
+             * of those queries mean anything for this role — /me/dashboard is about
+             * kolabs and collaborations, and asking for it would return a shape this
+             * screen never reads.
+             */
+            async loadAttendeeExtras() {
+                const params = new URLSearchParams({ per_page: '6', date: 'upcoming' });
+                const cityId = this.me?.city?.id || this.me?.city_id;
+                if (cityId) params.set('city_id', cityId);
+
+                const [tickets, events] = await Promise.all([
+                    window.kb.api('/me/tickets'),
+                    window.kb.api('/events/discover?' + params.toString()),
+                ]);
+
+                if (tickets?.ok) this.tickets = tickets.json?.data || [];
+                if (events?.ok) this.whatsOn = window.kb.rows(events);
+                this.loadingExtras = false;
+            },
+
             async loadExtras() {
+                if (this.isAttendee) { await this.loadAttendeeExtras(); return; }
+
                 const [rec, notes, saved, sugg] = await Promise.all([
                     window.kb.api('/discovery/opportunities?feed=recommended&page=1&per_page=3'),
                     window.kb.api('/me/notifications?per_page=4'),

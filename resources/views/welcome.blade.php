@@ -1244,8 +1244,12 @@
       <a href="{{ route('for-communities') }}">communities</a>
       {{-- The header teaches one model: Kolabs. `/events` stays reachable from the
            footer so the page is not orphaned, but the primary nav does not offer a
-           parallel calendar — see ROLES §7.5 and BACKLOG BE-NF-40. --}}
-      <a href="{{ route('public-kolabs') }}">kolabs</a>
+           parallel calendar — see ROLES §7.5 and BACKLOG BE-NF-40.
+           Hidden entirely while `public_kolabs.enabled` is off: the route 404s, so a
+           link to it would be a link to nothing (BE-FX-24). --}}
+      @if (config('kolabing.public_kolabs.enabled'))
+        <a href="{{ route('public-kolabs') }}">kolabs</a>
+      @endif
       <a href="{{ route('pricing') }}">pricing</a>
       <a href="#how-it-works">how it works</a>
       <a href="#faq">questions</a>
@@ -1903,7 +1907,9 @@ COMMUNITIES GET PERKS.</div>
       <a href="{{ route('for-businesses') }}">businesses</a>
       <a href="{{ route('for-communities') }}">communities</a>
       <a href="{{ route('public-events') }}">what's on</a>
-      <a href="{{ route('public-kolabs') }}">active kolabs</a>
+      @if (config('kolabing.public_kolabs.enabled'))
+        <a href="{{ route('public-kolabs') }}">active kolabs</a>
+      @endif
       <a href="{{ route('pricing') }}">pricing</a>
       <a href="{{ route('directory.index') }}">community directory</a>
       <a href="{{ route('blog.index') }}">blog</a>

@@ -43,6 +43,13 @@ class PublicKolabPageTest extends TestCase
 
         // Labels are memoised per request; the memo must not survive between tests.
         OfferOptionLabels::flush();
+
+        /*
+         * The surface ships OFF (production still holds test listings — BE-FX-24), so
+         * every test about what the pages *show* has to turn it on. The tests that the
+         * switch works are at the bottom of this file and set it themselves.
+         */
+        config()->set('kolabing.public_kolabs.enabled', true);
     }
 
     private function communityCreator(string $name = 'Barcelona Runners', string $type = 'run_club'): Profile
@@ -365,5 +372,65 @@ class PublicKolabPageTest extends TestCase
         $this->kolab(['creator' => $this->communityCreator('Barcelona Runners', 'run_club')]);
 
         $this->get('/')->assertOk()->assertDontSee('Barcelona Runners');
+    }
+
+    // ── The switch ───────────────────────────────────────────────────────
+
+    /**
+     * Hidden has to mean 404, not "unlinked". A crawler, a shared link and a guessed
+     * URL all reach a route whatever the nav says, so the route must deny it.
+     */
+    public function test_the_whole_surface_can_be_switched_off(): void
+    {
+        $kolab = $this->kolab();
+
+        config()->set('kolabing.public_kolabs.enabled', false);
+
+        $this->get('/kolabs')->assertNotFound();
+        $this->get(PublicKolabLink::urlFor($kolab))->assertNotFound();
+        $this->get('/kolabs/'.$kolab->id)->assertNotFound();
+    }
+
+    /** A link to a 404 is worse than no link. */
+    public function test_switching_it_off_removes_every_link_to_it(): void
+    {
+        $this->kolab();
+
+        config()->set('kolabing.public_kolabs.enabled', false);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertDontSee(route('public-kolabs'), false);
+
+        // The layout other marketing pages use carries the same links.
+        $this->get('/pricing')
+            ->assertOk()
+            ->assertDontSee(route('public-kolabs'), false);
+    }
+
+    public function test_switching_it_off_takes_the_homepage_strip_with_it(): void
+    {
+        $this->kolab(['title' => 'Sunday Run and Brunch']);
+
+        config()->set('kolabing.public_kolabs.enabled', false);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertDontSee('OPEN KOLABS')
+            ->assertDontSee('Sunday Run and Brunch');
+    }
+
+    /** Indexable is a second, narrower switch — it must not re-open a closed surface. */
+    public function test_indexable_cannot_resurrect_a_disabled_surface_in_the_sitemap(): void
+    {
+        $kolab = $this->kolab();
+
+        config()->set('kolabing.public_kolabs.enabled', false);
+        config()->set('kolabing.public_kolabs.indexable', true);
+
+        $this->get('/sitemap.xml')
+            ->assertOk()
+            ->assertDontSee(PublicKolabLink::urlFor($kolab), false)
+            ->assertDontSee(route('public-kolabs'), false);
     }
 }

@@ -769,6 +769,23 @@
                 me: null, unread: 0, chatUnread: 0, menuOpen: false, shellReady: false,
                 get isBusiness() { return this.me?.user_type === 'business'; },
                 get isCommunity() { return this.me?.user_type === 'community'; },
+                /*
+                 | The third role. An attendee sells nothing and posts nothing: they
+                 | turn up. So most of the panel is not theirs — no Explore, no My
+                 | Kolabs, no plan, no suggestions — and the shell has to know that
+                 | rather than each page discovering it. See ROLES §7.2.
+                 */
+                get isAttendee() { return this.me?.user_type === 'attendee'; },
+                /**
+                 * An attendee who registered but never finished onboarding.
+                 *
+                 * `handle` is the tell, because it is the one thing onboarding always
+                 * writes (name and handle are its only required fields) and nothing
+                 * else can set. Without this an attendee lands on a panel addressed to
+                 * nobody — no name, no city, no interests — with no route back to the
+                 * flow that fills them in.
+                 */
+                get needsAttendeeOnboarding() { return this.isAttendee && !this.me?.handle; },
                 /** A business without an active plan — paywalled actions should route to /subscription. */
                 get needsPlan() { return this.isBusiness && !this.me?.has_active_subscription; },
                 /** Stripe could not charge the card: access is degrading and the business must act. */
@@ -792,11 +809,17 @@
                     return p.business_profile || p.community_profile || {};
                 },
                 get displayName() {
-                    return this.profile.name || this.me?.handle || this.me?.email || '';
+                    // An attendee's name lives on `profiles` itself — there is no
+                    // extended profile to read it from.
+                    return this.profile.name || this.me?.name || this.me?.handle || this.me?.email || '';
                 },
                 get initial() { return window.kbInitial(this.displayName); },
                 get avatarUrl() { return this.profile.logo_url || this.profile.profile_photo || this.me?.avatar_url || ''; },
-                get roleLabel() { return this.isBusiness ? window.t('nav.role_business') : window.t('nav.role_community'); },
+                get roleLabel() {
+                    if (this.isBusiness) return window.t('nav.role_business');
+                    if (this.isAttendee) return window.t('nav.role_attendee');
+                    return window.t('nav.role_community');
+                },
                 /*
                  | Community Hub access.
                  |
@@ -813,6 +836,24 @@
                  * becoming a leader). Managers reach it via the grant.
                  */
                 get canSeeCommunityHub() { return this.canManageCommunity || this.isCommunity; },
+                /**
+                 * Send an attendee to finish onboarding, once.
+                 *
+                 * Called by every page's init() right after loadShell(). It is here
+                 * rather than in each page so a new page cannot forget it, and it
+                 * checks the current path so the onboarding page itself does not
+                 * bounce to itself forever.
+                 */
+                redirectIfOnboardingIncomplete() {
+                    if (!this.needsAttendeeOnboarding) return false;
+                    const base = window.KB_BASE || '';
+                    const here = location.pathname.startsWith(base)
+                        ? location.pathname.slice(base.length)
+                        : location.pathname;
+                    if (here.startsWith('/onboarding')) return false;
+                    window.nav('/onboarding/attendee');
+                    return true;
+                },
                 get activeCommunity() {
                     const saved = localStorage.getItem('kolabing_active_community');
                     return this.communities.find(c => c.id === saved) || this.communities[0] || null;
@@ -896,6 +937,15 @@
                     ]);
                     if (!me.ok) { window.kb.logout(); return null; }
                     this.me = me.json?.data || null;
+
+                    /*
+                     * An attendee who never finished onboarding has no handle, no
+                     * name and no city, so every panel screen would be addressed to
+                     * nobody. Bounce here rather than in each page's init(): put in
+                     * one place, a new page cannot forget it. Returning null stops
+                     * the caller, which every page already handles (`if (!me) return`).
+                     */
+                    if (this.redirectIfOnboardingIncomplete()) return null;
                     if (un.ok) this.unread = un.json?.data?.count ?? 0;
                     // Unread messages are counted separately from notifications:
                     // a message raises both, and the two badges sit on two nav rows.

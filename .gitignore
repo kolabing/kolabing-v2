@@ -2,6 +2,8 @@
 .DS_Store
 .env
 .env.backup
+# Any dated/suffixed env backup. One of these was sitting untracked in the
+# working tree holding production database credentials.
 .env.backup*
 .env.*.backup
 .env.production
