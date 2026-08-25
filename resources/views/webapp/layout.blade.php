@@ -279,6 +279,10 @@
             androidUrl: @json(config('webapp.play_store_url')),
             deepLink: @json(config('webapp.deep_link')),
             marketingUrl: @json(config('webapp.marketing_url')),
+            // Whether kolabing.com shows Kolabs at all. Off means those routes 404
+            // (BE-FX-24), so anything in the panel that would hand a visitor a
+            // marketing-host Kolab link has to ask first.
+            publicKolabs: @json((bool) config('kolabing.public_kolabs.enabled')),
             // Reverb (real-time chat). `key` is null until the daemon is deployed
             // (BE-IF-18); the chat page then polls instead of opening a socket.
             realtime: @json(config('webapp.realtime')),
