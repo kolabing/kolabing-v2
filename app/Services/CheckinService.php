@@ -285,6 +285,11 @@ class CheckinService
             ]);
         }
 
+        // Active Member is "attended within 90 days" (kolabing-app#147), so the
+        // stamp goes in before tiers are re-evaluated: a tier rule that reads
+        // attendance should see this check-in, not the previous one.
+        $this->stampAttendance($event, $profile);
+
         $this->evaluateCommunityTiers($profile);
 
         // Missions (guarded): the check-in itself progresses the attendee's
@@ -293,7 +298,7 @@ class CheckinService
         // missions. Mirrors the community-points scoping. Never breaks check-in.
         $this->recordCheckinMissions($event, $profile, $checkin);
 
-        return $checkin->load(['event', 'profile']);
+        return $checkin->load(['event.community', 'profile']);
     }
 
     /**
@@ -352,6 +357,37 @@ class CheckinService
      * waiting for the nightly app:evaluate-community-tiers job. A failure here
      * must never break the check-in itself.
      */
+    /**
+     * Record that a member turned up (kolabing-app#147).
+     *
+     * Only for the community whose event this is, and only if they are a member
+     * of it: attending a community's event as a stranger is not membership
+     * activity, and writing it anyway would make "active member" mean "person
+     * who came once".
+     *
+     * Guarded like everything else in this method: a failed stamp costs an
+     * Active-Member flag, and must never cost the check-in itself.
+     */
+    private function stampAttendance(Event $event, Profile $profile): void
+    {
+        if ($event->community_id === null) {
+            return;
+        }
+
+        try {
+            CommunityMember::query()
+                ->where('community_id', $event->community_id)
+                ->where('profile_id', $profile->id)
+                ->update(['last_attended_at' => now()]);
+        } catch (\Throwable $e) {
+            Log::warning('Member attendance stamp failed', [
+                'profile_id' => $profile->id,
+                'community_id' => $event->community_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
     private function evaluateCommunityTiers(Profile $profile): void
     {
         try {
