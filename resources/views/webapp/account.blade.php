@@ -163,7 +163,7 @@
                         <label class="flex items-center justify-between gap-3 cursor-pointer">
                             <span class="text-[13px] text-body" x-text="p.label"></span>
                             <input type="checkbox" :checked="prefs[p.key]" @change="setPref(p.key, $event.target.checked)"
-                                   class="w-5 h-5 rounded-md border-ink/20 text-ink focus:ring-0">
+                                   class="kb-checkbox w-5 h-5 rounded-md focus:ring-0">
                         </label>
                     </template>
                     <p class="text-[11px] text-muted" x-show="prefsSaving" x-cloak>{{ __('webapp.common.saving') }}</p>

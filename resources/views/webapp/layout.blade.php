@@ -164,6 +164,32 @@
         /* Native controls (date/time pickers, selects) follow the theme. */
         input[type="date"], input[type="time"] { color-scheme: inherit; }
 
+        /*
+         * Themed checkbox. @tailwindcss/forms (loaded from the CDN above) paints an
+         * unchecked box a hard-coded `#fff` and a checked one `currentColor` behind a
+         * tick that is hard-coded `white`. Both assume a light page: in dark theme the
+         * unchecked box was a white chip on a near-black ground, and a box carrying a
+         * theme text colour (ink inverts to near-white) went white-tick-on-white when
+         * ticked — so ticking it changed nothing on screen and the control read as
+         * unselectable. Bind both states to tokens instead, with the same yellow-fill /
+         * dark-tick treatment the selectable cards use. The tick is `--kb-on-primary`,
+         * which is the same near-black in both themes because the yellow never darkens.
+         * Specificity (0,3,1) beats the plugin's `[type='checkbox']:checked` (0,2,0)
+         * and `…:checked:hover` (0,3,0), so it wins whatever order the CDN injects in.
+         */
+        input[type="checkbox"].kb-checkbox {
+            background-color: rgb(var(--kb-surface));
+            border-color: rgb(var(--kb-ink) / .25);
+            border-width: 1.5px;
+        }
+        input[type="checkbox"].kb-checkbox:checked,
+        input[type="checkbox"].kb-checkbox:checked:hover,
+        input[type="checkbox"].kb-checkbox:checked:focus {
+            background-color: rgb(var(--kb-primary));
+            border-color: rgb(var(--kb-primary));
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='%2319150F' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3E%3C/svg%3E");
+        }
+
         /* Anton display face — the design always sets uppercase + .02em tracking. */
         .font-anton { font-family: Anton, sans-serif; letter-spacing: .02em; text-transform: uppercase; font-weight: 400; }
 
