@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $tiktok
  * @property string|null $website
  * @property string|null $profile_photo
+ * @property string|null $cover_photo
  * @property bool $is_featured
  * @property array<int, array{type: string, url: string, is_public: bool}>|null $verification_channels
  * @property string $verification_status
@@ -56,6 +57,7 @@ class CommunityProfile extends Model
         'tiktok',
         'website',
         'profile_photo',
+        'cover_photo',
         'is_featured',
         'verification_channels',
         'verification_status',
