@@ -74,7 +74,17 @@ class CommunityDashboardParityTest extends TestCase
         $this->dashboard($mine)->assertJsonPath('data.applications_received.total', 0);
     }
 
-    public function test_a_community_sees_the_count_of_its_own_kolabs(): void
+    /**
+     * The community payload must NOT carry `opportunities`.
+     *
+     * The shipped mobile client chooses its parser by sniffing this key
+     * (`if (data.containsKey('opportunities')) -> BusinessDashboard`), so
+     * sending it to a community made every community dashboard parse as a
+     * business and render "Unable to load dashboard data" — on a 200, with no
+     * exception anywhere. This test is the guard: the key may only come back
+     * once the sniffing builds are out of circulation.
+     */
+    public function test_the_community_payload_does_not_carry_opportunities(): void
     {
         $community = $this->community();
         Kolab::factory()->published()->create(['creator_profile_id' => $community->id]);
@@ -85,10 +95,13 @@ class CommunityDashboardParityTest extends TestCase
             'status' => KolabStatus::Draft,
         ]);
 
-        $this->dashboard($community)
-            ->assertJsonPath('data.opportunities.published', 1)
-            ->assertJsonPath('data.opportunities.draft', 1)
-            ->assertJsonPath('data.opportunities.total', 2);
+        $response = $this->dashboard($community)->assertJsonPath('success', true);
+
+        $this->assertArrayNotHasKey(
+            'opportunities',
+            $response->json('data'),
+            'A community dashboard must not carry `opportunities`: the shipped mobile client parses it as a business dashboard.'
+        );
     }
 
     /** The keys the existing clients already read must not move. */
@@ -199,7 +212,7 @@ class CommunityDashboardParityTest extends TestCase
 
         $this->dashboard($community)
             ->assertJsonPath('success', true)
-            ->assertJsonStructure(['data' => ['opportunities', 'applications_received', 'next_action']]);
+            ->assertJsonStructure(['data' => ['applications_received', 'next_action']]);
     }
 
     /** The business dashboard keeps its own chain — this change must not leak into it. */
