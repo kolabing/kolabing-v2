@@ -188,6 +188,8 @@
             t: (key, params) => window.t(key, params),
 
             // intro → profile → done. One string, so two panels can never show at once.
+            // An invited member who is already signed in never sees 'intro': init()
+            // accepts for them and leaves.
             phase: 'intro',
             busy: false,
             error: '',
@@ -221,7 +223,19 @@
             },
 
             async init() {
-                if (this.signedIn) return;
+                // An emailed invitation already carries the authorisation, so for
+                // someone who is signed in there is nothing left to ask: accept it and
+                // take them where they were invited to. Making them read a landing page
+                // and press "Accept" was a step the link had already earned.
+                //
+                // Safe to do on arrival even though mail clients prefetch links: the
+                // accept is a client-side POST carrying the bearer token from this
+                // browser's storage, which a scanner does not have. A prefetch renders
+                // the page and can do nothing with it.
+                if (this.signedIn) {
+                    if (this.invitationToken) await this.join();
+                    return;
+                }
                 await this.renderGoogle();
             },
 
@@ -297,6 +311,23 @@
 
             joinNow() { return this.join(); },
 
+            /**
+             * Leave the public landing page for the app, but only for an accepted
+             * invitation.
+             *
+             * A join REQUEST to an invite-only community is not a membership yet, and a
+             * self-serve join from a shared link was not a redirect the visitor asked
+             * for — both keep the 'done' panel, which explains what happens next. Only
+             * `?i=` means "you were invited and you are now in".
+             *
+             * The 'done' phase is set first and the redirect follows, so a blocked or
+             * slow navigation still leaves a page that says what happened.
+             */
+            leaveForTheApp() {
+                if (!this.invitationToken) return;
+                window.location.assign(window.kbPath('/dashboard'));
+            },
+
             /** The endpoint depends on how they arrived and the community's policy. */
             get joinPath() {
                 if (this.invitationToken) return '/invitations/accept/' + encodeURIComponent(this.invitationToken);
@@ -317,12 +348,16 @@
                     this.pendingApproval = this.inviteOnly && !this.invitationToken && !this.inviteToken;
                     this.joinedTier = res.json?.data?.tier?.name || '';
                     this.phase = 'done';
+                    this.leaveForTheApp();
                     return;
                 }
 
                 // Already a member is a success, not an error — show the done state.
+                // Following an invitation twice lands here, and it should still end up
+                // inside the app rather than on a page saying "you are already in".
                 if (res.status === 422 && res.json?.error === 'already_member') {
                     this.phase = 'done';
+                    this.leaveForTheApp();
                     return;
                 }
 
