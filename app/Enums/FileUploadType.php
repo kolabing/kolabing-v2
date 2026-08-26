@@ -11,6 +11,7 @@ namespace App\Enums;
 enum FileUploadType: string
 {
     case ProfilePhoto = 'profile_photo';
+    case CoverPhoto = 'cover_photo';
     case KolabMedia = 'kolab_media';
     case OpportunityPhoto = 'opportunity_photo';
     case GalleryPhoto = 'gallery_photo';
@@ -33,6 +34,7 @@ enum FileUploadType: string
     {
         return match ($this) {
             self::ProfilePhoto => 'profiles',
+            self::CoverPhoto => 'covers',
             self::KolabMedia => 'kolabs',
             self::OpportunityPhoto => 'opportunities',
             self::GalleryPhoto => 'gallery',
@@ -50,6 +52,7 @@ enum FileUploadType: string
     {
         return match ($this) {
             self::ProfilePhoto => 5 * 1024 * 1024, // 5MB
+            self::CoverPhoto => 5 * 1024 * 1024, // 5MB
             self::KolabMedia => 50 * 1024 * 1024, // 50MB
             self::OpportunityPhoto => 5 * 1024 * 1024, // 5MB
             self::GalleryPhoto => 5 * 1024 * 1024, // 5MB

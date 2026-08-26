@@ -153,6 +153,25 @@ class ProfileController extends Controller
             $extendedProfileData['profile_photo'] = $url;
         }
 
+        // The cover photograph, separate from the logo. A community page has
+        // painted a cover band since IF-31 but had no column behind it, so the
+        // band fell back to a blurred copy of the logo — every community's
+        // background WAS its own profile photo, with no way to change it.
+        // Business profiles have no cover band, so this is community-only.
+        if ($request->hasFile('cover_photo') && $profile->isCommunity()) {
+            $communityProfile = $profile->communityProfile;
+
+            if ($communityProfile?->cover_photo) {
+                $this->fileUploadService->delete($communityProfile->cover_photo);
+            }
+
+            $extendedProfileData['cover_photo'] = $this->fileUploadService->uploadFromFile(
+                $request->file('cover_photo'),
+                FileUploadType::CoverPhoto,
+                $profile->id
+            );
+        }
+
         // Verification: communities can submit/edit their proof channels via the
         // profile edit. Run the shared transition (unverified/rejected → pending;
         // verified stays verified but is flagged for admin re-check) BEFORE the
