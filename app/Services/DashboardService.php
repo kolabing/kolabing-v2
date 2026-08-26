@@ -217,8 +217,22 @@ class DashboardService
         $applicationsReceived = $this->getReceivedApplicationStats($profile);
         $collaborations = $this->getCollaborationStats($profile);
 
+        // `opportunities` is deliberately NOT returned for a community, even
+        // though it is computed above and still feeds `next_action`.
+        //
+        // The shipped mobile client picks which dashboard to parse by SNIFFING
+        // this key: `if (data.containsKey('opportunities')) -> BusinessDashboard`.
+        // Adding the block here for parity therefore made every community parse
+        // as a business, leaving `communityDashboard` null and the app showing
+        // "Unable to load dashboard data" — on a clean 200 with valid JSON, so
+        // no exception surfaced in Sentry or the logs and the break was silent.
+        //
+        // The client is fixed to read the role from auth instead, but that fix
+        // needs an App Store release; every already-installed app keeps
+        // sniffing. So the key stays off this payload until those builds are
+        // gone. The web panel is unaffected: its `d.opportunities` tile lives
+        // inside `x-if="isBusiness"`.
         return [
-            'opportunities' => $opportunities,
             'applications_sent' => $applicationsSent,
             'applications_received' => $applicationsReceived,
             'collaborations' => $collaborations,

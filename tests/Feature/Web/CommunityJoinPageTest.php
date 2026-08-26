@@ -187,4 +187,55 @@ class CommunityJoinPageTest extends TestCase
             ->assertOk()
             ->assertSee('Sobre tu');
     }
+
+    // ── An emailed invitation is one click (BE-NF-48) ────────────────────
+
+    /**
+     * The email link already carries the authorisation, so a signed-in invitee has
+     * nothing left to decide. Asked for by Volkan 2026-08-25: pressing the link in
+     * the mail should put them in and take them onward.
+     */
+    public function test_a_signed_in_invitee_is_accepted_on_arrival(): void
+    {
+        Community::factory()->create(['slug' => 'one-click-invite']);
+
+        $this->joinPage('one-click-invite', '?i=tok123')
+            ->assertOk()
+            ->assertSee('if (this.invitationToken) await this.join();', false);
+    }
+
+    public function test_an_accepted_invitation_leaves_for_the_app(): void
+    {
+        Community::factory()->create(['slug' => 'one-click-redirect']);
+
+        $this->joinPage('one-click-redirect', '?i=tok123')
+            ->assertOk()
+            ->assertSee("window.location.assign(window.kbPath('/dashboard'))", false)
+            // Set the done state first, so a blocked navigation still explains itself.
+            ->assertSee("this.phase = 'done';", false);
+    }
+
+    /** Following the same invitation twice still ends up inside the app. */
+    public function test_already_a_member_also_leaves_for_the_app(): void
+    {
+        Community::factory()->create(['slug' => 'one-click-twice']);
+
+        $this->joinPage('one-click-twice', '?i=tok123')
+            ->assertOk()
+            ->assertSee("res.status === 422 && res.json?.error === 'already_member'", false);
+    }
+
+    /**
+     * Only `?i=` redirects. A join REQUEST to an invite-only community is not a
+     * membership, and a self-serve join from a shared link was never a redirect the
+     * visitor asked for — both keep the panel that says what happens next.
+     */
+    public function test_a_join_request_or_a_shared_link_does_not_redirect(): void
+    {
+        Community::factory()->create(['slug' => 'no-redirect-here']);
+
+        $this->joinPage('no-redirect-here')
+            ->assertOk()
+            ->assertSee('if (!this.invitationToken) return;', false);
+    }
 }
