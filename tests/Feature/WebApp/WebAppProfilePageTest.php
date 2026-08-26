@@ -16,6 +16,11 @@ use Tests\TestCase;
  */
 class WebAppProfilePageTest extends TestCase
 {
+    private function profilePage(): \Illuminate\Testing\TestResponse
+    {
+        return $this->get('http://'.$this->host().'/profiles/01a0-some-uuid')->assertOk();
+    }
+
     private function host(): string
     {
         return config('webapp.host');
@@ -149,5 +154,51 @@ class WebAppProfilePageTest extends TestCase
     public function test_the_panel_profile_route_does_not_leak_onto_the_marketing_host(): void
     {
         $this->get('http://kolabing.com/profiles/01a0-some-uuid')->assertNotFound();
+    }
+
+    // ── The identity mask, rendered (BE-FX-22) ───────────────────────────
+
+    /**
+     * The server nulls a community's identity for a free business
+     * (`CommunityIdentityMask`), so without this the page would simply render an
+     * empty heading and a "?" avatar — closed, but looking broken. It gets the same
+     * treatment /suggestions already gives a blurred card.
+     */
+    public function test_a_masked_identity_is_withheld_visibly_rather_than_left_blank(): void
+    {
+        $page = $this->profilePage();
+
+        $page->assertSee('x-if="p.identity_masked"', false)
+            // Withheld, not substituted.
+            ->assertSee('bg-primary/60 blur-sm select-none', false)
+            ->assertSee('●●●●●●●●●●', false)
+            // Hidden from readers, since the visible bar carries no information.
+            ->assertSee('aria-hidden="true"', false);
+    }
+
+    /** A blur is a sales moment, never a full-screen block (ROLES §2.5). */
+    public function test_the_mask_offers_the_plan_instead_of_blocking_the_page(): void
+    {
+        $this->profilePage()
+            ->assertSee('/subscription?reason=profile', false)
+            ->assertSee(__('webapp.profile.masked_cta'), false);
+    }
+
+    /**
+     * The page must never re-derive the rule from the viewer's role — that is how a
+     * community viewer ends up masked, because `hasActiveSubscription()` is false for
+     * every non-business. It renders the server's answer and nothing else.
+     */
+    public function test_the_page_reads_the_servers_flag_and_does_not_recompute_it(): void
+    {
+        $page = $this->profilePage();
+
+        // `has_active_subscription` legitimately exists in the shared layout's shell
+        // (that is where `needsPlan` is computed, for action gating). What must not
+        // exist is the profile page combining it with the profile being viewed.
+        $page->assertDontSee('needsPlan && p.', false)
+            ->assertDontSee("p.user_type === 'community' && needsPlan", false)
+            // The one source of truth, used verbatim.
+            ->assertSee('p.identity_masked', false);
     }
 }
