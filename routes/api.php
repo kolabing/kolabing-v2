@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\V1\ConsentController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\DiscoveryOpportunityController;
+use App\Http\Controllers\Api\V1\EncounterController;
 use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\EventDiscoveryController;
 use App\Http\Controllers\Api\V1\EventPhotoController;
@@ -483,6 +484,15 @@ Route::prefix('v1')->group(function (): void {
 
         Route::get('me/challenge-completions', [ChallengeCompletionController::class, 'myCompletions'])
             ->name('api.v1.me.challenge-completions');
+
+        // The People Layer's write surface (#246). A ghost invite records a
+        // challenge with someone who does not have the app; the claim redeems
+        // it and pays both sides what was promised.
+        Route::post('encounters/ghost', [EncounterController::class, 'ghost'])
+            ->name('api.v1.encounters.ghost');
+
+        Route::post('encounters/claim', [EncounterController::class, 'claim'])
+            ->name('api.v1.encounters.claim');
 
         /*
         |--------------------------------------------------------------------------

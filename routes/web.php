@@ -92,6 +92,12 @@ $webappRoutes = function (): void {
     Route::view('/events', 'webapp.events');
     Route::view('/events/{event}', 'webapp.event-detail');
     Route::view('/checkin/{token}', 'webapp.checkin');
+
+    // A ghost invite (#246). Served on the app host so the SAME url is the one
+    // the Universal Link / App Link hands to the app when it IS installed —
+    // this page only ever renders for the person who has to go and get it.
+    Route::get('/i/{code}', [\App\Http\Controllers\GhostInvitePageController::class, 'show'])
+        ->name('webapp.ghost-invite');
     /*
      * Tickets, and the other side of the door.
      *
@@ -249,6 +255,13 @@ Route::get('/', function (\App\Services\PublicKolabFeedService $kolabFeed) {
 // Legacy invite links still point at the marketing host. The page itself moved
 // to the app host, where the CSP allows Alpine ('unsafe-eval') and Google
 // Sign-In — under the marketing policy it could not run at all (BE-NF-38).
+Route::get('/i/{code}', function (string $code) {
+    // An invite shared from the app carries the app host, but people paste and
+    // retype links. Sending kolabing.com/i/... to the app host keeps a mistyped
+    // domain working rather than 404ing on someone who is trying to join.
+    return redirect()->away(rtrim(config('webapp.url'), '/').'/i/'.$code, 302);
+})->name('ghost-invite.redirect');
+
 Route::get('/c/{slug}', function (string $slug) {
     $query = request()->getQueryString();
 

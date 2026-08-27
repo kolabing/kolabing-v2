@@ -107,7 +107,7 @@ return [
          * a marketing page opening inside an app is a worse experience, not a better
          * one.
          */
-        'paths' => ['/checkin/*', '/c/*'],
+        'paths' => ['/checkin/*', '/c/*', '/i/*'],
     ],
 
     'deep_link' => env('WEBAPP_DEEP_LINK', 'kolabing://'),
