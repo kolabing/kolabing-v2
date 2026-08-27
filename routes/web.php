@@ -103,6 +103,16 @@ $webappRoutes = function (): void {
      * pages call requireAuth(), which carries the destination in `?next=` so a QR
      * scanned on a phone that is not signed in still completes after login.
      */
+    /*
+     * Multi-Kolab events on the panel: one organizer recruiting several partners
+     * into one date. Deliberately NOT under /events — that path is the attendee
+     * happening (a door with a QR), a different object with a different audience.
+     * The URL shape matches the mobile client's `/multi-kolab-events/:id` so a link
+     * pasted between the two resolves.
+     */
+    Route::view('/multi-kolab-events', 'webapp.multi-kolab-events');
+    Route::view('/multi-kolab-events/{event}', 'webapp.multi-kolab-event-detail');
+
     Route::view('/tickets', 'webapp.tickets');
     Route::view('/admit/{code}', 'webapp.admit');
     // Attendee onboarding: the four steps the mobile app runs, same endpoint.

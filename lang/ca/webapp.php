@@ -69,6 +69,12 @@ return [
         'kolab' => 'Kolab',
     ],
     'status' => [
+        'recruiting' => 'cercant',
+        'confirmed' => 'confirmat',
+        'expired' => 'caducat',
+        'open' => 'obert',
+        'filled' => 'complet',
+        'shortlisted' => 'preseleccionat',
         'draft' => 'esborrany',
         'published' => 'publicat',
         'closed' => 'tancat',
@@ -629,6 +635,32 @@ return [
         'regate_title' => 'El teu pla ha caducat',
         'regate_body' => 'Aquest Kolab encara està en marxa, així que la teva part queda en pausa fins que renovis. El teu soci manté l’accés complet.',
         'regate_cta' => 'Mira els plans',
+    ],
+
+    /*
+     * Multi-Kolab events: one organizer recruiting several partners into one
+     * date. Keyed `mke` rather than `events` because `webapp.events` is the
+     * attendee happening — a different object with a different audience.
+     */
+    'mke' => [
+        'title' => 'Esdeveniments',
+        'lede' => 'Una data, diversos socis. Els esdeveniments per als quals cerques socis.',
+        'detail_title' => 'Esdeveniment',
+        'back' => 'Tots els esdeveniments',
+        'roles' => 'Rols',
+        'roles_empty' => 'Encara no hi ha rols. Un esdeveniment recluta a través dels seus rols, així que necessita almenys un abans de publicar-se.',
+        'roles_filled' => ':filled de :total rols coberts',
+        'positions' => ':filled de :needed coberts',
+        'tile_roles' => 'Rols',
+        'tile_open' => 'Oberts',
+        'tile_filled' => 'Coberts',
+        'no_applications' => 'Encara no hi ha sol·licituds.',
+        'empty_title' => 'Encara no hi ha esdeveniments',
+        'empty_body' => 'Un esdeveniment és una data en què reuneixes diversos socis — un local, una marca, una comunitat — cadascun com el seu propi rol.',
+        'no_entitlement_title' => 'Els esdeveniments són per invitació de moment',
+        'no_entitlement_body' => "Crear un esdeveniment amb diversos socis requereix un permís d'organitzador de l'equip de Kolabing. Pots continuar sol·licitant qualsevol rol que trobis a Explorar — això no requereix res més.",
+        'no_entitlement_cta' => 'Vés a Explorar',
+        'load_error' => "No s'han pogut carregar els teus esdeveniments.",
     ],
 
     'account' => [

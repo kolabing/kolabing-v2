@@ -339,6 +339,9 @@
 
         return {
             loading: true, loadingExtras: true, greeting: '', d: {}, upcoming: [],
+            /* Multi-Kolab events the viewer created — the dashboard shows the
+               newest three; the rest are on /multi-kolab-events. */
+            mkeEvents: [],
             // Attendee home: their next ticket, and what is on near them.
             tickets: [], whatsOn: [],
             recommended: [], activity: [], savedCount: 0,
@@ -570,19 +573,25 @@
 
                 if (tickets?.ok) this.tickets = tickets.json?.data || [];
                 if (events?.ok) this.whatsOn = window.kb.rows(events);
+                if (mke?.ok) this.mkeEvents = window.kb.rows(mke);
                 this.loadingExtras = false;
             },
 
             async loadExtras() {
                 if (this.isAttendee) { await this.loadAttendeeExtras(); return; }
 
-                const [rec, notes, saved, sugg] = await Promise.all([
+                const [rec, notes, saved, sugg, mke] = await Promise.all([
                     window.kb.api('/discovery/opportunities?feed=recommended&page=1&per_page=3'),
                     window.kb.api('/me/notifications?per_page=4'),
                     this.isCommunity ? window.kb.api('/kolabs?saved=1&per_page=100') : Promise.resolve(null),
                     // One card is all the block shows; `meta.total` carries the count,
                     // so there is no reason to fetch a page to count it.
                     suggestionsEnabled ? window.kb.api('/suggestions?per_page=1') : Promise.resolve(null),
+                    // Asked for unconditionally rather than behind `canCreateEvents`:
+                    // the entitlement call is still in flight at this point, and an
+                    // organizer whose events failed to load because of a race is worse
+                    // than one extra request that returns an empty list.
+                    window.kb.api('/multi-kolab-events/me?per_page=3'),
                 ]);
                 if (rec?.ok) this.recommended = window.kb.rows(rec).map(k => this.recCard(k));
                 if (notes?.ok) this.activity = window.kb.rows(notes);

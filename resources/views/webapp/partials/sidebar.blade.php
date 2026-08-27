@@ -31,7 +31,14 @@
          * they scan a QR at the door. `events` rows are still that door's mechanism,
          * but they are not a surface a user navigates to. An attendee's equivalent is
          * their wallet above, plus what's on from their home.
+         *
+         * A MULTI-KOLAB event is a different object and does get an entry: one
+         * organizer recruiting several partners into one date, which is a thing you
+         * come back to and manage. Gated on the entitlement rather than a role — see
+         * `canCreateEvents` in kbShell(). Someone APPLYING to a role never needs this
+         * entry; those roles arrive through Explore.
          */
+        'multi-kolab-events' => ['/multi-kolab-events', __('webapp.nav.events'), '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/>', 'canCreateEvents'],
         'chats'         => ['/chats', __('webapp.nav.messages'), '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>', null],
         'notifications' => ['/notifications', __('webapp.nav.notifications'), '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>', null],
         'account'       => ['/account', __('webapp.nav.profile'), '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>', null],

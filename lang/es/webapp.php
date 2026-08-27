@@ -69,6 +69,12 @@ return [
         'kolab' => 'Kolab',
     ],
     'status' => [
+        'recruiting' => 'buscando',
+        'confirmed' => 'confirmado',
+        'expired' => 'caducado',
+        'open' => 'abierto',
+        'filled' => 'completo',
+        'shortlisted' => 'preseleccionado',
         'draft' => 'borrador',
         'published' => 'publicado',
         'closed' => 'cerrado',
@@ -629,6 +635,32 @@ return [
         'regate_title' => 'Tu plan ha caducado',
         'regate_body' => 'Este Kolab sigue en marcha, así que tu parte queda en pausa hasta que renueves. Tu socio mantiene el acceso completo.',
         'regate_cta' => 'Ver planes',
+    ],
+
+    /*
+     * Multi-Kolab events: one organizer recruiting several partners into one
+     * date. Keyed `mke` rather than `events` because `webapp.events` is the
+     * attendee happening — a different object with a different audience.
+     */
+    'mke' => [
+        'title' => 'Eventos',
+        'lede' => 'Una fecha, varios socios. Los eventos para los que estás buscando socios.',
+        'detail_title' => 'Evento',
+        'back' => 'Todos los eventos',
+        'roles' => 'Roles',
+        'roles_empty' => 'Aún no hay roles. Un evento recluta a través de sus roles, así que necesita al menos uno antes de publicarse.',
+        'roles_filled' => ':filled de :total roles cubiertos',
+        'positions' => ':filled de :needed cubiertos',
+        'tile_roles' => 'Roles',
+        'tile_open' => 'Abiertos',
+        'tile_filled' => 'Cubiertos',
+        'no_applications' => 'Aún no hay solicitudes.',
+        'empty_title' => 'Aún no hay eventos',
+        'empty_body' => 'Un evento es una fecha en la que reúnes a varios socios — un local, una marca, una comunidad — cada uno como su propio rol.',
+        'no_entitlement_title' => 'Los eventos son por invitación por ahora',
+        'no_entitlement_body' => 'Crear un evento con varios socios requiere un permiso de organizador del equipo de Kolabing. Puedes seguir solicitando cualquier rol que encuentres en Explorar — eso no requiere nada más.',
+        'no_entitlement_cta' => 'Ir a Explorar',
+        'load_error' => 'No se han podido cargar tus eventos.',
     ],
 
     'account' => [
