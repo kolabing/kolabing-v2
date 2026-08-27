@@ -22,6 +22,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $profile_id
  * @property string|null $other_profile_id
  * @property string|null $ghost_name
+ * @property string|null $ghost_claim_token
+ * @property string|null $ghost_contact
+ * @property string|null $challenge_id
+ * @property int $pending_points
+ * @property \Illuminate\Support\Carbon|null $expires_at
  * @property string|null $community_id
  * @property string $event_id
  * @property \Illuminate\Support\Carbon $met_at
@@ -45,12 +50,17 @@ class Encounter extends Model
         'profile_id',
         'other_profile_id',
         'ghost_name',
+        'ghost_claim_token',
+        'ghost_contact',
+        'challenge_id',
         'community_id',
         'event_id',
         'met_at',
         'times_met',
+        'pending_points',
         'proof_photo_url',
         'claimed_at',
+        'expires_at',
     ];
 
     /** @return array<string, string> */
@@ -59,7 +69,9 @@ class Encounter extends Model
         return [
             'met_at' => 'datetime',
             'times_met' => 'integer',
+            'pending_points' => 'integer',
             'claimed_at' => 'datetime',
+            'expires_at' => 'datetime',
         ];
     }
 
@@ -87,11 +99,29 @@ class Encounter extends Model
         return $this->belongsTo(Community::class);
     }
 
+    /** @return BelongsTo<Challenge, $this> */
+    public function challenge(): BelongsTo
+    {
+        return $this->belongsTo(Challenge::class);
+    }
+
     /**
      * Nobody is on the other end of this yet.
      */
     public function isGhost(): bool
     {
         return $this->other_profile_id === null;
+    }
+
+    /**
+     * A ghost nobody has claimed and whose window has not closed — the only
+     * kind that counts towards the per-event cap, and the only kind a code can
+     * still redeem.
+     */
+    public function isClaimable(): bool
+    {
+        return $this->isGhost()
+            && $this->claimed_at === null
+            && ($this->expires_at === null || $this->expires_at->isFuture());
     }
 }
