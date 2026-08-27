@@ -33,6 +33,19 @@ class ChallengeCompletion extends Model
 
     use HasUuids;
 
+    /**
+     * Where this pair now stands on the ladder, set by EncounterService right
+     * after a verification (#244).
+     *
+     * A REAL property, not an Eloquent attribute: assigning an undeclared name
+     * on a model puts it in $attributes, and the next save() would try to write
+     * a `pair_level` column that does not exist. Declared here, PHP sets the
+     * property directly and Eloquent never sees it.
+     *
+     * @var array{times_met:int,key:string,next_at:int|null,just_levelled_up:bool,bonus_awarded:int}|null
+     */
+    public ?array $pairLevel = null;
+
     /** @var list<string> */
     protected $fillable = [
         'challenge_id',

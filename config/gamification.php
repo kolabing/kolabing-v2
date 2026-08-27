@@ -56,4 +56,33 @@ return [
     |
     */
     'local_timezone' => env('GAMIFICATION_LOCAL_TIMEZONE', 'Europe/Madrid'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Pair ladder — what repeat meetings are worth
+    |--------------------------------------------------------------------------
+    |
+    | An `encounters.times_met` counts the number of DISTINCT EVENTS two people
+    | have both turned up to and completed a challenge at. This ladder turns
+    | that count into a rung, and pays a ONE-TIME bonus the first time a pair
+    | crosses one. EncounterService reads it; nothing else decides a threshold,
+    | and the mobile app decides none of it.
+    |
+    | Two deliberate absences:
+    |
+    | - **No decay.** A rung once reached is kept. Levels that fall turn showing
+    |   up at a run club into an obligation, which is the opposite of the point.
+    | - **No streak.** Same reason. A streak you can break creates guilt, not
+    |   warmth — fine for a language app, wrong for this.
+    |
+    | Ordered ascending by `at`. The first rung is the meeting itself and pays
+    | nothing: you already earned the challenge's points for that.
+    |
+    */
+    'pair_ladder' => [
+        ['at' => 1, 'key' => 'met', 'bonus' => 0],
+        ['at' => 3, 'key' => 'regulars', 'bonus' => 10],
+        ['at' => 5, 'key' => 'crew', 'bonus' => 25],
+        ['at' => 10, 'key' => 'inner_circle', 'bonus' => 50],
+    ],
 ];
