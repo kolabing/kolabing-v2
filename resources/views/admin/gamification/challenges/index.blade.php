@@ -64,6 +64,7 @@
                             <th>Category</th>
                             <th>Difficulty</th>
                             <th>Audience</th>
+                            <th class="text-center">Camera</th>
                             <th class="text-center">Pts</th>
                             <th class="text-right pr-4">Actions</th>
                         </tr>
@@ -82,6 +83,13 @@
                                 <td>
                                     <span class="badge badge-light text-uppercase">{{ $c->audience?->label() ?? 'Both' }}</span>
                                 </td>
+                                <td class="text-center">
+                                    @if ($c->proof_type?->value === 'photo')
+                                        <span class="badge badge-info" title="The app opens the camera when the pair agrees">&#128247; photo</span>
+                                    @else
+                                        <span class="text-muted">&mdash;</span>
+                                    @endif
+                                </td>
                                 <td class="text-center font-weight-bold">{{ $c->points }}</td>
                                 <td class="text-right pr-4">
                                     <a href="{{ route('admin.gamification.challenges.edit', $c) }}" class="btn btn-sm btn-outline-primary">Edit</a>
@@ -94,7 +102,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center text-muted py-4">No challenges match the current filters.</td>
+                                <td colspan="7" class="text-center text-muted py-4">No challenges match the current filters.</td>
                             </tr>
                         @endforelse
                     </tbody>
