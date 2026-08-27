@@ -27,6 +27,7 @@ class ChallengeCompletionService
         private readonly CommunityPointsService $communityPointsService,
         private readonly MissionService $missionService,
         private readonly FileUploadService $fileUploadService,
+        private readonly EncounterService $encounterService,
     ) {}
 
     /**
@@ -518,6 +519,29 @@ class ChallengeCompletionService
             $this->communityPointsService->awardChallengeVerified($result);
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Community points award on challenge verify failed', [
+                'completion_id' => $result->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Remember that these two MET (#244), and pay the pair ladder if this
+        // event took them over a rung.
+        //
+        // Outside the settlement transaction and inside a catch, for the same
+        // reason community points are: the points are the contract between two
+        // people standing in a room, and this ledger is bookkeeping that
+        // happens afterwards. A bug in here must never cost anyone what they
+        // just earned.
+        try {
+            $rung = $this->encounterService->recordChallengeMeeting($result);
+            if ($rung !== null && $rung['bonus_awarded'] > 0) {
+                $this->encounterService->awardPairBonus($result, $rung['bonus_awarded']);
+            }
+            // Carried on the model rather than persisted: the reveal wants to
+            // say "3rd time" once, and nothing else ever reads it back.
+            $result->pairLevel = $rung;
+        } catch (\Throwable $e) {
+            Log::warning('Encounter write on challenge verify failed', [
                 'completion_id' => $result->id,
                 'error' => $e->getMessage(),
             ]);
