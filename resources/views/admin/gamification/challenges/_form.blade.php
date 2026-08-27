@@ -52,6 +52,25 @@
     </div>
 </div>
 
+{{-- How it is played: does the app open the camera when the pair agrees? (#248) --}}
+<div class="form-row">
+    <div class="form-group col-md-6">
+        <label for="proof_type">When the pair agrees</label>
+        <select name="proof_type" id="proof_type" class="form-control">
+            @foreach ($proofTypes as $p)
+                <option value="{{ $p->value }}" {{ old('proof_type', $challenge->proof_type?->value ?? 'text') === $p->value ? 'selected' : '' }}>
+                    {{ $p->value === 'photo' ? 'Open the camera — they take a photo together' : 'No camera — the instruction is the game' }}
+                </option>
+            @endforeach
+        </select>
+        <small class="form-text text-muted">
+            Picks the surface the app opens, and nothing more: a verification that arrives with no photo is still
+            accepted, so a denied camera or a dead connection never costs anybody their points.
+            <strong>&ldquo;Take a selfie together&rdquo; wants the camera; &ldquo;introduce yourselves&rdquo; does not.</strong>
+        </small>
+    </div>
+</div>
+
 <hr>
 <h6 class="text-uppercase text-muted mb-1">Mission settings (optional)</h6>
 <p class="small text-muted">
