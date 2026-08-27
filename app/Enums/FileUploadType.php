@@ -69,7 +69,7 @@ enum FileUploadType: string
     public function getAllowedMimeTypes(): array
     {
         return match ($this) {
-            self::ProfilePhoto, self::OpportunityPhoto, self::GalleryPhoto, self::EventPhoto, self::ChallengeProof => [
+            self::ProfilePhoto, self::CoverPhoto, self::OpportunityPhoto, self::GalleryPhoto, self::EventPhoto, self::ChallengeProof => [
                 'image/jpeg',
                 'image/jpg',
                 'image/png',
@@ -97,7 +97,7 @@ enum FileUploadType: string
     public function getAllowedExtensions(): array
     {
         return match ($this) {
-            self::ProfilePhoto, self::OpportunityPhoto, self::GalleryPhoto, self::EventPhoto, self::ChallengeProof => [
+            self::ProfilePhoto, self::CoverPhoto, self::OpportunityPhoto, self::GalleryPhoto, self::EventPhoto, self::ChallengeProof => [
                 'jpeg',
                 'jpg',
                 'png',
