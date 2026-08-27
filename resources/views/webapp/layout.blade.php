@@ -479,6 +479,18 @@
                 draft: 'neutral', closed: 'neutral', completed: 'neutral', withdrawn: 'neutral',
                 accepted: 'ok', active: 'ok', published: 'ok',
                 declined: 'bad', cancelled: 'bad', past_due: 'bad',
+                /*
+                 * Multi-Kolab events and their roles reuse this helper rather than
+                 * getting a second one — a status pill should look the same wherever
+                 * the panel prints one.
+                 *
+                 * `expired` is neutral, not bad: the date ran out without the roles
+                 * filling, which is an ending rather than a failure. `cancelled`
+                 * stays bad because somebody called it off.
+                 */
+                recruiting: 'warn', shortlisted: 'warn', open: 'warn',
+                confirmed: 'ok', filled: 'ok',
+                expired: 'neutral',
             }[status] || 'neutral';
             return {
                 bg: `rgb(var(--kb-${tone}-surface))`,
@@ -866,6 +878,32 @@
                  * becoming a leader). Managers reach it via the grant.
                  */
                 get canSeeCommunityHub() { return this.canManageCommunity || this.isCommunity; },
+
+                /*
+                 |-------------------------------------------------------------
+                 | Multi-Kolab events — the Event Creator entitlement
+                 |-------------------------------------------------------------
+                 |
+                 | Gated on the GRANT, like the Community Hub above and for the
+                 | same reason: creating a multi-Kolab event is a capability a
+                 | maintainer hands out (`organizer_entitlements`, capability
+                 | `event_creator`), not something a user_type implies. Applying
+                 | to a ROLE needs no entitlement — those arrive through Explore.
+                 |
+                 | Null until the call lands, so `canCreateEvents` is false and
+                 | the nav entry stays hidden rather than flickering in and out.
+                 */
+                organizerEntitlement: null,
+                get canCreateEvents() {
+                    return this.organizerEntitlement?.has_event_creator_entitlement === true;
+                },
+
+                async loadOrganizerEntitlement() {
+                    // An attendee cannot hold this capability, so do not ask.
+                    if (this.isAttendee) return;
+                    const res = await window.kb.api('/me/organizer-entitlement');
+                    if (res.ok) this.organizerEntitlement = res.json?.data || null;
+                },
                 /**
                  * Send an attendee to finish onboarding, once.
                  *
@@ -983,6 +1021,7 @@
                     this.shellReady = true;
                     // Non-blocking: the nav entry appears once this resolves.
                     this.loadManagedCommunities().then(() => this.loadCommunityPending());
+                    this.loadOrganizerEntitlement();
                     return this.me;
                 },
             });

@@ -69,6 +69,12 @@ return [
         'kolab' => 'Kolab',
     ],
     'status' => [
+        'recruiting' => 'recruiting',
+        'confirmed' => 'confirmed',
+        'expired' => 'expired',
+        'open' => 'open',
+        'filled' => 'filled',
+        'shortlisted' => 'shortlisted',
         'draft' => 'draft',
         'published' => 'published',
         'closed' => 'closed',
@@ -650,6 +656,32 @@ return [
         'regate_title' => 'Your plan has lapsed',
         'regate_body' => 'This Kolab is still running, so your side is on hold until you resubscribe. Your partner keeps full access throughout.',
         'regate_cta' => 'See plans',
+    ],
+
+    /*
+     * Multi-Kolab events: one organizer recruiting several partners into one
+     * date. Keyed `mke` rather than `events` because `webapp.events` is the
+     * attendee happening — a different object with a different audience.
+     */
+    'mke' => [
+        'title' => 'Events',
+        'lede' => 'One date, several partners. The events you are recruiting for.',
+        'detail_title' => 'Event',
+        'back' => 'All events',
+        'roles' => 'Roles',
+        'roles_empty' => 'No roles yet. An event recruits through its roles, so it needs at least one before it can be published.',
+        'roles_filled' => ':filled of :total roles filled',
+        'positions' => ':filled of :needed filled',
+        'tile_roles' => 'Roles',
+        'tile_open' => 'Open',
+        'tile_filled' => 'Filled',
+        'no_applications' => 'No applications yet.',
+        'empty_title' => 'No events yet',
+        'empty_body' => 'An event is one date you recruit several partners into — a venue, a brand, a community — each as its own role.',
+        'no_entitlement_title' => 'Events are invitation-only for now',
+        'no_entitlement_body' => 'Creating a multi-partner event needs an organizer grant from the Kolabing team. You can still apply to any role you find in Explore — that needs nothing extra.',
+        'no_entitlement_cta' => 'Browse Explore',
+        'load_error' => 'Could not load your events.',
     ],
 
     'account' => [

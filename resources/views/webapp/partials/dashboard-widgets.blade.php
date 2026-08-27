@@ -1,6 +1,47 @@
 {{-- Dashboard widgets shared by both roles. The host component supplies
      `recommended`, `activity`, `suggestionTop`, `suggestionCountLabel`,
-     `statusPill()`, `fmtDate()`, `initialOf()`. --}}
+     `mkeEvents`, `statusPill()`, `fmtDate()`, `initialOf()`. --}}
+
+{{-- ── Multi-Kolab events ─────────────────────────────────────────────────
+     One organizer, several partners, one date. Shown to whoever actually has
+     events, and to an entitled organizer who has none yet so the surface is
+     reachable at all — `canCreateEvents` is the grant from kbShell(), never a
+     user_type (applying to a ROLE needs no entitlement and arrives via Explore).
+
+     Two numbers per row and no more: the status, and how many roles are filled.
+     Anyone who needs the applications-per-role breakdown is one tap away on the
+     event's own page, which is where that belongs. --}}
+<div x-show="!loadingExtras && (mkeEvents.length > 0 || canCreateEvents)" x-cloak>
+    <div class="flex items-center justify-between gap-3 mb-3">
+        <p class="text-[13px] font-semibold tracking-[1px] uppercase text-ink">{{ __('webapp.mke.title') }}</p>
+        <a href="{{ $base }}/multi-kolab-events" class="text-[12.5px] font-semibold text-body hover:text-ink">{{ __('webapp.dashboard.see_all') }}</a>
+    </div>
+
+    <template x-if="mkeEvents.length === 0">
+        <div class="rounded-2xl border-[1.5px] border-dashed border-ink/20 py-8 px-5 text-center">
+            <p class="text-sm text-muted">{{ __('webapp.mke.empty_title') }}</p>
+        </div>
+    </template>
+
+    <div class="flex flex-col gap-2.5">
+        <template x-for="e in mkeEvents" :key="e.id">
+            <a :href="kbPath('/multi-kolab-events/' + e.id)"
+               class="flex items-center gap-3 bg-white border border-ink/[.08] rounded-2xl p-4 shadow-card hover:border-ink/25 transition">
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-ink truncate" x-text="e.title"></p>
+                    <p class="text-[13px] text-body mt-px truncate"
+                       x-text="t('mke.roles_filled', { filled: e.role_counts?.filled ?? 0, total: e.role_counts?.total ?? 0 })"></p>
+                    <span x-show="e.event_date" x-cloak
+                          class="inline-block mt-[7px] px-2 py-[3px] rounded-md bg-cream-input text-[11px] font-medium text-body"
+                          x-text="fmtDate(e.event_date)"></span>
+                </div>
+                <span class="px-3 py-1 rounded-xl text-[11px] font-bold tracking-[.4px] shrink-0"
+                      :style="`background:${statusPill(e.status).bg};color:${statusPill(e.status).c}`"
+                      x-text="statusPill(e.status).label"></span>
+            </a>
+        </template>
+    </div>
+</div>
 
 @if (config('suggestions.enabled'))
 {{-- ── Suggested partners (BE-NF-39) ──────────────────────────────────────
