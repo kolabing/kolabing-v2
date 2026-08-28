@@ -30,6 +30,7 @@ class UpdateNotificationPreferencesRequest extends FormRequest
             'collaboration_updates' => ['sometimes', 'boolean'],
             'message_notifications' => ['sometimes', 'boolean'],
             'marketing_tips' => ['sometimes', 'boolean'],
+            'events_enabled' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -47,6 +48,7 @@ class UpdateNotificationPreferencesRequest extends FormRequest
             'collaboration_updates',
             'message_notifications',
             'marketing_tips',
+            'events_enabled',
         ]);
     }
 }

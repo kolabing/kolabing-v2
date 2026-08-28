@@ -592,6 +592,17 @@ class NotificationReminderService
             return false;
         }
 
+        // An opted-out attendee gets nothing at all — not even an in-app row.
+        // Checked here rather than left to the push gate in NotificationService,
+        // because a reminder that only exists in a list is not a reminder.
+        $profile = Profile::query()->find($reminder->profile_id);
+
+        if ($profile !== null && ! $this->notificationService->allowsPush($profile, $reminder->type)) {
+            $this->cancelExistingReminder($reminder);
+
+            return false;
+        }
+
         $signup->setRelation('event', $event);
         $this->syncEventReminders($signup);
 

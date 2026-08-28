@@ -40,6 +40,7 @@ class NotificationPreference extends Model
         'collaboration_updates',
         'message_notifications',
         'marketing_tips',
+        'events_enabled',
     ];
 
     /**
@@ -56,6 +57,7 @@ class NotificationPreference extends Model
             'collaboration_updates' => 'boolean',
             'message_notifications' => 'boolean',
             'marketing_tips' => 'boolean',
+            'events_enabled' => 'boolean',
         ];
     }
 

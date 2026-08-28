@@ -475,6 +475,7 @@ class ProfileService
                 'collaboration_updates' => true,
                 'message_notifications' => true,
                 'marketing_tips' => false,
+                'events_enabled' => true,
             ]
         );
     }
