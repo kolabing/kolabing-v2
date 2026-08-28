@@ -11,7 +11,7 @@
          class="bg-white rounded-[22px] w-full max-w-[420px] max-h-[92vh] overflow-y-auto kb-scroll px-7 py-8 kb-fade-up-fast">
 
         <div class="flex items-start justify-between gap-3">
-            <img src="/webapp-assets/wordmark-light.png" alt="Kolabing" class="w-[124px]">
+            <x-k-mark :size="56" />
             <button type="button" @click="closeLogin()"
                     class="w-9 h-9 rounded-full bg-cream-low hover:bg-cream-low-hover transition flex items-center justify-center shrink-0"
                     aria-label="{{ __('webapp.common.close') }}">

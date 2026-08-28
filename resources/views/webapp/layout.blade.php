@@ -18,8 +18,8 @@
     <meta property="og:site_name" content="Kolabing">
     <meta property="og:title" content="@yield('title', 'Kolabing')">
     <meta property="og:locale" content="{{ str_replace('-', '_', $loc) }}">
-    <link rel="icon" href="/favicon.ico?v=3" sizes="any">
-    <link rel="apple-touch-icon" href="/favicon-512.png?v=3">
+    <link rel="icon" href="/favicon.ico?v=4" sizes="any">
+    <link rel="apple-touch-icon" href="/favicon-512.png?v=4">
     {{-- Theme must be on <html> before first paint, or the cream ground flashes
          white-hot in front of a dark-theme user on every navigation. --}}
     <script>

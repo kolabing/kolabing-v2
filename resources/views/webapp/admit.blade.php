@@ -18,7 +18,7 @@
     <div class="w-full max-w-[460px] mx-auto px-5 py-8 flex-1 flex flex-col">
 
         <div class="flex items-center justify-between">
-            <img src="/webapp-assets/wordmark-light.png" alt="Kolabing" class="h-5 w-auto">
+            <x-k-mark :size="22" />
             <a href="{{ $base }}/dashboard" class="text-[12.5px] font-bold text-muted hover:text-ink transition">{{ __('webapp.admit.done') }}</a>
         </div>
 

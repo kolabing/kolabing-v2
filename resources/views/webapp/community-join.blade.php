@@ -18,7 +18,7 @@
     <div class="max-w-[560px] mx-auto px-5 py-10 md:py-16">
 
         <a href="{{ rtrim(config('webapp.url'), '/') }}" class="inline-block mb-8">
-            <img src="/webapp-assets/wordmark-light.png" alt="Kolabing" class="h-6 w-auto">
+            <x-k-mark :size="24" />
         </a>
 
         <div class="bg-white border border-ink/[.08] rounded-[28px] p-7 md:p-9 shadow-card">

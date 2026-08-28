@@ -10,7 +10,7 @@
     <div class="w-full max-w-[420px]">
 
         <a href="{{ $base }}/dashboard" class="block mb-7 text-center">
-            <img src="/webapp-assets/wordmark-light.png" alt="Kolabing" class="h-7 w-auto inline-block">
+            <x-k-mark :size="30" />
         </a>
 
         <div class="bg-white border border-ink/[.08] rounded-[22px] p-7 shadow-card text-center kb-fade-up">

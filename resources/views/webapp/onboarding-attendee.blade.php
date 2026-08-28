@@ -20,7 +20,7 @@
 <div class="min-h-screen bg-cream-alt" x-data="kbMerge(kbShell(), attendeeOnboarding())" x-init="init()">
     <div class="max-w-[560px] mx-auto px-5 py-10 md:py-14">
 
-        <img src="/webapp-assets/wordmark-light.png" alt="Kolabing" class="h-6 w-auto mb-8">
+        <x-k-mark :size="28" class="mb-8" />
 
         {{-- Progress: four dots, because four steps is few enough to show honestly. --}}
         <div class="flex items-center gap-2 mb-7">

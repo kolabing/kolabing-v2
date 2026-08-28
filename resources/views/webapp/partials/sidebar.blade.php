@@ -59,7 +59,7 @@
 <header class="md:hidden sticky top-0 z-30 bg-cream/95 backdrop-blur border-b border-ink/10">
     <div class="px-5 h-14 flex items-center justify-between">
         <a href="{{ $base }}/dashboard" class="flex items-center">
-            <img src="/webapp-assets/wordmark-light.png" alt="Kolabing" class="h-6 w-auto">
+            <x-k-mark :size="24" />
         </a>
         <div class="flex items-center gap-1">
             <a href="{{ $base }}/chats" class="relative w-10 h-10 flex items-center justify-center text-ink" aria-label="{{ __('webapp.nav.messages') }}">
@@ -109,7 +109,7 @@
 {{-- ── Desktop sidebar ───────────────────────────────────────────────────── --}}
 <aside class="hidden md:flex w-[264px] shrink-0 sticky top-0 h-screen overflow-y-auto kb-scroll flex-col bg-white border-r border-ink/[.08] px-4 pt-6 pb-5">
     <a href="{{ $base }}/dashboard" class="shrink-0 mx-2 mb-6">
-        <img src="/webapp-assets/wordmark-light.png" alt="Kolabing" class="w-[138px]">
+        <x-k-mark :size="40" />
     </a>
 
     {{-- Creating a Kolab is not an attendee action (ROLES §7.2). --}}
