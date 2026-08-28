@@ -30,6 +30,8 @@ class EventSignupService
     public function __construct(
         private readonly NotificationService $notificationService,
         private readonly TicketService $ticketService,
+        private readonly NotificationReminderService $notificationReminderService,
+        private readonly CalendarInvitationService $calendarInvitationService,
     ) {}
 
     /**
@@ -125,6 +127,13 @@ class EventSignupService
             $signup = $this->ticketService->issueAndSend($signup);
         }
 
+        // Reminders are scheduled after commit for the same reason the ticket is:
+        // a rolled-back sign-up must not leave a chain behind. Waitlisted rows get
+        // nothing — syncEventReminders() checks the status itself.
+        $signup->setRelation('event', $event);
+        $this->notificationReminderService->syncEventReminders($signup);
+        $this->calendarInvitationService->invite($signup);
+
         return $signup;
     }
 
@@ -157,6 +166,9 @@ class EventSignupService
                 $this->resequenceWaitlist($event);
             }
         });
+
+        $this->notificationReminderService->cancelEventReminders($event->id, $profile->id);
+        $this->calendarInvitationService->cancelForAttendee($event, $profile);
     }
 
     /**

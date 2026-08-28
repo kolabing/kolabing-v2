@@ -18,6 +18,7 @@ use App\Models\MultiKolabEvent;
 use App\Models\MultiKolabRole;
 use App\Models\MultiKolabRoleApplication;
 use App\Models\Notification;
+use App\Models\NotificationPreference;
 use App\Models\Profile;
 use App\Models\RewardClaim;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -44,6 +45,52 @@ class NotificationService
         'badge_awarded' => ['badge-earned', EmailService::CATEGORY_GAMIFICATION],
         'reward_won' => ['reward-won', EmailService::CATEGORY_GAMIFICATION],
         'tier_promoted' => ['tier-promotion', EmailService::CATEGORY_GAMIFICATION],
+    ];
+
+    /**
+     * Notification type => the `notification_preferences` column that switches it
+     * off. This is the ONE gate in front of push and in-app: every notification
+     * goes through {@see createNotification()}, so a type listed here becomes
+     * genuinely opt-out-able, and a type absent from the map is always delivered.
+     *
+     * A missing preferences row means everything is on — opt-out, never opt-in.
+     * Getting that backwards would silence every user who has never opened
+     * Settings.
+     *
+     * `marketing_tips` is deliberately NOT mapped to anything yet. Its column
+     * defaults to FALSE, so wiring the nudge types (`reactivation_prompt`,
+     * `second_offer_prompt`) to it would retroactively mute them for every
+     * profile that already has a row — a product decision, not a refactor, and
+     * out of scope for #252.
+     *
+     * @var array<string, string>
+     */
+    private const PREFERENCE_MAP = [
+        // Event reminders (kolabing-app#191) — the toggle the app now ships.
+        'event_reminder_24h' => 'events_enabled',
+        'event_reminder_1h' => 'events_enabled',
+
+        // Chat. `notifyNewMessage()` already honoured this for fan-out; the gate
+        // makes the single-recipient path agree with it.
+        'new_message' => 'message_notifications',
+        'unread_message' => 'message_notifications',
+
+        // Incoming applications, for whoever owns the Kolab.
+        'application_received' => 'new_application_alerts',
+        'application_pending' => 'new_application_alerts',
+
+        // The lifecycle of a Kolab the user is party to.
+        'application_accepted' => 'collaboration_updates',
+        'application_declined' => 'collaboration_updates',
+        'application_withdrawn' => 'collaboration_updates',
+        'collaboration_created' => 'collaboration_updates',
+        'collaboration_activated' => 'collaboration_updates',
+        'collaboration_feedback_received' => 'collaboration_updates',
+        'collaboration_completed' => 'collaboration_updates',
+        'collaboration_cancelled' => 'collaboration_updates',
+        'collab_day_reminder' => 'collaboration_updates',
+        'collab_followup_reminder' => 'collaboration_updates',
+        'review_reminder' => 'collaboration_updates',
     ];
 
     public function __construct(
@@ -125,11 +172,42 @@ class NotificationService
             'target_type' => $targetType,
         ]);
 
-        SendPushNotification::dispatch($recipient, $title, $body, $type, $targetId, $pushOptions);
+        if ($this->allowsPush($recipient, $type)) {
+            SendPushNotification::dispatch($recipient, $title, $body, $type, $targetId, $pushOptions);
+        }
 
         $this->sendEmailSideEffect($recipient, $type, $emailModel);
 
         return $notification;
+    }
+
+    /**
+     * Whether this recipient still wants a push for this type.
+     *
+     * For most types the in-app row is still written and only the interruption
+     * is suppressed: a notification centre that silently loses entries is worse
+     * than one the user chose not to be buzzed about.
+     *
+     * Reminders are the exception, and they enforce it themselves — see
+     * {@see NotificationReminderService::refreshEventReminder()}, which cancels
+     * the chain outright rather than logging a reminder nobody asked for. A
+     * reminder exists only to interrupt; kept in a list after the fact it is
+     * just noise.
+     */
+    public function allowsPush(Profile $recipient, NotificationType $type): bool
+    {
+        $column = self::PREFERENCE_MAP[$type->value] ?? null;
+
+        if ($column === null) {
+            return true;
+        }
+
+        $preference = NotificationPreference::query()
+            ->where('profile_id', $recipient->id)
+            ->value($column);
+
+        // Missing row, or a NULL column on an older row: default ON.
+        return $preference === null || (bool) $preference;
     }
 
     /**

@@ -31,6 +31,8 @@ class EventService
     public function __construct(
         private readonly FileUploadService $fileUploadService,
         private readonly NotificationService $notificationService,
+        private readonly CalendarInvitationService $calendarInvitationService,
+        private readonly NotificationReminderService $notificationReminderService,
     ) {}
 
     /**
@@ -230,7 +232,25 @@ class EventService
         }
 
         if (! empty($updateData)) {
+            /*
+             * Only a move — in time or in place — is worth telling calendars
+             * about. A rename or a new photo must not bump `ics_sequence` or
+             * re-mail anyone: churn in someone's calendar is its own kind of
+             * spam, and a bumped sequence makes every attendee's client think
+             * the event changed when it did not.
+             */
+            $moved = collect(['starts_at', 'ends_at', 'location'])
+                ->contains(fn (string $field): bool => array_key_exists($field, $updateData)
+                    && $event->getAttribute($field) != $updateData[$field]);
+
             $event->update($updateData);
+
+            if ($moved) {
+                $this->calendarInvitationService->reissueForEvent($event->fresh());
+                // Reminders are anchored on starts_at, so a move has to re-time
+                // them too — syncReminder() resets a chain whose anchor changed.
+                $this->notificationReminderService->syncEventRemindersForEvent($event->fresh());
+            }
         }
 
         return $event->load(['photos']);
@@ -299,6 +319,9 @@ class EventService
             ])
             ->pluck('profile_id')
             ->all();
+
+        // Before the row goes, while the attendee list is still readable.
+        $this->calendarInvitationService->cancelForEvent($event);
 
         DB::transaction(function () use ($event): void {
             foreach ($event->photos as $photo) {
