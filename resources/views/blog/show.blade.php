@@ -10,7 +10,7 @@
         'publisher' => [
             '@type' => 'Organization',
             'name' => 'Kolabing',
-            'logo' => ['@type' => 'ImageObject', 'url' => url('/brand/kolabing-logo.png')],
+            'logo' => ['@type' => 'ImageObject', 'url' => url('/brand/kolabing-k-on-black.png')],
         ],
         'mainEntityOfPage' => ['@type' => 'WebPage', '@id' => route('blog.show', $post)],
     ];

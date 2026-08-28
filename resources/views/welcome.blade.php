@@ -26,7 +26,7 @@
               '@type' => 'Organization',
               'name' => 'Kolabing',
               'url' => route('home'),
-              'logo' => url('/brand/kolabing-logo.png'),
+              'logo' => url('/brand/kolabing-k-on-black.png'),
               'description' => 'Kolabing helps local businesses and communities plan partnerships that turn events into footfall, member value, and repeat visits.',
               'email' => 'support@kolabing.com',
           ],
@@ -70,9 +70,9 @@
   <script type="application/ld+json">
   {!! $homeSchema !!}
   </script>
-  <link rel="icon" href="/favicon.ico?v=3" sizes="any">
-  <link rel="icon" type="image/png" href="/favicon-512.png?v=3">
-  <link rel="apple-touch-icon" href="/favicon-512.png?v=3">
+  <link rel="icon" href="/favicon.ico?v=4" sizes="any">
+  <link rel="icon" type="image/png" href="/favicon-512.png?v=4">
+  <link rel="apple-touch-icon" href="/favicon-512.png?v=4">
   <link rel="manifest" href="/site.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
@@ -102,12 +102,13 @@
     .logo-mark {
       display: block;
       height: 38px;
-      width: auto;
+      width: 39px;
       transform: rotate(-2deg);
       transform-origin: left center;
     }
     .logo-mark--footer {
       height: 46px;
+      width: 48px;
       transform: rotate(-2deg);
       /* Gold letters read on the dark footer; the black cloud blends into it. */
       filter: drop-shadow(0 6px 16px rgba(0,0,0,0.35));
@@ -1157,7 +1158,7 @@
       .nav-links { display: none; }
       .btn-nav { padding: 10px 18px; font-size: 12px; }
       .menu-icon { display: none; }
-      .logo-mark { height: 32px; }
+      .logo-mark { height: 32px; width: 33px; }
 
       .kb-sticky {
         display: flex; align-items: center; justify-content: space-between; gap: 14px;
@@ -1236,7 +1237,7 @@
 <!-- NAV -->
 <header>
   <div class="logo">
-    <img class="logo-mark" src="/brand/kolabing-logo.webp" alt="Kolabing" width="560" height="250" fetchpriority="high"/>
+    <x-k-mark :size="null" tone="dark" class="logo-mark" />
   </div>
   <nav>
     <span class="nav-links">
@@ -1901,7 +1902,7 @@ COMMUNITIES GET PERKS.</div>
 <footer>
   <div class="footer-inner">
     <div class="logo">
-      <img class="logo-mark logo-mark--footer" src="/brand/kolabing-logo.webp" alt="Kolabing" width="560" height="250" loading="lazy"/>
+      <x-k-mark :size="null" tone="light" class="logo-mark logo-mark--footer" />
     </div>
     <div class="footer-links">
       <a href="{{ route('for-businesses') }}">businesses</a>

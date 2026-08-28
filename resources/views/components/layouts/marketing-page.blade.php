@@ -42,7 +42,7 @@
         '@type' => 'Organization',
         'name' => 'Kolabing',
         'url' => route('home'),
-        'logo' => url('/brand/kolabing-logo.png'),
+        'logo' => url('/brand/kolabing-k-on-black.png'),
         'description' => 'Kolabing helps local businesses and communities plan partnerships that turn events into footfall, member value, and repeat visits.',
         'email' => 'support@kolabing.com',
     ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -73,9 +73,9 @@
     <meta name="twitter:description" content="{{ $description }}">
     <meta name="twitter:image" content="{{ $ogImage }}">
     <meta name="theme-color" content="#0D1216">
-    <link rel="icon" href="/favicon.ico?v=3" sizes="any">
-    <link rel="icon" type="image/png" href="/favicon-512.png?v=3">
-    <link rel="apple-touch-icon" href="/favicon-512.png?v=3">
+    <link rel="icon" href="/favicon.ico?v=4" sizes="any">
+    <link rel="icon" type="image/png" href="/favicon-512.png?v=4">
+    <link rel="apple-touch-icon" href="/favicon-512.png?v=4">
     <link rel="manifest" href="/site.webmanifest">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -107,7 +107,7 @@
     <header class="border-b border-off-black/10 bg-white/90 backdrop-blur">
         <div class="mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-4">
             <a href="{{ route('home') }}" class="flex items-center gap-3 text-off-black">
-                <img src="/brand/kolabing-logo.webp" alt="Kolabing" width="560" height="250" fetchpriority="high" class="h-9 w-auto">
+                <x-k-mark :size="36" tone="dark" />
             </a>
             {{-- Every marketing page funnels into the web app from here; the legal
                  links stay in the DOM for crawlers but collapse on small screens so
