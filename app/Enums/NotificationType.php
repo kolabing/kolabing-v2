@@ -24,6 +24,12 @@ enum NotificationType: string
     case CollabFollowUpReminder = 'collab_followup_reminder';
     case WaitlistPromoted = 'waitlist_promoted';
     case EventCancelled = 'event_cancelled';
+
+    // Attendee event reminders (kolabing-app#191). Two types rather than one
+    // two-step chain, because the app ships them as two distinct wire values and
+    // each must be cancellable on its own.
+    case EventReminder24h = 'event_reminder_24h';
+    case EventReminder1h = 'event_reminder_1h';
     case CommunityJoinRequested = 'community_join_requested';
     case CommunityJoinApproved = 'community_join_approved';
     case CommunityJoinDeclined = 'community_join_declined';
