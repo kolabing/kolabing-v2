@@ -31,6 +31,7 @@ class EventSignupService
         private readonly NotificationService $notificationService,
         private readonly TicketService $ticketService,
         private readonly NotificationReminderService $notificationReminderService,
+        private readonly CalendarInvitationService $calendarInvitationService,
     ) {}
 
     /**
@@ -131,6 +132,7 @@ class EventSignupService
         // nothing — syncEventReminders() checks the status itself.
         $signup->setRelation('event', $event);
         $this->notificationReminderService->syncEventReminders($signup);
+        $this->calendarInvitationService->invite($signup);
 
         return $signup;
     }
@@ -166,6 +168,7 @@ class EventSignupService
         });
 
         $this->notificationReminderService->cancelEventReminders($event->id, $profile->id);
+        $this->calendarInvitationService->cancelForAttendee($event, $profile);
     }
 
     /**
