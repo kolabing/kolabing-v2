@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\HasActiveOwnerScope;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -46,6 +47,11 @@ use Illuminate\Support\Carbon;
  */
 class Event extends Model
 {
+    use HasActiveOwnerScope;
+
+    /** The column that names this row's owner (#258). */
+    protected static string $activeOwnerKey = 'profile_id';
+
     /** @use HasFactory<\Database\Factories\EventFactory> */
     use HasFactory;
 

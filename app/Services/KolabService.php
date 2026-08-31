@@ -51,6 +51,10 @@ class KolabService
 
         $query = Kolab::query()
             ->where('status', KolabStatus::Published)
+            // A switched-off business's kolab leaves Explore (#258). Explicit here
+            // rather than a global scope: a community that already applied must
+            // keep seeing its own application.
+            ->fromActiveOwner()
             ->withCount('applications')
             ->withExists([
                 'savedByProfiles as is_saved' => function (Builder $q) use ($viewer): void {

@@ -485,6 +485,8 @@ class DiscoveryOpportunityService
     {
         $query = Kolab::query()
             ->where('status', KolabStatus::Published)
+            // A switched-off creator drops out of discovery (#258).
+            ->fromActiveOwner()
             ->where('creator_profile_id', '!=', $viewer->id)
             // Canonical child Kolabs created by Multi-Kolab role acceptance
             // are internal partnership records, not ordinary open offers —

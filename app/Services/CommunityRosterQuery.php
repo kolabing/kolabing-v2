@@ -79,6 +79,10 @@ class CommunityRosterQuery
         return CommunityMember::query()
             ->where('community_members.community_id', $community->id)
             ->join('profiles', 'profiles.id', '=', 'community_members.profile_id')
+            // A switched-off member leaves the roster (#258). The membership row
+            // survives, so reactivating restores them in place with their tier,
+            // points and join date intact.
+            ->where('profiles.is_active', true)
             ->leftJoin('business_profiles', 'business_profiles.profile_id', '=', 'profiles.id')
             ->leftJoin('community_profiles', 'community_profiles.profile_id', '=', 'profiles.id')
             ->leftJoin('community_tiers', 'community_tiers.id', '=', 'community_members.tier_id')
