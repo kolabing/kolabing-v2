@@ -39,6 +39,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property \Illuminate\Support\Carbon|null $email_verified_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property bool $is_active
  * @property \Illuminate\Support\Carbon|null $deleted_at
  * @property-read AttendeeProfile|null $attendeeProfile
  * @property-read City|null $city
@@ -107,6 +108,20 @@ class Profile extends Authenticatable
     ];
 
     /**
+     * Model-level defaults.
+     *
+     * The DB default alone leaves `is_active` null on a freshly created model
+     * until it is re-read, so `! $profile->is_active` would read a brand-new
+     * account as switched off. Mirroring the default here removes that null
+     * state entirely (#254).
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_active' => true,
+    ];
+
+    /**
      * The attributes that should be hidden for serialization.
      *
      * @var list<string>
@@ -118,6 +133,7 @@ class Profile extends Authenticatable
         'device_token',
         'device_platform',
         'is_test_user',
+        'is_active',
     ];
 
     /**
@@ -132,11 +148,36 @@ class Profile extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_test_user' => 'boolean',
+            'is_active' => 'boolean',
             'last_active_at' => 'datetime',
             'analytics_opt_out' => 'boolean',
             'interests' => 'array',
             'terms_accepted_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Only accounts that have not been switched off by an admin (#254).
+     *
+     * Profile carries no global scope on purpose — it is the Authenticatable,
+     * and hiding it globally would break Sanctum token resolution, route-model
+     * binding and the admin panel's ability to switch an account back on. Read
+     * paths that list or expose *other people's* profiles opt in with this
+     * scope; the caller's own access is cut by EnsureProfileActive middleware.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<Profile>  $query
+     */
+    public function scopeActive(\Illuminate\Database\Eloquent\Builder $query): void
+    {
+        $query->where('profiles.is_active', true);
+    }
+
+    /**
+     * True when an admin has switched this account off.
+     */
+    public function isDeactivated(): bool
+    {
+        return $this->is_active === false;
     }
 
     /**

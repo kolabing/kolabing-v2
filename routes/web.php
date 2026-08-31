@@ -277,6 +277,9 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::get('/users/{profile}/edit', [ManagedUserController::class, 'edit'])->name('users.edit');
     Route::put('/users/{profile}', [ManagedUserController::class, 'update'])->name('users.update');
     Route::delete('/users/{profile}', [ManagedUserController::class, 'destroy'])->name('users.destroy');
+    // The global active/passive switch (#254).
+    Route::post('/users/{profile}/deactivate', [ManagedUserController::class, 'deactivate'])->name('users.deactivate');
+    Route::post('/users/{profile}/activate', [ManagedUserController::class, 'activate'])->name('users.activate');
     Route::post('/users/{profile}/subscription/grant', [ManagedUserController::class, 'grantSubscription'])->name('users.subscription.grant');
     Route::post('/users/{profile}/subscription/revoke', [ManagedUserController::class, 'revokeSubscription'])->name('users.subscription.revoke');
 

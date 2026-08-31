@@ -140,6 +140,37 @@ class ManagedProfileService
      * Grant a maintainer-issued subscription that unblocks publish.
      * Defaults to 12 months from today.
      */
+    /**
+     * Switch an account off (#254).
+     *
+     * Reversible and lossless — the opposite of delete(). Revoking the tokens is
+     * the half that makes it immediate: without it a signed-in phone keeps working
+     * until its token happens to expire.
+     */
+    public function deactivate(Profile $profile): Profile
+    {
+        return DB::transaction(function () use ($profile): Profile {
+            $profile->forceFill(['is_active' => false])->save();
+
+            $profile->tokens()->delete();
+
+            return $profile->refresh();
+        });
+    }
+
+    /**
+     * Switch an account back on (#254). The user signs in again as normal;
+     * nothing else needs restoring, because nothing was destroyed.
+     */
+    public function activate(Profile $profile): Profile
+    {
+        return DB::transaction(function () use ($profile): Profile {
+            $profile->forceFill(['is_active' => true])->save();
+
+            return $profile->refresh();
+        });
+    }
+
     public function grantSubscription(Profile $profile, int $months = 12): BusinessSubscription
     {
         return DB::transaction(function () use ($profile, $months): BusinessSubscription {
