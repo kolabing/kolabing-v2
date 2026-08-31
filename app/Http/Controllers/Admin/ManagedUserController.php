@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\UserType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\BulkProfileActiveRequest;
 use App\Http\Requests\Admin\StoreManagedUserRequest;
 use App\Http\Requests\Admin\UpdateManagedUserRequest;
 use App\Models\Profile;
@@ -106,6 +107,33 @@ class ManagedUserController extends Controller
 
         return redirect()->back()
             ->with('status', __('Account activated.'));
+    }
+
+    /**
+     * Switch a selection off in one action (#256). The message reports how many
+     * rows actually changed, not how many were ticked — an admin who re-selects
+     * accounts that were already passive should see that nothing happened.
+     */
+    public function bulkDeactivate(BulkProfileActiveRequest $request): RedirectResponse
+    {
+        $changed = $this->managedProfileService->deactivateMany($request->profileIds());
+
+        return redirect()->back()->with('status', trans_choice(
+            '{0}No accounts changed — they were already deactivated.|{1}1 account deactivated. It is now hidden from the app and cannot sign in.|[2,*]:count accounts deactivated. They are now hidden from the app and cannot sign in.',
+            $changed,
+            ['count' => $changed],
+        ));
+    }
+
+    public function bulkActivate(BulkProfileActiveRequest $request): RedirectResponse
+    {
+        $changed = $this->managedProfileService->activateMany($request->profileIds());
+
+        return redirect()->back()->with('status', trans_choice(
+            '{0}No accounts changed — they were already active.|{1}1 account activated.|[2,*]:count accounts activated.',
+            $changed,
+            ['count' => $changed],
+        ));
     }
 
     public function grantSubscription(Profile $profile): RedirectResponse

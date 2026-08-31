@@ -13,6 +13,7 @@ use App\Models\BusinessSubscription;
 use App\Models\CommunityProfile;
 use App\Models\Profile;
 use Illuminate\Support\Facades\DB;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class ManagedProfileService
 {
@@ -169,6 +170,57 @@ class ManagedProfileService
 
             return $profile->refresh();
         });
+    }
+
+    /**
+     * Switch a batch off in two statements (#256).
+     *
+     * Not a loop over deactivate(): that would issue one UPDATE and one DELETE
+     * per account, which is the whole reason bulk exists. Atomic, so an admin
+     * who selects twenty either changes twenty or changes none.
+     *
+     * @param  list<string>  $profileIds
+     * @return int how many rows actually changed
+     */
+    public function deactivateMany(array $profileIds): int
+    {
+        if ($profileIds === []) {
+            return 0;
+        }
+
+        return DB::transaction(function () use ($profileIds): int {
+            $changed = Profile::query()
+                ->whereIn('id', $profileIds)
+                ->where('is_active', true)
+                ->update(['is_active' => false]);
+
+            // One statement for the whole batch, whatever its size. Without this
+            // a signed-in phone keeps working until its token happens to expire.
+            PersonalAccessToken::query()
+                ->where('tokenable_type', Profile::class)
+                ->whereIn('tokenable_id', $profileIds)
+                ->delete();
+
+            return $changed;
+        });
+    }
+
+    /**
+     * Switch a batch back on (#256). Nothing to restore — nothing was destroyed.
+     *
+     * @param  list<string>  $profileIds
+     * @return int how many rows actually changed
+     */
+    public function activateMany(array $profileIds): int
+    {
+        if ($profileIds === []) {
+            return 0;
+        }
+
+        return DB::transaction(fn (): int => Profile::query()
+            ->whereIn('id', $profileIds)
+            ->where('is_active', false)
+            ->update(['is_active' => true]));
     }
 
     public function grantSubscription(Profile $profile, int $months = 12): BusinessSubscription

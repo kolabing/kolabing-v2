@@ -277,6 +277,10 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::get('/users/{profile}/edit', [ManagedUserController::class, 'edit'])->name('users.edit');
     Route::put('/users/{profile}', [ManagedUserController::class, 'update'])->name('users.update');
     Route::delete('/users/{profile}', [ManagedUserController::class, 'destroy'])->name('users.destroy');
+    // Bulk form of the switch (#256) — declared before the {profile} routes so
+    // 'bulk-deactivate' is never captured as a profile id.
+    Route::post('/users/bulk-deactivate', [ManagedUserController::class, 'bulkDeactivate'])->name('users.bulk-deactivate');
+    Route::post('/users/bulk-activate', [ManagedUserController::class, 'bulkActivate'])->name('users.bulk-activate');
     // The global active/passive switch (#254).
     Route::post('/users/{profile}/deactivate', [ManagedUserController::class, 'deactivate'])->name('users.deactivate');
     Route::post('/users/{profile}/activate', [ManagedUserController::class, 'activate'])->name('users.activate');
