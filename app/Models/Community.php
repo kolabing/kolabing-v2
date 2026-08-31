@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\CommunityMemberStatus;
 use App\Enums\JoinPolicy;
+use App\Models\Concerns\HasActiveOwnerScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -40,6 +41,11 @@ use Illuminate\Support\Str;
  */
 class Community extends Model
 {
+    use HasActiveOwnerScope;
+
+    /** The column that names this row's owner (#258). */
+    protected static string $activeOwnerKey = 'owner_profile_id';
+
     /** @use HasFactory<\Database\Factories\CommunityFactory> */
     use HasFactory;
 
