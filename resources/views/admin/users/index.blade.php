@@ -22,6 +22,7 @@
                             <th>Type</th>
                             <th>Phone</th>
                             <th>Verified</th>
+                            <th>Status</th>
                             <th class="text-right pr-4">Action</th>
                         </tr>
                     </thead>
@@ -32,7 +33,7 @@
                                     ?? $profile->communityProfile?->name
                                     ?? $profile->email;
                             @endphp
-                            <tr>
+                            <tr class="{{ $profile->is_active ? '' : 'table-secondary text-muted' }}">
                                 <td>
                                     <div class="font-weight-bold">{{ $label }}</div>
                                     <small class="text-muted">{{ $profile->id }}</small>
@@ -47,8 +48,25 @@
                                         {{ $profile->email_verified_at ? 'Verified' : 'Pending' }}
                                     </span>
                                 </td>
+                                <td>
+                                    <span class="badge {{ $profile->is_active ? 'badge-success' : 'badge-danger' }}">
+                                        {{ $profile->is_active ? 'Active' : 'Passive' }}
+                                    </span>
+                                </td>
                                 <td class="text-right pr-4">
                                     <a href="{{ route('admin.users.edit', $profile) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+
+                                    @if ($profile->is_active)
+                                        <form method="POST" action="{{ route('admin.users.deactivate', $profile) }}" class="d-inline" onsubmit="return confirm('Deactivate this account? It disappears from the app and cannot sign in. Nothing is deleted, and you can switch it back on.');">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Hide from the app and block sign-in">Deactivate</button>
+                                        </form>
+                                    @else
+                                        <form method="POST" action="{{ route('admin.users.activate', $profile) }}" class="d-inline">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-outline-success" title="Restore full access">Activate</button>
+                                        </form>
+                                    @endif
 
                                     @if ($profile->user_type->value === 'business')
                                         @php $subActive = $profile->subscription?->status?->value === 'active'; @endphp
@@ -74,7 +92,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center text-muted py-4">No users found.</td>
+                                <td colspan="7" class="text-center text-muted py-4">No users found.</td>
                             </tr>
                         @endforelse
                     </tbody>

@@ -8,6 +8,7 @@ use App\Enums\SubscriptionSource;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserType;
 use App\Enums\VerificationStatus;
+use App\Exceptions\AccountDeactivatedException;
 use App\Jobs\GenerateSuggestionsForProfile;
 use App\Models\AttendeeProfile;
 use App\Models\BusinessProfile;
@@ -110,6 +111,10 @@ class AuthService
         }
 
         $profile = $query->first();
+
+        if ($profile !== null) {
+            $this->assertProfileActive($profile);
+        }
 
         if (! $profile) {
             if ($userType === null) {
@@ -230,6 +235,8 @@ class AuthService
             ->first();
 
         if ($existingProfile) {
+            $this->assertProfileActive($existingProfile);
+
             return $this->loginExistingUser($existingProfile, $googleUserData, $userType);
         }
 
@@ -682,6 +689,20 @@ class AuthService
      *
      * @return LoginResult|array{error: string, code: int}
      */
+    /**
+     * Stop a switched-off account (#254) from getting a token.
+     *
+     * Throws rather than returning an error array so every caller answers the
+     * same 403 + ACCOUNT_DEACTIVATED, and so a path that forgets to inspect the
+     * return value cannot accidentally hand out a session.
+     */
+    private function assertProfileActive(Profile $profile): void
+    {
+        if ($profile->is_active === false) {
+            throw new AccountDeactivatedException;
+        }
+    }
+
     public function login(string $email, string $password): array
     {
         $profile = Profile::query()
@@ -710,6 +731,12 @@ class AuthService
                 'code' => 401,
             ];
         }
+
+        // An admin switched this account off (#254). Checked after the password so
+        // a wrong password still reads as a wrong password, and a correct one on a
+        // switched-off account says exactly that instead of "Invalid credentials",
+        // which would send someone to reset a password that was never the problem.
+        $this->assertProfileActive($profile);
 
         $this->revokeExistingMobileTokens($profile);
 

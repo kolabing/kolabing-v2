@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\VerificationStatus;
+use App\Models\Concerns\HasActiveProfileScope;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -38,6 +39,7 @@ use Illuminate\Support\Carbon;
  */
 class CommunityProfile extends Model
 {
+    use HasActiveProfileScope;
     use HasFactory;
     use HasUuids;
 

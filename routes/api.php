@@ -178,7 +178,7 @@ Route::prefix('v1')->group(function (): void {
     |--------------------------------------------------------------------------
     */
 
-    Route::middleware(['auth:sanctum', 'log_auth_token_first_use', 'touch_profile_activity'])->group(function (): void {
+    Route::middleware(['auth:sanctum', 'profile_active', 'log_auth_token_first_use', 'touch_profile_activity'])->group(function (): void {
         // City suggestions
         Route::post('cities/suggest', [LookupController::class, 'suggestCity'])
             ->name('api.v1.cities.suggest');
