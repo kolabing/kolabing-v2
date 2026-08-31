@@ -285,6 +285,11 @@ class ApplicationService
     ): LengthAwarePaginator {
         $query = Application::query()
             ->where('applicant_profile_id', $profile->id)
+            // A switched-off creator takes their kolab out of the applicant's
+            // list too (#258). Filtering the application rather than scoping
+            // Kolab globally is what keeps every other counterparty read intact
+            // — a global scope there nulled `application->kolab` outright.
+            ->whereHas('kolab', fn ($q) => $q->fromActiveOwner())
             ->with(['kolab.creatorProfile'])
             ->orderBy('created_at', 'desc');
 
@@ -312,6 +317,8 @@ class ApplicationService
             ->whereHas('kolab', function ($q) use ($profile): void {
                 $q->where('creator_profile_id', $profile->id);
             })
+            // ...and a switched-off applicant drops out of the creator's list (#258).
+            ->whereHas('applicantProfile', fn ($q) => $q->active())
             ->with([
                 'applicantProfile.businessProfile',
                 'applicantProfile.communityProfile',

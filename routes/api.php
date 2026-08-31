@@ -329,7 +329,8 @@ Route::prefix('v1')->group(function (): void {
 
         // View another profile's gallery
         Route::get('profiles/{profile}/gallery', [GalleryController::class, 'show'])
-            ->name('api.v1.profiles.gallery');
+            ->name('api.v1.profiles.gallery')
+            ->middleware('target_profile_active');
 
         /*
         |--------------------------------------------------------------------------
@@ -712,7 +713,8 @@ Route::prefix('v1')->group(function (): void {
 
         // Public game card for a profile
         Route::get('profiles/{profile}/game-card', [GamificationStatsController::class, 'gameCard'])
-            ->name('api.v1.profiles.game-card');
+            ->name('api.v1.profiles.game-card')
+            ->middleware('target_profile_active');
 
         /*
         |--------------------------------------------------------------------------
@@ -742,23 +744,27 @@ Route::prefix('v1')->group(function (): void {
 
         // View public profile
         Route::get('profiles/{profile}', [ProfileController::class, 'publicProfile'])
-            ->name('api.v1.profiles.show');
+            ->name('api.v1.profiles.show')
+            ->middleware('target_profile_active');
 
         // View profile's received reviews
         Route::get('profiles/{profile}/reviews', [ProfileController::class, 'profileReviews'])
-            ->name('api.v1.profiles.reviews');
+            ->name('api.v1.profiles.reviews')
+            ->middleware('target_profile_active');
 
         // View public-facing community profile
         // Rich public profile for either role (business or community).
         Route::get('profiles/{profile}/public-profile', [ProfileController::class, 'publicProfileDetail'])
-            ->name('api.v1.profiles.public-profile');
+            ->name('api.v1.profiles.public-profile')
+            ->middleware('target_profile_active');
 
         Route::get('communities/{community}/public-profile', [ProfileController::class, 'communityPublicProfile'])
             ->name('api.v1.communities.public-profile');
 
         // View profile's completed collaborations
         Route::get('profiles/{profile}/collaborations', [ProfileController::class, 'profileCollaborations'])
-            ->name('api.v1.profiles.collaborations');
+            ->name('api.v1.profiles.collaborations')
+            ->middleware('target_profile_active');
 
         /*
         |--------------------------------------------------------------------------
