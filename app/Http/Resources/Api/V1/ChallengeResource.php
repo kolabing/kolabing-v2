@@ -23,6 +23,9 @@ class ChallengeResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description,
             'difficulty' => $this->difficulty->value,
+            // How it is played (#216). An engine selector for the client, never
+            // a server-side gate — see ChallengeProofType.
+            'proof_type' => $this->proof_type?->value ?? 'text',
             'points' => $this->points,
             'is_system' => $this->is_system,
             'category' => $this->category?->value,

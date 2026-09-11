@@ -75,6 +75,7 @@ class UpdateProfileRequest extends FormRequest
             'name' => ['nullable', 'string', 'max:255'],
             'city_id' => ['nullable', 'uuid', Rule::exists('cities', 'id')],
             'profile_photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
+            'cover_photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
         ];
     }
 
@@ -95,6 +96,7 @@ class UpdateProfileRequest extends FormRequest
             'instagram' => ['nullable', 'string', 'max:255'],
             'website' => ['nullable', 'string', 'max:255', 'url'],
             'profile_photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
+            'cover_photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
         ];
     }
 
@@ -115,6 +117,7 @@ class UpdateProfileRequest extends FormRequest
             'tiktok' => ['nullable', 'string', 'max:255'],
             'website' => ['nullable', 'string', 'max:255', 'url'],
             'profile_photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
+            'cover_photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
             ...$this->verificationChannelRules(),
         ];
     }

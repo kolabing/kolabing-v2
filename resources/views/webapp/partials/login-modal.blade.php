@@ -11,7 +11,7 @@
          class="bg-white rounded-[22px] w-full max-w-[420px] max-h-[92vh] overflow-y-auto kb-scroll px-7 py-8 kb-fade-up-fast">
 
         <div class="flex items-start justify-between gap-3">
-            <img src="/webapp-assets/wordmark-light.png" alt="Kolabing" class="w-[124px]">
+            <x-k-mark :size="56" />
             <button type="button" @click="closeLogin()"
                     class="w-9 h-9 rounded-full bg-cream-low hover:bg-cream-low-hover transition flex items-center justify-center shrink-0"
                     aria-label="{{ __('webapp.common.close') }}">
@@ -123,7 +123,8 @@
                 this.loginLoading = false;
                 if (res.ok && res.json?.data?.token) {
                     window.kb.setSession(res.json.data);
-                    window.nav('/dashboard');
+                    // A QR sends people here mid-task; ?next= takes them back to it.
+                    window.nav(window.kbPostAuthTarget('/dashboard'));
                     return;
                 }
                 this.loginError = window.kb.errorText(res, t('login.error'));
@@ -173,7 +174,9 @@
                 if (res.ok && res.json?.data?.token) {
                     window.kb.setSession(res.json.data);
                     // A brand-new business lands on the plan; everyone else on the dashboard.
-                    window.nav(res.json.data.is_new_user && this.userType === 'business' ? '/subscription?reason=welcome' : '/dashboard');
+                    window.nav(window.kbPostAuthTarget(
+                        res.json.data.is_new_user && this.userType === 'business' ? '/subscription?reason=welcome' : '/dashboard'
+                    ));
                     return;
                 }
                 this.loginError = window.kb.errorText(res, t('login.google_error'));

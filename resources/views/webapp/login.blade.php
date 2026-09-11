@@ -11,7 +11,7 @@
 <div class="min-h-screen bg-cream-alt" x-data="kbMerge(kbThemeState(), kbLoginModal(), loginPage())" x-init="init()">
     <div class="min-h-screen flex flex-col">
         <div class="kb-on-yellow bg-primary h-[42vh] min-h-[220px] flex items-center justify-center kb-hero-curve">
-            <img src="/webapp-assets/wordmark-dark.png" alt="Kolabing" class="w-[240px] max-w-[70%]">
+            <x-k-mark :size="120" tone="dark" />
         </div>
         <div class="flex-1 flex flex-col items-center px-6 pt-14 pb-12">
             <div class="max-w-[480px] w-full flex flex-col gap-7 text-center">

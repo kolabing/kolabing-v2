@@ -1,9 +1,11 @@
 <?php
 
+use App\Enums\EventVisibility;
 use App\Enums\UserType;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
 use App\Http\Controllers\Admin\BlogController as AdminBlogController;
+use App\Http\Controllers\Admin\BusinessVisibilityBoostController as AdminBusinessVisibilityBoostController;
 use App\Http\Controllers\Admin\ChallengeController as AdminChallengeController;
 use App\Http\Controllers\Admin\ChallengeDefaultsController as AdminChallengeDefaultsController;
 use App\Http\Controllers\Admin\CommunityVerificationController as AdminCommunityVerificationController;
@@ -28,10 +30,15 @@ use App\Http\Controllers\BlogController;
 use App\Http\Controllers\DirectoryController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\PasswordResetPageController;
+use App\Http\Controllers\PublicEventPageController;
+use App\Http\Controllers\PublicKolabPageController;
 use App\Http\Controllers\PublicProfilePageController;
 use App\Models\BlogPost;
+use App\Models\Event;
 use App\Models\Profile;
 use App\Models\RankingPage;
+use App\Support\PublicEventLink;
+use App\Support\PublicKolabLink;
 use App\Support\PublicProfileLink;
 use Illuminate\Support\Facades\Route;
 
@@ -66,11 +73,50 @@ $webappRoutes = function (): void {
     Route::view('/subscription/success', 'webapp.subscription-success');
     Route::view('/welcome', 'webapp.welcome');
     Route::view('/feed', 'webapp.feed');
+    // Suggested partners (BE-NF-39). Behind the same `feature:suggestions` gate as
+    // the three endpoints it reads, so with the flag off the page 404s instead of
+    // rendering an empty state over an API that is answering 404 — see
+    // EnsureFeatureEnabled, which aborts(404) for a non-JSON request.
+    Route::view('/suggestions', 'webapp.suggestions')->middleware('feature:suggestions');
     Route::view('/notifications', 'webapp.notifications');
     // Chat. One route for the whole inbox: the two-pane layout swaps threads
     // client-side, and ?thread= / ?application= / ?collaboration= deep-link into
     // one (resolved against GET /chats, so no extra endpoint is needed).
     Route::view('/chats', 'webapp.chats');
+    /*
+     * Events and the door. `/checkin/{token}` is what a QR points at: it accepts
+     * either the short code or the long token, signs the visitor in if they are not
+     * already, and then performs the check-in. Order matters — the literal /create
+     * must be declared before the {event} catch-all.
+     */
+    Route::view('/events', 'webapp.events');
+    Route::view('/events/{event}', 'webapp.event-detail');
+    Route::view('/checkin/{token}', 'webapp.checkin');
+    /*
+     * Tickets, and the other side of the door.
+     *
+     * `/tickets` is the attendee's wallet — the seats they hold, each with the QR
+     * that gets them in. `/admit/{code}` is what that QR points at, opened by the
+     * HOST's camera: the person admitted is not the person signed in, which is the
+     * whole difference from /checkin/{token} above (there the attendee scans a code
+     * the host is displaying). Neither route is auth-gated at the route level; both
+     * pages call requireAuth(), which carries the destination in `?next=` so a QR
+     * scanned on a phone that is not signed in still completes after login.
+     */
+    /*
+     * Multi-Kolab events on the panel: one organizer recruiting several partners
+     * into one date. Deliberately NOT under /events — that path is the attendee
+     * happening (a door with a QR), a different object with a different audience.
+     * The URL shape matches the mobile client's `/multi-kolab-events/:id` so a link
+     * pasted between the two resolves.
+     */
+    Route::view('/multi-kolab-events', 'webapp.multi-kolab-events');
+    Route::view('/multi-kolab-events/{event}', 'webapp.multi-kolab-event-detail');
+
+    Route::view('/tickets', 'webapp.tickets');
+    Route::view('/admit/{code}', 'webapp.admit');
+    // Attendee onboarding: the four steps the mobile app runs, same endpoint.
+    Route::view('/onboarding/attendee', 'webapp.onboarding-attendee');
     // Kolabs — order matters: literal + edit before the {kolab} catch-all.
     Route::view('/kolabs', 'webapp.kolabs');
     Route::view('/kolabs/create', 'webapp.kolab-form');
@@ -79,9 +125,28 @@ $webappRoutes = function (): void {
     // The design folds applications into My Kolabs → Requests; this route keeps
     // the standalone URL working by opening that same tab.
     Route::view('/applications', 'webapp.kolabs', ['initialTab' => 'requests']);
+    /*
+     * One collaboration, end to end (BE-NF-45). The panel had the list and nothing
+     * behind it, so a web-only user could accept an application and then never start,
+     * confirm, finish or review the thing — while the dashboard was already telling
+     * them to leave the review. Everything the page needs already existed on
+     * /api/v1/collaborations/{id}; only the screen was missing.
+     */
+    Route::view('/collaborations/{collaboration}', 'webapp.collaboration-detail');
     // Public profile of any business/community, seen from inside the app.
     Route::view('/profiles/{profile}', 'webapp.profile');
+    // Public invitation landing page. On the APP host because Alpine needs
+    // 'unsafe-eval' and Google Sign-In needs accounts.google.com — the CSP grants
+    // both only here. Not auth-gated: it IS the front door for a new member.
+    Route::get('/c/{slug}', [\App\Http\Controllers\CommunityJoinPageController::class, 'show'])
+        ->name('communities.join-page');
+
     Route::view('/account', 'webapp.account');
+    // Profile section tabs (BE-NF-35). Settings stay inside the Details page's
+    // existing accordion — splitting them would be churn with no user benefit.
+    Route::view('/account/gallery', 'webapp.account-gallery');
+    Route::view('/account/events', 'webapp.account-events');
+    Route::view('/account/preview', 'webapp.account-preview');
 
     // Community Hub — the members & tiers surface (BE-NF-29). All literals
     // under /community; no catch-all segment, so order is not load-bearing.
@@ -94,6 +159,56 @@ $webappRoutes = function (): void {
     Route::view('/community/settings', 'webapp.community-settings');
 };
 
+/*
+ * Universal Links (iOS) and App Links (Android) for the app host. Published here so
+ * a single check-in URL opens the app when it is installed and the browser when it
+ * is not — the QR never has to know which.
+ *
+ * Both 404 until the mobile identifiers are configured. That is deliberate: Apple's
+ * CDN caches the association file, so a placeholder would be cached too and would
+ * have to be waited out rather than fixed.
+ */
+Route::domain(config('webapp.host'))->group(function (): void {
+    Route::get('/.well-known/apple-app-site-association', function () {
+        $appId = config('webapp.app_links.apple_app_id');
+
+        abort_if(blank($appId), 404);
+
+        return response()->json([
+            'applinks' => [
+                'details' => [[
+                    'appIDs' => [$appId],
+                    'components' => array_map(
+                        static fn (string $path): array => ['/' => $path, 'comment' => 'Handled in-app'],
+                        config('webapp.app_links.paths', [])
+                    ),
+                ]],
+            ],
+            // Declared so a future password-manager or handoff feature does not need
+            // a second round of DNS-level plumbing.
+            'webcredentials' => ['apps' => [$appId]],
+        ])->header('Content-Type', 'application/json');
+    })->name('webapp.apple-app-site-association');
+
+    Route::get('/.well-known/assetlinks.json', function () {
+        $fingerprints = array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) config('webapp.app_links.android_sha256'))
+        )));
+
+        abort_if($fingerprints === [], 404);
+
+        return response()->json([[
+            'relation' => ['delegate_permission/common.handle_all_urls'],
+            'target' => [
+                'namespace' => 'android_app',
+                'package_name' => config('webapp.app_links.android_package'),
+                'sha256_cert_fingerprints' => $fingerprints,
+            ],
+        ]])->header('Content-Type', 'application/json');
+    })->name('webapp.assetlinks');
+});
+
 Route::domain(config('webapp.host'))
     ->middleware(\App\Http\Middleware\SetWebappLocale::class)
     ->group($webappRoutes);
@@ -104,16 +219,44 @@ Route::domain(config('webapp.host'))
     ->middleware(\App\Http\Middleware\SetWebappLocale::class)
     ->group($webappRoutes);
 
-Route::get('/', function () {
-    return view('welcome');
+Route::get('/', function (\App\Services\PublicKolabFeedService $kolabFeed) {
+    /*
+     * The homepage strip reads the same gate as /kolabs, through the same service, so
+     * the shop window can never advertise something the listing would hide. Six is one
+     * tidy row at every breakpoint; `cache_marketing` gives it a 5-minute shared cache,
+     * which is the right staleness for a page nobody reloads waiting for a new listing.
+     *
+     * The strip is decoration and the homepage is the top of the funnel, so a database
+     * that is unreachable — or a schema that has not been migrated yet — must cost us
+     * the strip, not the page. `/kolabs` deliberately does NOT swallow the same error:
+     * a page whose whole subject is the listings should fail loudly rather than render
+     * an empty one and imply nothing is open.
+     */
+    $activeKolabs = collect();
+
+    // Nothing to show, and nothing to ask the database, while the surface is off.
+    if (config('kolabing.public_kolabs.enabled')) {
+        try {
+            $activeKolabs = $kolabFeed->highlights(6);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+    }
+
+    return view('welcome', ['activeKolabs' => $activeKolabs]);
 })->name('home')->middleware('cache_marketing');
 
-// Public landing for a community's shareable join link. config('communities.
-// invite_base_url') has always pointed here and Community::inviteUrl() has
-// always emitted /c/{slug}, but the route did not exist until now — every
-// invite link ever shared 404'd.
-Route::get('/c/{slug}', [\App\Http\Controllers\CommunityJoinPageController::class, 'show'])
-    ->name('communities.join-page');
+// Legacy invite links still point at the marketing host. The page itself moved
+// to the app host, where the CSP allows Alpine ('unsafe-eval') and Google
+// Sign-In — under the marketing policy it could not run at all (BE-NF-38).
+Route::get('/c/{slug}', function (string $slug) {
+    $query = request()->getQueryString();
+
+    return redirect()->away(
+        rtrim(config('webapp.url'), '/').'/c/'.$slug.($query ? '?'.$query : ''),
+        301,
+    );
+})->name('communities.join-page.legacy');
 
 Route::post('/newsletter', [NewsletterController::class, 'store'])
     ->middleware('throttle:10,1')
@@ -134,6 +277,13 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::get('/users/{profile}/edit', [ManagedUserController::class, 'edit'])->name('users.edit');
     Route::put('/users/{profile}', [ManagedUserController::class, 'update'])->name('users.update');
     Route::delete('/users/{profile}', [ManagedUserController::class, 'destroy'])->name('users.destroy');
+    // Bulk form of the switch (#256) — declared before the {profile} routes so
+    // 'bulk-deactivate' is never captured as a profile id.
+    Route::post('/users/bulk-deactivate', [ManagedUserController::class, 'bulkDeactivate'])->name('users.bulk-deactivate');
+    Route::post('/users/bulk-activate', [ManagedUserController::class, 'bulkActivate'])->name('users.bulk-activate');
+    // The global active/passive switch (#254).
+    Route::post('/users/{profile}/deactivate', [ManagedUserController::class, 'deactivate'])->name('users.deactivate');
+    Route::post('/users/{profile}/activate', [ManagedUserController::class, 'activate'])->name('users.activate');
     Route::post('/users/{profile}/subscription/grant', [ManagedUserController::class, 'grantSubscription'])->name('users.subscription.grant');
     Route::post('/users/{profile}/subscription/revoke', [ManagedUserController::class, 'revokeSubscription'])->name('users.subscription.revoke');
 
@@ -273,6 +423,9 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
 
         Route::get('/economics', [AdminRewardEconomicsController::class, 'edit'])->name('economics.edit');
         Route::put('/economics', [AdminRewardEconomicsController::class, 'update'])->name('economics.update');
+
+        Route::get('/business-visibility-boost', [AdminBusinessVisibilityBoostController::class, 'edit'])->name('business-visibility-boost.edit');
+        Route::put('/business-visibility-boost', [AdminBusinessVisibilityBoostController::class, 'update'])->name('business-visibility-boost.update');
     });
 });
 
@@ -293,6 +446,20 @@ Route::view('/es/terms', 'pages.es.terms')->name('terms.es')->middleware('cache_
 // Shareable public profile teaser (marketing host, indexable). The slug is
 // `name-<uuid tail>`; see App\Support\PublicProfileLink.
 Route::get('/p/{slug}', [PublicProfilePageController::class, 'show'])->name('public-profile')->middleware('cache_marketing');
+
+// What's on — the attendee's front door: public events, no account needed to read.
+// Only EventVisibility::Public reaches these pages (see PublicEventPageController).
+Route::get('/events', [PublicEventPageController::class, 'index'])->name('public-events')->middleware('cache_marketing');
+Route::get('/events/{slug}', [PublicEventPageController::class, 'show'])->name('public-event')->middleware('cache_marketing');
+
+/*
+ * The marketplace on the open web: active Kolabs, no account needed to read one.
+ * Separate from /events on purpose — an event is something you attend, a Kolab is a
+ * partnership offer, and the two answer different searches. What may be shown is
+ * decided in PublicKolabFeedService (which Kolabs) and PublicKolabPoster (whose name).
+ */
+Route::get('/kolabs', [PublicKolabPageController::class, 'index'])->name('public-kolabs')->middleware('cache_marketing');
+Route::get('/kolabs/{slug}', [PublicKolabPageController::class, 'show'])->name('public-kolab')->middleware('cache_marketing');
 
 Route::get('/blog', [BlogController::class, 'index'])->name('blog.index')->middleware('cache_marketing');
 Route::get('/blog/{post}', [BlogController::class, 'show'])->name('blog.show')->middleware('cache_marketing');
@@ -334,6 +501,46 @@ Route::get('/sitemap.xml', function () {
         $urls[] = route('blog.index');
         foreach ($posts as $slug) {
             $urls[] = route('blog.show', $slug);
+        }
+    }
+
+    /*
+     * Public events. Only upcoming ones, and only `visibility = public` — the same
+     * gate the pages themselves use, so the sitemap can never advertise a
+     * members-only event's URL.
+     */
+    $publicEvents = Event::query()
+        ->where('visibility', EventVisibility::Public)
+        ->where(fn ($query) => $query
+            ->where('starts_at', '>=', now())
+            ->orWhere('event_date', '>=', now()->toDateString()))
+        ->orderByRaw('COALESCE(starts_at, event_date) ASC')
+        ->limit(500)
+        ->get();
+    if ($publicEvents->isNotEmpty()) {
+        $urls[] = route('public-events');
+        foreach ($publicEvents as $publicEvent) {
+            $urls[] = PublicEventLink::urlFor($publicEvent);
+        }
+    }
+
+    /*
+     * Public Kolabs, only once the data is worth indexing. The pages themselves serve
+     * `noindex` under the same flag (BE-FX-20), and a sitemap that advertises URLs the
+     * page asks Google to ignore is a contradiction, so both read one config value.
+     */
+    if (config('kolabing.public_kolabs.enabled') && config('kolabing.public_kolabs.indexable')) {
+        $publicKolabs = app(\App\Services\PublicKolabFeedService::class)
+            ->publishable()
+            ->orderByDesc('published_at')
+            ->limit(500)
+            ->get();
+
+        if ($publicKolabs->isNotEmpty()) {
+            $urls[] = route('public-kolabs');
+            foreach ($publicKolabs as $publicKolab) {
+                $urls[] = PublicKolabLink::urlFor($publicKolab);
+            }
         }
     }
 

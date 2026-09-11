@@ -16,6 +16,8 @@ use App\Models\Kolab;
 use App\Models\MultiKolabEvent;
 use App\Models\MultiKolabRole;
 use App\Models\Profile;
+use App\Services\Admin\BusinessVisibilityBoostService;
+use App\Support\Matching\CategoryFitMatrix;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator as LengthAwarePaginatorContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -28,6 +30,11 @@ use InvalidArgumentException;
 
 class DiscoveryOpportunityService
 {
+    public function __construct(
+        private readonly BusinessPartnerStatusService $businessPartnerStatusService,
+        private readonly BusinessVisibilityBoostService $businessVisibilityBoostService,
+    ) {}
+
     /**
      * @var array<string, array<int, string>>
      */
@@ -73,62 +80,6 @@ class DiscoveryOpportunityService
         ['key' => 'location', 'label' => 'Location', 'weight' => 0.20],
         ['key' => 'value_fit', 'label' => 'Value fit', 'weight' => 0.20],
         ['key' => 'past_activity', 'label' => 'Past activity', 'weight' => 0.15],
-    ];
-
-    /**
-     * @var array<string, array<string, float>>
-     */
-    private const COMMUNITY_BUSINESS_CATEGORY_SCORES = [
-        'food_community' => [
-            'cafe' => 1.0,
-            'restaurant' => 0.98,
-            'food_truck' => 0.95,
-            'bakery' => 0.9,
-            'bar' => 0.72,
-            'bar_lounge' => 0.72,
-            'beverage' => 0.88,
-            'food_product' => 0.86,
-            'coworking' => 0.22,
-        ],
-        'run_club' => [
-            'sports_facility' => 1.0,
-            'gym' => 0.96,
-            'cafe' => 0.87,
-            'restaurant' => 0.7,
-            'hotel' => 0.55,
-            'retail' => 0.42,
-        ],
-        'fitness_community' => [
-            'sports_facility' => 1.0,
-            'gym' => 0.96,
-            'cafe' => 0.82,
-            'restaurant' => 0.68,
-            'health_beauty' => 0.75,
-        ],
-        'wellness_community' => [
-            'health_beauty' => 0.95,
-            'salon' => 0.92,
-            'cafe' => 0.78,
-            'hotel' => 0.74,
-            'gym' => 0.72,
-        ],
-        'tech_startup_community' => [
-            'coworking' => 1.0,
-            'hotel' => 0.76,
-            'cafe' => 0.7,
-            'tech_gadget' => 0.85,
-        ],
-        'professional_networking_community' => [
-            'coworking' => 0.98,
-            'hotel' => 0.82,
-            'cafe' => 0.74,
-        ],
-        'student_community' => [
-            'coworking' => 0.84,
-            'cafe' => 0.8,
-            'restaurant' => 0.72,
-            'retail' => 0.66,
-        ],
     ];
 
     /**
@@ -534,6 +485,8 @@ class DiscoveryOpportunityService
     {
         $query = Kolab::query()
             ->where('status', KolabStatus::Published)
+            // A switched-off creator drops out of discovery (#258).
+            ->fromActiveOwner()
             ->where('creator_profile_id', '!=', $viewer->id)
             // Canonical child Kolabs created by Multi-Kolab role acceptance
             // are internal partnership records, not ordinary open offers —
@@ -1321,13 +1274,43 @@ class DiscoveryOpportunityService
             fn (array $signal): float => $signal['weight'] * $signal['score']
         ) * 100);
 
+        $partnerStatusBoost = $this->resolvePartnerStatusBoost($kolab, $viewerRole);
+        $score = min(100, $score + $partnerStatusBoost['points']);
+
         return [
             'feed' => $filters['feed'],
             'score' => $score,
             'tier' => $this->resolveScoreTier($score),
             'reasons' => array_values(array_unique($reasons)),
             'breakdown' => $breakdown,
+            'partner_status_boost' => $partnerStatusBoost,
         ];
+    }
+
+    /**
+     * Additive visibility boost for a business-authored Kolab based on the
+     * business's partner status, kept separate from the fit-relevance
+     * MATCH_SIGNALS so "why this ranked here" stays legible: fit vs. trust
+     * are different concepts, not blended into one weighted average.
+     *
+     * @return array{tier: ?string, points: int}
+     */
+    private function resolvePartnerStatusBoost(Kolab $kolab, string $viewerRole): array
+    {
+        if ($viewerRole !== 'community') {
+            return ['tier' => null, 'points' => 0];
+        }
+
+        $creator = $kolab->creatorProfile;
+
+        if ($creator === null || ! $creator->isBusiness()) {
+            return ['tier' => null, 'points' => 0];
+        }
+
+        $tier = $this->businessPartnerStatusService->statusFor($creator);
+        $points = $this->businessVisibilityBoostService->pointsForTier($tier->value);
+
+        return ['tier' => $tier->value, 'points' => $points];
     }
 
     private function resolveFreshnessScore(?Carbon $publishedAt): int
@@ -1538,7 +1521,7 @@ class DiscoveryOpportunityService
 
     private function resolveCategoryAffinityScore(string $communityType, string $businessCategory): float
     {
-        $mappedScore = self::COMMUNITY_BUSINESS_CATEGORY_SCORES[$communityType][$businessCategory] ?? null;
+        $mappedScore = CategoryFitMatrix::score($communityType, $businessCategory);
         if ($mappedScore !== null) {
             return $mappedScore;
         }
@@ -1552,13 +1535,14 @@ class DiscoveryOpportunityService
         };
     }
 
+    /**
+     * Delegates to the matrix's own normaliser so Explore and the nightly
+     * suggestion scorer can never disagree about what a stored category
+     * normalises to — they both feed the same exact-match table.
+     */
     private function normalizeCategoryValue(string $value): string
     {
-        return Str::of($value)
-            ->trim()
-            ->lower()
-            ->replace([' ', '-'], '_')
-            ->value();
+        return CategoryFitMatrix::normalize($value);
     }
 
     /**

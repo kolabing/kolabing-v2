@@ -49,7 +49,20 @@ class CommunityResource extends JsonResource
             'member_count' => $this->resolveMemberCount(),
             // Viewer-scoped CTA hints (null-safe when unauthenticated).
             'is_member' => $viewer !== null ? $this->resolveViewerIsMember($viewer) : false,
+            // Additive (BE-FX-15): whether the viewer may ADMINISTER this community
+            // — owner, or an active member with can_manage. Lets a client tell an
+            // owned community from a co-run one and show the management surface.
+            'my_can_manage' => $viewer !== null && $this->resolveViewerCanManage($viewer),
             'my_join_request_status' => $viewer !== null ? $this->resolveViewerJoinRequestStatus($viewer) : null,
+            // NOTE (kolabing-app#138): follower state is deliberately NOT here.
+            // This resource is serialized in lists, and a per-row count or
+            // exists() check is an N+1 — MeRewardsOverviewNPlusOneTest caught
+            // exactly that (12 queries → 21). The follower axis is served by
+            // its own endpoints instead, where the data is already at hand:
+            // GET /me/community-follows for the set, and the follow/unfollow
+            // responses for the authoritative is_following + count.
+            // Adding it here would need preloading through
+            // CommunityMembershipHydrator, the way viewer_is_member does.
             // Viewer's per-community POINTS balance + tier (null when not a member).
             'my_points' => $viewer !== null ? $this->resolveViewerPoints($viewer) : 0,
             'my_tier' => $viewer !== null ? $this->resolveViewerTier($viewer) : null,
@@ -88,6 +101,22 @@ class CommunityResource extends JsonResource
             'color' => $member->tier->color,
             'rank' => $member->tier->rank,
         ];
+    }
+
+    /**
+     * Mirrors CommunityPolicy::manage() — owner, or an active can_manage member.
+     */
+    private function viewerCanManage(Profile $viewer): bool
+    {
+        if ($viewer->id === $this->owner_profile_id) {
+            return true;
+        }
+
+        return $this->members()
+            ->where('profile_id', $viewer->id)
+            ->where('can_manage', true)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->exists();
     }
 
     private function viewerIsMember(Profile $viewer): bool
@@ -142,6 +171,13 @@ class CommunityResource extends JsonResource
         return $this->hasPreloaded('viewer_is_member')
             ? (bool) $this->preloaded('viewer_is_member')
             : $this->viewerIsMember($viewer);
+    }
+
+    private function resolveViewerCanManage(Profile $viewer): bool
+    {
+        return $this->hasPreloaded('viewer_can_manage')
+            ? (bool) $this->preloaded('viewer_can_manage')
+            : $this->viewerCanManage($viewer);
     }
 
     private function resolveViewerJoinRequestStatus(Profile $viewer): ?string

@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\ApplicationStatus;
 use App\Enums\CollaborationStatus;
+use App\Enums\EventSignupStatus;
 use App\Enums\KolabStatus;
 use App\Enums\MultiKolabEventStatus;
 use App\Enums\NotificationType;
@@ -13,6 +14,8 @@ use App\Models\Application;
 use App\Models\ChatMessage;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
+use App\Models\Event;
+use App\Models\EventSignup;
 use App\Models\Kolab;
 use App\Models\MultiKolabEvent;
 use App\Models\NotificationReminder;
@@ -36,6 +39,25 @@ class NotificationReminderService
      */
     private const MULTI_KOLAB_EVENT_DRAFT_CADENCE_HOURS = [24, 72];
 
+    /**
+     * Event reminders are the only NEGATIVE cadence in this service, and that is
+     * the whole trick: `scheduled_for = anchor_at->addHours($cadence[0])`, so
+     * with the anchor at `events.starts_at` a cadence of `-24` schedules the
+     * send 24 hours BEFORE the event rather than after it. No new command, no
+     * new table, no sweep — the existing 15-minute cron already drains this.
+     *
+     * One hour of granularity is plenty at 15-minute cron resolution, and each
+     * chain is a single step so it fires once and ends.
+     *
+     * @var list<int>
+     */
+    private const EVENT_REMINDER_24H_CADENCE_HOURS = [-24];
+
+    /**
+     * @var list<int>
+     */
+    private const EVENT_REMINDER_1H_CADENCE_HOURS = [-1];
+
     private const ENTITY_APPLICATION = 'application';
 
     private const ENTITY_KOLAB = 'kolab';
@@ -43,6 +65,8 @@ class NotificationReminderService
     private const ENTITY_COLLABORATION = 'collaboration';
 
     private const ENTITY_MULTI_KOLAB_EVENT = 'multi_kolab_event';
+
+    private const ENTITY_EVENT = 'event';
 
     public function __construct(
         private readonly NotificationService $notificationService,
@@ -337,6 +361,8 @@ class NotificationReminderService
             NotificationType::ReviewReminder => $this->refreshReviewReminder($reminder),
             NotificationType::SecondOfferPrompt => $this->refreshSecondOfferPromptReminder($reminder),
             NotificationType::MultiKolabEventDraftIncomplete => $this->refreshMultiKolabEventDraftReminder($reminder),
+            NotificationType::EventReminder24h,
+            NotificationType::EventReminder1h => $this->refreshEventReminder($reminder),
             default => false,
         };
     }
@@ -442,12 +468,157 @@ class NotificationReminderService
     /**
      * @return list<int>
      */
+    /**
+     * Schedule (or tear down) the 24h and 1h reminders for one sign-up.
+     *
+     * Called on sign-up, on cancellation, and on waitlist promotion. Safe to
+     * call repeatedly: `syncReminder()` only resets a chain when the anchor
+     * actually moved, so a rescheduled event re-times itself and an unchanged
+     * one is left alone.
+     */
+    public function syncEventReminders(EventSignup $signup): void
+    {
+        $signup->loadMissing('event');
+        $event = $signup->event;
+
+        if ($event === null) {
+            return;
+        }
+
+        $goingToAnUpcomingEvent = $signup->status === EventSignupStatus::Going
+            && $event->starts_at !== null
+            && $event->starts_at->isFuture();
+
+        foreach ($this->eventReminderCadences() as [$type, $offsetHours]) {
+            /*
+             * What stops back-firing is refusing to CREATE a chain whose send
+             * time is already behind us: someone signing up three hours before
+             * the event must not get a "tomorrow" push on the next cron run.
+             *
+             * An existing, unsent chain is a different matter — it is allowed to
+             * fire late. That is the catch-up path (a missed cron run, or an
+             * event that moved closer), and it is why this method is also safe to
+             * call from `refreshEventReminder()` moments before a send: an
+             * already-due reminder must not cancel itself. The copy is computed
+             * from the ACTUAL time left, so a late send never claims otherwise.
+             *
+             * The 1h chain is exempt from the create-guard on purpose: a sign-up
+             * 40 minutes out deserves its one "starting soon" nudge.
+             */
+            $sendAt = $event->starts_at->copy()->addHours($offsetHours);
+            $chainExists = NotificationReminder::query()
+                ->where('profile_id', $signup->profile_id)
+                ->where('type', $type)
+                ->where('entity_id', $event->id)
+                ->where('entity_type', self::ENTITY_EVENT)
+                ->whereNull('cancelled_at')
+                ->whereNull('sent_at')
+                ->exists();
+
+            $eligible = $goingToAnUpcomingEvent
+                && ($chainExists || $offsetHours === -1 || $sendAt->isFuture());
+
+            $this->syncReminder(
+                profileId: $signup->profile_id,
+                type: $type,
+                entityId: $event->id,
+                entityType: self::ENTITY_EVENT,
+                eligible: $eligible,
+                anchorAt: $event->starts_at,
+            );
+        }
+    }
+
+    /**
+     * Re-sync every `going` sign-up on an event. Use after the event's start
+     * time moves, or when it is cancelled/deleted.
+     */
+    public function syncEventRemindersForEvent(Event $event): void
+    {
+        EventSignup::query()
+            ->where('event_id', $event->id)
+            ->where('status', EventSignupStatus::Going->value)
+            ->with('event')
+            ->cursor()
+            ->each(fn (EventSignup $signup) => $this->syncEventReminders($signup));
+    }
+
+    public function cancelEventReminders(string $eventId, string $profileId): void
+    {
+        foreach ($this->eventReminderCadences() as [$type, $_offsetHours]) {
+            $this->cancelReminder(
+                profileId: $profileId,
+                type: $type,
+                entityId: $eventId,
+                entityType: self::ENTITY_EVENT,
+            );
+        }
+    }
+
+    /**
+     * @return list<array{0: NotificationType, 1: int}> [type, hours offset from starts_at]
+     */
+    private function eventReminderCadences(): array
+    {
+        return [
+            [NotificationType::EventReminder24h, self::EVENT_REMINDER_24H_CADENCE_HOURS[0]],
+            [NotificationType::EventReminder1h, self::EVENT_REMINDER_1H_CADENCE_HOURS[0]],
+        ];
+    }
+
+    /**
+     * Re-derive an event reminder from live state right before it is sent, so a
+     * withdrawn sign-up, a cancelled event or a moved start time is honoured
+     * even if the chain row is stale.
+     */
+    private function refreshEventReminder(NotificationReminder $reminder): bool
+    {
+        $event = Event::query()->find($reminder->entity_id);
+
+        if ($event === null) {
+            $this->cancelExistingReminder($reminder);
+
+            return false;
+        }
+
+        $signup = EventSignup::query()
+            ->where('event_id', $event->id)
+            ->where('profile_id', $reminder->profile_id)
+            ->first();
+
+        if ($signup === null || $signup->status !== EventSignupStatus::Going) {
+            $this->cancelExistingReminder($reminder);
+
+            return false;
+        }
+
+        // An opted-out attendee gets nothing at all — not even an in-app row.
+        // Checked here rather than left to the push gate in NotificationService,
+        // because a reminder that only exists in a list is not a reminder.
+        $profile = Profile::query()->find($reminder->profile_id);
+
+        if ($profile !== null && ! $this->notificationService->allowsPush($profile, $reminder->type)) {
+            $this->cancelExistingReminder($reminder);
+
+            return false;
+        }
+
+        $signup->setRelation('event', $event);
+        $this->syncEventReminders($signup);
+
+        $reminder->refresh();
+
+        return $reminder->cancelled_at === null;
+    }
+
     private function cadenceHoursFor(NotificationType $type): array
     {
         return match ($type) {
             NotificationType::ReviewReminder => config('gamification_business.review_reminder_cadence_hours'),
             NotificationType::SecondOfferPrompt => config('gamification_business.second_offer_prompt_cadence_hours'),
             NotificationType::MultiKolabEventDraftIncomplete => self::MULTI_KOLAB_EVENT_DRAFT_CADENCE_HOURS,
+            NotificationType::EventReminder24h => self::EVENT_REMINDER_24H_CADENCE_HOURS,
+            NotificationType::EventReminder1h => self::EVENT_REMINDER_1H_CADENCE_HOURS,
             default => self::CADENCE_HOURS,
         };
     }
@@ -550,9 +721,47 @@ class NotificationReminderService
     /**
      * @return array{title: string, body: string}|null
      */
+    /**
+     * Copy for an event reminder, phrased from the ACTUAL time left rather than
+     * from the reminder's nominal offset.
+     *
+     * The 1h chain can legitimately fire later than an hour out — a sign-up made
+     * 40 minutes before the event schedules a send that is already due — so a
+     * fixed "in 1 hour" would be a lie. The 15-minute cron can also land a
+     * little past the mark.
+     *
+     * TODO(#252): localise to the recipient's profile locale (en / es / ca). The
+     * app cannot translate a server-rendered push, so until this lands every
+     * reminder arrives in English.
+     */
+    private function eventReminderPayload(NotificationReminder $reminder): ?array
+    {
+        $event = Event::query()->find($reminder->entity_id);
+
+        if ($event === null || $event->starts_at === null) {
+            return null;
+        }
+
+        $minutesLeft = (int) round(now()->diffInMinutes($event->starts_at, absolute: false));
+
+        $title = match (true) {
+            $minutesLeft <= 0 => 'Starting now',
+            $minutesLeft < 90 => "Starting in {$minutesLeft} minutes",
+            $minutesLeft < 60 * 20 => 'Starting in '.(int) round($minutesLeft / 60).' hours',
+            default => 'Tomorrow',
+        };
+
+        return [
+            'title' => $title,
+            'body' => $event->name,
+        ];
+    }
+
     private function buildPayload(NotificationReminder $reminder): ?array
     {
         return match ($reminder->type) {
+            NotificationType::EventReminder24h,
+            NotificationType::EventReminder1h => $this->eventReminderPayload($reminder),
             NotificationType::KolabCreateIncomplete => [
                 'title' => 'Finish your Kolab',
                 'body' => "Your Kolab is still in draft. Complete it and publish when you're ready.",

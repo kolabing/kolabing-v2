@@ -12,7 +12,10 @@
 
     <div class="flex flex-col gap-2.5">
         <template x-for="c in upcoming" :key="c.id">
-            <div class="flex items-center gap-3 bg-white border border-ink/[.08] rounded-2xl p-4 shadow-card hover:border-ink/25 transition">
+            {{-- The card is the way in: BE-NF-45 gave the collaboration a page,
+                 so the dashboard's "next up" is no longer a dead end. --}}
+            <a :href="window.kbPath('/collaborations/' + c.id)"
+               class="flex items-center gap-3 bg-white border border-ink/[.08] rounded-2xl p-4 shadow-card hover:border-ink/25 transition">
                 <div class="w-10 h-10 rounded-full bg-primary/40 flex items-center justify-center text-[15px] font-semibold text-ink shrink-0"
                      x-text="initialOf(c.partner?.name)"></div>
                 <div class="flex-1 min-w-0">
@@ -25,7 +28,7 @@
                 <span class="px-3 py-1 rounded-xl text-[11px] font-bold tracking-[.4px] shrink-0"
                       :style="`background:${statusPill(c.status).bg};color:${statusPill(c.status).c}`"
                       x-text="statusPill(c.status).label"></span>
-            </div>
+            </a>
         </template>
     </div>
 </div>

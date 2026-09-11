@@ -79,6 +79,37 @@ return [
         'scheme' => env('REVERB_SCHEME', 'https'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | App links (one URL, two clients)
+    |--------------------------------------------------------------------------
+    |
+    | A check-in QR encodes `https://app.kolabing.com/checkin/{code}`. With these
+    | published, iOS Universal Links and Android App Links hand that URL to the
+    | installed app; without them the browser handles it. Same QR either way, which
+    | is the point — a printed or on-screen code must not need to know whether the
+    | person scanning it has the app.
+    |
+    | Values belong to the mobile projects: `apple_app_id` is `TEAMID.bundleId`, and
+    | the Android fingerprints are the release signing certificate's SHA-256. The
+    | routes 404 while these are unset — Apple's CDN caches the association file, so
+    | serving a placeholder is worse than serving nothing.
+    |
+    */
+    'app_links' => [
+        'apple_app_id' => env('APPLE_APP_ID'),
+        'android_package' => env('ANDROID_PACKAGE_NAME', 'com.kolabing.kolabingApp'),
+        // Comma-separated, so more than one signing cert (Play App Signing plus a
+        // local release key) can be trusted at once.
+        'android_sha256' => env('ANDROID_SHA256_FINGERPRINTS'),
+        /*
+         * The paths worth handing to the app. Everything else stays in the browser:
+         * a marketing page opening inside an app is a worse experience, not a better
+         * one.
+         */
+        'paths' => ['/checkin/*', '/c/*'],
+    ],
+
     'deep_link' => env('WEBAPP_DEEP_LINK', 'kolabing://'),
 
     'app_store_url' => env('KOLABING_IOS_APP_URL'),

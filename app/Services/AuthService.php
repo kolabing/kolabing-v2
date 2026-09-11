@@ -8,6 +8,8 @@ use App\Enums\SubscriptionSource;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserType;
 use App\Enums\VerificationStatus;
+use App\Exceptions\AccountDeactivatedException;
+use App\Jobs\GenerateSuggestionsForProfile;
 use App\Models\AttendeeProfile;
 use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
@@ -110,6 +112,10 @@ class AuthService
 
         $profile = $query->first();
 
+        if ($profile !== null) {
+            $this->assertProfileActive($profile);
+        }
+
         if (! $profile) {
             if ($userType === null) {
                 return null;
@@ -205,6 +211,8 @@ class AuthService
 
         $this->afterRegistration($profile);
 
+        $this->seedSuggestions($profile);
+
         return [
             'profile' => $profile,
             'is_new_user' => true,
@@ -227,6 +235,8 @@ class AuthService
             ->first();
 
         if ($existingProfile) {
+            $this->assertProfileActive($existingProfile);
+
             return $this->loginExistingUser($existingProfile, $googleUserData, $userType);
         }
 
@@ -331,6 +341,8 @@ class AuthService
 
         $this->afterRegistration($profile);
 
+        $this->seedSuggestions($profile);
+
         return [
             'profile' => $profile,
             'is_new_user' => true,
@@ -377,6 +389,24 @@ class AuthService
         // account; the pending invitation becomes a membership now. Guarded
         // inside the service.
         $this->communityInvitationService->claimForSafely($profile);
+    }
+
+    /**
+     * Queue a first suggestion pass for a freshly-registered profile, so the
+     * suggestions page is not empty until the 04:00 batch reaches it.
+     *
+     * `false` because a profile that did not exist a moment ago was not
+     * complete. The one-shot register paths hand over a name, a type and a city
+     * and therefore cross straight into complete; the OAuth paths create a bare
+     * extended profile and do not, so nothing is queued for them until
+     * onboarding finishes — an incomplete profile has no city, and the candidate
+     * finder returns nothing without one. The debounce, the completeness
+     * predicate and the failure isolation all live on the job so this and
+     * OnboardingService cannot drift apart.
+     */
+    private function seedSuggestions(Profile $profile): void
+    {
+        GenerateSuggestionsForProfile::dispatchIfJustCompleted($profile, false);
     }
 
     /**
@@ -511,6 +541,8 @@ class AuthService
 
         $this->afterRegistration($profile);
 
+        $this->seedSuggestions($profile);
+
         return [
             'profile' => $profile,
             'is_new_user' => true,
@@ -607,6 +639,8 @@ class AuthService
 
         $this->afterRegistration($profile);
 
+        $this->seedSuggestions($profile);
+
         return [
             'profile' => $profile,
             'is_new_user' => true,
@@ -641,6 +675,8 @@ class AuthService
 
         $this->afterRegistration($profile);
 
+        $this->seedSuggestions($profile);
+
         return [
             'profile' => $profile,
             'is_new_user' => true,
@@ -653,6 +689,20 @@ class AuthService
      *
      * @return LoginResult|array{error: string, code: int}
      */
+    /**
+     * Stop a switched-off account (#254) from getting a token.
+     *
+     * Throws rather than returning an error array so every caller answers the
+     * same 403 + ACCOUNT_DEACTIVATED, and so a path that forgets to inspect the
+     * return value cannot accidentally hand out a session.
+     */
+    private function assertProfileActive(Profile $profile): void
+    {
+        if ($profile->is_active === false) {
+            throw new AccountDeactivatedException;
+        }
+    }
+
     public function login(string $email, string $password): array
     {
         $profile = Profile::query()
@@ -681,6 +731,12 @@ class AuthService
                 'code' => 401,
             ];
         }
+
+        // An admin switched this account off (#254). Checked after the password so
+        // a wrong password still reads as a wrong password, and a correct one on a
+        // switched-off account says exactly that instead of "Invalid credentials",
+        // which would send someone to reset a password that was never the problem.
+        $this->assertProfileActive($profile);
 
         $this->revokeExistingMobileTokens($profile);
 

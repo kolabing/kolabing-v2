@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\CommunityMemberStatus;
 use App\Enums\JoinPolicy;
+use App\Models\Concerns\HasActiveOwnerScope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -38,6 +41,11 @@ use Illuminate\Support\Str;
  */
 class Community extends Model
 {
+    use HasActiveOwnerScope;
+
+    /** The column that names this row's owner (#258). */
+    protected static string $activeOwnerKey = 'owner_profile_id';
+
     /** @use HasFactory<\Database\Factories\CommunityFactory> */
     use HasFactory;
 
@@ -94,6 +102,30 @@ class Community extends Model
     }
 
     /**
+     * Communities the profile may administer: the ones it OWNS plus the ones it
+     * co-runs as an active member with `can_manage = true`.
+     *
+     * This is the query form of `CommunityPolicy::manage()` / `ChatService::
+     * canManageCommunity()`, and the set `GET /me/communities` lists (BE-FX-15) —
+     * a manager who cannot see the community id cannot reach any of the
+     * management actions it is otherwise authorised for.
+     *
+     * @param  Builder<Community>  $query
+     * @return Builder<Community>
+     */
+    public function scopeManageableBy(Builder $query, Profile $profile): Builder
+    {
+        return $query->where(function (Builder $scoped) use ($profile): void {
+            $scoped->where('owner_profile_id', $profile->id)
+                ->orWhereHas('members', function (Builder $member) use ($profile): void {
+                    $member->where('profile_id', $profile->id)
+                        ->where('can_manage', true)
+                        ->where('status', CommunityMemberStatus::Active->value);
+                });
+        });
+    }
+
+    /**
      * @return HasMany<CommunityTier, $this>
      */
     public function tiers(): HasMany
@@ -120,6 +152,44 @@ class Community extends Model
     public function joinRequests(): HasMany
     {
         return $this->hasMany(CommunityJoinRequest::class);
+    }
+
+    /**
+     * People following this community — interest without membership.
+     * See CommunityFollower for why this is a separate relation.
+     *
+     * @return HasMany<CommunityFollower, $this>
+     */
+    public function followers(): HasMany
+    {
+        return $this->hasMany(CommunityFollower::class);
+    }
+
+    /**
+     * The challenges this community has chosen to play (kolabing-app#150).
+     *
+     * An EMPTY relation is meaningful: it means the community has not curated,
+     * and its events get the whole library. See ChallengeService::listForEvent().
+     *
+     * @return HasMany<CommunityChallenge, $this>
+     */
+    public function enabledChallenges(): HasMany
+    {
+        return $this->hasMany(CommunityChallenge::class);
+    }
+
+    /**
+     * The questions asked before admitting a member, newest set first in
+     * display order. Includes retired ones — scope with `activeOrdered()` for
+     * the set an applicant should actually see.
+     *
+     * @return HasMany<CommunityJoinQuestion, $this>
+     */
+    public function joinQuestions(): HasMany
+    {
+        return $this->hasMany(CommunityJoinQuestion::class)
+            ->orderBy('position')
+            ->orderBy('created_at');
     }
 
     /**

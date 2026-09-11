@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\ChallengeAudience;
 use App\Enums\ChallengeCategory;
 use App\Enums\ChallengeDifficulty;
+use App\Enums\ChallengeProofType;
 use App\Enums\MissionRepeat;
 use App\Enums\MissionTrigger;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -50,6 +51,7 @@ class Challenge extends Model
         'name',
         'description',
         'difficulty',
+        'proof_type',
         'points',
         'is_system',
         'category',
@@ -67,6 +69,7 @@ class Challenge extends Model
     protected function casts(): array
     {
         return [
+            'proof_type' => ChallengeProofType::class,
             'difficulty' => ChallengeDifficulty::class,
             'points' => 'integer',
             'is_system' => 'boolean',

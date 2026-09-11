@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Api\V1;
 
 use App\Enums\ChallengeDifficulty;
+use App\Enums\ChallengeProofType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,6 +25,7 @@ class StoreChallengeRequest extends FormRequest
             'name' => ['required', 'string', 'min:3', 'max:150'],
             'description' => ['nullable', 'string', 'max:500'],
             'difficulty' => ['required', 'string', Rule::in(ChallengeDifficulty::values())],
+            'proof_type' => ['sometimes', 'string', Rule::in(ChallengeProofType::values())],
             'points' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ];
     }
@@ -39,6 +41,7 @@ class StoreChallengeRequest extends FormRequest
             'name.max' => 'Challenge name cannot exceed 150 characters.',
             'difficulty.required' => 'Difficulty level is required.',
             'difficulty.in' => 'Difficulty must be easy, medium, or hard.',
+            'proof_type.in' => 'How it is played must be text or photo.',
             'points.min' => 'Points must be at least 1.',
             'points.max' => 'Points cannot exceed 100.',
         ];

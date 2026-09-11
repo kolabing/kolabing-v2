@@ -34,7 +34,7 @@ class CommunityInviteTest extends TestCase
         $this->actingAs($owner)
             ->getJson("/api/v1/communities/{$community->id}")
             ->assertStatus(200)
-            ->assertJsonPath('data.invite_url', 'https://kolabing.com/c/'.$community->slug);
+            ->assertJsonPath('data.invite_url', rtrim(config('communities.invite_base_url'), '/').'/'.$community->slug);
     }
 
     public function test_owner_gets_invite_link_for_open_community_without_token(): void
@@ -45,7 +45,7 @@ class CommunityInviteTest extends TestCase
         $this->actingAs($owner)
             ->getJson("/api/v1/communities/{$community->id}/invite")
             ->assertStatus(200)
-            ->assertJsonPath('data.invite_url', 'https://kolabing.com/c/'.$community->slug)
+            ->assertJsonPath('data.invite_url', rtrim(config('communities.invite_base_url'), '/').'/'.$community->slug)
             ->assertJsonPath('data.token', null)
             ->assertJsonPath('data.token_url', null);
     }
@@ -62,7 +62,7 @@ class CommunityInviteTest extends TestCase
         $token = $response->json('data.token');
         $this->assertIsString($token);
         $this->assertNotEmpty($token);
-        $response->assertJsonPath('data.token_url', 'https://kolabing.com/c/'.$community->slug.'?invite='.$token);
+        $response->assertJsonPath('data.token_url', rtrim(config('communities.invite_base_url'), '/').'/'.$community->slug.'?invite='.$token);
 
         // Token is persisted and idempotent across calls.
         $this->assertDatabaseHas('communities', ['id' => $community->id, 'invite_token' => $token]);

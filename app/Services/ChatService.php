@@ -434,10 +434,28 @@ class ChatService
      * Send a message into any thread (community/event). Sets last_message_at and
      * broadcasts. Access must be checked by the caller.
      *
+     * A thread that carries an `application_id` is a Kolab conversation, and it
+     * DELEGATES to `sendMessage()` — the one and only collaboration send path.
+     * Keeping a single implementation is deliberate (BE-FX-13): the collaboration
+     * notification lives in `NotificationService::notifyNewMessage()` plus the two
+     * `syncUnreadMessageReminder()` calls, and `threadRecipientIds()` returns [] for
+     * collaboration threads, so a second implementation here would either notify
+     * nobody (the bug) or notify twice. Delegation makes drift impossible.
+     *
      * @param  array{content: string}  $data
+     *
+     * @throws InvalidArgumentException
      */
     public function sendThreadMessage(Profile $sender, ChatThread $thread, array $data): ChatMessage
     {
+        if ($thread->application_id !== null) {
+            $thread->loadMissing('application');
+
+            if ($thread->application !== null) {
+                return $this->sendMessage($sender, $thread->application, $data);
+            }
+        }
+
         $message = ChatMessage::query()->create([
             'application_id' => $thread->application_id,
             'thread_id' => $thread->id,
@@ -715,7 +733,10 @@ class ChatService
     /**
      * Profile ids that should be notified of a new message in a thread, minus the
      * sender. Mirrors `canAccessThread` as a SET. Collaboration threads return []
-     * (those notify via NotificationService::notifyNewMessage).
+     * — they never reach the fan-out job at all, because `sendThreadMessage()`
+     * delegates every application-backed thread to `sendMessage()`, which notifies
+     * through NotificationService::notifyNewMessage. Returning [] here is the
+     * second line of defence against a double-notify.
      *
      * @return array<int, string>
      */

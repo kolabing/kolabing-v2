@@ -16,6 +16,7 @@ use App\Http\Resources\Api\V1\CommunityMemberResource;
 use App\Http\Resources\Api\V1\CommunityResource;
 use App\Http\Resources\Api\V1\CommunityTierResource;
 use App\Models\Community;
+use App\Models\CommunityMember;
 use App\Models\Profile;
 use App\Services\CommunityMemberService;
 use App\Services\CommunityMembershipHydrator;
@@ -34,17 +35,32 @@ class CommunityController extends Controller
     ) {}
 
     /**
-     * GET /api/v1/me/communities — communities I own (leader view).
+     * GET /api/v1/me/communities — communities I administer (leader view).
+     *
+     * BE-FX-15: this is the OWNED **plus MANAGED** set. Returning owned-only hid
+     * every community a profile co-runs as an active `can_manage` member, and
+     * because no client could discover the id, every management action that
+     * profile is authorised for (`CommunityPolicy::manage`, the channel and ban
+     * endpoints, `ChatService::canManageCommunity`) was unreachable. The additive
+     * `my_can_manage` flag on each row lets a client tell owner from manager.
      */
     public function index(Request $request): JsonResponse
     {
         /** @var Profile $profile */
         $profile = $request->user();
 
-        $communities = $profile->ownedCommunities()
+        $communities = Community::query()
+            ->manageableBy($profile)
             ->with('communityProfile')
             ->latest()
             ->get();
+
+        // `manageableBy` IS the can_manage set, so every row is manageable by
+        // construction. Stamping the flag here keeps the resource off its per-row
+        // lookup — no extra query for the list, whatever its length.
+        $communities->each(static function (Community $community): void {
+            $community->setAttribute('viewer_can_manage', true);
+        });
 
         return response()->json([
             'success' => true,
@@ -168,6 +184,23 @@ class CommunityController extends Controller
         return response()->json([
             'success' => true,
             'data' => new CommunityResource($community),
+            // The two public numbers (kolabing-app#147): Followers and ACTIVE
+            // Members. Not the total membership — that only ever grows, so after
+            // a couple of years it stops describing a community and starts
+            // flattering it. Leaders get all three from /stats.
+            //
+            // Beside the resource, not inside it: CommunityResource is
+            // serialized in lists, and per-row counts on it took
+            // /me/rewards-overview from 12 queries to 21 the last time. Here it
+            // is one community and two counts.
+            'audience' => [
+                'followers' => $community->followers()->count(),
+                'active_members' => $community->members()
+                    ->where('status', CommunityMemberStatus::Active->value)
+                    ->where('last_attended_at', '>=', now()->subDays(CommunityMember::ACTIVE_WINDOW_DAYS))
+                    ->count(),
+                'active_window_days' => CommunityMember::ACTIVE_WINDOW_DAYS,
+            ],
         ]);
     }
 
@@ -231,6 +264,16 @@ class CommunityController extends Controller
         try {
             $member = $this->memberService->join($community, $profile);
         } catch (DomainException $e) {
+            // The leader chose to ask something before admitting members, so
+            // this is not a refusal — it is a redirect to the application.
+            if ($e->getMessage() === 'join_requires_application') {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'join_requires_application',
+                    'message' => __('This community asks a few questions before you join.'),
+                ], 409);
+            }
+
             return response()->json([
                 'success' => false,
                 'error' => 'invite_only',

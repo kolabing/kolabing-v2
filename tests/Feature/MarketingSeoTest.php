@@ -27,7 +27,8 @@ class MarketingSeoTest extends TestCase
         // The nav's third slot used to be a "download" anchor to #cta; it now sends
         // visitors to the web app instead (see WebAppFunnelTest).
         $response->assertSee('id="cta"', false);
-        $response->assertSee('/brand/kolabing-logo.webp', false);
+        // The nav logo is the K mark now, not the cloud lockup (#250).
+        $response->assertSee('/brand/kolabing-k-mark.png', false);
         // The kolab-idea polaroids. Renamed and re-encoded to WebP when the page's
         // 24.6 MB image payload was fixed — see SeoRemediationTest for the budget.
         $response->assertSee('uploads/kolab-app-preview.webp', false);

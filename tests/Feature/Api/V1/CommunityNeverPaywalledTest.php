@@ -91,7 +91,8 @@ class CommunityNeverPaywalledTest extends TestCase
     {
         $community = Community::factory()->create(['slug' => 'paywall-free']);
 
-        $this->get('/c/paywall-free')->assertOk();
+        // The page lives on the app host: only there does the CSP allow its Alpine.
+        $this->get('http://'.config('webapp.host').'/c/paywall-free')->assertOk();
     }
 
     public function test_an_attendee_can_accept_an_invitation_without_a_subscription(): void

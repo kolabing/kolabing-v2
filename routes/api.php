@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\Admin\CrmController as ApiAdminCrmController;
 use App\Http\Controllers\Api\V1\AppleIAPController;
 use App\Http\Controllers\Api\V1\AppleWebhookController;
 use App\Http\Controllers\Api\V1\ApplicationController;
@@ -17,9 +18,12 @@ use App\Http\Controllers\Api\V1\CollaborationChallengeController;
 use App\Http\Controllers\Api\V1\CollaborationController;
 use App\Http\Controllers\Api\V1\CollaborationQrCodeController;
 use App\Http\Controllers\Api\V1\CommunityBadgeController;
+use App\Http\Controllers\Api\V1\CommunityChallengeController;
 use App\Http\Controllers\Api\V1\CommunityController;
+use App\Http\Controllers\Api\V1\CommunityFollowController;
 use App\Http\Controllers\Api\V1\CommunityGoalController;
 use App\Http\Controllers\Api\V1\CommunityInvitationController;
+use App\Http\Controllers\Api\V1\CommunityJoinQuestionController;
 use App\Http\Controllers\Api\V1\CommunityJoinRequestController;
 use App\Http\Controllers\Api\V1\CommunityMemberController;
 use App\Http\Controllers\Api\V1\CommunityRewardController;
@@ -59,7 +63,9 @@ use App\Http\Controllers\Api\V1\SavedKolabController;
 use App\Http\Controllers\Api\V1\SpinWheelController;
 use App\Http\Controllers\Api\V1\StripeWebhookController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
+use App\Http\Controllers\Api\V1\SuggestionController;
 use App\Http\Controllers\Api\V1\SystemChallengeController;
+use App\Http\Controllers\Api\V1\TicketController;
 use App\Http\Controllers\Api\V1\UploadController;
 use Illuminate\Support\Facades\Route;
 
@@ -173,7 +179,7 @@ Route::prefix('v1')->group(function (): void {
     |--------------------------------------------------------------------------
     */
 
-    Route::middleware(['auth:sanctum', 'log_auth_token_first_use', 'touch_profile_activity'])->group(function (): void {
+    Route::middleware(['auth:sanctum', 'profile_active', 'log_auth_token_first_use', 'touch_profile_activity'])->group(function (): void {
         // City suggestions
         Route::post('cities/suggest', [LookupController::class, 'suggestCity'])
             ->name('api.v1.cities.suggest');
@@ -315,12 +321,17 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.me.gallery.store');
 
         // Delete gallery photo
+        Route::put('me/gallery/order', [GalleryController::class, 'reorder'])
+            ->name('api.v1.me.gallery.reorder');
+        Route::patch('me/gallery/{photo}', [GalleryController::class, 'update'])
+            ->name('api.v1.me.gallery.update');
         Route::delete('me/gallery/{photo}', [GalleryController::class, 'destroy'])
             ->name('api.v1.me.gallery.destroy');
 
         // View another profile's gallery
         Route::get('profiles/{profile}/gallery', [GalleryController::class, 'show'])
-            ->name('api.v1.profiles.gallery');
+            ->name('api.v1.profiles.gallery')
+            ->middleware('target_profile_active');
 
         /*
         |--------------------------------------------------------------------------
@@ -366,7 +377,22 @@ Route::prefix('v1')->group(function (): void {
         Route::post('events/{event}/chat', [ChatController::class, 'storeEventChat'])
             ->name('api.v1.events.chat.store');
 
+        /*
+         * Tickets. A sign-up with a code: the holder carries it, the host scans it.
+         * `me/tickets` is a wallet; `tickets/{code}/admit` is a door. The code in the
+         * path is not a secret — admitting is authorised on the *scanner* being the
+         * event's host, which is why the route can be this plain.
+         */
+        Route::get('me/tickets', [TicketController::class, 'index'])
+            ->name('api.v1.me.tickets.index');
+        Route::get('tickets/{code}', [TicketController::class, 'show'])
+            ->name('api.v1.tickets.show');
+        Route::post('tickets/{code}/admit', [TicketController::class, 'admit'])
+            ->name('api.v1.tickets.admit');
+
         // NF-16 — add/remove photos on an existing event (creator / can_manage)
+        Route::put('events/{event}/photos/order', [EventPhotoController::class, 'reorder'])
+            ->name('api.v1.events.photos.reorder');
         Route::post('events/{event}/photos', [EventPhotoController::class, 'store'])
             ->name('api.v1.events.photos.store');
         Route::delete('events/{event}/photos/{photo}', [EventPhotoController::class, 'destroy'])
@@ -386,6 +412,12 @@ Route::prefix('v1')->group(function (): void {
         Route::post('checkin', [CheckinController::class, 'checkin'])
             ->name('api.v1.checkin');
 
+        // Self check-in: no token, for an event you said you were going to
+        // (kolabing-app#144). The token door above stays; this is the one that
+        // works when no organizer is standing there with a QR.
+        Route::post('events/{event}/checkin', [CheckinController::class, 'selfCheckin'])
+            ->name('api.v1.events.checkin');
+
         // List check-ins for an event
         Route::get('events/{event}/checkins', [CheckinController::class, 'index'])
             ->name('api.v1.events.checkins');
@@ -395,6 +427,14 @@ Route::prefix('v1')->group(function (): void {
         | Gamification - Challenges
         |--------------------------------------------------------------------------
         */
+
+        // The challenge library, and which of it a community plays (#150).
+        Route::get('challenge-library', [CommunityChallengeController::class, 'library'])
+            ->name('api.v1.challenge-library');
+        Route::get('communities/{community}/challenges', [CommunityChallengeController::class, 'index'])
+            ->name('api.v1.communities.challenges.index');
+        Route::put('communities/{community}/challenges', [CommunityChallengeController::class, 'sync'])
+            ->name('api.v1.communities.challenges.sync');
 
         // List challenges for an event (system + custom)
         Route::get('events/{event}/challenges', [ChallengeController::class, 'index'])
@@ -431,6 +471,18 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.challenge-completions.reject');
 
         // My challenge completions
+        // The photo the pair took (#216). Either participant may attach, replace
+        // or remove it — both of them are in it.
+        Route::post('challenge-completions/{challengeCompletion}/photo', [ChallengeCompletionController::class, 'attachPhoto'])
+            ->name('api.v1.challenge-completions.photo.store');
+
+        Route::delete('challenge-completions/{challengeCompletion}/photo', [ChallengeCompletionController::class, 'removePhoto'])
+            ->name('api.v1.challenge-completions.photo.destroy');
+
+        // The challenger takes back a request nobody answered yet (#154).
+        Route::post('challenge-completions/{challengeCompletion}/cancel', [ChallengeCompletionController::class, 'cancel'])
+            ->name('api.v1.challenge-completions.cancel');
+
         Route::get('me/challenge-completions', [ChallengeCompletionController::class, 'myCompletions'])
             ->name('api.v1.me.challenge-completions');
 
@@ -476,6 +528,27 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.communities.invite');
         Route::post('communities/{community}/join', [CommunityController::class, 'join'])
             ->name('api.v1.communities.join');
+
+        Route::get('me/community-follows', [CommunityFollowController::class, 'mine'])
+            ->name('api.v1.me.community-follows');
+
+        // Following: interest without membership (kolabing-app#138). One tap,
+        // no approval, grants none of what membership grants.
+        Route::post('communities/{community}/follow', [CommunityFollowController::class, 'store'])
+            ->name('api.v1.communities.follow.store');
+        Route::delete('communities/{community}/follow', [CommunityFollowController::class, 'destroy'])
+            ->name('api.v1.communities.follow.destroy');
+
+        // The questions a leader asks before admitting a member. Reading the
+        // set is open (an applicant must see it); changing it needs `manage`.
+        Route::get('communities/{community}/join-questions', [CommunityJoinQuestionController::class, 'index'])
+            ->name('api.v1.communities.join-questions.index');
+        Route::post('communities/{community}/join-questions', [CommunityJoinQuestionController::class, 'store'])
+            ->name('api.v1.communities.join-questions.store');
+        Route::patch('communities/{community}/join-questions/{question}', [CommunityJoinQuestionController::class, 'update'])
+            ->name('api.v1.communities.join-questions.update');
+        Route::delete('communities/{community}/join-questions/{question}', [CommunityJoinQuestionController::class, 'destroy'])
+            ->name('api.v1.communities.join-questions.destroy');
 
         // Invite-only join requests (request → leader approves/declines).
         Route::post('communities/{community}/join-requests', [CommunityJoinRequestController::class, 'store'])
@@ -641,7 +714,8 @@ Route::prefix('v1')->group(function (): void {
 
         // Public game card for a profile
         Route::get('profiles/{profile}/game-card', [GamificationStatsController::class, 'gameCard'])
-            ->name('api.v1.profiles.game-card');
+            ->name('api.v1.profiles.game-card')
+            ->middleware('target_profile_active');
 
         /*
         |--------------------------------------------------------------------------
@@ -671,23 +745,27 @@ Route::prefix('v1')->group(function (): void {
 
         // View public profile
         Route::get('profiles/{profile}', [ProfileController::class, 'publicProfile'])
-            ->name('api.v1.profiles.show');
+            ->name('api.v1.profiles.show')
+            ->middleware('target_profile_active');
 
         // View profile's received reviews
         Route::get('profiles/{profile}/reviews', [ProfileController::class, 'profileReviews'])
-            ->name('api.v1.profiles.reviews');
+            ->name('api.v1.profiles.reviews')
+            ->middleware('target_profile_active');
 
         // View public-facing community profile
         // Rich public profile for either role (business or community).
         Route::get('profiles/{profile}/public-profile', [ProfileController::class, 'publicProfileDetail'])
-            ->name('api.v1.profiles.public-profile');
+            ->name('api.v1.profiles.public-profile')
+            ->middleware('target_profile_active');
 
         Route::get('communities/{community}/public-profile', [ProfileController::class, 'communityPublicProfile'])
             ->name('api.v1.communities.public-profile');
 
         // View profile's completed collaborations
         Route::get('profiles/{profile}/collaborations', [ProfileController::class, 'profileCollaborations'])
-            ->name('api.v1.profiles.collaborations');
+            ->name('api.v1.profiles.collaborations')
+            ->middleware('target_profile_active');
 
         /*
         |--------------------------------------------------------------------------
@@ -728,6 +806,35 @@ Route::prefix('v1')->group(function (): void {
         // Role-aware discovery feed for Explore
         Route::get('discovery/opportunities', DiscoveryOpportunityController::class)
             ->name('api.v1.discovery.opportunities');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Suggestions (BE-NF-39)
+        |--------------------------------------------------------------------------
+        |
+        | Generated pairings, one side at a time. Behind `feature:suggestions`
+        | so a flag that ships false 404s the whole surface rather than
+        | advertising it with a 403.
+        |
+        | No `whereUuid` on the bindings: `kolab_suggestions.id` is a uuid column
+        | and a non-uuid comparison raises 22P02 on Postgres, but KolabSuggestion
+        | uses HasUuids, and HasUniqueStringIds::resolveRouteBindingQuery() throws
+        | ModelNotFoundException for a malformed key *before* it builds a query.
+        | A route constraint on top of that would guard nothing; the contract is
+        | pinned by SuggestionApiTest instead.
+        |
+        */
+        Route::middleware('feature:suggestions')->group(function (): void {
+            Route::get('suggestions', [SuggestionController::class, 'index'])
+                ->name('api.v1.suggestions.index');
+
+            Route::get('suggestions/{suggestion}', [SuggestionController::class, 'show'])
+                ->name('api.v1.suggestions.show');
+
+            Route::post('suggestions/{suggestion}/dismiss', [SuggestionController::class, 'dismiss'])
+                ->middleware('throttle:30,1')
+                ->name('api.v1.suggestions.dismiss');
+        });
 
         // Browse opportunities (public list of published)
         Route::get('opportunities', [OpportunityController::class, 'index'])
@@ -1093,5 +1200,16 @@ Route::prefix('v1')->group(function (): void {
 
         Route::post('gamification/withdrawal', [GamificationController::class, 'withdrawal'])
             ->name('api.v1.gamification.withdrawal');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin read API (Sanctum, maintainer-only) — token access to the CRM for
+    | callers that can't hold a browser session against auth:admin (agents,
+    | scripts). Read-only by construction: no write route exists here.
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware(['auth:sanctum', 'maintainer.token', 'throttle:60,1'])->prefix('admin')->as('api.v1.admin.')->group(function (): void {
+        Route::get('crm', [ApiAdminCrmController::class, 'index'])->name('crm.index');
     });
 });

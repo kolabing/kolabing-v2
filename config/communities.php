@@ -23,12 +23,12 @@ return [
     |--------------------------------------------------------------------------
     |
     | Canonical shareable join link for a community is "<base>/<slug>", e.g.
-    | https://kolabing.com/c/run-club-ab12cd. invite_only communities may also
+    | https://app.kolabing.com/c/run-club-ab12cd. invite_only communities may also
     | hand out a pre-authorizing token; the token link is "<base>/<slug>?invite=<token>".
     | Override with COMMUNITIES_INVITE_BASE_URL in non-prod environments.
     |
     */
-    'invite_base_url' => env('COMMUNITIES_INVITE_BASE_URL', 'https://kolabing.com/c'),
+    'invite_base_url' => env('COMMUNITIES_INVITE_BASE_URL', 'https://app.kolabing.com/c'),
 
     /*
     |--------------------------------------------------------------------------

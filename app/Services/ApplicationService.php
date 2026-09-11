@@ -26,6 +26,7 @@ class ApplicationService
         private readonly NotificationReminderService $notificationReminderService,
         private readonly PostHogService $postHog,
         private readonly MissionService $missionService,
+        private readonly CollaborationHappeningService $happenings,
     ) {}
 
     /**
@@ -284,6 +285,11 @@ class ApplicationService
     ): LengthAwarePaginator {
         $query = Application::query()
             ->where('applicant_profile_id', $profile->id)
+            // A switched-off creator takes their kolab out of the applicant's
+            // list too (#258). Filtering the application rather than scoping
+            // Kolab globally is what keeps every other counterparty read intact
+            // — a global scope there nulled `application->kolab` outright.
+            ->whereHas('kolab', fn ($q) => $q->fromActiveOwner())
             ->with(['kolab.creatorProfile'])
             ->orderBy('created_at', 'desc');
 
@@ -311,6 +317,8 @@ class ApplicationService
             ->whereHas('kolab', function ($q) use ($profile): void {
                 $q->where('creator_profile_id', $profile->id);
             })
+            // ...and a switched-off applicant drops out of the creator's list (#258).
+            ->whereHas('applicantProfile', fn ($q) => $q->active())
             ->with([
                 'applicantProfile.businessProfile',
                 'applicantProfile.communityProfile',
@@ -458,7 +466,7 @@ class ApplicationService
             ? $creator->communityProfile?->id
             : $applicant->communityProfile?->id;
 
-        return Collaboration::create([
+        $collaboration = Collaboration::create([
             'application_id' => $application->id,
             'kolab_id' => $application->kolab_id,
             'creator_profile_id' => $creator->id,
@@ -469,5 +477,24 @@ class ApplicationService
             'scheduled_date' => $data['scheduled_date'] ?? null,
             'contact_methods' => ! empty($data['contact_methods']) ? $data['contact_methods'] : null,
         ]);
+
+        /*
+         * Accepting is the moment the Kolab becomes a thing that happens, so it is
+         * the moment attendees can be invited to it. Creating the happening here
+         * rather than waiting for someone to press "generate QR" is the difference
+         * between "what's on" having anything in it and being permanently empty —
+         * which is what it was: production holds 16 collaborations and none of them
+         * had an event row.
+         *
+         * Guarded: a failure here must not undo an acceptance. The happening can
+         * always be created later, and the door route does exactly that.
+         */
+        try {
+            $this->happenings->ensureFor($collaboration);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
+        return $collaboration->refresh();
     }
 }

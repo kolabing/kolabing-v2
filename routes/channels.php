@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\Application;
 use App\Models\ChatThread;
+use App\Models\Event;
 use App\Models\Profile;
 use App\Services\ChatService;
 use Illuminate\Support\Facades\Broadcast;
@@ -46,4 +47,16 @@ Broadcast::channel('chat.thread.{threadId}', function (Profile $profile, string 
     }
 
     return app(ChatService::class)->canAccessThread($profile, $thread);
+});
+
+/*
+ * The check-in door. Whoever hosts the event may watch arrivals in real time — the
+ * same rule that decides who may read GET /events/{event}/checkins, and the same
+ * rule that keeps the token off everyone else's payload. Never widen this to
+ * attendees: the stream names who walked in.
+ */
+Broadcast::channel('event.{eventId}.door', function (Profile $profile, string $eventId) {
+    $event = Event::find($eventId);
+
+    return $event !== null && $event->isHostedBy($profile);
 });

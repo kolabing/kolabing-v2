@@ -25,6 +25,19 @@
             </span>
         </button>
 
+        {{-- Attendees: the people who actually turn up. Free, and the only role
+             that needs no business or community details — just a handle. --}}
+        <button type="button" @click="pickRole('attendee')"
+                class="text-left p-5 rounded-[20px] bg-white border border-ink/10 hover:border-primary hover:bg-primary-tint transition flex items-center gap-3.5">
+            <span class="w-11 h-11 rounded-[14px] bg-cream-low flex items-center justify-center shrink-0">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/><path d="M12 7v10"/></svg>
+            </span>
+            <span>
+                <span class="block text-[15px] font-bold text-ink">{{ __('webapp.register.attendee_title') }}</span>
+                <span class="block text-[13px] text-muted mt-0.5">{{ __('webapp.register.attendee_sub') }}</span>
+            </span>
+        </button>
+
         <button type="button" @click="pickRole('community')"
                 class="text-left p-5 rounded-[20px] bg-white border border-ink/10 hover:border-primary hover:bg-primary-tint transition flex items-center gap-3.5">
             <span class="w-11 h-11 rounded-[14px] bg-cream-low flex items-center justify-center shrink-0">
@@ -140,6 +153,21 @@
         </template>
 
         {{-- Business: categories --}}
+        {{--
+            Attendee: account only.
+
+            Name, handle, city, interests, communities and photo are collected by the
+            four-step onboarding at /onboarding/attendee — the same flow, in the same
+            order, with the same skippable steps as the mobile app. Two of those need
+            more than a text input can give (a live handle-availability check with
+            suggestions, and a city search), and duplicating a partial version here is
+            how the two clients drifted apart in the first place. So this step asks
+            only what the register endpoint accepts: email, password, terms.
+        --}}
+        <template x-if="role === 'attendee'">
+            <p class="text-[12.5px] text-muted">{{ __('webapp.register.attendee_next_step') }}</p>
+        </template>
+
         <template x-if="role === 'business'">
             <div class="flex flex-col gap-1.5">
                 <label class="text-xs font-semibold text-body">{{ __('webapp.register.categories') }} <span class="font-normal text-muted">{{ __('webapp.account.categories_hint') }}</span></label>
@@ -243,7 +271,10 @@
         </template>
 
         <label class="flex items-start gap-3 mt-1 cursor-pointer">
-            <input x-model="form.accepted_terms" type="checkbox" class="mt-0.5 w-5 h-5 rounded-md border-ink/20 text-ink focus:ring-0">
+            {{-- `kb-checkbox` (layout.blade.php), never a `text-*` colour: the forms
+                 plugin paints the tick white over `currentColor`, so an ink-coloured
+                 box is invisible when ticked in dark theme. --}}
+            <input x-model="form.accepted_terms" type="checkbox" class="kb-checkbox mt-0.5 w-5 h-5 rounded-md focus:ring-0">
             <span class="text-[13px] text-body leading-snug">{!! __('webapp.register.terms', ['terms' => '<a href="https://kolabing.com/terms" target="_blank" rel="noopener" class="font-semibold text-ink underline">'.__('webapp.register.terms_word').'</a>', 'privacy' => '<a href="https://kolabing.com/privacy" target="_blank" rel="noopener" class="font-semibold text-ink underline">'.__('webapp.register.privacy_word').'</a>']) !!}</span>
         </label>
 
@@ -263,16 +294,22 @@
             businessTypes: [], communityTypes: [], venueTypes: [], cities: [],
             form: {
                 name: '', email: '', phone_number: '', password: '', password_confirmation: '',
-                referral_code: '', accepted_terms: false,
+                referral_code: '', accepted_terms: false, handle: '',
                 categories: [], community_type: '', community_size: null,
                 city_id: '', has_venue: null,
                 venue: { name: '', venue_type: '', capacity: null, formatted_address: '' },
             },
-            get roleLabel() { return this.role === 'business' ? t('register.as_business') : t('register.as_community'); },
+            get roleLabel() {
+                if (this.role === 'attendee') return t('register.as_attendee');
+                return this.role === 'business' ? t('register.as_business') : t('register.as_community');
+            },
             get nameLabel() { return this.role === 'business' ? t('account.business_name') : t('account.community_name'); },
             get namePlaceholder() { return this.role === 'business' ? t('register.business_name_ph') : t('register.community_name_ph'); },
             get inviteHint() { return this.role === 'business' ? t('register.invite_hint_business') : t('register.invite_hint_community'); },
-            get detailsHeading() { return this.role === 'business' ? t('register.details_business') : t('register.details_community'); },
+            get detailsHeading() {
+                if (this.role === 'attendee') return t('register.details_attendee');
+                return this.role === 'business' ? t('register.details_business') : t('register.details_community');
+            },
             get venueOptions() {
                 return [
                     { value: true,  title: t('register.venue_yes'), sub: t('register.venue_yes_sub') },
@@ -285,7 +322,7 @@
                 if (!window.kb.requireGuest()) return;
                 const params = new URLSearchParams(location.search);
                 const q = params.get('type');
-                if (q === 'business' || q === 'community') {
+                if (q === 'business' || q === 'community' || q === 'attendee', 'attendee') {
                     this.role = q; this.step = 'account';
                     if (this.hasGoogle) this.$nextTick(() => this.loadGoogle());
                 }
@@ -295,8 +332,12 @@
             },
             /** Where a freshly registered account lands: businesses go straight to the offer. */
             postAuthPath() {
-                if (this.role !== 'business') return '/dashboard';
-                return '/subscription?reason=welcome' + (this.plan ? '&plan=' + this.plan : '');
+                // Someone who registered to get through a door goes back to that door.
+                const fallback = this.role !== 'business'
+                    ? '/dashboard'
+                    : '/subscription?reason=welcome' + (this.plan ? '&plan=' + this.plan : '');
+
+                return window.kbPostAuthTarget(fallback);
             },
             async loadLookups() {
                 const [bt, ct, vt, ci] = await Promise.all([
@@ -405,10 +446,64 @@
                 }
                 return b;
             },
+            /**
+             * Attendees take two calls, not one: the account, then the handle. The
+             * register endpoint only accepts email/password/terms — everything that
+             * identifies an attendee lives behind PUT /onboarding/attendee.
+             */
+            async submitAttendee() {
+                const f = this.form;
+
+                /*
+                 * Register creates the ACCOUNT only, then hands off to the four-step
+                 * onboarding — which is exactly the shape of the mobile flow
+                 * (attendee_register_screen → attendee_step1..4). It used to collect
+                 * name and handle here and submit onboarding inline with only those
+                 * two fields, which meant a web attendee ended up without a city,
+                 * interests, communities or a photo while a mobile attendee had all
+                 * four. Two clients, two different notions of who someone is.
+                 *
+                 * `?next=` is preserved through the hand-off: someone who arrived
+                 * from "I'm going" on a public page still lands back on that event
+                 * once their profile exists.
+                 */
+                if (f.password !== f.password_confirmation) {
+                    this.error = t('register.err_password_match');
+                    return;
+                }
+
+                this.busy = true;
+                const account = await window.kb.api('/auth/register/attendee', {
+                    method: 'POST', auth: false,
+                    body: {
+                        email: f.email,
+                        password: f.password,
+                        password_confirmation: f.password_confirmation,
+                        accepted_terms: true,
+                    },
+                });
+                this.busy = false;
+
+                if (!account.ok || !account.json?.data?.token) {
+                    this.error = window.kb.errorText(account, t('register.error'));
+                    return;
+                }
+                window.kb.setSession(account.json.data);
+
+                const intended = window.kbPostAuthTarget('');
+                window.nav('/onboarding/attendee' + (intended ? '?next=' + encodeURIComponent(intended) : ''));
+            },
+
             async submit() {
                 this.error = '';
                 const f = this.form;
                 if (!f.accepted_terms) { this.error = t('register.err_terms'); return; }
+
+                if (this.role === 'attendee') {
+                    await this.submitAttendee();
+                    return;
+                }
+
                 if (!f.city_id) { this.error = t('register.err_city'); return; }
                 if (this.role === 'community' && !f.community_type) { this.error = t('register.err_community_type'); return; }
                 if (this.role === 'business' && f.categories.length === 0) { this.error = t('register.err_categories'); return; }

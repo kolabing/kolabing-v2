@@ -210,9 +210,16 @@
                 if (wanted === 'monthly' || wanted === 'three_months') this.plan = wanted;
                 localStorage.removeItem('kolabing_plan');
 
-                // Which paywalled action sent them here.
+                // Which paywalled action sent them here. Allowlisted, not passed
+                // through: `reason` is user-controlled, and t() on an unknown key
+                // would print the dotted path straight onto the page.
+                //
+                // `suggestion` is the blurred counterpart on a suggestion card
+                // (BE-NF-39). It is not a third gate — ROLES §2.7 has exactly two,
+                // and the blur is a downstream effect of them, which is what the
+                // copy for it has to say.
                 const reason = params.get('reason');
-                if (['publish', 'accept', 'apply', 'create', 'welcome'].includes(reason)) {
+                if (['publish', 'accept', 'apply', 'create', 'welcome', 'suggestion'].includes(reason)) {
                     this.reasonText = t('subscription.reason.' + reason);
                 }
 

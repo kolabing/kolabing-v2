@@ -1,0 +1,340 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Services\Suggestions;
+
+use App\Services\Suggestions\SignalReasonRenderer;
+use App\Support\Matching\CategoryFitMatrix;
+use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Lang;
+use Illuminate\Support\Facades\Log;
+use Tests\TestCase;
+
+class SignalReasonRendererTest extends TestCase
+{
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function signal(array $overrides = []): array
+    {
+        return array_merge([
+            'key' => 'category_fit',
+            'reason_key' => 'category_fit',
+            'reason_params' => [
+                'community_type' => 'food_community',
+                'business_category' => 'cafe',
+            ],
+            'weight' => 0.25,
+            'score' => 1.0,
+        ], $overrides);
+    }
+
+    public function test_it_renders_the_label_and_the_reason(): void
+    {
+        $rendered = (new SignalReasonRenderer)->render($this->signal());
+
+        $this->assertSame(__('suggestions.signal.category_fit'), $rendered['label']);
+        $this->assertStringContainsString('café', mb_strtolower($rendered['reason']));
+    }
+
+    public function test_it_localises_both_sides_of_the_interpolation(): void
+    {
+        App::setLocale('es');
+
+        $rendered = (new SignalReasonRenderer)->render($this->signal());
+
+        $this->assertSame('Afinidad de categoría', $rendered['label']);
+        $this->assertStringContainsString('gastronomía', $rendered['reason']);
+        $this->assertStringContainsString('cafetería', $rendered['reason']);
+    }
+
+    public function test_it_formats_numbers_in_the_readers_locale(): void
+    {
+        $renderer = new SignalReasonRenderer;
+        $signal = $this->signal([
+            'key' => 'location_fit',
+            'reason_key' => 'location_distance',
+            'reason_params' => ['km' => 2.5],
+        ]);
+
+        $this->assertStringContainsString('2.5', $renderer->render($signal)['reason']);
+
+        App::setLocale('es');
+
+        $this->assertStringContainsString('2,5', $renderer->render($signal)['reason']);
+    }
+
+    public function test_it_renders_a_whole_rating_with_one_decimal_place(): void
+    {
+        $rendered = (new SignalReasonRenderer)->render($this->signal([
+            'key' => 'delivery_proof',
+            'reason_key' => 'delivery_proof_business',
+            'reason_params' => ['reviews' => 4, 'rating' => 5.0],
+        ]));
+
+        $this->assertStringContainsString('5.0', $rendered['reason']);
+        $this->assertStringContainsString('4', $rendered['reason']);
+    }
+
+    public function test_it_joins_offer_need_slugs_into_a_readable_list(): void
+    {
+        $rendered = (new SignalReasonRenderer)->render($this->signal([
+            'key' => 'offer_need_fit',
+            'reason_key' => 'offer_need_overlap',
+            'reason_params' => ['items' => ['venue', 'food_drink']],
+        ]));
+
+        $this->assertStringContainsString('venue, food drink', $rendered['reason']);
+    }
+
+    /**
+     * The vocabulary map covers every matrix key by construction (asserted
+     * below), so this fallback is unreachable through generated data — but it is
+     * what keeps a future matrix column from rendering an empty reason line.
+     */
+    public function test_an_unmapped_slug_degrades_to_the_de_underscored_slug(): void
+    {
+        $rendered = (new SignalReasonRenderer)->render($this->signal([
+            'reason_params' => [
+                'community_type' => 'board_game_community',
+                'business_category' => 'board_game_cafe',
+            ],
+        ]));
+
+        $this->assertStringContainsString('board game community', $rendered['reason']);
+        $this->assertStringContainsString('board game cafe', $rendered['reason']);
+    }
+
+    public function test_it_renders_nothing_rather_than_a_dotted_key_for_a_signal_without_keys(): void
+    {
+        $rendered = (new SignalReasonRenderer)->render(['weight' => 0.25, 'score' => 1.0]);
+
+        $this->assertSame(['label' => '', 'reason' => ''], $rendered);
+    }
+
+    /**
+     * The realistic stale shape is not an absent key but an *unknown* one: a row
+     * written by an older deploy whose signal this code no longer has. Rendering
+     * it would put the literal "suggestions.reason.vibe_fit_great" on the web
+     * card and into both digest emails.
+     */
+    public function test_an_unknown_key_renders_nothing_and_is_logged(): void
+    {
+        Log::spy();
+
+        $rendered = (new SignalReasonRenderer)->render($this->signal([
+            'key' => 'vibe_fit',
+            'reason_key' => 'vibe_fit_great',
+            'reason_params' => [],
+        ]));
+
+        $this->assertSame(['label' => '', 'reason' => ''], $rendered);
+
+        Log::shouldHaveReceived('warning')
+            ->withArgs(fn (string $message, array $context): bool => ($context['signal_key'] ?? null) === 'vibe_fit')
+            ->once();
+
+        Log::shouldHaveReceived('warning')
+            ->withArgs(fn (string $message, array $context): bool => ($context['reason_key'] ?? null) === 'vibe_fit_great')
+            ->once();
+    }
+
+    /**
+     * A sentence reworded to need a param the stored row never carried would
+     * otherwise leak ":community_type" onto the card.
+     */
+    public function test_a_missing_param_renders_nothing_rather_than_leaking_the_placeholder(): void
+    {
+        Log::spy();
+
+        $rendered = (new SignalReasonRenderer)->render($this->signal([
+            'reason_params' => ['business_category' => 'cafe'],
+        ]));
+
+        $this->assertSame(__('suggestions.signal.category_fit'), $rendered['label']);
+        $this->assertSame('', $rendered['reason']);
+
+        Log::shouldHaveReceived('warning')
+            ->withArgs(fn (string $message, array $context): bool => ($context['missing_params'] ?? null) === ['community_type'])
+            ->once();
+    }
+
+    public function test_a_legitimate_colon_in_the_copy_is_not_read_as_a_placeholder(): void
+    {
+        $rendered = (new SignalReasonRenderer)->render($this->signal([
+            'reason_key' => 'no_history',
+            'reason_params' => [],
+        ]));
+
+        $this->assertNotSame('', $rendered['reason']);
+        $this->assertSame(__('suggestions.reason.no_history'), $rendered['reason']);
+    }
+
+    public function test_it_renders_a_proposed_format_title_in_the_readers_locale(): void
+    {
+        $renderer = new SignalReasonRenderer;
+        $format = ['title_key' => 'run_club', 'title_params' => ['community_type' => 'run_club']];
+
+        $this->assertSame(__('suggestions.format.title.run_club'), $renderer->renderTitle($format));
+
+        App::setLocale('es');
+
+        $this->assertSame(__('suggestions.format.title.run_club', locale: 'es'), $renderer->renderTitle($format));
+    }
+
+    public function test_an_unknown_format_title_key_renders_empty_and_is_logged(): void
+    {
+        Log::spy();
+
+        $rendered = (new SignalReasonRenderer)->renderTitle([
+            'title_key' => 'knitting_circle',
+            'title_params' => [],
+        ]);
+
+        $this->assertSame('', $rendered);
+
+        Log::shouldHaveReceived('warning')
+            ->withArgs(fn (string $message, array $context): bool => ($context['title_key'] ?? null) === 'knitting_circle')
+            ->once();
+    }
+
+    /**
+     * A title reworded to interpolate a param renders from the raw slug the row
+     * already carries — and renders nothing at all, rather than a leaked
+     * `:community_type`, for a row written before the rewording.
+     */
+    public function test_a_parameterised_title_interpolates_the_persisted_slug(): void
+    {
+        $this->assertTrue(Lang::has('suggestions.format.title.generic'));
+
+        Lang::addLines(['suggestions.format.title.parameterised' => 'Kolab with a :community_type community'], 'en');
+
+        $renderer = new SignalReasonRenderer;
+
+        $this->assertSame('Kolab with a Run club community', $renderer->renderTitle([
+            'title_key' => 'parameterised',
+            'title_params' => ['community_type' => 'run_club'],
+        ]));
+
+        Log::spy();
+
+        $this->assertSame('', $renderer->renderTitle([
+            'title_key' => 'parameterised',
+            'title_params' => [],
+        ]));
+
+        Log::shouldHaveReceived('warning')
+            ->withArgs(fn (string $message, array $context): bool => ($context['missing_params'] ?? null) === ['community_type'])
+            ->once();
+    }
+
+    public function test_a_format_title_without_a_key_renders_empty_without_logging(): void
+    {
+        Log::spy();
+
+        $this->assertSame('', (new SignalReasonRenderer)->renderTitle([]));
+
+        Log::shouldNotHaveReceived('warning');
+    }
+
+    /**
+     * Every community type the matrix knows needs a title template, plus the
+     * generic fallback, in all three locales — and with the same placeholders in
+     * each, or one locale renders a sentence where another renders nothing.
+     */
+    public function test_every_format_title_exists_with_the_same_placeholders_in_every_locale(): void
+    {
+        $titles = (require lang_path('en/suggestions.php'))['format']['title'];
+
+        $this->assertArrayHasKey('generic', $titles);
+
+        foreach (array_keys(CategoryFitMatrix::MATRIX) as $communityType) {
+            $this->assertArrayHasKey($communityType, $titles);
+        }
+
+        foreach (array_keys($titles) as $titleKey) {
+            $key = 'suggestions.format.title.'.$titleKey;
+            $placeholders = null;
+
+            foreach (['en', 'es', 'ca'] as $locale) {
+                $this->assertTrue(
+                    Lang::has($key, $locale, false),
+                    "Missing translation [{$key}] for locale [{$locale}]."
+                );
+
+                preg_match_all('/:([A-Za-z_][A-Za-z0-9_]*)/', (string) __($key, locale: $locale), $matches);
+                sort($matches[1]);
+
+                $placeholders ??= $matches[1];
+
+                $this->assertSame($placeholders, $matches[1], "Placeholder mismatch on [{$key}] for locale [{$locale}].");
+            }
+        }
+    }
+
+    /**
+     * The vocabulary map covers every matrix key by construction, which is what
+     * makes the slug fallback above unreachable through real data. Assert the
+     * invariant rather than relying on the fallback: this fails the moment a
+     * matrix column is added without a translation, which is the only way that
+     * fallback could ever fire in production.
+     */
+    public function test_every_matrix_key_has_a_vocabulary_entry_in_every_locale(): void
+    {
+        $communityTypes = array_keys(CategoryFitMatrix::MATRIX);
+        $businessCategories = array_keys(array_merge(...array_values(CategoryFitMatrix::MATRIX)));
+
+        $this->assertNotEmpty($communityTypes);
+        $this->assertNotEmpty($businessCategories);
+
+        foreach (['en', 'es', 'ca'] as $locale) {
+            foreach ($communityTypes as $communityType) {
+                $key = 'suggestions.vocabulary.community_type.'.$communityType;
+
+                $this->assertTrue(
+                    Lang::has($key, $locale, false),
+                    "Missing translation [{$key}] for locale [{$locale}]."
+                );
+            }
+
+            foreach ($businessCategories as $businessCategory) {
+                $key = 'suggestions.vocabulary.business_category.'.$businessCategory;
+
+                $this->assertTrue(
+                    Lang::has($key, $locale, false),
+                    "Missing translation [{$key}] for locale [{$locale}]."
+                );
+            }
+        }
+    }
+
+    /**
+     * Every reason key the scorer can emit must exist in all three locales, or a
+     * Spanish reader gets a dotted lang path where a sentence belongs.
+     */
+    public function test_every_reason_and_signal_key_exists_in_every_locale(): void
+    {
+        $keys = array_keys(require lang_path('en/suggestions.php'));
+
+        $this->assertSame(['signal', 'reason', 'format', 'vocabulary'], $keys);
+
+        foreach (['signal', 'reason'] as $group) {
+            $groupKeys = array_keys((require lang_path('en/suggestions.php'))[$group]);
+
+            $this->assertNotEmpty($groupKeys);
+
+            foreach (['en', 'es', 'ca'] as $locale) {
+                foreach ($groupKeys as $groupKey) {
+                    $key = 'suggestions.'.$group.'.'.$groupKey;
+
+                    $this->assertTrue(
+                        Lang::has($key, $locale, false),
+                        "Missing translation [{$key}] for locale [{$locale}]."
+                    );
+                }
+            }
+        }
+    }
+}

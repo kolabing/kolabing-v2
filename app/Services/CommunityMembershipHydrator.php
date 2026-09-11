@@ -82,6 +82,13 @@ class CommunityMembershipHydrator
                 'color' => $member->tier->color,
                 'rank' => $member->tier->rank,
             ] : null);
+            // The membership row already carries can_manage, so `my_can_manage`
+            // costs nothing here. Owners appear in these lists only via a
+            // membership row, so the owner check still has to be applied.
+            $community->setAttribute(
+                'viewer_can_manage',
+                $member->can_manage || $community->owner_profile_id === $profile->id,
+            );
         }
 
         return $points->mapWithKeys(static fn ($value, $communityId): array => [

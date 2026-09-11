@@ -91,6 +91,9 @@ class MultiKolabEventController extends Controller
             : MultiKolabEventStatus::Recruiting->value;
 
         $query = MultiKolabEvent::query()
+            // Public list only — a switched-off organiser's event is not on offer
+            // (#258). The caller's own list below is deliberately unfiltered.
+            ->fromActiveOwner()
             ->with(['creatorProfile.businessProfile', 'creatorProfile.communityProfile'])
             ->withCount([
                 'roles',

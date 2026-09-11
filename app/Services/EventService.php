@@ -31,6 +31,8 @@ class EventService
     public function __construct(
         private readonly FileUploadService $fileUploadService,
         private readonly NotificationService $notificationService,
+        private readonly CalendarInvitationService $calendarInvitationService,
+        private readonly NotificationReminderService $notificationReminderService,
     ) {}
 
     /**
@@ -73,6 +75,36 @@ class EventService
                     ->orWhereHas('signups', fn ($s) => $s->where('profile_id', $attendeeId)
                         ->where('status', '!=', 'cancelled'));
             });
+        }
+
+        if (! empty($filters['follower_profile_id'])) {
+            $followerId = $filters['follower_profile_id'];
+            // Only a community's events can be followed — an event with no
+            // community has no one to follow.
+            $query->whereHas(
+                'community.followers',
+                fn ($f) => $f->where('profile_id', $followerId)
+            )
+                // A follower is NOT a member (kolabing-app#138). Without this,
+                // following a community — one tap, no approval, nobody asked —
+                // returned its member- and tier-only events too, ids included,
+                // which is the exact privilege the split exists to withhold.
+                // The gate lives on this branch alone: `profile_id` (a leader
+                // listing their OWN events) and `attendee_profile_id` (events
+                // they were admitted to) must keep seeing everything.
+                //
+                // Someone who is both a member and a follower sees a little
+                // less here than they are entitled to; their member events are
+                // on the community's own surfaces. Under-showing to a member
+                // beats over-showing to a follower.
+                // Public plus `followers` — the viewer follows by definition
+                // (kolabing-app#157). Not members/tier: see
+                // EventDiscoveryService::applyFollowingFilter for why that
+                // under-shows to a member on purpose.
+                ->whereIn('visibility', [
+                    EventVisibility::Public->value,
+                    EventVisibility::Followers->value,
+                ]);
         }
 
         $time = $filters['time'] ?? null;
@@ -200,7 +232,25 @@ class EventService
         }
 
         if (! empty($updateData)) {
+            /*
+             * Only a move — in time or in place — is worth telling calendars
+             * about. A rename or a new photo must not bump `ics_sequence` or
+             * re-mail anyone: churn in someone's calendar is its own kind of
+             * spam, and a bumped sequence makes every attendee's client think
+             * the event changed when it did not.
+             */
+            $moved = collect(['starts_at', 'ends_at', 'location'])
+                ->contains(fn (string $field): bool => array_key_exists($field, $updateData)
+                    && $event->getAttribute($field) != $updateData[$field]);
+
             $event->update($updateData);
+
+            if ($moved) {
+                $this->calendarInvitationService->reissueForEvent($event->fresh());
+                // Reminders are anchored on starts_at, so a move has to re-time
+                // them too — syncReminder() resets a chain whose anchor changed.
+                $this->notificationReminderService->syncEventRemindersForEvent($event->fresh());
+            }
         }
 
         return $event->load(['photos']);
@@ -269,6 +319,9 @@ class EventService
             ])
             ->pluck('profile_id')
             ->all();
+
+        // Before the row goes, while the attendee list is still readable.
+        $this->calendarInvitationService->cancelForEvent($event);
 
         DB::transaction(function () use ($event): void {
             foreach ($event->photos as $photo) {

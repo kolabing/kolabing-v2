@@ -35,6 +35,23 @@ return [
 
     /*
     |--------------------------------------------------------------------
+    | Discovery visibility boost
+    |--------------------------------------------------------------------
+    |
+    | Additive points added to a business-authored Kolab's discovery match
+    | score for a community viewer, based on the business's partner status.
+    | Kept separate from the fit-relevance signals in
+    | DiscoveryOpportunityService::MATCH_SIGNALS so "why this ranked here"
+    | stays legible: fit vs. trust are different concepts.
+    |
+    */
+    'visibility_boost_points' => [
+        'trusted_partner' => 5,
+        'community_favourite' => 10,
+    ],
+
+    /*
+    |--------------------------------------------------------------------
     | Reminder cadences (hours after the anchor event)
     |--------------------------------------------------------------------
     */

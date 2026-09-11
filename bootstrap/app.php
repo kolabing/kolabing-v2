@@ -4,6 +4,10 @@ use App\Http\Middleware\AddSecurityHeaders;
 use App\Http\Middleware\CacheMarketingPage;
 use App\Http\Middleware\CanonicalUrl;
 use App\Http\Middleware\EnsureAdminUserIsMaintainer;
+use App\Http\Middleware\EnsureFeatureEnabled;
+use App\Http\Middleware\EnsureProfileActive;
+use App\Http\Middleware\EnsureSanctumUserIsMaintainer;
+use App\Http\Middleware\EnsureTargetProfileActive;
 use App\Http\Middleware\EnsureUserType;
 use App\Http\Middleware\LogAuthTokenFirstUse;
 use App\Http\Middleware\TouchProfileActivity;
@@ -53,7 +57,14 @@ return Application::configure(basePath: dirname(__DIR__))
             'ability' => CheckForAnyAbility::class,
             'log_auth_token_first_use' => LogAuthTokenFirstUse::class,
             'user_type' => EnsureUserType::class,
+            // Cuts off an account an admin switched off (#254) -> 403 ACCOUNT_DEACTIVATED.
+            'profile_active' => EnsureProfileActive::class,
+            // 404s a route whose {profile} target was switched off (#258).
+            'target_profile_active' => EnsureTargetProfileActive::class,
+            // feature:{name} -> config("{name}.enabled"); 404s a flag that is off.
+            'feature' => EnsureFeatureEnabled::class,
             'maintainer' => EnsureAdminUserIsMaintainer::class,
+            'maintainer.token' => EnsureSanctumUserIsMaintainer::class,
             'touch_profile_activity' => TouchProfileActivity::class,
             'cache_marketing' => CacheMarketingPage::class,
         ]);

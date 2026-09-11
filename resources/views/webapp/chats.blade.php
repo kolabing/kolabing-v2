@@ -369,8 +369,9 @@
             },
 
             async loadManaged() {
-                // GET /me/communities returns only OWNED communities, which is exactly
-                // the set whose channels this viewer may create/rename/delete.
+                // GET /me/communities returns the communities this viewer ADMINISTERS
+                // — owned plus co-run (community_members.can_manage) since BE-FX-15 —
+                // which is exactly the set whose channels it may create/rename/delete.
                 const res = await window.kb.api('/me/communities');
                 this.managed = res.ok ? window.kb.rows(res) : [];
             },

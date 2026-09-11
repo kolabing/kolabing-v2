@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exceptions\ChallengeRuleException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\AttachChallengeProofRequest;
 use App\Http\Requests\Api\V1\InitiateChallengeRequest;
 use App\Http\Resources\Api\V1\ChallengeCompletionResource;
 use App\Models\ChallengeCompletion;
@@ -42,6 +44,14 @@ class ChallengeCompletionController extends Controller
                 'success' => false,
                 'message' => $e->getMessage(),
             ], 422);
+        } catch (ChallengeRuleException $e) {
+            // A rule refused it, and WHICH rule is what the app needs to say
+            // something specific instead of a generic failure (#150).
+            return response()->json([
+                'success' => false,
+                'error' => $e->reason,
+                'message' => $e->getMessage(),
+            ], 409);
         } catch (\LogicException $e) {
             return response()->json([
                 'success' => false,
@@ -82,6 +92,76 @@ class ChallengeCompletionController extends Controller
     }
 
     /**
+     * Attach or replace the photo the pair took (#216).
+     *
+     * POST /api/v1/challenge-completions/{challengeCompletion}/photo
+     *
+     * multipart/form-data, field `photo`.
+     */
+    public function attachPhoto(
+        AttachChallengeProofRequest $request,
+        ChallengeCompletion $challengeCompletion
+    ): JsonResponse {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        /** @var \Illuminate\Http\UploadedFile $photo */
+        $photo = $request->file('photo');
+
+        try {
+            $completion = $this->challengeCompletionService->attachProofPhoto(
+                $profile,
+                $challengeCompletion,
+                $photo
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => __('Photo added.'),
+                'data' => new ChallengeCompletionResource($completion),
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'not_a_participant',
+                'message' => $e->getMessage(),
+            ], 403);
+        } catch (\LogicException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'photo_not_allowed',
+                'message' => $e->getMessage(),
+            ], 409);
+        }
+    }
+
+    /**
+     * Remove the photo.
+     *
+     * DELETE /api/v1/challenge-completions/{challengeCompletion}/photo
+     */
+    public function removePhoto(Request $request, ChallengeCompletion $challengeCompletion): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        try {
+            $completion = $this->challengeCompletionService->removeProofPhoto($profile, $challengeCompletion);
+
+            return response()->json([
+                'success' => true,
+                'data' => new ChallengeCompletionResource($completion),
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'not_a_participant',
+                'message' => $e->getMessage(),
+            ], 403);
+        }
+    }
+
+    /**
      * Reject a pending challenge completion.
      *
      * POST /api/v1/challenge-completions/{challengeCompletion}/reject
@@ -107,6 +187,38 @@ class ChallengeCompletionController extends Controller
         } catch (\LogicException $e) {
             return response()->json([
                 'success' => false,
+                'message' => $e->getMessage(),
+            ], 409);
+        }
+    }
+
+    /**
+     * The challenger withdraws a pending request.
+     *
+     * POST /api/v1/challenge-completions/{challengeCompletion}/cancel
+     */
+    public function cancel(Request $request, ChallengeCompletion $challengeCompletion): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        try {
+            $completion = $this->challengeCompletionService->cancel($profile, $challengeCompletion);
+
+            return response()->json([
+                'success' => true,
+                'data' => new ChallengeCompletionResource($completion),
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'not_the_challenger',
+                'message' => $e->getMessage(),
+            ], 403);
+        } catch (\LogicException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'already_answered',
                 'message' => $e->getMessage(),
             ], 409);
         }

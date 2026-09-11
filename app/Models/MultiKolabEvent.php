@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\MultiKolabEligibleAccountType;
 use App\Enums\MultiKolabEventStatus;
+use App\Models\Concerns\FiltersByActiveOwner;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -44,6 +45,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class MultiKolabEvent extends Model
 {
+    use FiltersByActiveOwner;
     use HasFactory;
     use HasUuids;
 

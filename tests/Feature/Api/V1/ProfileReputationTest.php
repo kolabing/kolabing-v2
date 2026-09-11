@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Api\V1;
 
 use App\Models\BusinessProfile;
+use App\Models\BusinessSubscription;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
 use App\Models\CommunityProfile;
@@ -363,7 +364,6 @@ class ProfileReputationTest extends TestCase
         $this->reviewedCollaboration($this->makeBusinessReviewer(), $community);
 
         $viewer = Profile::factory()->business()->create();
-
         $this->actingAs($viewer)
             ->getJson("/api/v1/profiles/{$community->id}")
             ->assertOk()
@@ -377,6 +377,10 @@ class ProfileReputationTest extends TestCase
         $this->reviewedCollaboration($business, $community);
 
         $viewer = Profile::factory()->business()->create();
+        // Subscribed: this test is about what the payload carries, and ROLES §2.5
+        // withholds a community's identity (and therefore its review list and
+        // portfolio) from an UNSUBSCRIBED business — see PublicProfileMaskTest.
+        BusinessSubscription::factory()->active()->create(['profile_id' => $viewer->id]);
 
         $this->actingAs($viewer)
             ->getJson("/api/v1/profiles/{$community->id}")

@@ -9,6 +9,7 @@ use App\Enums\FileUploadType;
 use App\Enums\IntentType;
 use App\Enums\JoinPolicy;
 use App\Enums\MissionTrigger;
+use App\Jobs\GenerateSuggestionsForProfile;
 use App\Models\Community;
 use App\Models\Kolab;
 use App\Models\Profile;
@@ -173,6 +174,7 @@ class OnboardingService
     public function completeBusinessOnboarding(Profile $profile, array $data): Profile
     {
         $photoUploaded = false;
+        $wasComplete = $profile->onboardingCompleted();
 
         $profile = DB::transaction(function () use ($profile, $data, &$photoUploaded): Profile {
             // Update phone number on main profile if provided
@@ -255,6 +257,12 @@ class OnboardingService
         if ($photoUploaded) {
             $this->recordMission($profile, MissionTrigger::BusinessPhotoUploaded, ['reference_id' => $profile->id]);
         }
+
+        // Completion is the first moment a suggestion is worth scoring: before it
+        // the profile has no city, so the candidate finder returns nothing. Queued
+        // after commit and only on the incomplete -> complete crossing, so
+        // re-running onboarding does not re-queue a pass.
+        GenerateSuggestionsForProfile::dispatchIfJustCompleted($profile, $wasComplete);
 
         return $profile;
     }
@@ -400,6 +408,7 @@ class OnboardingService
     public function completeCommunityOnboarding(Profile $profile, array $data): Profile
     {
         $photoUploaded = false;
+        $wasComplete = $profile->onboardingCompleted();
 
         $profile = DB::transaction(function () use ($profile, $data, &$photoUploaded): Profile {
             // Update phone number on main profile if provided
@@ -469,6 +478,12 @@ class OnboardingService
         if ($photoUploaded) {
             $this->recordMission($profile, MissionTrigger::CommunityPhotoUploaded, ['reference_id' => $profile->id]);
         }
+
+        // Completion is the first moment a suggestion is worth scoring: before it
+        // the profile has no city, so the candidate finder returns nothing. Queued
+        // after commit and only on the incomplete -> complete crossing, so
+        // re-running onboarding does not re-queue a pass.
+        GenerateSuggestionsForProfile::dispatchIfJustCompleted($profile, $wasComplete);
 
         return $profile;
     }

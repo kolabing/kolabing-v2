@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\VerificationStatus;
+use App\Models\Concerns\HasActiveProfileScope;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $tiktok
  * @property string|null $website
  * @property string|null $profile_photo
+ * @property string|null $cover_photo
  * @property bool $is_featured
  * @property array<int, array{type: string, url: string, is_public: bool}>|null $verification_channels
  * @property string $verification_status
@@ -37,6 +39,7 @@ use Illuminate\Support\Carbon;
  */
 class CommunityProfile extends Model
 {
+    use HasActiveProfileScope;
     use HasFactory;
     use HasUuids;
 
@@ -56,6 +59,7 @@ class CommunityProfile extends Model
         'tiktok',
         'website',
         'profile_photo',
+        'cover_photo',
         'is_featured',
         'verification_channels',
         'verification_status',

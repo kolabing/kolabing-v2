@@ -28,6 +28,7 @@ class NotificationPreferenceResource extends JsonResource
             'collaboration_updates' => $this->collaboration_updates,
             'message_notifications' => $this->message_notifications,
             'marketing_tips' => $this->marketing_tips,
+            'events_enabled' => $this->events_enabled,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

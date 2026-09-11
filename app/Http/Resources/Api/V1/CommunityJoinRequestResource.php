@@ -30,6 +30,23 @@ class CommunityJoinRequestResource extends JsonResource
                 'name' => $this->profileDisplayName(),
                 'avatar_url' => $this->profileAvatarUrl(),
             ]),
+            // Added, never replacing anything: what the applicant actually
+            // answered, which is the substance a leader decides on. Only
+            // present when eager-loaded, so a caller that does not need it pays
+            // nothing. The question's prompt rides along because a retired
+            // question is still readable and the leader needs to see what was
+            // asked.
+            'answers' => $this->whenLoaded('answers', fn () => $this->answers
+                ->map(fn ($answer) => [
+                    'question_id' => $answer->question_id,
+                    // The wording the applicant saw, falling back to the
+                    // question's current prompt for rows written before the
+                    // snapshot existed.
+                    'prompt' => $answer->prompt_snapshot ?? $answer->question?->prompt,
+                    'answer' => $answer->answer,
+                ])
+                ->values()
+                ->all()),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

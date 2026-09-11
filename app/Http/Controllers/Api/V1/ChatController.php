@@ -300,7 +300,17 @@ class ChatController extends Controller
             ], 403);
         }
 
-        $message = $this->chatService->sendThreadMessage($profile, $thread, $request->validated());
+        try {
+            $message = $this->chatService->sendThreadMessage($profile, $thread, $request->validated());
+        } catch (InvalidArgumentException $e) {
+            // A Kolab thread delegates to the application send path, which re-checks
+            // participation. `canAccessThread` above already covers it, so this only
+            // guards against the two checks ever drifting — never a 500.
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 403);
+        }
 
         return response()->json([
             'success' => true,

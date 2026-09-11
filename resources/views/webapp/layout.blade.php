@@ -18,8 +18,8 @@
     <meta property="og:site_name" content="Kolabing">
     <meta property="og:title" content="@yield('title', 'Kolabing')">
     <meta property="og:locale" content="{{ str_replace('-', '_', $loc) }}">
-    <link rel="icon" href="/favicon.ico?v=3" sizes="any">
-    <link rel="apple-touch-icon" href="/favicon-512.png?v=3">
+    <link rel="icon" href="/favicon.ico?v=4" sizes="any">
+    <link rel="apple-touch-icon" href="/favicon-512.png?v=4">
     {{-- Theme must be on <html> before first paint, or the cream ground flashes
          white-hot in front of a dark-theme user on every navigation. --}}
     <script>
@@ -164,12 +164,48 @@
         /* Native controls (date/time pickers, selects) follow the theme. */
         input[type="date"], input[type="time"] { color-scheme: inherit; }
 
+        /*
+         * Themed checkbox. @tailwindcss/forms (loaded from the CDN above) paints an
+         * unchecked box a hard-coded `#fff` and a checked one `currentColor` behind a
+         * tick that is hard-coded `white`. Both assume a light page: in dark theme the
+         * unchecked box was a white chip on a near-black ground, and a box carrying a
+         * theme text colour (ink inverts to near-white) went white-tick-on-white when
+         * ticked — so ticking it changed nothing on screen and the control read as
+         * unselectable. Bind both states to tokens instead, with the same yellow-fill /
+         * dark-tick treatment the selectable cards use. The tick is `--kb-on-primary`,
+         * which is the same near-black in both themes because the yellow never darkens.
+         * Specificity (0,3,1) beats the plugin's `[type='checkbox']:checked` (0,2,0)
+         * and `…:checked:hover` (0,3,0), so it wins whatever order the CDN injects in.
+         */
+        input[type="checkbox"].kb-checkbox {
+            background-color: rgb(var(--kb-surface));
+            border-color: rgb(var(--kb-ink) / .25);
+            border-width: 1.5px;
+        }
+        input[type="checkbox"].kb-checkbox:checked,
+        input[type="checkbox"].kb-checkbox:checked:hover,
+        input[type="checkbox"].kb-checkbox:checked:focus {
+            background-color: rgb(var(--kb-primary));
+            border-color: rgb(var(--kb-primary));
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='%2319150F' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3E%3C/svg%3E");
+        }
+
         /* Anton display face — the design always sets uppercase + .02em tracking. */
         .font-anton { font-family: Anton, sans-serif; letter-spacing: .02em; text-transform: uppercase; font-weight: 400; }
 
         @keyframes kbFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .kb-fade-up { animation: kbFadeUp .5s cubic-bezier(.16,.84,.34,1); }
         .kb-fade-up-fast { animation: kbFadeUp .3s cubic-bezier(.16,.84,.34,1); }
+
+        /*
+         * Motion is decoration everywhere in this app, so someone who asked their OS
+         * for less of it gets the same screens without the movement. The Kolab drawer
+         * slides via Alpine's x-transition and carries `motion-reduce:transition-none`
+         * for the same reason.
+         */
+        @media (prefers-reduced-motion: reduce) {
+            .kb-fade-up, .kb-fade-up-fast { animation: none; }
+        }
 
         /* The auth welcome hero's curved yellow cap. */
         .kb-hero-curve { border-radius: 0 0 48% 48% / 0 0 60px 60px; }
@@ -243,6 +279,10 @@
             androidUrl: @json(config('webapp.play_store_url')),
             deepLink: @json(config('webapp.deep_link')),
             marketingUrl: @json(config('webapp.marketing_url')),
+            // Whether kolabing.com shows Kolabs at all. Off means those routes 404
+            // (BE-FX-24), so anything in the panel that would hand a visitor a
+            // marketing-host Kolab link has to ask first.
+            publicKolabs: @json((bool) config('kolabing.public_kolabs.enabled')),
             // Reverb (real-time chat). `key` is null until the daemon is deployed
             // (BE-IF-18); the chat page then polls instead of opening a socket.
             realtime: @json(config('webapp.realtime')),
@@ -266,6 +306,22 @@
         window.tOr = function (key, fallback) {
             const s = window.t(key);
             return s === key ? fallback : s;
+        };
+        /** Date + time in the viewer's locale, for anything timestamped to the minute. */
+        window.kbDateTime = function (iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            return d.toLocaleDateString(window.KB_LOCALE || 'en', { day: 'numeric', month: 'short' })
+                + ' · ' + d.toLocaleTimeString(window.KB_LOCALE || 'en', { hour: '2-digit', minute: '2-digit' });
+        };
+        /**
+         * Where to go after signing in. `?next=` is honoured only when it is a local
+         * path — an absolute URL here would be an open redirect.
+         */
+        window.kbPostAuthTarget = function (fallback) {
+            const next = new URLSearchParams(location.search).get('next');
+            if (next && next.startsWith('/') && !next.startsWith('//')) return next;
+            return fallback;
         };
         /** Today + `days`, as a local YYYY-MM-DD (never UTC — that shifts the day). */
         window.kbDayOffset = function (days) {
@@ -291,7 +347,29 @@
                 if (data.refresh_token) localStorage.setItem(this.refreshKey, data.refresh_token);
             },
             clear() { localStorage.removeItem(this.tokenKey); localStorage.removeItem(this.refreshKey); },
-            requireAuth() { if (!this.token) { window.nav('/login'); return false; } return true; },
+            /*
+             * Bounce to login, remembering where the visitor was trying to go.
+             *
+             * This matters most for the hand-offs from kolabing.com: a public page
+             * cannot sign anyone in (the token lives in this host's storage), so it
+             * sends people here with their intent in the query — /events/{id}?rsvp=1,
+             * /kolabs/{id}?apply=1. Without `next` the login screen forgot the
+             * destination and dropped them on the dashboard, losing the intent that
+             * brought them. `next` is a path only, and kbPostAuthTarget() re-checks
+             * that before using it, so this cannot become an open redirect. The
+             * locale prefix is stripped because nav() adds it back.
+             */
+            requireAuth() {
+                if (this.token) return true;
+
+                const base = window.KB_BASE || '';
+                const here = location.pathname.startsWith(base) ? location.pathname.slice(base.length) : location.pathname;
+                const intended = here + location.search;
+
+                window.nav(here === '/login' ? '/login' : '/login?next=' + encodeURIComponent(intended));
+
+                return false;
+            },
             requireGuest() { if (this.token) { window.nav('/dashboard'); return false; } return true; },
             // Logging out leaves the product entirely — send people to the public
             // site, not back to the app host's own logged-out hero.
@@ -401,6 +479,18 @@
                 draft: 'neutral', closed: 'neutral', completed: 'neutral', withdrawn: 'neutral',
                 accepted: 'ok', active: 'ok', published: 'ok',
                 declined: 'bad', cancelled: 'bad', past_due: 'bad',
+                /*
+                 * Multi-Kolab events and their roles reuse this helper rather than
+                 * getting a second one — a status pill should look the same wherever
+                 * the panel prints one.
+                 *
+                 * `expired` is neutral, not bad: the date ran out without the roles
+                 * filling, which is an ending rather than a failure. `cancelled`
+                 * stays bad because somebody called it off.
+                 */
+                recruiting: 'warn', shortlisted: 'warn', open: 'warn',
+                confirmed: 'ok', filled: 'ok',
+                expired: 'neutral',
             }[status] || 'neutral';
             return {
                 bg: `rgb(var(--kb-${tone}-surface))`,
@@ -434,6 +524,62 @@
             const d = new Date(iso);
             if (isNaN(d)) return String(iso);
             return d.toLocaleDateString(window.KB_LOCALE || 'en', { day: 'numeric', month: 'short' });
+        };
+
+        /**
+         * Which dates a Kolab can actually happen on, soonest first.
+         *
+         * One definition, because the rule is subtle in three ways and every place
+         * that guesses at it gets a different answer:
+         *
+         *  1. The floor is *tomorrow*, not today — a Kolab cannot be booked for the
+         *     day you are reading it.
+         *  2. `recurring_days` is ISO (1 = Monday … 7 = Sunday), which is NOT what
+         *     `Date.getDay()` returns (0 = Sunday). Mixing the two is wrong only on
+         *     Sundays, so it survives casual testing.
+         *  3. An empty `recurring_days` means "any day in the window", not "no days".
+         *
+         * Accepts either shape the API hands out: KolabResource's flat
+         * `availability_start` / `availability_end` / `recurring_days`, or the
+         * discovery feed's nested `availability: {start, end, recurring_days}`.
+         *
+         * @returns {Array<{value: string, top: string, bot: string, date: Date}>}
+         */
+        window.kbNextDates = function (kolab, limit) {
+            if (!kolab) return [];
+            const av = kolab.availability || kolab;
+            const start = av.availability_start || av.start || null;
+            const endRaw = av.availability_end || av.end || null;
+            const daysRaw = av.recurring_days;
+
+            const pad = (n) => String(n).padStart(2, '0');
+            const key = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            const locale = window.KB_LOCALE || 'en';
+
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today.getTime() + 86400000);
+
+            let cur = start ? new Date(start + 'T00:00:00') : tomorrow;
+            if (isNaN(cur) || cur < tomorrow) cur = tomorrow;
+            const end = endRaw ? new Date(endRaw + 'T00:00:00') : null;
+            const days = Array.isArray(daysRaw) && daysRaw.length ? daysRaw.map(Number) : null;
+
+            const max = limit || 8;
+            const out = [];
+            for (let guard = 0; guard < 400 && out.length < max; guard++) {
+                if (end && cur > end) break;
+                const iso = cur.getDay() === 0 ? 7 : cur.getDay();
+                if (!days || days.includes(iso)) {
+                    out.push({
+                        value: key(cur),
+                        top: cur.toLocaleDateString(locale, { weekday: 'short' }),
+                        bot: cur.toLocaleDateString(locale, { day: 'numeric', month: 'short' }),
+                        date: new Date(cur.getTime()),
+                    });
+                }
+                cur = new Date(cur.getTime() + 86400000);
+            }
+            return out;
         };
 
         /**
@@ -512,6 +658,152 @@
             },
         };
 
+        /**
+         * Phone-frame preview state, shared by every Profile-section tab.
+         *
+         * Spread into the page's x-data next to kbShell(); call initPreview()
+         * from the page's init() and refreshPreview() after any successful
+         * mutation, so the phone is never stale relative to what the tab did.
+         *
+         * The markup lives in webapp/partials/phone-preview.blade.php, whose header
+         * comment lists every Dart file this replica tracks.
+         *
+         * ⚠️ THE ENDPOINTS ARE PART OF THE MIRROR. The Flutter screen makes three
+         * calls, so this makes the same three. The earlier single call to
+         * /profiles/{id}/public-profile caused most of the drift:
+         * CommunityPublicProfileResource carries no `reputation`, no `recent_reviews`,
+         * no `completed_kolabs_count` and no `type_label` — so the reputation card was
+         * permanently "— · 0 reviews · 0 completed", the reviews card could not exist,
+         * and the header printed the raw slug (`run_club`) instead of "Run Club".
+         *
+         *   GET /profiles/{id}                 → PublicProfileResource: identity,
+         *                                        type_label, about, socials, gallery,
+         *                                        reputation, recent_reviews,
+         *                                        completed_kolabs_count
+         *   GET /profiles/{id}/collaborations  → PublicCollaborationResource, the
+         *                                        past-Kolabs rail
+         *   GET /events?profile_id={id}        → EventResource, the past-events rail.
+         *                                        The app sends no time filter here, so
+         *                                        neither do we — its rail can carry a
+         *                                        future-dated event and so does this.
+         */
+        window.kbPhonePreview = function () {
+            /* Both app formatters hardcode English month abbreviations. */
+            const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+            return {
+                previewProfile: null,
+                previewCollaborations: [],
+                previewEvents: [],
+                previewLoading: true,
+                previewError: '',
+
+                get previewAvatar() {
+                    return this.previewProfile?.avatar_url || this.previewProfile?.profile_photo || '';
+                },
+                /** `type_label` is the formatted label ("Run Club"); `type` is the raw slug. */
+                get previewTypeLabel() { return this.previewProfile?.type_label || ''; },
+                get previewGallery() { return this.previewProfile?.gallery || []; },
+                get previewReputation() { return this.previewProfile?.reputation || null; },
+                get previewReviewCount() { return Number(this.previewReputation?.review_count || 0); },
+                /** Reputation.hasReviews — the switch between the card and the empty state. */
+                get previewHasReviews() { return this.previewReviewCount > 0; },
+                get previewPartnerCount() { return Number(this.previewReputation?.unique_partner_count || 0); },
+                get previewCompletedCount() {
+                    return Number(
+                        this.previewProfile?.completed_kolabs_count
+                        ?? this.previewReputation?.completed_kolabs_count
+                        ?? 0
+                    );
+                },
+                get previewRating() {
+                    const rating = this.previewReputation?.average_rating;
+                    return rating ? Number(rating).toFixed(1) : '—';
+                },
+                get previewReviews() { return this.previewProfile?.recent_reviews || []; },
+                /** PublicProfile.kolabsCount — the count, falling back to the list length. */
+                get previewKolabsCount() {
+                    return this.previewCompletedCount || this.previewCollaborations.length;
+                },
+                get previewHasSocials() {
+                    const p = this.previewProfile || {};
+                    return Boolean(p.instagram || p.tiktok || p.website);
+                },
+
+                /**
+                 * `@handle`. The Dart interpolates the stored value raw, so a handle
+                 * saved as "@foo" prints "@@foo" there; stripping is the one place this
+                 * replica knowingly renders better than the screen it mirrors.
+                 */
+                previewHandle(value) { return '@' + String(value || '').replace(/^@+/, ''); },
+
+                /** Event.coverPhotoUrl — photos.first.url (the API emits no videos). */
+                previewEventCover(event) {
+                    const first = (event?.photos || [])[0];
+                    return first ? (first.url || first) : null;
+                },
+                previewEventPhotoCount(event) { return (event?.photos || []).length; },
+                /** Event.formattedAttendeeCount — "1.2K" from a thousand up. */
+                previewAttendeeCount(event) {
+                    const n = Number(event?.attendee_count || 0);
+                    if (n < 1000) { return String(n); }
+                    const k = n / 1000;
+                    return (k === Math.trunc(k) ? k.toFixed(0) : k.toFixed(1)) + 'K';
+                },
+                /** Event.formattedDate — "Mar 12, 2026". Not locale-aware in the app. */
+                previewDateBadge(iso) {
+                    const d = iso ? new Date(iso) : null;
+                    if (!d || isNaN(d)) { return ''; }
+                    return MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+                },
+                /** _formatReviewDate — "12 Mar 2026". Day first, unlike the badge above. */
+                previewReviewDate(iso) {
+                    const d = iso ? new Date(iso) : null;
+                    if (!d || isNaN(d)) { return ''; }
+                    return d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+                },
+                /** PastCollaborationCard's DateFormat('MMM yyyy') — locale-aware there. */
+                previewCollabMonth(iso) {
+                    const d = iso ? new Date(iso) : null;
+                    if (!d || isNaN(d)) { return ''; }
+                    return d.toLocaleDateString(window.KB_LOCALE || 'en', { month: 'short', year: 'numeric' });
+                },
+                /** window.t() has no plural support; every one of these app strings has one. */
+                previewCount(key, count) {
+                    const n = Number(count || 0);
+                    return n === 1
+                        ? window.t('account.phone.' + key + '_one')
+                        : window.t('account.phone.' + key, { count: n });
+                },
+
+                async initPreview() { await this.refreshPreview(); },
+
+                async refreshPreview() {
+                    if (!this.me?.id) { this.previewLoading = false; return; }
+
+                    this.previewError = '';
+                    const id = this.me.id;
+                    const [profile, collaborations, events] = await Promise.all([
+                        window.kb.api('/profiles/' + id),
+                        window.kb.api('/profiles/' + id + '/collaborations?per_page=10'),
+                        window.kb.api('/events?profile_id=' + encodeURIComponent(id) + '&limit=10'),
+                    ]);
+                    this.previewLoading = false;
+
+                    if (!profile.ok) {
+                        this.previewError = window.kb.errorText(profile, window.t('account.phone.error'));
+                        return;
+                    }
+                    this.previewProfile = profile.json?.data || null;
+                    // The two rails are decoration: a failure there empties its own card
+                    // instead of blanking the phone — which is what the app does too, it
+                    // gives each section its own loading/error state.
+                    this.previewCollaborations = collaborations.ok ? window.kb.rows(collaborations) : [];
+                    this.previewEvents = events.ok ? window.kb.rows(events, 'events') : [];
+                },
+            };
+        };
+
         // Shared shell state: viewer identity + unread notification count + theme.
         // kbMerge (never object spread) so kbThemeState's `isDark` getter stays lazy.
         function kbShell() {
@@ -519,6 +811,23 @@
                 me: null, unread: 0, chatUnread: 0, menuOpen: false, shellReady: false,
                 get isBusiness() { return this.me?.user_type === 'business'; },
                 get isCommunity() { return this.me?.user_type === 'community'; },
+                /*
+                 | The third role. An attendee sells nothing and posts nothing: they
+                 | turn up. So most of the panel is not theirs — no Explore, no My
+                 | Kolabs, no plan, no suggestions — and the shell has to know that
+                 | rather than each page discovering it. See ROLES §7.2.
+                 */
+                get isAttendee() { return this.me?.user_type === 'attendee'; },
+                /**
+                 * An attendee who registered but never finished onboarding.
+                 *
+                 * `handle` is the tell, because it is the one thing onboarding always
+                 * writes (name and handle are its only required fields) and nothing
+                 * else can set. Without this an attendee lands on a panel addressed to
+                 * nobody — no name, no city, no interests — with no route back to the
+                 * flow that fills them in.
+                 */
+                get needsAttendeeOnboarding() { return this.isAttendee && !this.me?.handle; },
                 /** A business without an active plan — paywalled actions should route to /subscription. */
                 get needsPlan() { return this.isBusiness && !this.me?.has_active_subscription; },
                 /** Stripe could not charge the card: access is degrading and the business must act. */
@@ -542,11 +851,17 @@
                     return p.business_profile || p.community_profile || {};
                 },
                 get displayName() {
-                    return this.profile.name || this.me?.handle || this.me?.email || '';
+                    // An attendee's name lives on `profiles` itself — there is no
+                    // extended profile to read it from.
+                    return this.profile.name || this.me?.name || this.me?.handle || this.me?.email || '';
                 },
                 get initial() { return window.kbInitial(this.displayName); },
                 get avatarUrl() { return this.profile.logo_url || this.profile.profile_photo || this.me?.avatar_url || ''; },
-                get roleLabel() { return this.isBusiness ? window.t('nav.role_business') : window.t('nav.role_community'); },
+                get roleLabel() {
+                    if (this.isBusiness) return window.t('nav.role_business');
+                    if (this.isAttendee) return window.t('nav.role_attendee');
+                    return window.t('nav.role_community');
+                },
                 /*
                  | Community Hub access.
                  |
@@ -554,7 +869,7 @@
                  | an attendee account carrying can_manage on their membership
                  | (ROLES §8.1 / §8.3 D1). A leader owns their community outright.
                  */
-                communities: [], communityPending: 0,
+                communities: [], communityPending: 0, communityStats: null,
                 get canManageCommunity() { return this.communities.length > 0; },
                 /**
                  * Whether the Hub is reachable at all. A community user with no
@@ -563,6 +878,50 @@
                  * becoming a leader). Managers reach it via the grant.
                  */
                 get canSeeCommunityHub() { return this.canManageCommunity || this.isCommunity; },
+
+                /*
+                 |-------------------------------------------------------------
+                 | Multi-Kolab events — the Event Creator entitlement
+                 |-------------------------------------------------------------
+                 |
+                 | Gated on the GRANT, like the Community Hub above and for the
+                 | same reason: creating a multi-Kolab event is a capability a
+                 | maintainer hands out (`organizer_entitlements`, capability
+                 | `event_creator`), not something a user_type implies. Applying
+                 | to a ROLE needs no entitlement — those arrive through Explore.
+                 |
+                 | Null until the call lands, so `canCreateEvents` is false and
+                 | the nav entry stays hidden rather than flickering in and out.
+                 */
+                organizerEntitlement: null,
+                get canCreateEvents() {
+                    return this.organizerEntitlement?.has_event_creator_entitlement === true;
+                },
+
+                async loadOrganizerEntitlement() {
+                    // An attendee cannot hold this capability, so do not ask.
+                    if (this.isAttendee) return;
+                    const res = await window.kb.api('/me/organizer-entitlement');
+                    if (res.ok) this.organizerEntitlement = res.json?.data || null;
+                },
+                /**
+                 * Send an attendee to finish onboarding, once.
+                 *
+                 * Called by every page's init() right after loadShell(). It is here
+                 * rather than in each page so a new page cannot forget it, and it
+                 * checks the current path so the onboarding page itself does not
+                 * bounce to itself forever.
+                 */
+                redirectIfOnboardingIncomplete() {
+                    if (!this.needsAttendeeOnboarding) return false;
+                    const base = window.KB_BASE || '';
+                    const here = location.pathname.startsWith(base)
+                        ? location.pathname.slice(base.length)
+                        : location.pathname;
+                    if (here.startsWith('/onboarding')) return false;
+                    window.nav('/onboarding/attendee');
+                    return true;
+                },
                 get activeCommunity() {
                     const saved = localStorage.getItem('kolabing_active_community');
                     return this.communities.find(c => c.id === saved) || this.communities[0] || null;
@@ -578,6 +937,9 @@
                         window.kb.api('/me/memberships'),
                     ]);
                     const mine = owned.ok ? window.kb.rows(owned) : [];
+                    // /me/communities already covers co-run communities since BE-FX-15
+                    // (each row carries my_can_manage); the memberships merge below is
+                    // now belt-and-braces and de-duped by id.
                     // /me/memberships returns membership rows: {community, tier, can_manage, …}
                     const managed = (memberships.ok ? window.kb.rows(memberships) : [])
                         .filter(m => m?.can_manage && m?.community)
@@ -619,12 +981,19 @@
                         ? window.t('community.create.limit_reached')
                         : window.kb.errorText(res, window.t('community.create.error'));
                 },
+                /*
+                 | The badge, and now the numbers behind it. This call already fetched
+                 | members/tiers/engagement and threw all but `pending` away; keeping
+                 | the payload lets the dashboard show the community summary without a
+                 | second request on every page load.
+                 */
                 async loadCommunityPending() {
                     const community = this.activeCommunity;
                     if (!community) return;
                     const res = await window.kb.api('/communities/' + community.id + '/stats');
                     if (!res.ok) return;
-                    const p = res.json?.data?.pending || {};
+                    this.communityStats = res.json?.data || null;
+                    const p = this.communityStats?.pending || {};
                     this.communityPending = (p.join_requests || 0) + (p.invitations || 0);
                 },
                 async loadShell() {
@@ -636,6 +1005,15 @@
                     ]);
                     if (!me.ok) { window.kb.logout(); return null; }
                     this.me = me.json?.data || null;
+
+                    /*
+                     * An attendee who never finished onboarding has no handle, no
+                     * name and no city, so every panel screen would be addressed to
+                     * nobody. Bounce here rather than in each page's init(): put in
+                     * one place, a new page cannot forget it. Returning null stops
+                     * the caller, which every page already handles (`if (!me) return`).
+                     */
+                    if (this.redirectIfOnboardingIncomplete()) return null;
                     if (un.ok) this.unread = un.json?.data?.count ?? 0;
                     // Unread messages are counted separately from notifications:
                     // a message raises both, and the two badges sit on two nav rows.
@@ -643,6 +1021,7 @@
                     this.shellReady = true;
                     // Non-blocking: the nav entry appears once this resolves.
                     this.loadManagedCommunities().then(() => this.loadCommunityPending());
+                    this.loadOrganizerEntitlement();
                     return this.me;
                 },
             });

@@ -10,6 +10,7 @@ use App\Http\Resources\Api\V1\EventCheckinResource;
 use App\Models\Event;
 use App\Models\Profile;
 use App\Services\CheckinService;
+use App\Support\CheckinLink;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -29,19 +30,32 @@ class CheckinController extends Controller
         /** @var Profile $profile */
         $profile = $request->user();
 
-        if ($profile->id !== $event->profile_id) {
+        if (! $event->isHostedBy($profile)) {
             return response()->json([
                 'success' => false,
                 'message' => __('You are not authorized to generate a QR token for this event.'),
             ], 403);
         }
 
-        $token = $this->checkinService->generateCheckinToken($event);
+        /*
+         * Reopening an already-open door returns the same code. Two clients means a
+         * host may press this on a phone while a laptop is still showing the QR;
+         * minting a new one there would kill a code people are queuing in front of.
+         * `rotate` is how a host deliberately retires a leaked code.
+         */
+        $token = $this->checkinService->openDoor($event, $request->boolean('rotate'));
+        $event->refresh();
 
         return response()->json([
             'success' => true,
             'data' => [
                 'checkin_token' => $token,
+                // The typable twin, and the URL the QR should carry. Building the
+                // URL here keeps every client — web, mobile, a printed sheet — from
+                // inventing its own shape.
+                'checkin_code' => $event->checkin_code,
+                'checkin_url' => CheckinLink::urlFor($event),
+                'checkin_expires_at' => $event->checkin_token_expires_at?->toIso8601String(),
             ],
         ]);
     }
@@ -76,6 +90,40 @@ class CheckinController extends Controller
                 'success' => false,
                 'message' => $e->getMessage(),
             ], $statusCode);
+        }
+    }
+
+    /**
+     * Check the caller in to an event they are going to, no token needed.
+     *
+     * POST /api/v1/events/{event}/checkin
+     *
+     * 201 on success, so a client can tell it from the QR door's 200. Every
+     * refusal is a 422 with a message the app renders verbatim, except an
+     * existing check-in which is a **409** — the caller's intent is already
+     * satisfied and the app treats it as "you are in" rather than an error.
+     */
+    public function selfCheckin(Request $request, Event $event): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        try {
+            $checkin = $this->checkinService->selfCheckin($event, $profile);
+
+            return response()->json([
+                'success' => true,
+                'message' => __('Checked in successfully.'),
+                'data' => new EventCheckinResource($checkin),
+            ], 201);
+        } catch (\LogicException $e) {
+            $already = str_contains($e->getMessage(), 'already checked in');
+
+            return response()->json([
+                'success' => false,
+                'error' => $already ? 'already_checked_in' : 'self_checkin_refused',
+                'message' => $e->getMessage(),
+            ], $already ? 409 : 422);
         }
     }
 

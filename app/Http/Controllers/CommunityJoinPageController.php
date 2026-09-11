@@ -20,8 +20,13 @@ use Illuminate\Http\Request;
  */
 class CommunityJoinPageController extends Controller
 {
-    public function show(Request $request, string $slug): View
+    public function show(Request $request): View
     {
+        // Read by NAME, not by position: this route is registered twice — once at
+        // /c/{slug} and once at /{locale}/c/{slug} — so a positional argument
+        // picks up the locale on the prefixed one.
+        $slug = (string) $request->route('slug');
+
         $community = Community::query()
             ->where('slug', $slug)
             ->with([
@@ -44,7 +49,13 @@ class CommunityJoinPageController extends Controller
             ->limit(5)
             ->get(['id', 'name', 'event_date']);
 
-        return view('pages.community-join', [
+        $logo = $community->avatar_url ?: $community->communityProfile?->profile_photo;
+
+        return view('webapp.community-join', [
+            'logo' => $logo,
+            'metaDescription' => $community->description
+                ? \Illuminate\Support\Str::limit(strip_tags($community->description), 155)
+                : __('Join :community on Kolabing.', ['community' => $community->name]),
             'community' => $community,
             'memberCount' => $memberCount,
             'events' => $events,

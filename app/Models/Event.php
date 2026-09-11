@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\HasActiveOwnerScope;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * @property string $id
@@ -33,6 +35,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $max_challenges_per_attendee
  * @property bool $is_active
  * @property string|null $checkin_token
+ * @property string|null $checkin_code
+ * @property \Illuminate\Support\Carbon|null $checkin_token_expires_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Profile $profile
@@ -43,6 +47,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Event extends Model
 {
+    use HasActiveOwnerScope;
+
+    /** The column that names this row's owner (#258). */
+    protected static string $activeOwnerKey = 'profile_id';
+
     /** @use HasFactory<\Database\Factories\EventFactory> */
     use HasFactory;
 
@@ -75,17 +84,33 @@ class Event extends Model
         'max_challenges_per_attendee',
         'is_active',
         'checkin_token',
+        'checkin_code',
+        'checkin_token_expires_at',
     ];
 
     /**
      * @return array<string, string>
      */
+    /**
+     * Whether a profile hosts this event.
+     *
+     * The single rule behind three gates: who may open the door, who may read the
+     * check-in list, and who may watch arrivals on the broadcast channel. Holding
+     * the token or the code is permission to be recorded as present, so these three
+     * must never drift apart.
+     */
+    public function isHostedBy(?Profile $profile): bool
+    {
+        return $profile !== null && $profile->id === $this->profile_id;
+    }
+
     protected function casts(): array
     {
         return [
             'event_date' => 'date',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
+            'checkin_token_expires_at' => 'datetime',
             'attendee_count' => 'integer',
             'occurrence_index' => 'integer',
             'location_lat' => 'decimal:7',
@@ -115,6 +140,32 @@ class Event extends Model
     public function isUpcoming(): bool
     {
         return $this->effectiveEnd()->isFuture();
+    }
+
+    /**
+     * When this event stops accepting challenge confirmations
+     * (kolabing-app#154).
+     *
+     *   ends_at + 1h  →  starts_at + 6h  →  the end of event_date's day
+     *
+     * The hour of grace is for the confirmation that happens on the way out.
+     * The `starts_at + 6h` fallback matches what CheckinService uses for its
+     * token window, deliberately: two different windows on the same event would
+     * mean people could check in to something they could no longer play.
+     *
+     * Kept separate from `CheckinService::checkinWindowEndsAt()` even so,
+     * because that one has a minimum-door floor — a freshly minted token has to
+     * be usable for a while regardless of the schedule — and a challenge window
+     * must not inherit a floor that could outlive the event.
+     */
+    public function challengesCloseAt(): ?Carbon
+    {
+        return match (true) {
+            $this->ends_at !== null => $this->ends_at->copy()->addHour(),
+            $this->starts_at !== null => $this->starts_at->copy()->addHours(6),
+            $this->event_date !== null => $this->event_date->copy()->endOfDay(),
+            default => null,
+        };
     }
 
     /**

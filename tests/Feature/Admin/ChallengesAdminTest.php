@@ -7,6 +7,7 @@ namespace Tests\Feature\Admin;
 use App\Enums\ChallengeAudience;
 use App\Enums\ChallengeCategory;
 use App\Enums\ChallengeDifficulty;
+use App\Enums\ChallengeProofType;
 use App\Enums\MissionRepeat;
 use App\Enums\MissionTrigger;
 use App\Models\BusinessProfile;
@@ -114,6 +115,106 @@ class ChallengesAdminTest extends TestCase
             ->assertRedirect(route('admin.gamification.challenges.index'));
 
         $this->assertSame('business', $challenge->fresh()->audience->value);
+    }
+
+    // #248: the camera setting existed everywhere except the one screen a human
+    // uses. `proof_type` was on the model, cast, in the API resource and in the
+    // API requests — but not in the admin requests, so `validated()` dropped it
+    // and the panel could never author a camera challenge.
+    public function test_create_persists_the_camera_setting(): void
+    {
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.gamification.challenges.store'), [
+                'name' => 'Selfie together',
+                'difficulty' => ChallengeDifficulty::Easy->value,
+                'points' => 15,
+                'audience' => ChallengeAudience::Both->value,
+                'proof_type' => ChallengeProofType::Photo->value,
+            ])
+            ->assertRedirect(route('admin.gamification.challenges.index'));
+
+        $this->assertDatabaseHas('challenges', [
+            'name' => 'Selfie together',
+            'proof_type' => 'photo',
+        ]);
+    }
+
+    public function test_update_can_turn_the_camera_on_and_off_again(): void
+    {
+        $challenge = Challenge::factory()->create([
+            'proof_type' => ChallengeProofType::Text,
+            'audience' => ChallengeAudience::Both,
+            'is_system' => true,
+        ]);
+
+        // Spelled out rather than read back off the model: the factory leaves
+        // `audience` to its own default and the form always posts every field.
+        $payload = fn (string $proofType): array => [
+            'name' => $challenge->name,
+            'difficulty' => ChallengeDifficulty::Easy->value,
+            'points' => 10,
+            'audience' => ChallengeAudience::Both->value,
+            'proof_type' => $proofType,
+        ];
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->put(route('admin.gamification.challenges.update', $challenge), $payload('photo'))
+            ->assertRedirect(route('admin.gamification.challenges.index'));
+        $this->assertSame('photo', $challenge->fresh()->proof_type->value);
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->put(route('admin.gamification.challenges.update', $challenge), $payload('text'))
+            ->assertRedirect(route('admin.gamification.challenges.index'));
+        $this->assertSame('text', $challenge->fresh()->proof_type->value);
+    }
+
+    public function test_create_rejects_an_unknown_camera_setting(): void
+    {
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.gamification.challenges.store'), [
+                'name' => 'Nonsense',
+                'difficulty' => ChallengeDifficulty::Easy->value,
+                'points' => 15,
+                'audience' => ChallengeAudience::Both->value,
+                'proof_type' => 'video',
+            ])
+            ->assertSessionHasErrors('proof_type');
+
+        $this->assertDatabaseMissing('challenges', ['name' => 'Nonsense']);
+    }
+
+    public function test_a_challenge_created_without_the_field_stays_text(): void
+    {
+        // Every challenge authored before #216 reports `text`, and the form
+        // always posts a value — but a script or an older form must not end up
+        // with a null the app has to guess about.
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.gamification.challenges.store'), [
+                'name' => 'Quiet one',
+                'difficulty' => ChallengeDifficulty::Easy->value,
+                'points' => 5,
+                'audience' => ChallengeAudience::Both->value,
+            ])
+            ->assertRedirect(route('admin.gamification.challenges.index'));
+
+        $challenge = Challenge::query()->where('name', 'Quiet one')->sole();
+        $this->assertNotSame('photo', $challenge->proof_type?->value);
+    }
+
+    public function test_the_index_marks_which_challenges_open_the_camera(): void
+    {
+        Challenge::factory()->create([
+            'name' => 'Camera challenge',
+            'proof_type' => ChallengeProofType::Photo,
+            'is_system' => true,
+            'event_id' => null,
+        ]);
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.gamification.challenges.index'))
+            ->assertOk()
+            ->assertSee('Camera challenge')
+            ->assertSee('photo');
     }
 
     public function test_index_filters_by_attendee_audience(): void

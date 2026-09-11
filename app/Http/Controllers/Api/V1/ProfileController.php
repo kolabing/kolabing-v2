@@ -153,6 +153,25 @@ class ProfileController extends Controller
             $extendedProfileData['profile_photo'] = $url;
         }
 
+        // The cover photograph, separate from the logo. A community page has
+        // painted a cover band since IF-31 but had no column behind it, so the
+        // band fell back to a blurred copy of the logo — every community's
+        // background WAS its own profile photo, with no way to change it.
+        // Business profiles have no cover band, so this is community-only.
+        if ($request->hasFile('cover_photo') && $profile->isCommunity()) {
+            $communityProfile = $profile->communityProfile;
+
+            if ($communityProfile?->cover_photo) {
+                $this->fileUploadService->delete($communityProfile->cover_photo);
+            }
+
+            $extendedProfileData['cover_photo'] = $this->fileUploadService->uploadFromFile(
+                $request->file('cover_photo'),
+                FileUploadType::CoverPhoto,
+                $profile->id
+            );
+        }
+
         // Verification: communities can submit/edit their proof channels via the
         // profile edit. Run the shared transition (unverified/rejected → pending;
         // verified stays verified but is flagged for admin re-check) BEFORE the
@@ -191,6 +210,12 @@ class ProfileController extends Controller
     public function publicProfile(Profile $profile): JsonResponse
     {
         $this->profileService->loadProfileRelationships($profile);
+
+        // Portfolio only — not the full detail hydration, which would add
+        // collaboration/kolab count queries this endpoint does not emit.
+        // Attendees are a no-op inside: they have no public portfolio and their
+        // gallery stays private to their own account.
+        $profile = $this->profileService->hydratePublicPortfolio($profile);
 
         return response()->json([
             'success' => true,

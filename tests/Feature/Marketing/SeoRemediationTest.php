@@ -126,7 +126,8 @@ class SeoRemediationTest extends TestCase
             ->assertDontSee('Gemini_Generated_Image', false)
             ->assertDontSee('Screenshot 2026-05-16', false)
             ->assertSee('uploads/kolab-run-club-cafe.webp', false)
-            ->assertSee('/brand/kolabing-logo.webp', false);
+            // The nav logo is the K mark now, not the cloud lockup (#250).
+            ->assertSee('/brand/kolabing-k-mark.png', false);
 
         // Every image declares its intrinsic size, or the layout shifts as each
         // one arrives.
@@ -151,7 +152,7 @@ class SeoRemediationTest extends TestCase
             );
         }
 
-        $this->assertFileExists(public_path('brand/kolabing-logo.webp'));
+        $this->assertFileExists(public_path('brand/kolabing-k-mark.png'));
         // Nothing may reintroduce the multi-megabyte originals.
         $this->assertSame([], glob(public_path('uploads/*.png')));
     }

@@ -1,0 +1,26 @@
+{
+  "projectId": "97e56a75-16a3-4edf-98fb-9570e659eab4",
+  "projectName": "Kolabing Design System",
+  "pkg": ".",
+  "shape": "foundations",
+  "readmeHeader": ".design-sync/conventions.md",
+  "outDir": "ds-bundle",
+  "notes": "Off-script layout. kolabing-v2 has no JS/TS component library, no Storybook and no dist/, so the standard converter (package-build.mjs) does not apply and neither the package nor the storybook shape can run. This sync ships brand foundations only: tokens, self-hosted fonts, guidelines and rendered preview sheets — no _ds_bundle.js and no components/. _ds_sync.json is deliberately omitted: there is no component render-hash recipe to anchor, so every re-sync re-derives from source. See .design-sync/NOTES.md.",
+  "sources": [
+    "resources/views/welcome.blade.php",
+    "resources/views/components/layouts/marketing-page.blade.php",
+    "resources/views/webapp/layout.blade.php"
+  ],
+  "fonts": {
+    "origin": "https://fonts.googleapis.com/css2",
+    "subset": "latin",
+    "families": [
+      "Anton",
+      "Inter",
+      "Caveat",
+      "Playfair Display",
+      "DM Sans",
+      "Montserrat"
+    ]
+  }
+}

@@ -42,6 +42,11 @@ class CommunityProfileResource extends JsonResource
             'website' => $this->website,
             'profile_photo' => $logo,
             'logo_url' => $logo,
+            // The cover photograph, separate from the logo. Null until the
+            // community sets one — the client must NOT fall back to the logo
+            // here, because a background that is a blurred copy of the avatar
+            // is exactly the behaviour this field replaces.
+            'cover_photo' => $this->absoluteUrl($this->cover_photo),
             'is_featured' => $this->is_featured,
             ...$this->verificationFields($this->resource, $request, $this->profile_id),
             'created_at' => $this->created_at?->toIso8601String(),

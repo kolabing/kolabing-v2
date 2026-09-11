@@ -26,6 +26,8 @@ class ChallengeCompletionResource extends JsonResource
             'verifier_profile_id' => $this->verifier_profile_id,
             'status' => $this->status->value,
             'points_earned' => $this->points_earned,
+            // Already absolute — FileUploadService returns a URL on upload (#216).
+            'proof_photo_url' => $this->proof_photo_url,
             'completed_at' => $this->completed_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
         ];

@@ -139,7 +139,15 @@ class FriendshipService
      */
     public function friendsCountFor(Profile $profile): int
     {
-        return $this->acceptedQuery($profile->id)->count();
+        // Counted the same way friendsOf() lists them (#258), or the header says
+        // "4 friends" above three rows.
+        $friendIds = $this->acceptedQuery($profile->id)
+            ->get()
+            ->map(fn (Friendship $f): string => $f->requester_profile_id === $profile->id
+                ? $f->addressee_profile_id
+                : $f->requester_profile_id);
+
+        return Profile::query()->whereIn('id', $friendIds)->active()->count();
     }
 
     /**
@@ -157,6 +165,9 @@ class FriendshipService
 
         return Profile::query()
             ->whereIn('id', $friendIds)
+            // A switched-off friend leaves the list (#258). The friendship row
+            // survives, so reactivating restores it without re-requesting.
+            ->active()
             ->with(['attendeeProfile', 'businessProfile', 'communityProfile'])
             ->orderByDesc('created_at')
             ->paginate($perPage);
