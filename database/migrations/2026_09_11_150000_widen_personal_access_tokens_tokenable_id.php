@@ -14,12 +14,19 @@ use Illuminate\Support\Facades\DB;
  *
  * Safe on live data: uuid -> text is a lossless, standard Postgres cast (canonical string
  * representation), so every existing Profile token keeps validating identically after this.
+ *
+ * Postgres-only ALTER: SQLite (this repo's test suite — the box running dev/CI here has no
+ * pdo_sqlite, so this was verified against real Postgres, matching prod) has no enforced
+ * column typing (type affinity only), so a bigint id already stores fine in a uuid-declared
+ * column there — the bug this migration fixes is Postgres-specific, so the fix is too.
  */
 return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement('ALTER TABLE personal_access_tokens ALTER COLUMN tokenable_id TYPE varchar(36) USING tokenable_id::text');
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE personal_access_tokens ALTER COLUMN tokenable_id TYPE varchar(36) USING tokenable_id::text');
+        }
     }
 
     public function down(): void
@@ -30,6 +37,8 @@ return new class extends Migration
         // (invalid uuid syntax) rather than silently truncating data — intentional: revoke any
         // User-issued tokens first (`personal_access_tokens` where tokenable_type = User::class)
         // if a real rollback is ever needed.
-        DB::statement('ALTER TABLE personal_access_tokens ALTER COLUMN tokenable_id TYPE uuid USING tokenable_id::uuid');
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE personal_access_tokens ALTER COLUMN tokenable_id TYPE uuid USING tokenable_id::uuid');
+        }
     }
 };
