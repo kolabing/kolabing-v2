@@ -2142,3 +2142,53 @@ is read-only in this pass; the write flows remain mobile-only.
 **Written:** nothing. Every call listed here is a read.
 
 ---
+
+## 28. Maintainer API token — token-authenticated admin CRM read (added 2026-09-11)
+
+Extends §9 (admin operator surfaces) with a **token** auth path alongside the existing session one.
+Daniel, 2026-09-11, explicit: full CRM/admin-data access for the `clark` agent, for building a Google
+Sheets export and a BCN/CDMX coverage check the session-only `/admin/*` panel can't serve to a
+non-interactive caller.
+
+**Before this:** `App\Models\User` (the maintainer model, `config/auth.php:44` `admin` guard) had no
+`HasApiTokens` trait — only `Profile` (the mobile end-user model) could hold a Sanctum token. A
+maintainer could only ever authenticate via the session-guarded `/admin/*` Blade panel.
+
+**Now:** `User` gained `HasApiTokens`. A maintainer's token authenticates via the same `auth:sanctum`
+guard mobile tokens use (Sanctum tokens are polymorphic — the `tokenable` can be a `Profile` or a
+`User`), but a **new middleware** `EnsureSanctumUserIsMaintainer` (`app/Http/Middleware/`) gates every
+route in the new group to `$request->user() instanceof User && ->isMaintainer()` — a `Profile` token
+(any mobile business/community user) gets a plain 403, same as a non-maintainer `User`.
+
+| Route | Controller | Guard | Notes |
+|---|---|---|---|
+| `GET /api/v1/admin/crm` | `Api\V1\Admin\CrmController::index` | `auth:sanctum` + `maintainer.token` | Same filters as the web panel (owner/status/city/q/work_now), reused via `App\Services\CrmQueryFilters` so the two never drift. JSON, paginated (`per_page`, capped 200). Read-only — no write route exists in this group. |
+
+**Issuing a token:** `php artisan admin:issue-api-token {email}` (`app/Console/Commands/`) — refuses if
+the user doesn't exist or isn't a maintainer, prints the plaintext token once (Sanctum never stores it
+recoverably). Prod-only concern: must be run on the Laravel Cloud console (this repo's local checkout
+has no prod DB connection).
+
+**Key invariant:** this is a **second front door onto the same guard-checked capability**, not a
+capability *expansion* — a mobile Profile token still cannot read CRM data (403), and a session-authed
+non-maintainer `User` still can't either (`maintainer` middleware on `/admin/*`, unchanged). The two
+auth paths (`auth:admin` session / `auth:sanctum` token) converge on the identical `is_maintainer` check,
+just against a different transport. Tested (`tests/Feature/Api/V1/Admin/CrmApiTest.php`): unauthenticated
+→ 401, Profile token → 403, non-maintainer User token → 403, maintainer token → 200 and agrees with the
+web panel on filtered results.
+
+**Red-teamed via subagent before merge (2026-09-11).** Auth boundary itself: sound — no Profile/User
+token confusion is possible (separate Eloquent models, no shared table), route-group scoping is correct,
+and unauth/non-maintainer responses are clean JSON (not a Blade redirect/view). One real finding, fixed
+in the same PR: the endpoint originally serialized `CrmAccount` directly, which has no `$hidden` array —
+that leaked free-text sales `notes` and the internal `linked_profile_id` FK, neither of which the Blade
+panel shows even to a logged-in maintainer by default (`columnsFor()` marks them hidden-by-default,
+opt-in per admin). Fixed with an explicit allowlist, `App\Http\Resources\Api\V1\Admin\CrmAccountResource`
+— contact fields (email/phone/instagram_handle/whatsapp) stay, since they're the actual point of this
+endpoint; `notes`/`linked_profile_id` are dropped. Also added `throttle:60,1` to the route as
+defense-in-depth against a leaked token (the maintainer gate is the real boundary; this just bounds
+blast radius). Token abilities (`createToken()`) are unscoped (`'*'`) — noted as a fast-follow, not a
+blocker, since nothing checks `tokenCan()` today and the `instanceof User && isMaintainer()` gate is the
+actual authorization boundary either way.
+
+---

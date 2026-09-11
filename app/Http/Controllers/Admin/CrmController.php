@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AdminColumnPref;
 use App\Models\CrmAccount;
 use App\Services\CrmPipelineService;
+use App\Services\CrmQueryFilters;
 use App\Services\CrmScoreService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -117,31 +118,12 @@ class CrmController extends Controller
         // City lives in the metrics JSON: communities key it as `city`, businesses as `source_city`.
         $cityKey = $type === 'business' ? 'source_city' : 'city';
 
-        $query = CrmAccount::query()->where('type', $type);
-        if ($owner = $request->query('owner')) {
-            $query->where('owner', $owner);
-        }
-        if ($status = $request->query('status')) {
-            $query->where('status', $status);
-        }
-        if ($city = $request->query('city')) {
-            $query->where("metrics->{$cityKey}", $city);
-        }
-        if ($q = $request->query('q')) {
-            $query->where('name', 'like', "%{$q}%");
-        }
-        // "Work now": the operator's daily queue — high/med confidence, locality-confirmed,
-        // real fit, not yet contacted. The single most useful supply-side surface.
         $workNow = $request->boolean('work_now') && $type === 'community';
-        if ($workNow) {
-            $query->where('metrics->locality_confirmed', true)
-                ->where('score', '>=', 40)
-                ->where('status', 'Target')
-                ->where(function ($q2) {
-                    $q2->whereRaw("lower(metrics->>'confidence') like 'high%'")
-                        ->orWhereRaw("lower(metrics->>'confidence') like 'med%'");
-                });
-        }
+        $query = CrmQueryFilters::apply(
+            CrmAccount::query()->where('type', $type),
+            $type,
+            [...$request->only(['owner', 'status', 'city', 'q']), 'work_now' => $workNow],
+        );
 
         $accounts = $query->orderByDesc('score')->orderBy('name')->paginate(50)->withQueryString();
 

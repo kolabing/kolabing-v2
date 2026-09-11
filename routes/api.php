@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\Admin\CrmController as ApiAdminCrmController;
 use App\Http\Controllers\Api\V1\AppleIAPController;
 use App\Http\Controllers\Api\V1\AppleWebhookController;
 use App\Http\Controllers\Api\V1\ApplicationController;
@@ -1199,5 +1200,16 @@ Route::prefix('v1')->group(function (): void {
 
         Route::post('gamification/withdrawal', [GamificationController::class, 'withdrawal'])
             ->name('api.v1.gamification.withdrawal');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin read API (Sanctum, maintainer-only) — token access to the CRM for
+    | callers that can't hold a browser session against auth:admin (agents,
+    | scripts). Read-only by construction: no write route exists here.
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware(['auth:sanctum', 'maintainer.token', 'throttle:60,1'])->prefix('admin')->as('api.v1.admin.')->group(function (): void {
+        Route::get('crm', [ApiAdminCrmController::class, 'index'])->name('crm.index');
     });
 });
