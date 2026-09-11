@@ -30,6 +30,13 @@
         @endif
     @endif
 
+    @if (in_array($profile->user_type->value, ['business', 'community'], true))
+        <a href="{{ \App\Support\PublicProfileLink::urlFor($profile) }}" target="_blank" rel="noopener" class="btn btn-outline-primary mr-2">
+            <i class="fas fa-external-link-alt mr-1"></i>
+            View public profile
+        </a>
+    @endif
+
     <form method="POST" action="{{ route('admin.users.destroy', $profile) }}" class="d-inline" onsubmit="return confirm('Delete this user? They will be soft-deleted.');">
         @csrf
         @method('DELETE')
