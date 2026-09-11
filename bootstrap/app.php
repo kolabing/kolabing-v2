@@ -6,6 +6,7 @@ use App\Http\Middleware\CanonicalUrl;
 use App\Http\Middleware\EnsureAdminUserIsMaintainer;
 use App\Http\Middleware\EnsureFeatureEnabled;
 use App\Http\Middleware\EnsureProfileActive;
+use App\Http\Middleware\EnsureSanctumUserIsMaintainer;
 use App\Http\Middleware\EnsureTargetProfileActive;
 use App\Http\Middleware\EnsureUserType;
 use App\Http\Middleware\LogAuthTokenFirstUse;
@@ -63,6 +64,7 @@ return Application::configure(basePath: dirname(__DIR__))
             // feature:{name} -> config("{name}.enabled"); 404s a flag that is off.
             'feature' => EnsureFeatureEnabled::class,
             'maintainer' => EnsureAdminUserIsMaintainer::class,
+            'maintainer.token' => EnsureSanctumUserIsMaintainer::class,
             'touch_profile_activity' => TouchProfileActivity::class,
             'cache_marketing' => CacheMarketingPage::class,
         ]);
