@@ -205,8 +205,8 @@
                     // Absolute URL required: QuickAddProfileRequest validates profile_photo/
                     // offer_photos.* with the `url` rule, which rejects a bare relative path.
                     // A relative URL here silently failed validation on those hidden fields
-                    // (no @error() markup exists for them), which read as "click submit, no
-                    // visible error, nothing saved" -- caught live 2026-09-14.
+                    // (no visible error markup exists for them), which read as "click submit,
+                    // no visible error, nothing saved" -- caught live 2026-09-14.
                     var url = window.location.origin + '/api/v1/places/photo?name=' + encodeURIComponent(photo.resource_name) + '&max_width=800';
                     var wrap = document.createElement('div');
                     wrap.style.cssText = 'width:100px;height:100px;cursor:pointer;border:3px solid ' + (idx === 0 ? '#17a2b8' : 'transparent') + ';border-radius:4px;overflow:hidden;';

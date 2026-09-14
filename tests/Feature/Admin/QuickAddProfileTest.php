@@ -236,6 +236,19 @@ class QuickAddProfileTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_maintainer_can_render_the_quick_add_form(): void
+    {
+        // Regression guard 2026-09-14: an @error( literal inside a plain JS code comment
+        // in this same file's <script> block was compiled by Blade as a real directive
+        // (Blade is a regex-based text transformer, not a real parser -- it doesn't know
+        // "this is inside a <script> comment") leaving one @error() with no matching
+        // @enderror. 500'd in prod, undetected here because no test did a direct GET of
+        // this route with a maintainer session before.
+        $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.users.quick-add'))
+            ->assertOk();
+    }
+
     public function test_quick_add_persists_google_places_import_data_for_a_business(): void
     {
         $this->actingAs($this->maintainer(), 'admin')
