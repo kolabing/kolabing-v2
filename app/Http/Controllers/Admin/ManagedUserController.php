@@ -61,10 +61,11 @@ class ManagedUserController extends Controller
             ]);
 
         if ($q !== '') {
-            $query->where(function ($outer) use ($q) {
-                $outer->where('email', 'ilike', "%{$q}%")
-                    ->orWhereHas('businessProfile', fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->where('name', 'ilike', "%{$q}%"))
-                    ->orWhereHas('communityProfile', fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->where('name', 'ilike', "%{$q}%"));
+            $needle = '%'.mb_strtolower($q).'%';
+            $query->where(function ($outer) use ($needle) {
+                $outer->whereRaw('LOWER(email) LIKE ?', [$needle])
+                    ->orWhereHas('businessProfile', fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->whereRaw('LOWER(name) LIKE ?', [$needle]))
+                    ->orWhereHas('communityProfile', fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->whereRaw('LOWER(name) LIKE ?', [$needle]));
             });
         }
 
@@ -80,11 +81,14 @@ class ManagedUserController extends Controller
         }
 
         if ($hideTest) {
+            // LOWER()+LIKE, not `ilike`: `ilike` is Postgres-only and this repo's test
+            // suite runs on SQLite, which has no `ilike` operator at all (SQLSTATE
+            // "near ilike: syntax error"). LOWER() LIKE is portable to both.
             $query->where('is_test_user', false)
-                ->where('email', 'not ilike', '%test%')
-                ->where('email', 'not ilike', '%example.com')
-                ->whereDoesntHave('businessProfile', fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->where('name', 'ilike', '%test%'))
-                ->whereDoesntHave('communityProfile', fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->where('name', 'ilike', '%test%'));
+                ->whereRaw('LOWER(email) NOT LIKE ?', ['%test%'])
+                ->whereRaw('LOWER(email) NOT LIKE ?', ['%example.com'])
+                ->whereDoesntHave('businessProfile', fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->whereRaw('LOWER(name) LIKE ?', ['%test%']))
+                ->whereDoesntHave('communityProfile', fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->whereRaw('LOWER(name) LIKE ?', ['%test%']));
         }
 
         $profiles = $query->latest()->paginate(20)->withQueryString();
