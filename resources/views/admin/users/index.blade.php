@@ -4,6 +4,10 @@
 @section('page_subtitle', 'Manage application profiles from a fixed maintainer panel.')
 
 @section('page_actions')
+    <a href="{{ route('admin.users.quick-add') }}" class="btn btn-success mr-2">
+        <i class="fas fa-bolt mr-1"></i>
+        Quick Add
+    </a>
     <a href="{{ route('admin.users.create') }}" class="btn btn-primary">
         <i class="fas fa-user-plus mr-1"></i>
         Create User

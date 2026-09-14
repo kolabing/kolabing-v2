@@ -274,6 +274,10 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::get('/users', [ManagedUserController::class, 'index'])->name('users.index');
     Route::get('/users/create', [ManagedUserController::class, 'create'])->name('users.create');
     Route::post('/users', [ManagedUserController::class, 'store'])->name('users.store');
+    // Listing-first quick add — declared before {profile} routes so 'quick-add' is
+    // never captured as a profile id.
+    Route::get('/users/quick-add', [ManagedUserController::class, 'quickAddForm'])->name('users.quick-add');
+    Route::post('/users/quick-add', [ManagedUserController::class, 'quickAddStore'])->name('users.quick-add.store');
     Route::get('/users/{profile}/edit', [ManagedUserController::class, 'edit'])->name('users.edit');
     Route::put('/users/{profile}', [ManagedUserController::class, 'update'])->name('users.update');
     Route::delete('/users/{profile}', [ManagedUserController::class, 'destroy'])->name('users.destroy');

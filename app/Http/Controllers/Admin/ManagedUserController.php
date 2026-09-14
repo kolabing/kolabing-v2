@@ -7,8 +7,10 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\UserType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\BulkProfileActiveRequest;
+use App\Http\Requests\Admin\QuickAddProfileRequest;
 use App\Http\Requests\Admin\StoreManagedUserRequest;
 use App\Http\Requests\Admin\UpdateManagedUserRequest;
+use App\Models\City;
 use App\Models\Profile;
 use App\Models\Scopes\ActiveProfileScope;
 use App\Services\Admin\ManagedProfileService;
@@ -56,6 +58,27 @@ class ManagedUserController extends Controller
 
         return redirect()->route('admin.users.edit', $profile)
             ->with('status', __('User created successfully.'));
+    }
+
+    /**
+     * The listing-first quick add: list a business/community sourced from outreach
+     * before its owner has ever touched the app, then email them a create-password
+     * link + what-happens-next explainer.
+     */
+    public function quickAddForm(): View
+    {
+        return view('admin.users.quick-add', [
+            'userTypes' => [UserType::Business, UserType::Community],
+            'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->get(),
+        ]);
+    }
+
+    public function quickAddStore(QuickAddProfileRequest $request): RedirectResponse
+    {
+        $profile = $this->managedProfileService->quickAdd($request->validated());
+
+        return redirect()->route('admin.users.edit', $profile)
+            ->with('status', __('Listing created and welcome email sent.'));
     }
 
     public function edit(Profile $profile): View
