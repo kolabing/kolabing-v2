@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Http\Requests\Admin;
 
 use App\Enums\UserType;
+use App\Http\Requests\Admin\Concerns\DecodesPrimaryVenue;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreManagedUserRequest extends FormRequest
 {
+    use DecodesPrimaryVenue;
+
     public function authorize(): bool
     {
         return true;
@@ -31,6 +34,11 @@ class StoreManagedUserRequest extends FormRequest
             'instagram' => ['nullable', 'string', 'max:255'],
             'website' => ['nullable', 'url', 'max:255'],
             'tiktok' => ['nullable', 'string', 'max:255'],
+            'city_id' => ['nullable', 'uuid', Rule::exists('cities', 'id')],
+            'profile_photo' => ['nullable', 'url', 'max:2048'],
+            'offer_photos' => ['nullable', 'array', 'max:10'],
+            'offer_photos.*' => ['url', 'max:2048'],
+            'primary_venue' => ['nullable', 'array'],
         ];
     }
 }

@@ -49,15 +49,7 @@ class ManagedProfileService
             ]);
 
             $this->upsertDetailProfile($profile, $data);
-
-            $cityId = $data['city_id'] ?? null;
-            if ($cityId !== null) {
-                if ($profile->isBusiness()) {
-                    $profile->businessProfile()->update(['city_id' => $cityId]);
-                } elseif ($profile->isCommunity()) {
-                    $profile->communityProfile()->update(['city_id' => $cityId]);
-                }
-            }
+            $this->applyCityId($profile, $data);
 
             if ($profile->isBusiness()) {
                 BusinessSubscription::query()->firstOrCreate(
@@ -142,6 +134,7 @@ class ManagedProfileService
             ]);
 
             $this->upsertDetailProfile($profile, $data);
+            $this->applyCityId($profile, $data);
 
             if ($profile->isBusiness()) {
                 BusinessSubscription::query()->firstOrCreate(
@@ -181,6 +174,7 @@ class ManagedProfileService
             $profile->update($attributes);
 
             $this->upsertDetailProfile($profile, $data);
+            $this->applyCityId($profile, $data);
 
             if ($profile->isBusiness()) {
                 BusinessSubscription::query()->firstOrCreate(
@@ -214,9 +208,10 @@ class ManagedProfileService
                     'about' => ($data['about'] ?? null) ?: null,
                     'instagram' => ($data['instagram'] ?? null) ?: null,
                     'website' => ($data['website'] ?? null) ?: null,
-                    // Populated by the admin Google Places import (quick-add) — see
-                    // QuickAddProfileRequest. Absent on the plain create/update CRUD forms,
-                    // which don't collect them, so this is a no-op there.
+                    // Populated by the shared admin.users._places-import Google Maps import
+                    // card, present on quick-add, create, and edit alike (merged 2026-09-14
+                    // so photos/logo/venue data can be added or refreshed after creation, not
+                    // only at quick-add time).
                     'profile_photo' => ($data['profile_photo'] ?? null) ?: null,
                     'offer_photos' => ($data['offer_photos'] ?? null) ?: null,
                     'primary_venue' => ($data['primary_venue'] ?? null) ?: null,
@@ -244,6 +239,23 @@ class ManagedProfileService
         AttendeeProfile::query()->firstOrCreate([
             'profile_id' => $profile->id,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function applyCityId(Profile $profile, array $data): void
+    {
+        $cityId = $data['city_id'] ?? null;
+        if ($cityId === null) {
+            return;
+        }
+
+        if ($profile->isBusiness()) {
+            $profile->businessProfile()->update(['city_id' => $cityId]);
+        } elseif ($profile->isCommunity()) {
+            $profile->communityProfile()->update(['city_id' => $cityId]);
+        }
     }
 
     public function delete(Profile $profile): void
