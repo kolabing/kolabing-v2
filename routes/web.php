@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\CommunityVerificationController as AdminCommunity
 use App\Http\Controllers\Admin\CompanySettingController as AdminCompanySettingController;
 use App\Http\Controllers\Admin\CrmController as AdminCrmController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\EmailTemplateController as AdminEmailTemplateController;
 use App\Http\Controllers\Admin\GamificationController as AdminGamificationController;
 use App\Http\Controllers\Admin\IconLibraryController as AdminIconLibraryController;
 use App\Http\Controllers\Admin\KolabController as AdminKolabController;
@@ -291,10 +292,22 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::post('/users/{profile}/subscription/grant', [ManagedUserController::class, 'grantSubscription'])->name('users.subscription.grant');
     Route::post('/users/{profile}/subscription/revoke', [ManagedUserController::class, 'revokeSubscription'])->name('users.subscription.revoke');
 
+    // Manual follow-up to quick-add (#kolabing quick-add, BE-NF-54) — a maintainer picks
+    // the language, reviews the actual rendered email, then confirms the send. Nothing
+    // sends without passing through the preview first (BE-NF-57).
+    Route::get('/users/{profile}/welcome-email-preview', [ManagedUserController::class, 'previewWelcomeEmail'])->name('users.welcome-email-preview');
+    Route::post('/users/{profile}/send-welcome-email', [ManagedUserController::class, 'sendWelcomeEmail'])->name('users.send-welcome-email');
+
     // Multi-Kolab Event Creator entitlement — independent of the business
     // subscription above; both Business and Community profiles are eligible.
     Route::post('/users/{profile}/event-creator/grant', [ManagedUserController::class, 'grantEventCreatorEntitlement'])->name('users.event-creator.grant');
     Route::post('/users/{profile}/event-creator/revoke', [ManagedUserController::class, 'revokeEventCreatorEntitlement'])->name('users.event-creator.revoke');
+
+    // Admin-editable quick-add welcome email content, per language (BE-NF-57) — add/
+    // edit/remove languages from the dashboard, no code deploy per copy change.
+    Route::resource('email-templates', AdminEmailTemplateController::class)
+        ->except(['show'])
+        ->parameters(['email-templates' => 'emailTemplate']);
 
     // Community verification — submit proof channels (mobile), maintainer verifies
     // / rejects here. State lives on community_profiles.verification_*.

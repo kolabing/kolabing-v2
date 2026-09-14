@@ -8,6 +8,7 @@ use App\Enums\SubscriptionSource;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserType;
 use App\Mail\AdminProfileWelcomeMail;
+use App\Models\AdminWelcomeEmailTemplate;
 use App\Models\AttendeeProfile;
 use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
@@ -17,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class ManagedProfileService
@@ -24,15 +26,18 @@ class ManagedProfileService
     /**
      * Listing-first quick add (#kolabing quick-add): a maintainer lists a business/community
      * sourced from outreach (e.g. an Instagram reply) before its owner has ever touched the
-     * app. Creates a real Profile with a random, never-shown password, then reuses the
-     * existing password-reset broker (not a bespoke magic-link system) to hand the owner a
-     * working create-password link inside the welcome email.
+     * app. Creates a real Profile with a random, never-shown password.
+     *
+     * Does NOT send the welcome email — Daniel 2026-09-14: outreach happens across languages
+     * (English/Spanish/Catalan/etc.), so sending is a deliberate follow-up step where a
+     * maintainer picks the right language, not an automatic side effect of creating the
+     * listing. See sendWelcomeEmail().
      *
      * @param  array<string, mixed>  $data
      */
     public function quickAdd(array $data): Profile
     {
-        $profile = DB::transaction(function () use ($data): Profile {
+        return DB::transaction(function () use ($data): Profile {
             $userType = UserType::from((string) $data['user_type']);
 
             $profile = Profile::query()->create([
@@ -66,11 +71,58 @@ class ManagedProfileService
 
             return $profile->fresh(['businessProfile', 'communityProfile']);
         });
+    }
+
+    /**
+     * Read-only render of exactly what sendWelcomeEmail() would send — Daniel 2026-09-14:
+     * "i don't want them to get an unapproved email". Nothing is queued, no token is
+     * minted (a placeholder stands in for the real link so a maintainer isn't tempted to
+     * treat the preview link as a working one). A maintainer must see this before the
+     * "Send" route (ManagedUserController::sendWelcomeEmail) is reachable in the UI.
+     */
+    public function previewWelcomeEmail(Profile $profile, string $locale): string
+    {
+        $template = $this->resolveActiveTemplate($locale);
+
+        return (new AdminProfileWelcomeMail($profile, 'preview-only-not-a-real-link', $template))
+            ->locale($locale)
+            ->render();
+    }
+
+    /**
+     * Manual follow-up to quickAdd(), reached only after previewWelcomeEmail() has been
+     * shown and explicitly confirmed — a maintainer picks the language once they know how
+     * the outreach conversation was conducted. Mints a fresh reset token every call (safe
+     * to send more than once; the previous token, if unused, still works too —
+     * Password::broker() doesn't invalidate prior tokens on a new one).
+     */
+    public function sendWelcomeEmail(Profile $profile, string $locale): void
+    {
+        $template = $this->resolveActiveTemplate($locale);
 
         $token = Password::broker()->createToken($profile);
-        Mail::to($profile->email)->queue(new AdminProfileWelcomeMail($profile, $token));
 
-        return $profile;
+        // ->locale() matters here: the two fixed action-button labels are translated via
+        // lang/{locale}/admin_mail.php (see the Blade view), not stored on the template row.
+        // Without this, they'd always render in whatever the app's current default locale
+        // is, regardless of which language the maintainer picked.
+        Mail::to($profile->email)
+            ->locale($locale)
+            ->queue(new AdminProfileWelcomeMail($profile, $token, $template));
+    }
+
+    private function resolveActiveTemplate(string $locale): AdminWelcomeEmailTemplate
+    {
+        $template = AdminWelcomeEmailTemplate::query()
+            ->where('locale', $locale)
+            ->where('is_active', true)
+            ->first();
+
+        if ($template === null) {
+            throw new InvalidArgumentException("No active welcome email template for locale [{$locale}].");
+        }
+
+        return $template;
     }
 
     /**

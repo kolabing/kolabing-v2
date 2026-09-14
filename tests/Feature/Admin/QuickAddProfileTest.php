@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Admin;
 
 use App\Mail\AdminProfileWelcomeMail;
+use App\Models\AdminWelcomeEmailTemplate;
 use App\Models\City;
 use App\Models\Profile;
 use App\Models\User;
@@ -45,7 +46,10 @@ class QuickAddProfileTest extends TestCase
         $this->assertSame('Riverside Cafe', $profile->businessProfile->name);
         $this->assertSame('@riverside', $profile->businessProfile->instagram);
 
-        Mail::assertQueued(AdminProfileWelcomeMail::class, fn (AdminProfileWelcomeMail $mail) => $mail->hasTo('riverside@example.com'));
+        // Sending is now a deliberate follow-up step, not a quick-add side effect —
+        // Daniel 2026-09-14: outreach happens across languages, so a maintainer picks
+        // the right one explicitly rather than an automatic send guessing.
+        Mail::assertNothingQueued();
     }
 
     public function test_maintainer_can_quick_add_a_community_without_a_city(): void
@@ -66,9 +70,10 @@ class QuickAddProfileTest extends TestCase
         $this->assertNull($profile->communityProfile->city_id);
     }
 
-    public function test_quick_added_welcome_email_reset_link_actually_authenticates(): void
+    public function test_maintainer_can_send_the_welcome_email_in_a_chosen_language(): void
     {
         Mail::fake();
+        AdminWelcomeEmailTemplate::factory()->create(['locale' => 'es', 'label' => 'Español']);
 
         $this->actingAs($this->maintainer(), 'admin')
             ->post(route('admin.users.quick-add.store'), [
@@ -79,6 +84,102 @@ class QuickAddProfileTest extends TestCase
             ->assertRedirect();
 
         $profile = Profile::where('email', 'riverside@example.com')->firstOrFail();
+
+        Mail::assertNothingQueued();
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.users.send-welcome-email', $profile), ['locale' => 'es'])
+            ->assertRedirect(route('admin.users.edit', $profile));
+
+        Mail::assertQueued(AdminProfileWelcomeMail::class, function (AdminProfileWelcomeMail $mail) use ($profile) {
+            return $mail->hasTo($profile->email) && $mail->template->locale === 'es';
+        });
+    }
+
+    public function test_preview_renders_the_real_content_and_sends_nothing(): void
+    {
+        // Daniel 2026-09-14: "i don't want them to get an unapproved email" — the preview
+        // must show the real, recipient-specific rendered email without queuing anything.
+        Mail::fake();
+        AdminWelcomeEmailTemplate::factory()->create([
+            'locale' => 'es',
+            'intro_markdown' => 'Hola {{name}}, bienvenido.',
+        ]);
+        $profile = \App\Models\BusinessProfile::factory()->create(['name' => 'Exploradores de Café'])->profile;
+
+        $response = $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.users.welcome-email-preview', $profile).'?locale=es');
+
+        $response->assertOk();
+        $response->assertSee('Exploradores de Café', false);
+        $response->assertSee('Hola Exploradores de Café, bienvenido.', false);
+
+        Mail::assertNothingQueued();
+    }
+
+    public function test_preview_rejects_an_inactive_locale(): void
+    {
+        AdminWelcomeEmailTemplate::factory()->create(['locale' => 'de', 'is_active' => false]);
+        $profile = Profile::factory()->business()->create();
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.users.welcome-email-preview', $profile).'?locale=de')
+            ->assertSessionHasErrors('locale');
+    }
+
+    public function test_preview_rejects_non_maintainer(): void
+    {
+        AdminWelcomeEmailTemplate::factory()->create(['locale' => 'en']);
+        $profile = Profile::factory()->business()->create();
+        $user = User::factory()->create(['is_maintainer' => false]);
+
+        $this->actingAs($user, 'admin')
+            ->get(route('admin.users.welcome-email-preview', $profile).'?locale=en')
+            ->assertForbidden();
+    }
+
+    public function test_send_welcome_email_rejects_an_inactive_locale(): void
+    {
+        Mail::fake();
+        AdminWelcomeEmailTemplate::factory()->create(['locale' => 'fr', 'is_active' => false]);
+        $profile = Profile::factory()->business()->create();
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.users.send-welcome-email', $profile), ['locale' => 'fr'])
+            ->assertSessionHasErrors('locale');
+
+        Mail::assertNothingQueued();
+    }
+
+    public function test_send_welcome_email_rejects_non_maintainer(): void
+    {
+        AdminWelcomeEmailTemplate::factory()->create(['locale' => 'en']);
+        $profile = Profile::factory()->business()->create();
+        $user = User::factory()->create(['is_maintainer' => false]);
+
+        $this->actingAs($user, 'admin')
+            ->post(route('admin.users.send-welcome-email', $profile), ['locale' => 'en'])
+            ->assertForbidden();
+    }
+
+    public function test_welcome_email_reset_link_actually_authenticates(): void
+    {
+        Mail::fake();
+        AdminWelcomeEmailTemplate::factory()->create(['locale' => 'en', 'label' => 'English']);
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.users.quick-add.store'), [
+                'user_type' => 'business',
+                'name' => 'Riverside Cafe',
+                'email' => 'riverside@example.com',
+            ])
+            ->assertRedirect();
+
+        $profile = Profile::where('email', 'riverside@example.com')->firstOrFail();
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.users.send-welcome-email', $profile), ['locale' => 'en'])
+            ->assertRedirect();
 
         Mail::assertQueued(AdminProfileWelcomeMail::class, function (AdminProfileWelcomeMail $mail) use ($profile) {
             $this->post(route('password.reset.update'), [
@@ -99,8 +200,6 @@ class QuickAddProfileTest extends TestCase
 
     public function test_quick_added_profile_public_url_resolves_back_to_the_same_profile(): void
     {
-        Mail::fake();
-
         $this->actingAs($this->maintainer(), 'admin')
             ->post(route('admin.users.quick-add.store'), [
                 'user_type' => 'business',
@@ -139,8 +238,6 @@ class QuickAddProfileTest extends TestCase
 
     public function test_quick_add_persists_google_places_import_data_for_a_business(): void
     {
-        Mail::fake();
-
         $this->actingAs($this->maintainer(), 'admin')
             ->post(route('admin.users.quick-add.store'), [
                 'user_type' => 'business',
@@ -170,8 +267,6 @@ class QuickAddProfileTest extends TestCase
 
     public function test_quick_add_works_fine_without_any_places_import_data(): void
     {
-        Mail::fake();
-
         $this->actingAs($this->maintainer(), 'admin')
             ->post(route('admin.users.quick-add.store'), [
                 'user_type' => 'business',

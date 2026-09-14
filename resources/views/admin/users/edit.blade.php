@@ -72,6 +72,36 @@
         @include('admin.users._verification', ['profile' => $profile])
     @endif
 
+    @if (in_array($profile->user_type->value, ['business', 'community'], true))
+        <div class="card card-outline card-info">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-envelope mr-1"></i> Send welcome email</h3>
+            </div>
+            <div class="card-body">
+                @if ($welcomeEmailLocales->isEmpty())
+                    <p class="text-muted mb-0">
+                        No languages set up yet.
+                        <a href="{{ route('admin.email-templates.create') }}">Add one</a> to start sending.
+                    </p>
+                @else
+                    <form method="GET" action="{{ route('admin.users.welcome-email-preview', $profile) }}" class="form-inline">
+                        <label for="locale" class="mr-2">Language</label>
+                        <select id="locale" name="locale" class="form-control mr-2" required>
+                            @foreach ($welcomeEmailLocales as $locale)
+                                <option value="{{ $locale->locale }}">{{ $locale->label }}</option>
+                            @endforeach
+                        </select>
+                        <button type="submit" class="btn btn-info">
+                            <i class="fas fa-eye mr-1"></i>
+                            Preview
+                        </button>
+                    </form>
+                    <small class="form-text text-muted mt-2">Shows you exactly what will be sent — nothing sends until you confirm on that screen.</small>
+                @endif
+            </div>
+        </div>
+    @endif
+
     <div class="card card-primary card-outline">
         <form method="post" action="{{ route('admin.users.update', $profile) }}">
             @csrf
