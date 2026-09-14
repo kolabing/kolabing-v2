@@ -18,6 +18,27 @@ class EmailTemplateManagementTest extends TestCase
         return User::factory()->create(['is_maintainer' => true]);
     }
 
+    public function test_maintainer_can_render_the_create_form(): void
+    {
+        // Regression guard 2026-09-14: {{ '{{name}}' }} in the shared _form partial broke
+        // Blade compilation ("Unclosed '(' does not match '}'") -- caught live in prod, not
+        // by any test, because nothing exercised a real GET render of these views. Every
+        // create/store test here used post() directly, which never compiles the form.
+        $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.email-templates.create'))
+            ->assertOk();
+    }
+
+    public function test_maintainer_can_render_the_edit_form(): void
+    {
+        $template = AdminWelcomeEmailTemplate::factory()->create();
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.email-templates.edit', $template))
+            ->assertOk()
+            ->assertSee($template->label);
+    }
+
     public function test_maintainer_can_add_a_new_language(): void
     {
         $this->actingAs($this->maintainer(), 'admin')
@@ -106,8 +127,13 @@ class EmailTemplateManagementTest extends TestCase
 
     public function test_deactivating_a_language_removes_it_from_the_send_dropdown_but_not_the_database(): void
     {
-        $active = AdminWelcomeEmailTemplate::factory()->create(['locale' => 'en', 'is_active' => true]);
-        $inactive = AdminWelcomeEmailTemplate::factory()->create(['locale' => 'de', 'is_active' => false]);
+        // Explicit, distinctive labels rather than the factory's fake()->word() default --
+        // CI caught this flaking on a random word ("id") that happens to be a near-universal
+        // HTML substring (every id="..." attribute matches it), failing assertDontSee no
+        // matter what the code does. assertSee/assertDontSee match substrings, so the label
+        // under test must be guaranteed not to collide with anything else on the page.
+        $active = AdminWelcomeEmailTemplate::factory()->create(['locale' => 'en', 'label' => 'English-Active-Marker', 'is_active' => true]);
+        $inactive = AdminWelcomeEmailTemplate::factory()->create(['locale' => 'de', 'label' => 'German-Inactive-Marker', 'is_active' => false]);
 
         $profile = \App\Models\Profile::factory()->business()->create();
 
