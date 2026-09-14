@@ -136,4 +136,54 @@ class QuickAddProfileTest extends TestCase
             ->get(route('admin.users.quick-add'))
             ->assertForbidden();
     }
+
+    public function test_quick_add_persists_google_places_import_data_for_a_business(): void
+    {
+        Mail::fake();
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.users.quick-add.store'), [
+                'user_type' => 'business',
+                'name' => 'Exploradores de Café',
+                'email' => 'antonio@grupoexploradores.com',
+                'instagram' => 'exploradoresdecafe',
+                'about' => 'Coffee workshop with a working roaster and cupping room.',
+                'website' => 'https://www.grupoexploradores.com/club-cafe',
+                'profile_photo' => 'https://kolabing.com/api/v1/places/photo?name=places/abc/photos/1',
+                'offer_photos' => [
+                    'https://kolabing.com/api/v1/places/photo?name=places/abc/photos/1',
+                    'https://kolabing.com/api/v1/places/photo?name=places/abc/photos/2',
+                ],
+                'primary_venue' => ['formatted_address' => 'Av. Santa Fe 596, CDMX', 'rating' => 4.5],
+            ])
+            ->assertRedirect();
+
+        $profile = Profile::where('email', 'antonio@grupoexploradores.com')->firstOrFail();
+        $business = $profile->businessProfile;
+
+        $this->assertSame('Coffee workshop with a working roaster and cupping room.', $business->about);
+        $this->assertSame('https://www.grupoexploradores.com/club-cafe', $business->website);
+        $this->assertSame('https://kolabing.com/api/v1/places/photo?name=places/abc/photos/1', $business->profile_photo);
+        $this->assertCount(2, $business->offer_photos);
+        $this->assertSame('Av. Santa Fe 596, CDMX', $business->primary_venue['formatted_address']);
+    }
+
+    public function test_quick_add_works_fine_without_any_places_import_data(): void
+    {
+        Mail::fake();
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.users.quick-add.store'), [
+                'user_type' => 'business',
+                'name' => 'Riverside Cafe',
+                'email' => 'riverside2@example.com',
+            ])
+            ->assertRedirect();
+
+        $profile = Profile::where('email', 'riverside2@example.com')->firstOrFail();
+
+        $this->assertNull($profile->businessProfile->profile_photo);
+        $this->assertNull($profile->businessProfile->offer_photos);
+        $this->assertNull($profile->businessProfile->primary_venue);
+    }
 }

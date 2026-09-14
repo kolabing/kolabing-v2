@@ -162,6 +162,12 @@ class ManagedProfileService
                     'about' => ($data['about'] ?? null) ?: null,
                     'instagram' => ($data['instagram'] ?? null) ?: null,
                     'website' => ($data['website'] ?? null) ?: null,
+                    // Populated by the admin Google Places import (quick-add) — see
+                    // QuickAddProfileRequest. Absent on the plain create/update CRUD forms,
+                    // which don't collect them, so this is a no-op there.
+                    'profile_photo' => ($data['profile_photo'] ?? null) ?: null,
+                    'offer_photos' => ($data['offer_photos'] ?? null) ?: null,
+                    'primary_venue' => ($data['primary_venue'] ?? null) ?: null,
                 ]
             );
 
