@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Admin;
 
 use App\Enums\UserType;
+use App\Http\Requests\Admin\Concerns\DecodesPrimaryVenue;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -23,6 +24,8 @@ use Illuminate\Validation\Rule;
  */
 class QuickAddProfileRequest extends FormRequest
 {
+    use DecodesPrimaryVenue;
+
     public function authorize(): bool
     {
         return true;

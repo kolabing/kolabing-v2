@@ -4,6 +4,32 @@
     $detailProfile = $profile->businessProfile ?? $profile->communityProfile ?? null;
 @endphp
 
+@include('admin.users._places-import')
+
+@if ($detailProfile?->profile_photo ?? null)
+    <div class="form-group">
+        <label>Current profile photo</label>
+        <div>
+            <img src="{{ $detailProfile->profile_photo }}" alt="Current profile photo" style="width:100px;height:100px;object-fit:cover;border-radius:4px;">
+        </div>
+        <small class="form-text text-muted">Importing a new place above replaces this.</small>
+    </div>
+@endif
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="form-group">
+            <label for="city_id">City</label>
+            <select id="city_id" name="city_id" class="form-control @error('city_id') is-invalid @enderror">
+                <option value="">—</option>
+                @foreach ($cities ?? [] as $city)
+                    <option value="{{ $city->id }}" @selected(old('city_id', $detailProfile?->city_id) === $city->id)>{{ $city->name }}</option>
+                @endforeach
+            </select>
+        </div>
+    </div>
+</div>
+
 <div class="row">
     <div class="col-md-6">
         <div class="form-group">

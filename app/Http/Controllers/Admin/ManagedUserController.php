@@ -52,6 +52,7 @@ class ManagedUserController extends Controller
     {
         return view('admin.users.create', [
             'userTypes' => UserType::cases(),
+            'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->get(),
         ]);
     }
 
@@ -95,6 +96,7 @@ class ManagedUserController extends Controller
 
         return view('admin.users.edit', [
             'profile' => $profile,
+            'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->get(),
             'welcomeEmailLocales' => AdminWelcomeEmailTemplate::query()
                 ->where('is_active', true)
                 ->orderBy('label')
