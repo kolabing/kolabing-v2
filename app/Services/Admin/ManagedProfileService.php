@@ -7,16 +7,72 @@ namespace App\Services\Admin;
 use App\Enums\SubscriptionSource;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserType;
+use App\Mail\AdminProfileWelcomeMail;
 use App\Models\AttendeeProfile;
 use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
 use App\Models\CommunityProfile;
 use App\Models\Profile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class ManagedProfileService
 {
+    /**
+     * Listing-first quick add (#kolabing quick-add): a maintainer lists a business/community
+     * sourced from outreach (e.g. an Instagram reply) before its owner has ever touched the
+     * app. Creates a real Profile with a random, never-shown password, then reuses the
+     * existing password-reset broker (not a bespoke magic-link system) to hand the owner a
+     * working create-password link inside the welcome email.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function quickAdd(array $data): Profile
+    {
+        $profile = DB::transaction(function () use ($data): Profile {
+            $userType = UserType::from((string) $data['user_type']);
+
+            $profile = Profile::query()->create([
+                'email' => $data['email'],
+                'password' => Str::random(32),
+                'phone_number' => ($data['phone_number'] ?? null) ?: null,
+                'user_type' => $userType,
+                'email_verified_at' => now(),
+            ]);
+
+            $this->upsertDetailProfile($profile, $data);
+
+            $cityId = $data['city_id'] ?? null;
+            if ($cityId !== null) {
+                if ($profile->isBusiness()) {
+                    $profile->businessProfile()->update(['city_id' => $cityId]);
+                } elseif ($profile->isCommunity()) {
+                    $profile->communityProfile()->update(['city_id' => $cityId]);
+                }
+            }
+
+            if ($profile->isBusiness()) {
+                BusinessSubscription::query()->firstOrCreate(
+                    ['profile_id' => $profile->id],
+                    [
+                        'source' => SubscriptionSource::AppleIap,
+                        'status' => SubscriptionStatus::Inactive,
+                    ]
+                );
+            }
+
+            return $profile->fresh(['businessProfile', 'communityProfile']);
+        });
+
+        $token = Password::broker()->createToken($profile);
+        Mail::to($profile->email)->queue(new AdminProfileWelcomeMail($profile, $token));
+
+        return $profile;
+    }
+
     /**
      * @param  array<string, mixed>  $data
      */
