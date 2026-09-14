@@ -13,13 +13,16 @@ use App\Http\Requests\Admin\SendWelcomeEmailRequest;
 use App\Http\Requests\Admin\StoreManagedUserRequest;
 use App\Http\Requests\Admin\UpdateManagedUserRequest;
 use App\Models\AdminWelcomeEmailTemplate;
+use App\Models\BusinessProfile;
 use App\Models\City;
+use App\Models\CommunityProfile;
 use App\Models\Profile;
 use App\Models\Scopes\ActiveProfileScope;
 use App\Services\Admin\ManagedProfileService;
 use App\Services\OrganizerEntitlementService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 
 class ManagedUserController extends Controller
 {
@@ -28,24 +31,105 @@ class ManagedUserController extends Controller
         private readonly OrganizerEntitlementService $organizerEntitlementService,
     ) {}
 
-    public function index(): View
+    /**
+     * Daniel 2026-09-14: the plain unfiltered list was "not UI/UX friendly ... a lot
+     * of stale tests", buried among real listings with no way to search, filter by
+     * city, or tell them apart. Adds: name/email search, user_type + city filters, a
+     * "hide likely test rows" toggle (on by default -- both the real `is_test_user`
+     * flag and an email/name pattern catch, since plenty of QA rows predate that
+     * column), and a city map (same Leaflet-by-count pattern as admin.crm.index,
+     * click a marker to filter) so a city with a listed business is visible at a
+     * glance instead of scrolling a flat 20-per-page table.
+     */
+    public function index(Request $request): View
     {
-        // Deliberately unfiltered: an admin that cannot see a switched-off account
-        // cannot switch it back on. The sub-profile relations carry ActiveProfileScope,
-        // so they are loaded without it or the name column would go blank (#254).
-        $profiles = Profile::query()
+        $q = trim((string) $request->query('q', ''));
+        $userType = $request->query('user_type');
+        $cityId = $request->query('city_id');
+        $hideTest = ! $request->boolean('show_test');
+
+        // Deliberately unfiltered on is_active: an admin that cannot see a switched-off
+        // account cannot switch it back on. The sub-profile relations carry
+        // ActiveProfileScope, so they are loaded without it or the name/city columns
+        // would go blank (#254).
+        $query = Profile::query()
             ->with([
-                'businessProfile' => fn ($q) => $q->withoutGlobalScope(ActiveProfileScope::class),
-                'communityProfile' => fn ($q) => $q->withoutGlobalScope(ActiveProfileScope::class),
-                'attendeeProfile' => fn ($q) => $q->withoutGlobalScope(ActiveProfileScope::class),
+                'businessProfile' => fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->with('city'),
+                'communityProfile' => fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->with('city'),
+                'attendeeProfile' => fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class),
                 'subscription',
-            ])
-            ->latest()
-            ->paginate(20);
+            ]);
+
+        if ($q !== '') {
+            $query->where(function ($outer) use ($q) {
+                $outer->where('email', 'ilike', "%{$q}%")
+                    ->orWhereHas('businessProfile', fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->where('name', 'ilike', "%{$q}%"))
+                    ->orWhereHas('communityProfile', fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->where('name', 'ilike', "%{$q}%"));
+            });
+        }
+
+        if (in_array($userType, UserType::values(), true)) {
+            $query->where('user_type', $userType);
+        }
+
+        if ($cityId) {
+            $query->where(function ($outer) use ($cityId) {
+                $outer->whereHas('businessProfile', fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->where('city_id', $cityId))
+                    ->orWhereHas('communityProfile', fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->where('city_id', $cityId));
+            });
+        }
+
+        if ($hideTest) {
+            $query->where('is_test_user', false)
+                ->where('email', 'not ilike', '%test%')
+                ->where('email', 'not ilike', '%example.com')
+                ->whereDoesntHave('businessProfile', fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->where('name', 'ilike', '%test%'))
+                ->whereDoesntHave('communityProfile', fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->where('name', 'ilike', '%test%'));
+        }
+
+        $profiles = $query->latest()->paginate(20)->withQueryString();
 
         return view('admin.users.index', [
             'profiles' => $profiles,
+            'userTypes' => UserType::cases(),
+            'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->get(),
+            'cityCounts' => $this->cityCounts(),
+            'filters' => [
+                'q' => $q,
+                'user_type' => $userType,
+                'city_id' => $cityId,
+                'show_test' => ! $hideTest,
+            ],
         ]);
+    }
+
+    /**
+     * Listed businesses + communities per city, for the index map. A plain
+     * count()->groupBy('city_id') per table, merged in PHP -- no cross-dialect SQL
+     * (no HAVING-on-a-computed-alias, which SQLite and Postgres disagree on), and this
+     * repo's tests run on SQLite while prod is Postgres.
+     *
+     * Keyed by id (not name): a city with listings isn't guaranteed to be in the
+     * *active* city list the create/edit dropdowns use (a market can go inactive
+     * without its historical listings disappearing), so the view must not have to
+     * re-resolve a name back to an id through that separate, possibly-missing list.
+     *
+     * @return \Illuminate\Support\Collection<string, array{id: string, name: string, n: int}>
+     */
+    private function cityCounts(): \Illuminate\Support\Collection
+    {
+        $businessCounts = BusinessProfile::query()->withoutGlobalScope(ActiveProfileScope::class)
+            ->whereNotNull('city_id')->selectRaw('city_id, count(*) as n')->groupBy('city_id')->pluck('n', 'city_id');
+        $communityCounts = CommunityProfile::query()->withoutGlobalScope(ActiveProfileScope::class)
+            ->whereNotNull('city_id')->selectRaw('city_id, count(*) as n')->groupBy('city_id')->pluck('n', 'city_id');
+
+        $cityIds = $businessCounts->keys()->merge($communityCounts->keys())->unique();
+
+        return City::query()->whereIn('id', $cityIds)->get(['id', 'name'])
+            ->mapWithKeys(fn (City $city): array => [
+                $city->id => ['id' => $city->id, 'name' => $city->name, 'n' => ($businessCounts[$city->id] ?? 0) + ($communityCounts[$city->id] ?? 0)],
+            ])
+            ->sortByDesc('n');
     }
 
     public function create(): View
