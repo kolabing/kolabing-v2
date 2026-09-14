@@ -325,6 +325,12 @@ return [
             'icon' => 'fas fa-fw fa-shield-alt',
             'active' => ['admin/community-verification', 'admin/community-verification/*'],
         ],
+        [
+            'text' => 'Welcome Email Languages',
+            'route' => 'admin.email-templates.index',
+            'icon' => 'fas fa-fw fa-language',
+            'active' => ['admin/email-templates', 'admin/email-templates/*'],
+        ],
         ['header' => 'CONTENT'],
         [
             'text' => 'Kolabs',

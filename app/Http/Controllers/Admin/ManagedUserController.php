@@ -7,9 +7,12 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\UserType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\BulkProfileActiveRequest;
+use App\Http\Requests\Admin\PreviewWelcomeEmailRequest;
 use App\Http\Requests\Admin\QuickAddProfileRequest;
+use App\Http\Requests\Admin\SendWelcomeEmailRequest;
 use App\Http\Requests\Admin\StoreManagedUserRequest;
 use App\Http\Requests\Admin\UpdateManagedUserRequest;
+use App\Models\AdminWelcomeEmailTemplate;
 use App\Models\City;
 use App\Models\Profile;
 use App\Models\Scopes\ActiveProfileScope;
@@ -78,7 +81,7 @@ class ManagedUserController extends Controller
         $profile = $this->managedProfileService->quickAdd($request->validated());
 
         return redirect()->route('admin.users.edit', $profile)
-            ->with('status', __('Listing created and welcome email sent.'));
+            ->with('status', __('Listing created. Send the welcome email below once you know the language.'));
     }
 
     public function edit(Profile $profile): View
@@ -92,7 +95,40 @@ class ManagedUserController extends Controller
 
         return view('admin.users.edit', [
             'profile' => $profile,
+            'welcomeEmailLocales' => AdminWelcomeEmailTemplate::query()
+                ->where('is_active', true)
+                ->orderBy('label')
+                ->get(['locale', 'label']),
         ]);
+    }
+
+    /**
+     * Read-only preview a maintainer must see before the send route below is reachable
+     * in the UI — Daniel 2026-09-14: "i don't want them to get an unapproved email".
+     * Nothing is queued here.
+     */
+    public function previewWelcomeEmail(PreviewWelcomeEmailRequest $request, Profile $profile): View
+    {
+        $locale = $request->validated()['locale'];
+
+        return view('admin.users.welcome-email-preview', [
+            'profile' => $profile,
+            'locale' => $locale,
+            'html' => $this->managedProfileService->previewWelcomeEmail($profile, $locale),
+        ]);
+    }
+
+    /**
+     * Manual follow-up to quick-add, reached only from the preview screen above —
+     * Daniel 2026-09-14: outreach happens in different languages, so sending is a
+     * deliberate, reviewed step, not an automatic side effect of creating the listing.
+     */
+    public function sendWelcomeEmail(SendWelcomeEmailRequest $request, Profile $profile): RedirectResponse
+    {
+        $this->managedProfileService->sendWelcomeEmail($profile, $request->validated()['locale']);
+
+        return redirect()->route('admin.users.edit', $profile)
+            ->with('status', __('Welcome email sent.'));
     }
 
     public function update(UpdateManagedUserRequest $request, Profile $profile): RedirectResponse
