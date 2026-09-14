@@ -10,16 +10,17 @@ use Illuminate\Database\Seeder;
 class CitySeeder extends Seeder
 {
     /**
-     * Seed the cities table with all major Spanish cities.
+     * Seed the cities table with all major Spanish cities plus Kolabing's international
+     * beachhead cities, then activate the curated selectable set (see getActiveCities()).
      *
-     * Cities are organized by autonomous community and include:
+     * Spanish cities are organized by autonomous community and include:
      * - All provincial capitals
      * - Major tourist destinations
      * - Important business centers
      */
     public function run(): void
     {
-        $cities = $this->getSpanishCities();
+        $cities = array_merge($this->getSpanishCities(), $this->getInternationalCities());
 
         foreach ($cities as $city) {
             City::query()->updateOrCreate(
@@ -28,7 +29,12 @@ class CitySeeder extends Seeder
             );
         }
 
-        // Mark initial active cities
+        // Reset every city to inactive, then activate exactly the curated set below —
+        // this repo has no data-migration precedent for a set change, and re-running the
+        // seeder is the sanctioned mechanism, so a prior active row must be explicitly
+        // deactivated here or it silently survives (idempotent updateOrCreate never removes).
+        City::query()->update(['is_active' => false, 'sort_order' => 0]);
+
         foreach (self::getActiveCities() as $cityName => $sortOrder) {
             City::query()
                 ->where('name', $cityName)
@@ -277,23 +283,43 @@ class CitySeeder extends Seeder
     }
 
     /**
-     * Get the initial active cities with sort order.
+     * Get the international (non-Spanish) cities Kolabing operates in.
+     *
+     * @return array<int, array{name: string, country: string}>
+     */
+    private function getInternationalCities(): array
+    {
+        return [
+            ['name' => 'Mexico City', 'country' => 'Mexico'],
+            ['name' => 'Tallinn', 'country' => 'Estonia'],
+            ['name' => 'Berlin', 'country' => 'Germany'],
+            ['name' => 'Paris', 'country' => 'France'],
+            ['name' => 'Warsaw', 'country' => 'Poland'],
+        ];
+    }
+
+    /**
+     * Get the active cities with sort order — the ones selectable in the app's city picker.
+     * Spain is scoped to the five beachhead cities; all other seeded Spanish cities exist in
+     * the table (for lookup/history) but stay inactive. International cities follow.
      *
      * @return array<string, int>
      */
     public static function getActiveCities(): array
     {
         return [
-            'Sevilla' => 1,
-            'Malaga' => 2,
-            'Barcelona' => 3,
-            'Madrid' => 4,
-            'Valencia' => 5,
-            'Granada' => 6,
-            'Cadiz' => 7,
-            'Cordoba' => 8,
-            'Bilbao' => 9,
-            'San Sebastian' => 10,
+            // Spain (beachhead cities only — Daniel 2026-09-11)
+            'Barcelona' => 1,
+            'Madrid' => 2,
+            'Valencia' => 3,
+            'Sevilla' => 4,
+            'Bilbao' => 5,
+            // International
+            'Mexico City' => 6,
+            'Tallinn' => 7,
+            'Berlin' => 8,
+            'Paris' => 9,
+            'Warsaw' => 10,
         ];
     }
 }
