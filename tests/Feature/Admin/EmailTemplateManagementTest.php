@@ -127,8 +127,13 @@ class EmailTemplateManagementTest extends TestCase
 
     public function test_deactivating_a_language_removes_it_from_the_send_dropdown_but_not_the_database(): void
     {
-        $active = AdminWelcomeEmailTemplate::factory()->create(['locale' => 'en', 'is_active' => true]);
-        $inactive = AdminWelcomeEmailTemplate::factory()->create(['locale' => 'de', 'is_active' => false]);
+        // Explicit, distinctive labels rather than the factory's fake()->word() default --
+        // CI caught this flaking on a random word ("id") that happens to be a near-universal
+        // HTML substring (every id="..." attribute matches it), failing assertDontSee no
+        // matter what the code does. assertSee/assertDontSee match substrings, so the label
+        // under test must be guaranteed not to collide with anything else on the page.
+        $active = AdminWelcomeEmailTemplate::factory()->create(['locale' => 'en', 'label' => 'English-Active-Marker', 'is_active' => true]);
+        $inactive = AdminWelcomeEmailTemplate::factory()->create(['locale' => 'de', 'label' => 'German-Inactive-Marker', 'is_active' => false]);
 
         $profile = \App\Models\Profile::factory()->business()->create();
 
