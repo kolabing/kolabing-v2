@@ -1,7 +1,7 @@
 @extends('admin.layout', ['title' => 'Quick Add'])
 
 @section('page_title', 'Quick Add')
-@section('page_subtitle', 'List a business or community sourced from outreach. They get a welcome email with a create-password link — no form for them to fill in.')
+@section('page_subtitle', 'List a business or community sourced from outreach. You send the welcome email separately, in the right language, from their edit page.')
 
 @section('page_actions')
     <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary">
@@ -57,7 +57,7 @@
                         <div class="form-group">
                             <label for="email">Email</label>
                             <input id="email" type="email" name="email" value="{{ old('email') }}" class="form-control @error('email') is-invalid @enderror" required>
-                            <small class="form-text text-muted">The welcome email with a create-password link goes here.</small>
+                            <small class="form-text text-muted">Where the welcome email goes once you send it from their edit page.</small>
                         </div>
                     </div>
 
@@ -111,7 +111,7 @@
             </div>
 
             <div class="card-footer">
-                <button type="submit" class="btn btn-primary">Create listing &amp; send welcome email</button>
+                <button type="submit" class="btn btn-primary">Create listing</button>
                 <a href="{{ route('admin.users.index') }}" class="btn btn-default">Cancel</a>
             </div>
 
