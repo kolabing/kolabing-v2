@@ -265,6 +265,30 @@ class QuickAddProfileTest extends TestCase
         $this->assertSame('Av. Santa Fe 596, CDMX', $business->primary_venue['formatted_address']);
     }
 
+    public function test_a_relative_photo_url_fails_validation_visibly(): void
+    {
+        // Regression guard 2026-09-14: the Places-import JS built relative photo URLs
+        // (/api/v1/places/photo?...), which fail the `url` validation rule on
+        // profile_photo/offer_photos.* -- silently, since those hidden fields had no
+        // @error() markup, so the form just reloaded with no visible reason why. Fixed
+        // the JS to build absolute URLs AND added a form-level error summary so any
+        // future hidden-field validation failure is visible, not just this one field.
+        $response = $this->actingAs($this->maintainer(), 'admin')
+            ->from(route('admin.users.quick-add'))
+            ->post(route('admin.users.quick-add.store'), [
+                'user_type' => 'business',
+                'name' => 'Riverside Cafe',
+                'email' => 'riverside3@example.com',
+                'profile_photo' => '/api/v1/places/photo?name=places/abc/photos/1',
+            ]);
+
+        $response->assertSessionHasErrors('profile_photo');
+        $this->assertDatabaseMissing('profiles', ['email' => 'riverside3@example.com']);
+
+        $follow = $this->get(route('admin.users.quick-add'));
+        $follow->assertSee('valid URL', false);
+    }
+
     public function test_quick_add_works_fine_without_any_places_import_data(): void
     {
         $this->actingAs($this->maintainer(), 'admin')

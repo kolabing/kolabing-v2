@@ -36,6 +36,17 @@
         </div>
     </div>
 
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <strong>Couldn't save — please fix:</strong>
+            <ul class="mb-0">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     <div class="card card-primary card-outline">
         <form method="post" action="{{ route('admin.users.quick-add.store') }}" id="quick-add-form">
             @csrf
@@ -191,7 +202,12 @@
                 var photos = (d.primary_venue && d.primary_venue.photos) || [];
                 photos.slice(0, 6).forEach(function (photo, idx) {
                     if (!photo.resource_name) { return; }
-                    var url = '/api/v1/places/photo?name=' + encodeURIComponent(photo.resource_name) + '&max_width=800';
+                    // Absolute URL required: QuickAddProfileRequest validates profile_photo/
+                    // offer_photos.* with the `url` rule, which rejects a bare relative path.
+                    // A relative URL here silently failed validation on those hidden fields
+                    // (no @error() markup exists for them), which read as "click submit, no
+                    // visible error, nothing saved" -- caught live 2026-09-14.
+                    var url = window.location.origin + '/api/v1/places/photo?name=' + encodeURIComponent(photo.resource_name) + '&max_width=800';
                     var wrap = document.createElement('div');
                     wrap.style.cssText = 'width:100px;height:100px;cursor:pointer;border:3px solid ' + (idx === 0 ? '#17a2b8' : 'transparent') + ';border-radius:4px;overflow:hidden;';
                     var img = document.createElement('img');

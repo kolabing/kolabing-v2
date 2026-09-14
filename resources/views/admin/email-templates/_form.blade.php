@@ -39,7 +39,7 @@
         <div class="form-group">
             <label for="intro_markdown">Intro (welcome + what they get)</label>
             <textarea id="intro_markdown" name="intro_markdown" rows="8" class="form-control @error('intro_markdown') is-invalid @enderror" required>{{ old('intro_markdown', $template?->intro_markdown) }}</textarea>
-            <small class="form-text text-muted">Markdown. Use <code>{{ '{{name}}' }}</code> and <code>{{ '{{who}}' }}</code> — filled in automatically per recipient. Rendered before the "View your listing" button, which is fixed and not editable here.</small>
+            <small class="form-text text-muted">Markdown. Use <code>@{{name}}</code> and <code>@{{who}}</code> — filled in automatically per recipient. Rendered before the "View your listing" button, which is fixed and not editable here.</small>
         </div>
     </div>
 

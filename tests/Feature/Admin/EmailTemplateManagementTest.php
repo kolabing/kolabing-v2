@@ -18,6 +18,27 @@ class EmailTemplateManagementTest extends TestCase
         return User::factory()->create(['is_maintainer' => true]);
     }
 
+    public function test_maintainer_can_render_the_create_form(): void
+    {
+        // Regression guard 2026-09-14: {{ '{{name}}' }} in the shared _form partial broke
+        // Blade compilation ("Unclosed '(' does not match '}'") -- caught live in prod, not
+        // by any test, because nothing exercised a real GET render of these views. Every
+        // create/store test here used post() directly, which never compiles the form.
+        $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.email-templates.create'))
+            ->assertOk();
+    }
+
+    public function test_maintainer_can_render_the_edit_form(): void
+    {
+        $template = AdminWelcomeEmailTemplate::factory()->create();
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.email-templates.edit', $template))
+            ->assertOk()
+            ->assertSee($template->label);
+    }
+
     public function test_maintainer_can_add_a_new_language(): void
     {
         $this->actingAs($this->maintainer(), 'admin')
