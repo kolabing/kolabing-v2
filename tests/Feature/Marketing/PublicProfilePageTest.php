@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Marketing;
 
 use App\Models\BusinessProfile;
+use App\Models\City;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
 use App\Models\CommunityProfile;
@@ -114,6 +115,68 @@ class PublicProfilePageTest extends TestCase
         $this->get('http://kolabing.com/p/'.PublicProfileLink::slugFor($profile))
             ->assertOk()
             ->assertDontSee('>Hours<', false);
+    }
+
+    /**
+     * Daniel 2026-09-15: "you are missing a 'potential collaborations' section of
+     * social proof and cta". This is a real COUNT (active opposite-type profiles in
+     * the same city), not the authenticated matching algorithm -- see the
+     * controller's class doc comment for why running that publicly would be wrong.
+     */
+    public function test_a_business_sees_potential_community_collaborations_in_its_city(): void
+    {
+        $city = City::factory()->create(['name' => 'Barcelona']);
+
+        $business = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $business->id, 'name' => 'Cafe Luna', 'city_id' => $city->id]);
+
+        CommunityProfile::factory()->count(3)->create(['city_id' => $city->id]);
+        // A community in a DIFFERENT city must not count.
+        CommunityProfile::factory()->create(['city_id' => City::factory()->create()->id]);
+
+        $this->get('http://kolabing.com/p/'.PublicProfileLink::slugFor($business->fresh()))
+            ->assertOk()
+            ->assertSee('Potential collaborations')
+            ->assertSee('3', false)
+            ->assertSee('communities are active on Kolabing in Barcelona', false)
+            ->assertSee('See who', false);
+    }
+
+    public function test_a_community_sees_potential_business_collaborations_in_its_city(): void
+    {
+        $city = City::factory()->create(['name' => 'Madrid']);
+        $community = $this->community();
+        $community->communityProfile()->update(['city_id' => $city->id]);
+
+        BusinessProfile::factory()->count(2)->create(['city_id' => $city->id]);
+
+        $this->get('http://kolabing.com/p/'.PublicProfileLink::slugFor($community->fresh()))
+            ->assertOk()
+            ->assertSee('2', false)
+            ->assertSee('businesses are active on Kolabing in Madrid', false);
+    }
+
+    public function test_no_potential_collaborations_section_when_the_count_is_zero(): void
+    {
+        $profile = $this->business('Cafe Luna');
+
+        $this->get('http://kolabing.com/p/'.PublicProfileLink::slugFor($profile))
+            ->assertOk()
+            ->assertDontSee('Potential collaborations');
+    }
+
+    public function test_a_test_user_in_the_same_city_does_not_inflate_the_collaboration_count(): void
+    {
+        $city = City::factory()->create();
+        $business = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create(['profile_id' => $business->id, 'city_id' => $city->id]);
+
+        $testCommunity = Profile::factory()->community()->create(['is_test_user' => true]);
+        CommunityProfile::factory()->create(['profile_id' => $testCommunity->id, 'city_id' => $city->id]);
+
+        $this->get('http://kolabing.com/p/'.PublicProfileLink::slugFor($business->fresh()))
+            ->assertOk()
+            ->assertDontSee('Potential collaborations');
     }
 
     public function test_contact_details_are_never_in_the_public_html(): void
