@@ -45,6 +45,8 @@ class UpdateManagedUserRequest extends FormRequest
             'offer_photos.*' => ['url', 'max:2048'],
             'primary_venue' => ['nullable', 'array'],
             'business_type' => ['nullable', 'string', Rule::exists('business_types', 'slug')],
+            'opening_hours' => ['nullable', 'array', 'max:7'],
+            'opening_hours.*' => ['string', 'max:255'],
         ];
     }
 }

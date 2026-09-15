@@ -222,6 +222,11 @@ class ManagedProfileService
                     // on the public page instead of a real category. Caught 2026-09-15
                     // benchmarking against Yelp/Google Business Profile/TripAdvisor.
                     'business_type' => ($data['business_type'] ?? null) ?: null,
+                    // Same Maps-import card. Nested inside primary_venue in the API
+                    // response (GooglePlacesService returns it as
+                    // primary_venue.opening_hours), captured into its own column here so
+                    // it can be shown without re-parsing primary_venue's full JSON blob.
+                    'opening_hours' => ($data['opening_hours'] ?? null) ?: null,
                 ]
             );
 

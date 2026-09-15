@@ -9,6 +9,8 @@
      * here: contact details, the full review list, reviewer identities, past-event
      * detail and collaboration partners are deliberately absent from this HTML
      * rather than hidden with CSS — they are the reason to create an account.
+     * Opening hours are shown (operational, not contact info — see the controller's
+     * doc comment).
      */
     $ratingLabel = $averageRating ? number_format((float) $averageRating, 1) : null;
 
@@ -125,6 +127,18 @@
             <section class="mt-10">
                 <h2 class="font-display text-lg font-black text-off-black">About</h2>
                 <p class="mt-2 whitespace-pre-line leading-relaxed text-off-black/80">{{ $aboutPreview }}</p>
+            </section>
+        @endif
+
+        {{-- ── Hours (operational info, not the signup gate — see controller doc) ── --}}
+        @if (count($openingHours) > 0)
+            <section class="mt-8">
+                <h2 class="font-display text-lg font-black text-off-black">Hours</h2>
+                <ul class="mt-2 space-y-0.5 text-sm text-off-black/70">
+                    @foreach ($openingHours as $line)
+                        <li>{{ $line }}</li>
+                    @endforeach
+                </ul>
             </section>
         @endif
 
