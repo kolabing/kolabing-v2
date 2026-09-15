@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Admin;
 
 use App\Models\BusinessProfile;
+use App\Models\BusinessType;
 use App\Models\Profile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -148,6 +149,59 @@ class ManagedUserPlacesImportTest extends TestCase
             ->assertOk()
             ->assertSee('chosenPhotos.push(url);', false)
             ->assertDontSee('if (idx === 0) { chosenPhotos.push(url); }', false);
+    }
+
+    /**
+     * The other half of "still doesn't render the photos, logo or anything" (Daniel
+     * 2026-09-15): GooglePlacesService already maps Google's place `types` to a
+     * business_types.slug and returns it as `business_type` on every /places/details
+     * response, but the import card never captured it into a form field -- so every
+     * imported listing fell back to the generic "Business"/"Community" label on the
+     * public page (PublicProfilePageController::typeLabel()) instead of a real
+     * category, unlike every benchmarked platform (Yelp/Google Business Profile/
+     * TripAdvisor all show a real category).
+     */
+    public function test_store_accepts_the_business_type_the_maps_import_resolves(): void
+    {
+        BusinessType::query()->firstOrCreate(['slug' => 'cafe'], ['name' => 'Cafe', 'applies_to' => 'both', 'sort_order' => 1, 'is_active' => true]);
+
+        $response = $this->actingAs($this->maintainer(), 'admin')->post(route('admin.users.store'), [
+            'user_type' => 'business',
+            'email' => 'places-category@example.com',
+            'password' => 'password123',
+            'name' => 'Places Category Co',
+            'business_type' => 'cafe',
+        ]);
+
+        $response->assertSessionDoesntHaveErrors();
+
+        $business = Profile::where('email', 'places-category@example.com')->first()->businessProfile;
+        $this->assertSame('cafe', $business->business_type);
+    }
+
+    public function test_store_rejects_a_business_type_slug_that_does_not_exist(): void
+    {
+        $response = $this->actingAs($this->maintainer(), 'admin')->post(route('admin.users.store'), [
+            'user_type' => 'business',
+            'email' => 'places-bad-category@example.com',
+            'password' => 'password123',
+            'name' => 'Places Bad Category Co',
+            'business_type' => 'not-a-real-slug',
+        ]);
+
+        $response->assertSessionHasErrors('business_type');
+    }
+
+    public function test_the_rendered_edit_form_resubmits_the_existing_business_type_by_default(): void
+    {
+        BusinessType::query()->firstOrCreate(['slug' => 'cafe'], ['name' => 'Cafe', 'applies_to' => 'both', 'sort_order' => 1, 'is_active' => true]);
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->for($profile, 'profile')->create(['business_type' => 'cafe']);
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.users.edit', $profile))
+            ->assertOk()
+            ->assertSee('name="business_type" id="business_type" value="cafe"', false);
     }
 
     public function test_city_id_set_via_the_create_form_persists(): void

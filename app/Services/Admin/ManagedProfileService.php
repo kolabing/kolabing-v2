@@ -215,6 +215,13 @@ class ManagedProfileService
                     'profile_photo' => ($data['profile_photo'] ?? null) ?: null,
                     'offer_photos' => ($data['offer_photos'] ?? null) ?: null,
                     'primary_venue' => ($data['primary_venue'] ?? null) ?: null,
+                    // Same Maps-import card, mapped from Google's place `types` by
+                    // GooglePlacesService::mapBusinessCategories() -- was returned by the
+                    // API on every import but never actually captured by the form, so
+                    // every imported listing fell back to the generic "Business" label
+                    // on the public page instead of a real category. Caught 2026-09-15
+                    // benchmarking against Yelp/Google Business Profile/TripAdvisor.
+                    'business_type' => ($data['business_type'] ?? null) ?: null,
                 ]
             );
 
