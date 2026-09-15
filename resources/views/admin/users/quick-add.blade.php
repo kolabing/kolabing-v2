@@ -90,6 +90,19 @@
                         </div>
                     </div>
 
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="business_type">Category</label>
+                            <select id="business_type" name="business_type" class="form-control @error('business_type') is-invalid @enderror">
+                                <option value="">—</option>
+                                @foreach ($businessTypes ?? [] as $type)
+                                    <option value="{{ $type->slug }}" @selected(old('business_type') === $type->slug)>{{ $type->name }}</option>
+                                @endforeach
+                            </select>
+                            <small class="form-text text-muted">Used only for business profiles. Also set by the Maps import above, when it can resolve one.</small>
+                        </div>
+                    </div>
+
                     <div class="col-12">
                         <div class="form-group">
                             <label for="about">About</label>

@@ -14,6 +14,7 @@ use App\Http\Requests\Admin\StoreManagedUserRequest;
 use App\Http\Requests\Admin\UpdateManagedUserRequest;
 use App\Models\AdminWelcomeEmailTemplate;
 use App\Models\BusinessProfile;
+use App\Models\BusinessType;
 use App\Models\City;
 use App\Models\CommunityProfile;
 use App\Models\Profile;
@@ -141,6 +142,7 @@ class ManagedUserController extends Controller
         return view('admin.users.create', [
             'userTypes' => UserType::cases(),
             'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->get(),
+            'businessTypes' => BusinessType::query()->active()->ordered()->get(),
         ]);
     }
 
@@ -162,6 +164,7 @@ class ManagedUserController extends Controller
         return view('admin.users.quick-add', [
             'userTypes' => [UserType::Business, UserType::Community],
             'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->get(),
+            'businessTypes' => BusinessType::query()->active()->ordered()->get(),
         ]);
     }
 
@@ -185,6 +188,7 @@ class ManagedUserController extends Controller
         return view('admin.users.edit', [
             'profile' => $profile,
             'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->get(),
+            'businessTypes' => BusinessType::query()->active()->ordered()->get(),
             'welcomeEmailLocales' => AdminWelcomeEmailTemplate::query()
                 ->where('is_active', true)
                 ->orderBy('label')

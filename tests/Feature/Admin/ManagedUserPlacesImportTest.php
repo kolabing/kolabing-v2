@@ -226,7 +226,59 @@ class ManagedUserPlacesImportTest extends TestCase
         $response->assertSessionHasErrors('business_type');
     }
 
-    public function test_the_rendered_edit_form_resubmits_the_existing_business_type_by_default(): void
+    /**
+     * The import JS auto-fills business_type when Google resolves one, but that's an
+     * automatic path -- a maintainer must also be able to set or correct the category
+     * by hand (e.g. a listing Google has no data for, or a wrong auto-match), same as
+     * every other field on this form. Also guards against a real bug this change
+     * introduced then caught in the same pass: the first draft rendered a SECOND
+     * business_type element (the import card's old hidden input) alongside this
+     * select, which is an id/name collision -- exactly one #business_type element may
+     * exist per page.
+     */
+    public function test_a_maintainer_can_set_the_category_manually_on_the_create_form(): void
+    {
+        BusinessType::query()->firstOrCreate(['slug' => 'cafe'], ['name' => 'Cafe', 'applies_to' => 'both', 'sort_order' => 1, 'is_active' => true]);
+
+        $response = $this->actingAs($this->maintainer(), 'admin')->post(route('admin.users.store'), [
+            'user_type' => 'business',
+            'email' => 'manual-category@example.com',
+            'password' => 'password123',
+            'name' => 'Manual Category Co',
+            'business_type' => 'cafe',
+        ]);
+
+        $response->assertSessionDoesntHaveErrors();
+
+        $business = Profile::where('email', 'manual-category@example.com')->first()->businessProfile;
+        $this->assertSame('cafe', $business->business_type);
+    }
+
+    public function test_exactly_one_business_type_element_exists_on_the_create_form(): void
+    {
+        BusinessType::query()->firstOrCreate(['slug' => 'cafe'], ['name' => 'Cafe', 'applies_to' => 'both', 'sort_order' => 1, 'is_active' => true]);
+
+        $html = (string) $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.users.create'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertSame(1, substr_count($html, 'id="business_type"'), 'exactly one #business_type element may exist per page (a duplicate id/name is a real regression this change fixed)');
+        $this->assertStringContainsString('<select id="business_type"', $html);
+    }
+
+    public function test_the_quick_add_form_also_has_the_category_dropdown(): void
+    {
+        BusinessType::query()->firstOrCreate(['slug' => 'cafe'], ['name' => 'Cafe', 'applies_to' => 'both', 'sort_order' => 1, 'is_active' => true]);
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.users.quick-add'))
+            ->assertOk()
+            ->assertSee('<select id="business_type"', false)
+            ->assertSee('>Cafe<', false);
+    }
+
+    public function test_the_rendered_edit_form_preselects_the_existing_business_type_by_default(): void
     {
         BusinessType::query()->firstOrCreate(['slug' => 'cafe'], ['name' => 'Cafe', 'applies_to' => 'both', 'sort_order' => 1, 'is_active' => true]);
         $profile = Profile::factory()->business()->create();
@@ -235,7 +287,7 @@ class ManagedUserPlacesImportTest extends TestCase
         $this->actingAs($this->maintainer(), 'admin')
             ->get(route('admin.users.edit', $profile))
             ->assertOk()
-            ->assertSee('name="business_type" id="business_type" value="cafe"', false);
+            ->assertSee('<option value="cafe" selected', false);
     }
 
     public function test_city_id_set_via_the_create_form_persists(): void
