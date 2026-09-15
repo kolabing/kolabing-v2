@@ -27,7 +27,10 @@ class UpdateManagedUserRequest extends FormRequest
         $profile = $this->route('profile');
 
         return [
-            'email' => ['required', 'email', 'max:255', Rule::unique('profiles', 'email')->ignore($profile->id)],
+            // whereNull('deleted_at'): see QuickAddProfileRequest -- a soft-deleted profile's
+            // email must not stay permanently blocked, and Rule::unique doesn't apply the
+            // SoftDeletes scope on its own.
+            'email' => ['required', 'email', 'max:255', Rule::unique('profiles', 'email')->ignore($profile->id)->whereNull('deleted_at')],
             'password' => ['nullable', 'string', 'min:8'],
             'phone_number' => ['nullable', 'string', 'max:20'],
             'email_verified' => ['nullable', 'boolean'],

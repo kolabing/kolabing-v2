@@ -24,7 +24,10 @@ class StoreManagedUserRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'email', 'max:255', Rule::unique('profiles', 'email')],
+            // whereNull('deleted_at'): see QuickAddProfileRequest -- a soft-deleted profile's
+            // email must not stay permanently blocked, and Rule::unique doesn't apply the
+            // SoftDeletes scope on its own.
+            'email' => ['required', 'email', 'max:255', Rule::unique('profiles', 'email')->whereNull('deleted_at')],
             'password' => ['required', 'string', 'min:8'],
             'phone_number' => ['nullable', 'string', 'max:20'],
             'user_type' => ['required', Rule::in(UserType::values())],
