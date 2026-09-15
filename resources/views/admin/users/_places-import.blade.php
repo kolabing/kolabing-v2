@@ -16,6 +16,7 @@
 --}}
 @php
     $existingOfferPhotos = $detailProfile->offer_photos ?? [];
+    $existingBusinessType = $detailProfile->business_type ?? '';
 @endphp
 <div class="card card-outline card-info mb-3" id="places-import-card">
     <div class="card-header">
@@ -49,6 +50,17 @@
     @endforeach
 </div>
 <input type="hidden" name="primary_venue" id="primary_venue" value="{{ old('primary_venue', isset($detailProfile) && $detailProfile->primary_venue ? json_encode($detailProfile->primary_venue) : '') }}">
+<input type="hidden" name="business_type" id="business_type" value="{{ old('business_type', $existingBusinessType) }}">
+{{--
+    business_type: GooglePlacesService already maps Google's place `types` to a
+    business_types.slug (see mapBusinessCategories()) and returns it as `business_type`
+    on every /places/details response -- this field was simply never captured into the
+    form. Without it every imported listing falls back to the generic "Business"/
+    "Community" label on the public page (PublicProfilePageController::typeLabel())
+    instead of a real category like "Coffee Shop". Caught 2026-09-15 benchmarking
+    against Yelp/Google Business Profile/TripAdvisor, all of which show a real category
+    label, never a generic one.
+--}}
 
 <script>
 (function () {
@@ -115,6 +127,7 @@
                 setValueIfEmpty('website', d.website || '');
                 if (d.phone_number) { setValueIfEmpty('phone_number', d.phone_number); }
                 if (d.city_id) { setValueIfEmpty('city_id', d.city_id); }
+                if (d.business_type) { setValueIfEmpty('business_type', d.business_type); }
 
                 document.getElementById('primary_venue').value = JSON.stringify(d.primary_venue || {});
 
