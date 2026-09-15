@@ -103,11 +103,18 @@
                     return;
                 }
                 var d = json.data;
-                setValueIfPresent('name', d.name || '');
-                setValueIfPresent('about', d.about || '');
-                setValueIfPresent('website', d.website || '');
-                if (d.phone_number) { setValueIfPresent('phone_number', d.phone_number); }
-                if (d.city_id) { setValueIfPresent('city_id', d.city_id); }
+                // Only fill fields that are currently EMPTY -- on a fresh quick-add
+                // form this is every field, so behaviour there is unchanged. On an
+                // edit page (re-importing just to refresh photos/venue on an EXISTING
+                // listing), this stops the import from silently clobbering a name/
+                // about/website a maintainer already curated. Caught live 2026-09-15:
+                // a re-import intended to just grab more photos overwrote a listing's
+                // chosen display name with Google's own listing name.
+                setValueIfEmpty('name', d.name || '');
+                setValueIfEmpty('about', d.about || '');
+                setValueIfEmpty('website', d.website || '');
+                if (d.phone_number) { setValueIfEmpty('phone_number', d.phone_number); }
+                if (d.city_id) { setValueIfEmpty('city_id', d.city_id); }
 
                 document.getElementById('primary_venue').value = JSON.stringify(d.primary_venue || {});
 
@@ -150,9 +157,9 @@
             });
     }
 
-    function setValueIfPresent(id, value) {
+    function setValueIfEmpty(id, value) {
         var el = document.getElementById(id);
-        if (el) { el.value = value; }
+        if (el && !el.value) { el.value = value; }
     }
 
     function syncPhotoInputs() {

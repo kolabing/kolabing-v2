@@ -182,6 +182,33 @@ class PublicProfilePageTest extends TestCase
             ->assertSee('more in the app');
     }
 
+    /**
+     * `business_profiles.offer_photos` (written by the admin Google Maps import,
+     * admin.users._places-import) was never read here -- so a business that imported
+     * 6 real photos showed exactly one (profile_photo) on its own public page. Caught
+     * live 2026-09-15 benchmarking against real listing platforms (Yelp/Google
+     * Business/TripAdvisor all show a real multi-photo gallery).
+     */
+    public function test_offer_photos_from_the_maps_import_appear_in_the_public_gallery(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $profile->id,
+            'name' => 'Cafe con Fotos',
+            'profile_photo' => 'https://cdn.example/main.jpg',
+            'offer_photos' => [
+                'https://cdn.example/offer-1.jpg',
+                'https://cdn.example/offer-2.jpg',
+            ],
+        ]);
+
+        $response = $this->get('http://kolabing.com/p/'.PublicProfileLink::slugFor($profile->fresh()));
+
+        $response->assertOk()
+            ->assertSee('main.jpg', false)
+            ->assertSee('offer-1.jpg', false);
+    }
+
     public function test_the_page_carries_seo_metadata_and_a_canonical_slug(): void
     {
         $profile = $this->community();

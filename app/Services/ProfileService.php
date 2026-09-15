@@ -8,6 +8,7 @@ use App\Enums\CollaborationStatus;
 use App\Enums\KolabStatus;
 use App\Enums\NotificationType;
 use App\Jobs\GenerateSuggestionsForProfile;
+use App\Models\BusinessProfile;
 use App\Models\Collaboration;
 use App\Models\CollaborationReview;
 use App\Models\Community;
@@ -657,12 +658,34 @@ class ProfileService
     {
         $photos = collect();
 
-        $profilePhoto = $profile->getExtendedProfile()?->profile_photo;
+        $extended = $profile->getExtendedProfile();
+
+        $profilePhoto = $extended?->profile_photo;
         if (is_string($profilePhoto) && $profilePhoto !== '') {
             $photos->push([
                 'url' => $profilePhoto,
                 'source' => 'profile_photo',
             ]);
+        }
+
+        // The Google Maps import (admin.users._places-import) writes up to 10 picked
+        // photos into business_profiles.offer_photos, but this method never read it --
+        // so every photo a maintainer selected besides the first (which becomes
+        // profile_photo) sat in the DB, imported and saved, completely invisible on the
+        // public profile. Caught live 2026-09-15 benchmarking against real listing
+        // platforms (Yelp/Google Business/TripAdvisor all show a real multi-photo
+        // gallery, not a single image) — a business with 6 real photos was showing 1.
+        if ($extended instanceof BusinessProfile && is_array($extended->offer_photos)) {
+            foreach ($extended->offer_photos as $url) {
+                if (! is_string($url) || $url === '') {
+                    continue;
+                }
+
+                $photos->push([
+                    'url' => $url,
+                    'source' => 'offer_photo',
+                ]);
+            }
         }
 
         foreach ($profile->galleryPhotos as $photo) {
@@ -709,15 +732,33 @@ class ProfileService
      */
     private function buildCommunityGallery(Profile $profile): array
     {
-        return $profile->galleryPhotos
+        $gallery = $profile->galleryPhotos
             ->filter(fn ($photo): bool => is_string($photo->url) && $photo->url !== '')
             ->sortBy('sort_order')
             ->values()
             ->map(fn ($photo): array => [
                 'id' => $photo->id,
                 'url' => $photo->url,
-            ])
-            ->all();
+            ]);
+
+        // Same gap as buildCommunityPhotos() above, for the full in-app gallery
+        // (`GET /profiles/{id}` -> PublicProfileResource, the view a logged-in
+        // community member actually sees -- not just the public teaser): the Google
+        // Maps import's offer_photos were never read here either. `id` is synthetic
+        // (view-only render context -- this is someone ELSE viewing the profile, not
+        // an owner-managed gallery with per-photo delete actions).
+        $extended = $profile->getExtendedProfile();
+        if ($extended instanceof BusinessProfile && is_array($extended->offer_photos)) {
+            foreach ($extended->offer_photos as $url) {
+                if (! is_string($url) || $url === '') {
+                    continue;
+                }
+
+                $gallery->push(['id' => 'offer-photo-'.md5($url), 'url' => $url]);
+            }
+        }
+
+        return $gallery->unique('url')->values()->all();
     }
 
     /**
