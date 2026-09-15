@@ -50,6 +50,14 @@
     @endforeach
 </div>
 <input type="hidden" name="primary_venue" id="primary_venue" value="{{ old('primary_venue', isset($detailProfile) && $detailProfile->primary_venue ? json_encode($detailProfile->primary_venue) : '') }}">
+<input type="hidden" name="opening_hours" id="opening_hours" value="{{ old('opening_hours', isset($detailProfile) && $detailProfile->opening_hours ? json_encode($detailProfile->opening_hours) : '') }}">
+{{--
+    opening_hours: GooglePlacesService already resolves this (a plain array of
+    "Weekday: open – close" strings) and nests it inside every /places/details
+    response's `primary_venue.opening_hours` -- captured here the same way
+    business_type was (2026-09-15 benchmark pass): every benchmarked platform
+    (Yelp/Google Business Profile/TripAdvisor) shows hours on every listing.
+--}}
 <input type="hidden" name="business_type" id="business_type" value="{{ old('business_type', $existingBusinessType) }}">
 {{--
     business_type: GooglePlacesService already maps Google's place `types` to a
@@ -130,6 +138,10 @@
                 if (d.business_type) { setValueIfEmpty('business_type', d.business_type); }
 
                 document.getElementById('primary_venue').value = JSON.stringify(d.primary_venue || {});
+                var hoursField = document.getElementById('opening_hours');
+                if (hoursField && !hoursField.value && d.primary_venue && Array.isArray(d.primary_venue.opening_hours) && d.primary_venue.opening_hours.length) {
+                    hoursField.value = JSON.stringify(d.primary_venue.opening_hours);
+                }
 
                 resultsBox.style.display = 'none';
                 selectedBox.style.display = 'block';

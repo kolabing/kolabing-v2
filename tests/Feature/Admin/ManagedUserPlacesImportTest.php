@@ -86,6 +86,27 @@ class ManagedUserPlacesImportTest extends TestCase
         $this->assertSame('https://example.com/new-photo.jpg', $profile->businessProfile->profile_photo);
     }
 
+    /**
+     * opening_hours travels the same way primary_venue does -- the import card
+     * writes it as a JSON.stringify'd array into a hidden input, so it must be
+     * decoded back to a PHP array before the `array` rule runs (DecodesPrimaryVenue).
+     */
+    public function test_store_accepts_opening_hours_as_the_json_string_the_browser_actually_sends(): void
+    {
+        $response = $this->actingAs($this->maintainer(), 'admin')->post(route('admin.users.store'), [
+            'user_type' => 'business',
+            'email' => 'places-hours@example.com',
+            'password' => 'password123',
+            'name' => 'Places Hours Co',
+            'opening_hours' => json_encode(['Monday: 8:00 AM – 8:00 PM', 'Sunday: 9:00 AM – 5:00 PM']),
+        ]);
+
+        $response->assertSessionDoesntHaveErrors();
+
+        $business = Profile::where('email', 'places-hours@example.com')->first()->businessProfile;
+        $this->assertSame(['Monday: 8:00 AM – 8:00 PM', 'Sunday: 9:00 AM – 5:00 PM'], $business->opening_hours);
+    }
+
     public function test_update_without_touching_the_import_card_does_not_wipe_existing_photos(): void
     {
         $profile = Profile::factory()->business()->create();
@@ -130,6 +151,19 @@ class ManagedUserPlacesImportTest extends TestCase
             ->assertSee('value="https://example.com/existing-1.jpg"', false)
             ->assertSee('value="https://example.com/existing-2.jpg"', false)
             ->assertSee(htmlspecialchars(json_encode(['formatted_address' => 'Existing Address 1']), ENT_QUOTES), false);
+    }
+
+    public function test_the_rendered_edit_form_resubmits_the_existing_opening_hours_by_default(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->for($profile, 'profile')->create([
+            'opening_hours' => ['Monday: 8:00 AM – 8:00 PM'],
+        ]);
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.users.edit', $profile))
+            ->assertOk()
+            ->assertSee(htmlspecialchars(json_encode(['Monday: 8:00 AM – 8:00 PM']), ENT_QUOTES), false);
     }
 
     /**

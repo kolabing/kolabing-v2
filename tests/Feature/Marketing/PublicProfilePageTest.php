@@ -85,6 +85,37 @@ class PublicProfilePageTest extends TestCase
             ->assertSee('A neighbourhood cafe.');
     }
 
+    /**
+     * Opening hours are operational info, not contact details -- shown publicly on
+     * every benchmarked listing platform (Yelp/Google Business Profile/TripAdvisor).
+     * Unlike website/phone/address (still gated, unchanged), this one is safe to
+     * show without touching the "contact details are the reason to sign up" policy.
+     */
+    public function test_a_business_shows_its_opening_hours_publicly(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $profile->id,
+            'name' => 'Cafe Luna',
+            'opening_hours' => ['Monday: 8:00 AM – 8:00 PM', 'Sunday: 9:00 AM – 5:00 PM'],
+        ]);
+
+        $this->get('http://kolabing.com/p/'.PublicProfileLink::slugFor($profile->fresh()))
+            ->assertOk()
+            ->assertSee('Hours')
+            ->assertSee('Monday: 8:00 AM', false)
+            ->assertSee('Sunday: 9:00 AM', false);
+    }
+
+    public function test_no_hours_section_when_none_are_set(): void
+    {
+        $profile = $this->business('Cafe Luna');
+
+        $this->get('http://kolabing.com/p/'.PublicProfileLink::slugFor($profile))
+            ->assertOk()
+            ->assertDontSee('>Hours<', false);
+    }
+
     public function test_contact_details_are_never_in_the_public_html(): void
     {
         // Contact details are the reason to create an account. They must be absent

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\BusinessProfile;
 use App\Models\CollaborationReview;
 use App\Models\Profile;
 use App\Services\ProfileService;
@@ -20,6 +21,9 @@ use Illuminate\Support\Str;
  * where the value starts. Contact details, the full review list, reviewer
  * identities, past-event detail and collaboration partners are the reason to create
  * an account, so they are not merely hidden with CSS: they never reach the HTML.
+ * Opening hours are the one exception (added 2026-09-15): purely operational, not
+ * personal/contact info, and every benchmarked listing platform (Yelp/Google
+ * Business Profile/TripAdvisor) shows them on every listing.
  *
  * It reads models directly rather than calling /api/v1, which keeps the API
  * authenticated. Nothing here may become a way to enumerate the database.
@@ -75,7 +79,20 @@ class PublicProfilePageController extends Controller
             'collaborationCount' => (int) ($stats['completed_collaborations_count'] ?? 0),
             'canonicalUrl' => url('/p/'.$canonicalSlug),
             'appUrl' => rtrim((string) config('webapp.url'), '/'),
+            'openingHours' => $this->openingHours($extended),
         ]);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function openingHours(mixed $extended): array
+    {
+        if (! $extended instanceof BusinessProfile || ! is_array($extended->opening_hours)) {
+            return [];
+        }
+
+        return array_values(array_filter($extended->opening_hours, fn ($line): bool => is_string($line) && $line !== ''));
     }
 
     /**
