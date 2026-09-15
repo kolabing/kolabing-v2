@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\AttendeeProfile;
+use App\Models\BusinessProfile;
 use App\Models\CollaborationReview;
+use App\Models\CommunityProfile;
 use App\Models\Profile;
 use App\Services\ProfileService;
 use App\Support\PublicProfileLink;
@@ -17,9 +20,19 @@ use Illuminate\Support\Str;
  *
  * This is a **teaser**, deliberately: it shows enough to be worth sharing and
  * ranking — who they are, what they are rated, a few photos, one quote — and stops
- * where the value starts. Contact details, the full review list, reviewer
- * identities, past-event detail and collaboration partners are the reason to create
- * an account, so they are not merely hidden with CSS: they never reach the HTML.
+ * where the KOLABING-specific value starts. The full review list, reviewer
+ * identities, past-event detail, collaboration partners, and in-app messaging are
+ * the reason to create an account, so those never reach the HTML.
+ *
+ * Basic public business info (website, Instagram, phone, address) is a DIFFERENT
+ * category: every benchmarked listing platform (Yelp, Google Business Profile,
+ * TripAdvisor) shows this without gating it, because withholding it makes a first-
+ * touch listing look unfinished/unreal rather than driving signup -- the entire
+ * point of the listing-first strategy is that a stranger googling the business name
+ * can tell it's a real, findable place. Added 2026-09-15 (Daniel: "fill this
+ * specific listing to be better suited, use their ig"). "Message them directly" in
+ * the wall below stays gated -- that's the actual Kolabing-specific value, not
+ * contact info any business already publishes everywhere else.
  *
  * It reads models directly rather than calling /api/v1, which keeps the API
  * authenticated. Nothing here may become a way to enumerate the database.
@@ -75,7 +88,46 @@ class PublicProfilePageController extends Controller
             'collaborationCount' => (int) ($stats['completed_collaborations_count'] ?? 0),
             'canonicalUrl' => url('/p/'.$canonicalSlug),
             'appUrl' => rtrim((string) config('webapp.url'), '/'),
+            'website' => $this->publicWebsite($extended),
+            'instagramUrl' => $this->publicInstagramUrl($extended),
+            'phoneNumber' => $profile->phone_number,
+            'address' => $extended instanceof BusinessProfile
+                ? (string) ($extended->primary_venue['formatted_address'] ?? '')
+                : '',
         ]);
+    }
+
+    private function publicWebsite(AttendeeProfile|BusinessProfile|CommunityProfile|null $extended): string
+    {
+        $website = ($extended instanceof BusinessProfile || $extended instanceof CommunityProfile)
+            ? $extended->website
+            : null;
+
+        return is_string($website) ? $website : '';
+    }
+
+    /**
+     * Stored as a bare handle or a full URL depending on how it was entered (the
+     * admin form's `instagram` field has never constrained the format) -- normalise
+     * either into a real profile URL rather than showing a bare "@handle" as if it
+     * were clickable, or linking a raw handle string as a broken href.
+     */
+    private function publicInstagramUrl(AttendeeProfile|BusinessProfile|CommunityProfile|null $extended): string
+    {
+        $handle = ($extended instanceof BusinessProfile || $extended instanceof CommunityProfile)
+            ? $extended->instagram
+            : null;
+        $raw = trim((string) $handle);
+
+        if ($raw === '') {
+            return '';
+        }
+
+        if (Str::startsWith($raw, ['http://', 'https://'])) {
+            return $raw;
+        }
+
+        return 'https://instagram.com/'.ltrim($raw, '@');
     }
 
     /**

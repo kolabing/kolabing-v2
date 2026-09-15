@@ -20,8 +20,10 @@ use Tests\TestCase;
  *
  * The point of these tests is the WALL: this page is public and indexable, so every
  * assertion about what it must NOT contain is load-bearing. A regression that leaks
- * contact details or the review list does not break the page — it quietly gives away
- * the reason to sign up.
+ * the full review list, reviewer identities, past-event detail, or collaboration
+ * partners does not break the page — it quietly gives away the reason to sign up.
+ * Basic business info (website/Instagram/phone/address) is deliberately NOT in that
+ * category as of 2026-09-15 — see PublicProfilePageController's doc comment.
  */
 class PublicProfilePageTest extends TestCase
 {
@@ -85,18 +87,51 @@ class PublicProfilePageTest extends TestCase
             ->assertSee('A neighbourhood cafe.');
     }
 
-    public function test_contact_details_are_never_in_the_public_html(): void
+    /**
+     * Policy reversed 2026-09-15 (Daniel, benchmarking against Yelp/Google Business
+     * Profile/TripAdvisor — none of them gate basic business info): website and
+     * Instagram ARE now public, same as every benchmarked platform. What actually
+     * drives signup is in-app messaging and the full review/past-event/partner
+     * detail — see the other tests in this class for those guards, which are
+     * unchanged. tiktok has no rendering wired (community-only field, not part of
+     * this pass) so it still must not leak.
+     */
+    public function test_website_and_instagram_are_public_but_tiktok_is_not_wired(): void
     {
-        // Contact details are the reason to create an account. They must be absent
-        // from the markup, not hidden with CSS.
         $profile = $this->community();
 
         $this->get('http://kolabing.com/p/'.PublicProfileLink::slugFor($profile))
             ->assertOk()
-            ->assertDontSee('barcelona-runners.example')
-            ->assertDontSee('instagram.com/barcelonarunners')
-            ->assertDontSee('barcelonarunners')
+            ->assertSee('barcelona-runners.example', false)
+            ->assertSee('instagram.com/barcelonarunners', false)
             ->assertDontSee('bcnrunners');
+    }
+
+    public function test_a_business_shows_its_phone_and_address_publicly(): void
+    {
+        $profile = Profile::factory()->business()->create(['phone_number' => '+52 55 1234 5678']);
+
+        BusinessProfile::factory()->create([
+            'profile_id' => $profile->id,
+            'name' => 'Cafe Luna',
+            'primary_venue' => ['formatted_address' => 'Av. Insurgentes 123, CDMX'],
+        ]);
+
+        $this->get('http://kolabing.com/p/'.PublicProfileLink::slugFor($profile->fresh()))
+            ->assertOk()
+            ->assertSee('+52 55 1234 5678', false)
+            ->assertSee('Av. Insurgentes 123, CDMX', false);
+    }
+
+    public function test_a_bare_instagram_handle_is_normalised_into_a_real_link(): void
+    {
+        $profile = $this->business('Cafe Luna');
+        $profile->businessProfile()->update(['instagram' => '@cafeluna']);
+
+        $this->get('http://kolabing.com/p/'.PublicProfileLink::slugFor($profile->fresh()))
+            ->assertOk()
+            ->assertSee('href="https://instagram.com/cafeluna"', false)
+            ->assertDontSee('href="@cafeluna"', false);
     }
 
     public function test_only_one_review_shows_and_the_reviewer_stays_anonymous(): void

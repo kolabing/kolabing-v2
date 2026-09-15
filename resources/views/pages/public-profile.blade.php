@@ -6,9 +6,11 @@
      *
      * Everything a logged-out visitor may see is computed in
      * PublicProfilePageController and passed in. Do NOT reach for more off $profile
-     * here: contact details, the full review list, reviewer identities, past-event
-     * detail and collaboration partners are deliberately absent from this HTML
-     * rather than hidden with CSS — they are the reason to create an account.
+     * here. The full review list, reviewer identities, past-event detail,
+     * collaboration partners, and in-app messaging are deliberately absent from this
+     * HTML rather than hidden with CSS — they are the reason to create an account.
+     * Basic public info (website/Instagram/phone/address) is NOT gated the same
+     * way — see the controller's doc comment for why.
      */
     $ratingLabel = $averageRating ? number_format((float) $averageRating, 1) : null;
 
@@ -24,8 +26,18 @@
     if ($avatarUrl) {
         $schema['image'] = $avatarUrl;
     }
-    if ($cityName) {
+    if ($address !== '') {
+        $schema['address'] = ['@type' => 'PostalAddress', 'streetAddress' => $address];
+    } elseif ($cityName) {
         $schema['address'] = ['@type' => 'PostalAddress', 'addressLocality' => $cityName];
+    }
+    if ($website !== '') {
+        $schema['sameAs'] = array_values(array_filter([$website, $instagramUrl !== '' ? $instagramUrl : null]));
+    } elseif ($instagramUrl !== '') {
+        $schema['sameAs'] = [$instagramUrl];
+    }
+    if ($phoneNumber) {
+        $schema['telephone'] = $phoneNumber;
     }
     // Only claim an aggregate rating when there is a real one behind it.
     if ($ratingLabel && $reviewCount > 0) {
@@ -128,6 +140,24 @@
             </section>
         @endif
 
+        {{-- ── Basic public info (NOT the signup gate — see controller doc) ── --}}
+        @if ($address !== '' || $phoneNumber || $website !== '' || $instagramUrl !== '')
+            <section class="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-off-black/70">
+                @if ($address !== '')
+                    <span class="inline-flex items-center gap-1.5">📍 {{ $address }}</span>
+                @endif
+                @if ($phoneNumber)
+                    <a href="tel:{{ $phoneNumber }}" class="inline-flex items-center gap-1.5 font-semibold text-off-black hover:underline">📞 {{ $phoneNumber }}</a>
+                @endif
+                @if ($website !== '')
+                    <a href="{{ $website }}" target="_blank" rel="noopener noreferrer nofollow" class="inline-flex items-center gap-1.5 font-semibold text-off-black hover:underline">🔗 Website</a>
+                @endif
+                @if ($instagramUrl !== '')
+                    <a href="{{ $instagramUrl }}" target="_blank" rel="noopener noreferrer nofollow" class="inline-flex items-center gap-1.5 font-semibold text-off-black hover:underline">📷 Instagram</a>
+                @endif
+            </section>
+        @endif
+
         {{-- ── A few photos ─────────────────────────────────────────────── --}}
         @if (count($photos) > 0)
             <section class="mt-10">
@@ -178,7 +208,6 @@
                 @if ($collaborationCount > 0)
                     <li>· {{ $collaborationCount }} completed {{ $collaborationCount === 1 ? 'collaboration' : 'collaborations' }}</li>
                 @endif
-                <li>· Contact details and social links</li>
                 <li>· Message them directly once you match</li>
             </ul>
 
