@@ -131,6 +131,25 @@ class ManagedUserPlacesImportTest extends TestCase
             ->assertSee(htmlspecialchars(json_encode(['formatted_address' => 'Existing Address 1']), ENT_QUOTES), false);
     }
 
+    /**
+     * Regression for the real bug behind "still doesn't render the photos" (Daniel
+     * 2026-09-15, after the gallery-rendering fix in #299 had already shipped): the
+     * import card's help text says "click a thumbnail to remove it" -- implying every
+     * fetched photo starts selected -- but the JS only ever auto-pushed idx 0 into
+     * chosenPhotos, so a maintainer who didn't individually click the other 5
+     * thumbnails ended up with exactly 1 photo in offer_photos no matter how many
+     * Google actually had. No JS test runner in this repo (see package.json), so this
+     * pins the fixed source text itself to catch a blind revert to the old gated form.
+     */
+    public function test_the_import_card_selects_every_fetched_photo_by_default(): void
+    {
+        $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.users.create'))
+            ->assertOk()
+            ->assertSee('chosenPhotos.push(url);', false)
+            ->assertDontSee('if (idx === 0) { chosenPhotos.push(url); }', false);
+    }
+
     public function test_city_id_set_via_the_create_form_persists(): void
     {
         $city = \App\Models\City::factory()->create();

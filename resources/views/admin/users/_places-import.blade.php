@@ -147,7 +147,13 @@
                         }
                         syncPhotoInputs();
                     });
-                    if (idx === 0) { chosenPhotos.push(url); }
+                    // Help text says "click a thumbnail to remove it" -- every fetched photo
+                    // must actually start selected to match, not just idx 0. Bug caught live
+                    // 2026-09-15: only idx 0 was auto-pushed, so a maintainer who didn't
+                    // individually click all 5 remaining thumbnails ended up with a listing
+                    // that had only 1 photo in the DB no matter how many the gallery rendering
+                    // fix (offer_photos wiring) could show.
+                    chosenPhotos.push(url);
                     photosBox.appendChild(wrap);
                 });
                 syncPhotoInputs();
