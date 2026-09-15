@@ -101,8 +101,11 @@ class UserManagementTest extends TestCase
 
     public function test_users_index_renders_action_buttons(): void
     {
-        Profile::factory()->business()->create();
-        Profile::factory()->community()->create();
+        // Explicit non-example.com/.org/.net emails: Faker's default safeEmail()
+        // domain collides with the index's default "hide likely test rows" filter
+        // (added 2026-09-14), which would non-deterministically hide these rows.
+        Profile::factory()->business()->create(['email' => 'owner@realbusinessco.com']);
+        Profile::factory()->community()->create(['email' => 'lead@realcommunityco.com']);
 
         $response = $this->actingAs($this->maintainer(), 'admin')
             ->get(route('admin.users.index'));

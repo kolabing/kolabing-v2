@@ -248,7 +248,10 @@ class ProfileActiveSwitchTest extends TestCase
     {
         // The one that matters most: an admin who cannot see a switched-off
         // account has no way to switch it back on.
-        $profile = Profile::factory()->business()->create();
+        // Explicit non-example.com/.org/.net email: Faker's default safeEmail()
+        // domain collides with the index's default "hide likely test rows" filter
+        // (added 2026-09-14), which would non-deterministically hide this row.
+        $profile = Profile::factory()->business()->create(['email' => 'owner@switchedoffbar.com']);
         BusinessProfile::factory()->create([
             'profile_id' => $profile->id,
             'name' => 'Switched Off Bar',
