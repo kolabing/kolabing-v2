@@ -97,6 +97,19 @@
 
     <div class="col-md-4">
         <div class="form-group">
+            <label for="business_type">Category</label>
+            <select id="business_type" name="business_type" class="form-control @error('business_type') is-invalid @enderror">
+                <option value="">—</option>
+                @foreach ($businessTypes ?? [] as $type)
+                    <option value="{{ $type->slug }}" @selected(old('business_type', $detailProfile?->business_type) === $type->slug)>{{ $type->name }}</option>
+                @endforeach
+            </select>
+            <small class="form-text text-muted">Used only for business profiles. Also set by the Maps import above, when it can resolve one.</small>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="form-group">
             <label for="tiktok">TikTok</label>
             <input id="tiktok" type="text" name="tiktok" value="{{ old('tiktok', $profile->communityProfile?->tiktok) }}" class="form-control @error('tiktok') is-invalid @enderror">
             <small class="form-text text-muted">Used only for community profiles.</small>
