@@ -177,6 +177,24 @@
             </section>
         @endif
 
+        {{-- ── Potential collaborations (social proof + its own CTA) ──────── --}}
+        @if ($potentialCollaborationCount > 0)
+            <section class="mt-10 rounded-2xl border border-primary/30 bg-primary/10 p-5">
+                <h2 class="font-display text-lg font-black text-off-black">Potential collaborations</h2>
+                <p class="mt-2 leading-relaxed text-off-black/80">
+                    @if ($isBusiness)
+                        <strong>{{ $potentialCollaborationCount }}</strong> {{ $potentialCollaborationCount === 1 ? 'community is' : 'communities are' }} active on Kolabing{{ $cityName ? ' in '.$cityName : '' }} and open to partnering with a business like {{ $displayName }}.
+                    @else
+                        <strong>{{ $potentialCollaborationCount }}</strong> {{ $potentialCollaborationCount === 1 ? 'business is' : 'businesses are' }} active on Kolabing{{ $cityName ? ' in '.$cityName : '' }} and open to partnering with a community like {{ $displayName }}.
+                    @endif
+                </p>
+                <a href="{{ $appUrl }}/register"
+                   class="mt-4 inline-flex items-center justify-center rounded-full bg-off-black px-6 py-3 font-bold text-primary transition hover:bg-off-black/90">
+                    See who's interested
+                </a>
+            </section>
+        @endif
+
         {{-- ── The wall ─────────────────────────────────────────────────── --}}
         <section class="relative mt-10 overflow-hidden rounded-[2rem] bg-off-black p-8 text-white">
             <h2 class="font-display text-2xl font-black leading-tight">
