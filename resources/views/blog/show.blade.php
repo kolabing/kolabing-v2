@@ -17,6 +17,20 @@
     if ($post->cover_image_url) {
         $articleSchema['image'] = $post->cover_image_url;
     }
+    // FAQPage schema mirrors the article's visible FAQ section (stored on the
+    // post so prose and schema can never drift apart).
+    $faqSchema = null;
+    if (! empty($post->faq)) {
+        $faqSchema = [
+            '@context' => 'https://schema.org',
+            '@type' => 'FAQPage',
+            'mainEntity' => collect($post->faq)->map(fn (array $pair) => [
+                '@type' => 'Question',
+                'name' => $pair['question'],
+                'acceptedAnswer' => ['@type' => 'Answer', 'text' => $pair['answer']],
+            ])->values()->all(),
+        ];
+    }
 @endphp
 <x-layouts.marketing-page
     :title="$post->title"
@@ -29,6 +43,11 @@
         <script type="application/ld+json">
             {!! json_encode($articleSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
         </script>
+        @if ($faqSchema)
+            <script type="application/ld+json">
+                {!! json_encode($faqSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+            </script>
+        @endif
     </x-slot:head>
 
     <article class="mx-auto max-w-3xl px-6 py-16">

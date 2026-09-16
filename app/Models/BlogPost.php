@@ -22,14 +22,14 @@ class BlogPost extends Model
     use HasUuids;
 
     protected $fillable = [
-        'slug', 'title', 'description', 'body',
+        'slug', 'title', 'description', 'body', 'faq',
         'author_name', 'author_title', 'cover_image_url',
         'locale', 'published_at',
     ];
 
     protected function casts(): array
     {
-        return ['published_at' => 'datetime'];
+        return ['published_at' => 'datetime', 'faq' => 'array'];
     }
 
     public function getRouteKeyName(): string
