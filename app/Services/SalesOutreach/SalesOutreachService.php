@@ -6,6 +6,7 @@ namespace App\Services\SalesOutreach;
 
 use App\Enums\FileUploadType;
 use App\Enums\UserType;
+use App\Jobs\GenerateSalesPitchCoverImage;
 use App\Mail\SalesPitchMail;
 use App\Models\Profile;
 use App\Models\SalesOutreachDraft;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use InvalidArgumentException;
 use RuntimeException;
+use Throwable;
 
 /**
  * Drives one pitch end to end: generate → choose → illustrate → preview → send.
@@ -134,17 +136,28 @@ class SalesOutreachService
             // cellar to a running event. Cleared, not regenerated — images cost money
             // and the maintainer may not want one at all.
             'cover_image_url' => null,
+            'cover_image_status' => SalesOutreachDraft::IMAGE_IDLE,
+            'cover_image_error' => null,
         ]);
 
         return $draft->refresh();
     }
 
     /**
-     * Draw the cover for the selected idea and store it on the uploads disk.
+     * Queue the cover for the selected idea (BE-FX-61).
+     *
+     * Returns immediately. Drawing the image inside the web request produced a
+     * Cloudflare 504 in production — generation alone measured ~25s and the upload
+     * follows it, which is more than any gateway will hold a connection open for.
+     * Raising a timeout would only have moved the failure.
+     *
+     * The validation that can be done cheaply is done here, synchronously, so an
+     * obviously impossible request fails on the screen the maintainer is looking at
+     * rather than silently in a worker.
      *
      * @throws RuntimeException
      */
-    public function generateCoverImage(SalesOutreachDraft $draft): SalesOutreachDraft
+    public function queueCoverImage(SalesOutreachDraft $draft): SalesOutreachDraft
     {
         $this->assertEditable($draft);
 
@@ -154,15 +167,61 @@ class SalesOutreachService
             throw new RuntimeException('This draft has no image brief to draw from.');
         }
 
-        $base64 = $this->client->image($idea['cover_image_prompt']);
+        if (! $this->client->isConfigured()) {
+            throw new RuntimeException('OPENAI_API_KEY is not set, so no image can be generated.');
+        }
 
-        $url = $this->uploads->uploadFromBase64(
-            $base64,
-            FileUploadType::CoverPhoto,
-            $draft->id,
-        );
+        // Marked pending BEFORE dispatch: a worker fast enough to finish first
+        // would otherwise have its 'ready' overwritten back to 'pending'.
+        $draft->update([
+            'cover_image_status' => SalesOutreachDraft::IMAGE_PENDING,
+            'cover_image_error' => null,
+        ]);
 
-        $draft->update(['cover_image_url' => $url]);
+        GenerateSalesPitchCoverImage::dispatch($draft->id);
+
+        return $draft->refresh();
+    }
+
+    /**
+     * Actually draw it. Runs on a worker — see {@see GenerateSalesPitchCoverImage}.
+     *
+     * Failures are recorded on the draft as well as thrown, because the thrown
+     * exception reaches a log the maintainer is not reading; the draft is the thing
+     * they are looking at.
+     *
+     * @throws RuntimeException
+     */
+    public function drawCoverImage(SalesOutreachDraft $draft): SalesOutreachDraft
+    {
+        $idea = $draft->selectedIdea();
+
+        if ($idea === null || blank($idea['cover_image_prompt'] ?? null)) {
+            throw new RuntimeException('This draft has no image brief to draw from.');
+        }
+
+        try {
+            $base64 = $this->client->image($idea['cover_image_prompt']);
+
+            $url = $this->uploads->uploadFromBase64(
+                $base64,
+                FileUploadType::CoverPhoto,
+                $draft->id,
+            );
+        } catch (Throwable $e) {
+            $draft->update([
+                'cover_image_status' => SalesOutreachDraft::IMAGE_FAILED,
+                'cover_image_error' => mb_substr($e->getMessage(), 0, 500),
+            ]);
+
+            throw $e;
+        }
+
+        $draft->update([
+            'cover_image_url' => $url,
+            'cover_image_status' => SalesOutreachDraft::IMAGE_READY,
+            'cover_image_error' => null,
+        ]);
 
         return $draft->refresh();
     }

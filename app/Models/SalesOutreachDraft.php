@@ -28,6 +28,15 @@ class SalesOutreachDraft extends Model
 
     public const STATUS_SENT = 'sent';
 
+    /** Cover generation is asynchronous (BE-FX-61); these are its states. */
+    public const IMAGE_IDLE = 'idle';
+
+    public const IMAGE_PENDING = 'pending';
+
+    public const IMAGE_READY = 'ready';
+
+    public const IMAGE_FAILED = 'failed';
+
     protected $fillable = [
         'business_profile_id',
         'community_profile_id',
@@ -35,6 +44,8 @@ class SalesOutreachDraft extends Model
         'kolab_ideas',
         'selected_idea_index',
         'cover_image_url',
+        'cover_image_status',
+        'cover_image_error',
         'expected_attendees',
         'avg_spend_cents',
         'estimated_revenue_cents',
@@ -98,5 +109,15 @@ class SalesOutreachDraft extends Model
     public function isSent(): bool
     {
         return $this->status === self::STATUS_SENT;
+    }
+
+    public function isCoverPending(): bool
+    {
+        return $this->cover_image_status === self::IMAGE_PENDING;
+    }
+
+    public function coverFailed(): bool
+    {
+        return $this->cover_image_status === self::IMAGE_FAILED;
     }
 }

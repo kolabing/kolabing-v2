@@ -90,12 +90,19 @@ class SalesMailingController extends Controller
         );
     }
 
+    /**
+     * Queue the cover — this returns in milliseconds (BE-FX-61).
+     *
+     * It used to draw the image inline and produced a Cloudflare 504 in production:
+     * generation measured ~25s and the upload followed it. The work now happens on a
+     * worker and this page reports its state.
+     */
     public function generateImage(SalesOutreachDraft $draft): RedirectResponse
     {
         return $this->attempt(
-            fn () => $this->outreach->generateCoverImage($draft),
+            fn () => $this->outreach->queueCoverImage($draft),
             $draft,
-            __('Cover image generated.'),
+            __('Cover image queued — it appears here in under a minute.'),
         );
     }
 

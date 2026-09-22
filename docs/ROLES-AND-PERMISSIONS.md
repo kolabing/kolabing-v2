@@ -396,6 +396,19 @@ Communities see everything in Explore. No blurring, no gating, ever.
 
 **Date-exhausted Kolabs are hidden from the Explore feed (both roles).** A Kolab whose application dates have all passed (`availability_end` before today) is not returned in the browse feed, so an applicant never lands on a Kolab with an empty date picker ("No available dates for this kolab"). This mirrors the apply-time rule that rejects applications to date-exhausted Kolabs. A Kolab you explicitly **saved** still shows in your saved list even after it expires.
 
+**Explore renders exactly what the API returns (FX-58, 2026-09-22).** Visibility only — no gate
+moved and neither role's rules changed. The rule above is enforced by
+`GET /discovery/opportunities` alone; the app no longer filters the deck a second time. It used to
+(`filterExploreDeckItems`: own posts, blocked creators, date-exhausted offers, Multi-Kolab role
+eligibility) while printing the API's `meta.total` as the result count, so the count could name a
+Kolab the deck never drew — which is how FX-57 reached production. Two rules that had only ever
+been enforced on the client moved to the server to make the deletion safe: a **blocked organiser's
+Multi-Kolab role**, and a **recurring Kolab with no bookable weekday left** in its window (a window
+that is still open is not the same as a window you can still book — this is what "never lands on a
+Kolab with an empty date picker" above actually requires). The paywall is NOT part of this: a free
+business still receives every community Kolab and sees it blurred, never filtered out. Backend map
+§35, kolabing-v2#316.
+
 **The city filter matches the city, not the spelling (BE-FX-60, 2026-09-22).** Visibility only — no gate moved, and
 neither role's rules changed. A Kolab records its city as free text (`kolabs.preferred_city`), written from the venue's
 Google Places `locality`; the picker and `GET /api/v1/cities` offer the canonical `cities.name`. Those are routinely
