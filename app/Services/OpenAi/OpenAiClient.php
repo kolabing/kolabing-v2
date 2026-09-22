@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Services\OpenAi;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Throwable;
 
 /**
  * The one place that talks to OpenAI.
@@ -76,6 +78,58 @@ class OpenAiClient
      */
     public function image(string $prompt, string $size = '1536x1024'): string
     {
+        return $this->imageWithReferences($prompt, [], $size);
+    }
+
+    /**
+     * Generate an image, optionally grounded in reference photographs.
+     *
+     * With references this posts to `/images/edits`, which accepts the source images
+     * as multipart and lets the model take palette, materials and the look of the
+     * real place from them — the difference between a generic stock room and
+     * something that resembles the business being pitched. Without them it falls
+     * back to plain `/images/generations`.
+     *
+     * A reference that cannot be fetched is skipped rather than fatal: a cover
+     * grounded in two photos instead of three is still a cover, whereas failing the
+     * whole pitch because one CDN was slow is not a trade worth making.
+     *
+     * @param  list<string>  $referenceUrls
+     *
+     * @throws RuntimeException
+     */
+    public function imageWithReferences(string $prompt, array $referenceUrls, string $size = '1536x1024'): string
+    {
+        $references = $this->fetchReferences($referenceUrls);
+
+        if ($references === []) {
+            return $this->generateImage($prompt, $size);
+        }
+
+        $request = $this->request(config('services.openai.image_timeout'));
+
+        foreach ($references as $index => $bytes) {
+            $request = $request->attach('image[]', $bytes, 'reference-'.$index.'.png');
+        }
+
+        $response = $request->post('/images/edits', [
+            'model' => config('services.openai.image_model'),
+            'prompt' => $prompt,
+            'size' => $size,
+        ]);
+
+        if (! $response->successful()) {
+            $this->fail('image', $response->status(), $response->body());
+        }
+
+        return $this->b64FromImageResponse($response);
+    }
+
+    /**
+     * @throws RuntimeException
+     */
+    private function generateImage(string $prompt, string $size): string
+    {
         $response = $this->request(config('services.openai.image_timeout'))
             ->post('/images/generations', [
                 'model' => config('services.openai.image_model'),
@@ -88,13 +142,54 @@ class OpenAiClient
             $this->fail('image', $response->status(), $response->body());
         }
 
+        return $this->b64FromImageResponse($response);
+    }
+
+    /**
+     * @throws RuntimeException
+     */
+    private function b64FromImageResponse(Response $response): string
+    {
         $b64 = $response->json('data.0.b64_json');
 
         if (! is_string($b64) || $b64 === '') {
             $this->fail('image', $response->status(), 'the response carried no image data');
         }
 
+        // A data URI, not bare base64: FileUploadService reads the MIME type from
+        // the prefix to pick the extension.
         return 'data:image/png;base64,'.$b64;
+    }
+
+    /**
+     * Download the reference photographs, skipping any that will not come.
+     *
+     * Short timeout on purpose — these are a nice-to-have on a call that is already
+     * slow, and one unreachable CDN must not be what makes a pitch fail.
+     *
+     * @param  list<string>  $urls
+     * @return list<string> raw image bytes
+     */
+    private function fetchReferences(array $urls): array
+    {
+        $images = [];
+
+        foreach ($urls as $url) {
+            try {
+                $response = Http::timeout(15)->get($url);
+
+                if ($response->successful() && $response->body() !== '') {
+                    $images[] = $response->body();
+                }
+            } catch (Throwable $e) {
+                Log::info('Skipped an unreachable cover reference image', [
+                    'url' => $url,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $images;
     }
 
     /**

@@ -43,6 +43,7 @@ class SalesOutreachService
         private readonly RevenueEstimator $revenue,
         private readonly OpenAiClient $client,
         private readonly FileUploadService $uploads,
+        private readonly CoverImageBrief $coverBrief,
     ) {}
 
     /**
@@ -201,7 +202,12 @@ class SalesOutreachService
         }
 
         try {
-            $base64 = $this->client->image($idea['cover_image_prompt']);
+            // The brief is built from the pair's stored data and grounded in their
+            // own photographs — see CoverImageBrief. The model's one-line scene is
+            // the opening direction, not the whole instruction.
+            $brief = $this->coverBrief->for($draft);
+
+            $base64 = $this->client->imageWithReferences($brief['prompt'], $brief['references']);
 
             $url = $this->uploads->uploadFromBase64(
                 $base64,

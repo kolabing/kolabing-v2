@@ -8,6 +8,7 @@ use App\Models\BusinessType;
 use App\Models\City;
 use App\Models\CommunityType;
 use App\Models\Kolab;
+use App\Models\OfferOption;
 use App\Models\Profile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -286,6 +287,115 @@ class AdminFullOnboardingTest extends TestCase
             ->assertSessionHasErrors('categories');
 
         $this->assertDatabaseMissing('profiles', ['email' => 'toomany@example.com']);
+    }
+
+    // ── Choice boxes, same source as the app ────────────────────────────
+
+    /**
+     * Venue type, offerings and product type are the admin-managed `offer_options`
+     * taxonomy — the same lists the app's own chips read. The form used a hardcoded
+     * enum and a free-text box, so an option a maintainer added in /admin/offer-options
+     * appeared on phones and not here.
+     */
+    public function test_the_form_reads_its_choices_from_the_same_lookups_the_app_uses(): void
+    {
+        $page = $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.users.onboard'))
+            ->assertOk();
+
+        foreach (['/api/v1/lookup/venue-types', '/api/v1/lookup/offerings', '/api/v1/lookup/product-types'] as $endpoint) {
+            $page->assertSee($endpoint, false);
+        }
+
+        // The rendered attributes, not the Blade source: single-select for venue
+        // type, multi for offerings — as in the app.
+        $page->assertSee('data-field="venue[venue_type]"', false)
+            ->assertSee('data-field="offering_options[]"', false);
+    }
+
+    /** The address field autocompletes against the same Places endpoint as mobile. */
+    public function test_the_address_field_autocompletes_against_places(): void
+    {
+        $this->actingAs($this->maintainer(), 'admin')
+            ->get(route('admin.users.onboard'))
+            ->assertOk()
+            ->assertSee('/api/v1/places/autocomplete?query=', false);
+    }
+
+    /**
+     * Picked options become their human LABELS, never slugs.
+     *
+     * `offering` is free text and `provisionBusinessAutoOffer()` uses it as the
+     * auto-offer's description when About is empty — so slugs here would publish
+     * "venue,food_drink" to communities as the pitch.
+     */
+    public function test_chosen_offerings_are_stored_as_labels_not_slugs(): void
+    {
+        Mail::fake();
+        $city = $this->city();
+        $type = $this->businessType();
+
+        $venue = OfferOption::query()->firstOrCreate(
+            ['kind' => OfferOption::KIND_OFFERING, 'slug' => 'venue'],
+            ['name' => 'Venue', 'is_active' => true, 'sort_order' => 1],
+        );
+        $food = OfferOption::query()->firstOrCreate(
+            ['kind' => OfferOption::KIND_OFFERING, 'slug' => 'food_drink'],
+            ['name' => 'Food & drink', 'is_active' => true, 'sort_order' => 2],
+        );
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.users.onboard.business'), $this->venuePayload($city, $type, [
+                'offering' => null,
+                'offering_options' => [$venue->slug, $food->slug],
+                'offering_detail' => 'and the back room after 8pm',
+            ]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $business = Profile::query()->where('email', 'eixample@example.com')->firstOrFail()->businessProfile;
+
+        $this->assertSame(
+            $venue->name.', '.$food->name.' — and the back room after 8pm',
+            $business->offering,
+        );
+        $this->assertStringNotContainsString('food_drink', (string) $business->offering);
+    }
+
+    /** Free text alone still works — the options are not mandatory. */
+    public function test_offering_detail_alone_is_kept(): void
+    {
+        Mail::fake();
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.users.onboard.business'), $this->venuePayload($this->city(), $this->businessType(), [
+                'offering' => null,
+                'offering_options' => [],
+                'offering_detail' => 'Whatever the community needs, really',
+            ]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $business = Profile::query()->where('email', 'eixample@example.com')->firstOrFail()->businessProfile;
+
+        $this->assertSame('Whatever the community needs, really', $business->offering);
+    }
+
+    /** A venue type picked from the chips reaches the stored venue. */
+    public function test_a_venue_type_chosen_from_the_lookup_is_stored(): void
+    {
+        Mail::fake();
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.users.onboard.business'), $this->venuePayload($this->city(), $this->businessType(), [
+                'venue' => ['venue_type' => 'bar_lounge', 'capacity' => 60],
+            ]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $business = Profile::query()->where('email', 'eixample@example.com')->firstOrFail()->businessProfile;
+
+        $this->assertSame('bar_lounge', $business->primary_venue['venue_type']);
     }
 
     // ── Community ───────────────────────────────────────────────────────
