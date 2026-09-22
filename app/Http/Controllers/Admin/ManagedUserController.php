@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\UserType;
+use App\Enums\VenueType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\AdminBusinessOnboardingRequest;
+use App\Http\Requests\Admin\AdminCommunityOnboardingRequest;
 use App\Http\Requests\Admin\BulkProfileActiveRequest;
 use App\Http\Requests\Admin\PreviewWelcomeEmailRequest;
 use App\Http\Requests\Admin\QuickAddProfileRequest;
@@ -17,10 +20,13 @@ use App\Models\BusinessProfile;
 use App\Models\BusinessType;
 use App\Models\City;
 use App\Models\CommunityProfile;
+use App\Models\CommunityType;
+use App\Models\OfferOption;
 use App\Models\Profile;
 use App\Models\Scopes\ActiveProfileScope;
 use App\Services\Admin\ManagedProfileService;
 use App\Services\OrganizerEntitlementService;
+use App\Support\OfferOptionValues;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -174,6 +180,57 @@ class ManagedUserController extends Controller
 
         return redirect()->route('admin.users.edit', $profile)
             ->with('status', __('Listing created. Send the welcome email below once you know the language.'));
+    }
+
+    /**
+     * The full onboarding form (BE-NF-64) — every step the mobile wizard asks for.
+     *
+     * Business and community are separate forms rather than one form with a type
+     * switch, because past the first question they share almost nothing: a business
+     * is asked about a venue or a product it wants promoted, a community about what
+     * kind of community it is and how big. Splitting them is also what lets each POST
+     * carry its own request class, so the type is decided by the route and cannot be
+     * changed by editing the payload.
+     */
+    public function onboardForm(Request $request): View
+    {
+        $type = $request->query('type') === UserType::Community->value
+            ? UserType::Community
+            : UserType::Business;
+
+        $cities = City::query()->where('is_active', true)->orderBy('sort_order')->get();
+
+        return view('admin.users.onboard', [
+            'userType' => $type,
+            'cities' => $cities,
+            'businessTypes' => BusinessType::query()->active()->ordered()->get(),
+            'communityTypes' => CommunityType::query()->active()->ordered()->get(),
+            'venueTypes' => VenueType::values(),
+            'productTypes' => OfferOptionValues::for(OfferOption::KIND_PRODUCT_TYPE),
+        ]);
+    }
+
+    public function onboardBusiness(AdminBusinessOnboardingRequest $request): RedirectResponse
+    {
+        // The route decides the type, not the payload.
+        $profile = $this->managedProfileService->onboard([
+            ...$request->validated(),
+            'user_type' => UserType::Business->value,
+        ]);
+
+        return redirect()->route('admin.users.edit', $profile)
+            ->with('status', __('Business onboarded. Its first Kolab is live; send the welcome email below.'));
+    }
+
+    public function onboardCommunity(AdminCommunityOnboardingRequest $request): RedirectResponse
+    {
+        $profile = $this->managedProfileService->onboard([
+            ...$request->validated(),
+            'user_type' => UserType::Community->value,
+        ]);
+
+        return redirect()->route('admin.users.edit', $profile)
+            ->with('status', __('Community onboarded. Send the welcome email below once you know the language.'));
     }
 
     public function edit(Profile $profile): View

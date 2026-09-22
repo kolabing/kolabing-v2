@@ -8,6 +8,11 @@
         <i class="fas fa-bolt mr-1"></i>
         Quick Add
     </a>
+    {{-- Quick Add lists a profile; this onboards one. Same wizard the app runs. --}}
+    <a href="{{ route('admin.users.onboard') }}" class="btn btn-info mr-2">
+        <i class="fas fa-magic mr-1"></i>
+        Full Onboarding
+    </a>
     <a href="{{ route('admin.users.create') }}" class="btn btn-primary">
         <i class="fas fa-user-plus mr-1"></i>
         Create User

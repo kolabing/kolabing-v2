@@ -14,15 +14,112 @@ use App\Models\BusinessProfile;
 use App\Models\BusinessSubscription;
 use App\Models\CommunityProfile;
 use App\Models\Profile;
+use App\Services\OnboardingService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Laravel\Sanctum\PersonalAccessToken;
+use Throwable;
 
 class ManagedProfileService
 {
+    public function __construct(
+        private readonly OnboardingService $onboardingService,
+    ) {}
+
+    /**
+     * Run the app's own onboarding from the admin panel (BE-NF-64).
+     *
+     * Quick-add lists a profile; this *onboards* one. The difference is not cosmetic:
+     * quick-add writes columns directly, so a quick-added business never gets the
+     * things onboarding does — no `categories`, no `has_venue`, no auto-offer, no
+     * completion missions, and `onboardingCompleted()` stays false, which is what the
+     * app reads to decide whether to shove the owner back into the wizard on first
+     * sign-in. A maintainer filling in every field by hand still produced a profile
+     * the app considered unfinished.
+     *
+     * So this creates the shell account and then hands straight to
+     * {@see OnboardingService::completeBusinessOnboarding()} /
+     * {@see OnboardingService::completeCommunityOnboarding()} — the same methods
+     * `PUT /api/v1/onboarding/{business,community}` calls, with the same validated
+     * array. There is no second onboarding implementation to keep in step.
+     *
+     * The account is created with a random, never-shown password; the owner sets one
+     * through the existing welcome email, which stays a deliberate, language-picked
+     * follow-up step (Daniel 2026-09-14) rather than a side effect of this call.
+     *
+     * @param  array<string, mixed>  $data  the validated onboarding payload
+     *
+     * @throws InvalidArgumentException when asked to onboard an attendee
+     */
+    public function onboard(array $data): Profile
+    {
+        $userType = UserType::from((string) $data['user_type']);
+
+        if (! in_array($userType, [UserType::Business, UserType::Community], true)) {
+            throw new InvalidArgumentException('Full onboarding covers business and community profiles only.');
+        }
+
+        $profile = DB::transaction(function () use ($data, $userType): Profile {
+            $profile = Profile::query()->create([
+                'email' => $data['email'],
+                'password' => Str::random(32),
+                'phone_number' => ($data['phone_number'] ?? null) ?: null,
+                'user_type' => $userType,
+                'email_verified_at' => now(),
+            ]);
+
+            // The shell detail row has to exist first: OnboardingService *updates*
+            // businessProfile/communityProfile and would fatal on a null relation.
+            $this->upsertDetailProfile($profile, $data);
+
+            if ($userType === UserType::Business) {
+                BusinessSubscription::query()->firstOrCreate(
+                    ['profile_id' => $profile->id],
+                    [
+                        'source' => SubscriptionSource::AppleIap,
+                        'status' => SubscriptionStatus::Inactive,
+                    ]
+                );
+            }
+
+            return $profile->fresh(['businessProfile', 'communityProfile']);
+        });
+
+        try {
+            return $userType === UserType::Business
+                ? $this->onboardingService->completeBusinessOnboarding($profile, $data)
+                : $this->onboardingService->completeCommunityOnboarding($profile, $data);
+        } catch (Throwable $e) {
+            // Onboarding runs outside the shell's transaction (it opens its own and
+            // dispatches after commit), so a failure here would otherwise leave a
+            // half-built account holding the email address hostage against a retry.
+            $this->discardShellProfile($profile);
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Remove an account whose onboarding never completed. Best-effort by design: the
+     * caller is already rethrowing the real failure, and losing that to a cleanup
+     * error would hide the thing worth reading.
+     */
+    private function discardShellProfile(Profile $profile): void
+    {
+        try {
+            $profile->forceDelete();
+        } catch (Throwable $e) {
+            Log::warning('Failed to discard shell profile after onboarding error', [
+                'profile_id' => $profile->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
     /**
      * Listing-first quick add (#kolabing quick-add): a maintainer lists a business/community
      * sourced from outreach (e.g. an Instagram reply) before its owner has ever touched the
