@@ -67,7 +67,8 @@ class SalesPitchGenerator
 
     /**
      * @param  array<string, mixed>  $idea
-     * @return array{subject: string, body_markdown: string}
+     * @param  array<string, mixed>  $intel  what {@see ProspectIntel} found, may be empty
+     * @return array{subject: string, body_markdown: string, whatsapp_message: string, angle: string}
      *
      * @throws RuntimeException
      */
@@ -79,19 +80,28 @@ class SalesPitchGenerator
         string $formattedRevenue,
         string $formattedAvgSpend,
         string $locale,
+        array $intel = [],
     ): array {
+        $sections = [
+            $this->pairBriefing($business, $community),
+            "THE KOLAB TO PITCH:\n".json_encode($idea, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+            implode("\n", [
+                'THE NUMBERS — use these EXACTLY as written, never recalculate or round them:',
+                "- expected attendees: {$attendees}",
+                "- average spend per attendee: {$formattedAvgSpend}",
+                "- estimated revenue for the night: {$formattedRevenue}",
+            ]),
+        ];
+
+        if ($intel !== []) {
+            $sections[] = "RESEARCH ON THIS BUSINESS — everything below is real and verifiable.\n"
+                .'Pick the ONE angle from it that this owner is most likely to feel, and open with it:'."\n"
+                .json_encode($intel, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        }
+
         $result = $this->client->json([
             ['role' => 'system', 'content' => $this->emailSystemPrompt($locale)],
-            ['role' => 'user', 'content' => implode("\n\n", [
-                $this->pairBriefing($business, $community),
-                "THE KOLAB TO PITCH:\n".json_encode($idea, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
-                implode("\n", [
-                    'THE NUMBERS — use these EXACTLY as written, never recalculate or round them:',
-                    "- expected attendees: {$attendees}",
-                    "- average spend per attendee: {$formattedAvgSpend}",
-                    "- estimated revenue for the night: {$formattedRevenue}",
-                ]),
-            ])],
+            ['role' => 'user', 'content' => implode("\n\n", $sections)],
         ]);
 
         $subject = $this->str($result, 'subject');
@@ -101,7 +111,14 @@ class SalesPitchGenerator
             throw new RuntimeException('The model returned an empty subject or body. Nothing was saved.');
         }
 
-        return ['subject' => $subject, 'body_markdown' => $body];
+        return [
+            'subject' => $subject,
+            'body_markdown' => $body,
+            'whatsapp_message' => $this->str($result, 'whatsapp_message'),
+            // Which opening it chose. Kept so a maintainer can see the strategy at a
+            // glance, and so it is possible to learn which angles actually land.
+            'angle' => mb_substr($this->str($result, 'angle'), 0, 64),
+        ];
     }
 
     private function ideaSystemPrompt(int $count, string $locale): string
@@ -155,9 +172,32 @@ class SalesPitchGenerator
         - Do not write a greeting line or a sign-off — the email template adds both.
         - Do not include a call-to-action button or link; the template adds that too.
 
+        CHOOSING THE ANGLE. If research is supplied, open with the ONE fact from it
+        this owner is most likely to feel. Strongest first:
+        - "quiet_hours" — their opening hours show a shift that is predictably dead.
+          Name it and offer to fill it. This is the pain they feel every week.
+        - "reviews" — a high Google review count means they already work at reviews.
+          A room full of locals is a room full of people who might leave one.
+        - "capacity" — the venue holds N and this community brings roughly that.
+        - "weather" — rain forecast where they are, so an outdoor business is about
+          to lose a shift and an indoor plan is worth something.
+        - "website" — something they say about themselves on their own site.
+        - "generic" — only when the research supports none of the above.
+
+        Use the chosen fact ACCURATELY. Do not round a rating, invent a review count,
+        or claim a shift is quiet if the hours do not show it. If the research is thin,
+        pick "generic" and write a good plain pitch — a fabricated observation is worse
+        than no observation, because the owner knows their own business and will spot it.
+
+        ALSO write a WhatsApp version of the same pitch:
+        - Under 60 words, no markdown, no links, no bullet lists.
+        - Plain sentences with line breaks, the way a person actually types.
+        - Same single ask, same honesty about the estimate.
+        - It is sent by a human from their own phone, so write it as that person.
+
         `body_markdown` is markdown: paragraphs and at most one short bullet list.
         Return JSON of exactly this shape:
-        {"subject":"","body_markdown":""}
+        {"angle":"","subject":"","body_markdown":"","whatsapp_message":""}
         PROMPT;
     }
 
