@@ -28,6 +28,13 @@ class SalesOutreachDraft extends Model
 
     public const STATUS_SENT = 'sent';
 
+    /** Writing the pitch is asynchronous too (BE-FX-63); these are its states. */
+    public const GENERATION_PENDING = 'pending';
+
+    public const GENERATION_READY = 'ready';
+
+    public const GENERATION_FAILED = 'failed';
+
     /** Cover generation is asynchronous (BE-FX-61); these are its states. */
     public const IMAGE_IDLE = 'idle';
 
@@ -55,6 +62,8 @@ class SalesOutreachDraft extends Model
         'body_markdown',
         'whatsapp_message',
         'status',
+        'generation_status',
+        'generation_error',
         'sent_at',
         'created_by',
     ];
@@ -146,6 +155,21 @@ class SalesOutreachDraft extends Model
     public function isSent(): bool
     {
         return $this->status === self::STATUS_SENT;
+    }
+
+    public function isWriting(): bool
+    {
+        return $this->generation_status === self::GENERATION_PENDING;
+    }
+
+    public function isWritten(): bool
+    {
+        return $this->generation_status === self::GENERATION_READY;
+    }
+
+    public function writingFailed(): bool
+    {
+        return $this->generation_status === self::GENERATION_FAILED;
     }
 
     public function isCoverPending(): bool

@@ -125,7 +125,11 @@
                         <td>{{ $currency }} {{ number_format($draft->estimated_revenue_cents / 100, 0) }}</td>
                         <td>{{ strtoupper($draft->locale) }}</td>
                         <td>
-                            @if ($draft->isSent())
+                            @if ($draft->isWriting())
+                                <span class="badge badge-info"><i class="fas fa-spinner fa-spin mr-1"></i>writing</span>
+                            @elseif ($draft->writingFailed())
+                                <span class="badge badge-danger">failed</span>
+                            @elseif ($draft->isSent())
                                 <span class="badge badge-success">sent {{ $draft->sent_at?->diffForHumans() }}</span>
                             @else
                                 <span class="badge badge-secondary">draft</span>

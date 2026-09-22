@@ -58,7 +58,9 @@ class SalesMailingController extends Controller
     public function generate(GenerateSalesPitchRequest $request): RedirectResponse
     {
         try {
-            $draft = $this->outreach->generate($request->validated(), $request->user());
+            // Queued: the research plus two model calls take long enough in
+            // production to exceed Cloudflare's edge timeout (BE-FX-63).
+            $draft = $this->outreach->queuePitch($request->validated(), $request->user());
         } catch (InvalidArgumentException|RuntimeException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         } catch (Throwable $e) {
@@ -68,7 +70,7 @@ class SalesMailingController extends Controller
         }
 
         return redirect()->route('admin.sales-mailing.edit', $draft)
-            ->with('status', __('Pitch generated. Read it before sending.'));
+            ->with('status', __('Writing the pitch — it appears here in under a minute.'));
     }
 
     public function edit(SalesOutreachDraft $draft): View
@@ -131,6 +133,10 @@ class SalesMailingController extends Controller
 
     public function send(SalesOutreachDraft $draft): RedirectResponse
     {
+        if (! $draft->isWritten()) {
+            return back()->with('error', __('This pitch is not written yet.'));
+        }
+
         try {
             $this->outreach->send($draft);
         } catch (RuntimeException $e) {
