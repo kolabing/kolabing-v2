@@ -107,4 +107,29 @@ return [
         ))),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | OpenAI
+    |--------------------------------------------------------------------------
+    |
+    | Drives the admin sales-outreach generator (BE-NF-65): Kolab pitch ideas +
+    | email copy from the text model, a cover image from the image model. Reached
+    | over the plain HTTP client rather than an SDK, so no new composer dependency.
+    |
+    | Model ids are verified against `GET /v1/models` for this key, not guessed.
+    | Missing key => the generator refuses to run and says so, rather than sending
+    | a half-composed pitch to a real business.
+    |
+    */
+    'openai' => [
+        'key' => env('OPENAI_API_KEY'),
+        'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+        'model' => env('OPENAI_MODEL', 'gpt-5.2'),
+        'image_model' => env('OPENAI_IMAGE_MODEL', 'gpt-image-2'),
+        // Image generation is the slow one; a sales pitch is generated
+        // interactively, so both need a ceiling well short of a gateway timeout.
+        'timeout' => (int) env('OPENAI_TIMEOUT', 90),
+        'image_timeout' => (int) env('OPENAI_IMAGE_TIMEOUT', 180),
+    ],
+
 ];
