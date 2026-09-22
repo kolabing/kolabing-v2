@@ -211,19 +211,23 @@
                                     <small class="form-text text-muted">Defaults to the imported place's name.</small>
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-12">
                                 <div class="form-group">
-                                    <label for="venue_type">Venue Type</label>
-                                    <select id="venue_type" name="venue[venue_type]"
-                                            class="form-control @error('primary_venue.venue_type') is-invalid @enderror">
-                                        <option value="">—</option>
-                                        @foreach ($venueTypes as $venueType)
-                                            <option value="{{ $venueType }}" @selected(old('venue.venue_type') === $venueType)>{{ ucwords(str_replace('_', ' ', $venueType)) }}</option>
-                                        @endforeach
-                                    </select>
+                                    <label>Venue Type</label>
+                                    {{-- Same chips, same source as the app's business_step2 screen. --}}
+                                    @include('admin.users._choice-chips', [
+                                        'chipId' => 'venue-type',
+                                        'chipName' => 'venue[venue_type]',
+                                        'endpoint' => '/api/v1/lookup/venue-types',
+                                        'multiple' => false,
+                                        'selected' => old('venue.venue_type'),
+                                    ])
+                                    @error('primary_venue.venue_type')
+                                        <div class="text-danger small mt-1">{{ $message }}</div>
+                                    @enderror
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-4">
                                 <div class="form-group">
                                     <label for="venue_capacity">Capacity</label>
                                     <input id="venue_capacity" type="number" min="1" name="venue[capacity]"
@@ -232,12 +236,12 @@
                                 </div>
                             </div>
                             <div class="col-md-8">
-                                <div class="form-group">
+                                <div class="form-group position-relative">
                                     <label for="venue_address">Address</label>
-                                    <input id="venue_address" type="text" name="venue[formatted_address]"
-                                           value="{{ old('venue.formatted_address') }}"
-                                           class="form-control @error('primary_venue.formatted_address') is-invalid @enderror">
-                                    <small class="form-text text-muted">Defaults to the imported address.</small>
+                                    @include('admin.users._address-autocomplete')
+                                    @error('primary_venue.formatted_address')
+                                        <div class="text-danger small mt-1">{{ $message }}</div>
+                                    @enderror
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -261,25 +265,46 @@
                     <hr>
                     <h5 class="mb-3 text-muted"><i class="fas fa-gift mr-1"></i> What they offer</h5>
                     <div class="row">
+                        <div class="col-md-12">
+                            <div class="form-group">
+                                <label>Offering</label>
+                                {{-- Multi-select, same source as the app's offering screen. The
+                                     API stores `offering` as free text, so the chosen options are
+                                     turned into their human labels server-side — slugs in this
+                                     field would end up verbatim in the auto-offer's description. --}}
+                                @include('admin.users._choice-chips', [
+                                    'chipId' => 'offering',
+                                    'chipName' => 'offering_options',
+                                    'endpoint' => '/api/v1/lookup/offerings',
+                                    'multiple' => true,
+                                    'selected' => old('offering_options', []),
+                                ])
+                                @error('offering')
+                                    <div class="text-danger small mt-1">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
                         <div class="col-md-8">
                             <div class="form-group">
-                                <label for="offering">Offering</label>
-                                <textarea id="offering" name="offering" rows="3" maxlength="2000"
-                                          class="form-control @error('offering') is-invalid @enderror">{{ old('offering') }}</textarea>
+                                <label for="offering_detail">Anything else they offer</label>
+                                <textarea id="offering_detail" name="offering_detail" rows="2" maxlength="1000"
+                                          class="form-control @error('offering_detail') is-invalid @enderror">{{ old('offering_detail') }}</textarea>
                                 <small class="form-text text-muted">
-                                    Becomes the first Kolab's description when About is empty.
+                                    Optional, in their own words. Appended to the options above; together
+                                    they become the first Kolab's description when About is empty.
                                 </small>
                             </div>
                         </div>
                         <div class="col-md-4 js-product-only">
                             <div class="form-group">
-                                <label for="product_type">Product Type</label>
-                                <select id="product_type" name="product_type" class="form-control @error('product_type') is-invalid @enderror">
-                                    <option value="">—</option>
-                                    @foreach ($productTypes as $productType)
-                                        <option value="{{ $productType }}" @selected(old('product_type') === $productType)>{{ ucwords(str_replace('_', ' ', $productType)) }}</option>
-                                    @endforeach
-                                </select>
+                                <label>Product Type</label>
+                                @include('admin.users._choice-chips', [
+                                    'chipId' => 'product-type',
+                                    'chipName' => 'product_type',
+                                    'endpoint' => '/api/v1/lookup/product-types',
+                                    'multiple' => false,
+                                    'selected' => old('product_type'),
+                                ])
                                 <small class="form-text text-muted">Defaults to "other".</small>
                             </div>
                         </div>

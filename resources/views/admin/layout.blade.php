@@ -62,6 +62,8 @@
         .lucide-28 { width: 28px; height: 28px; }
         .lucide-missing { opacity: .35; }
     </style>
+    {{-- Page-level CSS pushed by partials (e.g. admin.users._choice-chips). --}}
+    @stack('admin_styles')
 @stop
 
 @section('js')
@@ -71,4 +73,7 @@
         // any older view that calls window.renderLucide() does not error.
         window.renderLucide = function () {};
     </script>
+    {{-- Page-level JS pushed by partials. Rendered after the page body, so a
+         partial's initialiser can assume its own markup already exists. --}}
+    @stack('admin_scripts')
 @stop

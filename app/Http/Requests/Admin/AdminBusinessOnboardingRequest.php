@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Requests\Admin;
 
 use App\Http\Requests\Api\V1\BusinessOnboardingRequest;
+use App\Models\OfferOption;
 use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -123,7 +125,58 @@ final class AdminBusinessOnboardingRequest extends BusinessOnboardingRequest
             $this->merge(['city_name' => $venue['city']]);
         }
 
+        $this->composeOffering();
+
         parent::prepareForValidation();
+    }
+
+    /**
+     * Turn the picked offering options into the free-text `offering` the API stores.
+     *
+     * The form asks with the same multi-select chips the app uses, sourced from the
+     * same `/lookup/offerings` taxonomy — but `offering` is a free-text column, and
+     * `OnboardingService::provisionBusinessAutoOffer()` uses it as the auto-offer's
+     * description when About is empty. Writing raw slugs there would publish
+     * "venue,food_drink,discount" to communities as the pitch.
+     *
+     * So the slugs become their human labels, straight from `offer_options` — the
+     * same words the chips showed — and the maintainer's own free text is appended
+     * after them. Composed here rather than in JS: the label lookup belongs on the
+     * side that owns the taxonomy, and a hidden field assembled by the browser is
+     * one view edit away from silently shipping slugs.
+     */
+    private function composeOffering(): void
+    {
+        $slugs = array_values(array_filter(
+            (array) $this->input('offering_options', []),
+            static fn (mixed $slug): bool => is_string($slug) && $slug !== '',
+        ));
+
+        $detail = trim((string) $this->input('offering_detail', ''));
+
+        if ($slugs === [] && $detail === '') {
+            return;
+        }
+
+        $labels = OfferOption::query()
+            ->where('kind', OfferOption::KIND_OFFERING)
+            ->whereIn('slug', $slugs)
+            ->pluck('name', 'slug');
+
+        // Keep the maintainer's click order, and fall back to a readable form of
+        // the slug if the option was deactivated between render and submit.
+        $chosen = array_map(
+            static fn (string $slug): string => (string) ($labels[$slug] ?? Str::headline($slug)),
+            $slugs,
+        );
+
+        $offering = implode(', ', $chosen);
+
+        if ($detail !== '') {
+            $offering = $offering === '' ? $detail : $offering.' — '.$detail;
+        }
+
+        $this->merge(['offering' => $offering]);
     }
 
     /**
