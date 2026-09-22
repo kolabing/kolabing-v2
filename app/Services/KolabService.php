@@ -29,6 +29,7 @@ class KolabService
         private readonly MissionService $missionService,
         private readonly NotificationService $notificationService,
         private readonly SuggestionTelemetry $suggestionTelemetry,
+        private readonly CityResolver $cityResolver,
     ) {}
 
     /**
@@ -176,6 +177,8 @@ class KolabService
             $data = $this->enrichCommunitySeekingData($creator, $data);
         }
 
+        $data = $this->canonicalizePreferredCity($data);
+
         $kolab = Kolab::query()->create([
             'creator_profile_id' => $creator->id,
             'intent_type' => $data['intent_type'],
@@ -287,6 +290,8 @@ class KolabService
         if ($intentType === IntentType::CommunitySeeking->value) {
             $data = $this->enrichCommunitySeekingData($kolab->creatorProfile, $data);
         }
+
+        $data = $this->canonicalizePreferredCity($data);
 
         $kolab->update($data);
         $kolab->refresh();
@@ -450,7 +455,9 @@ class KolabService
         }
 
         if (isset($filters['city']) && $filters['city'] !== '') {
-            $query->where('preferred_city', $filters['city']);
+            // Every known spelling of the city, not just the canonical one — see
+            // Kolab::scopeForCity (BE-FX-60).
+            $query->forCity((string) $filters['city']);
         }
 
         if (isset($filters['venue_type']) && $filters['venue_type'] !== '') {
@@ -621,6 +628,29 @@ class KolabService
         if (empty($data['community_size']) && $profile->community_size !== null) {
             $data['community_size'] = $profile->community_size;
         }
+
+        return $data;
+    }
+
+    /**
+     * Store the canonical `cities.name` for the kolab's city.
+     *
+     * `preferred_city` is the column the Explore filter matches on, and for a
+     * venue kolab it is filled from the venue's Google `locality` — which is the
+     * local spelling, or in a metro area the borough ("Cuajimalpa de Morelos" for
+     * an address in Mexico City). Left raw, the listing is unreachable from the
+     * city picker (BE-FX-60). An unknown city is kept as typed.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function canonicalizePreferredCity(array $data): array
+    {
+        if (! array_key_exists('preferred_city', $data) || ! is_string($data['preferred_city'])) {
+            return $data;
+        }
+
+        $data['preferred_city'] = $this->cityResolver->storableName($data['preferred_city']);
 
         return $data;
     }

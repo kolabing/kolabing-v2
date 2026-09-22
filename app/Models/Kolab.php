@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\IntentType;
 use App\Enums\KolabStatus;
 use App\Models\Concerns\FiltersByActiveOwner;
+use App\Services\CityResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -239,12 +240,20 @@ class Kolab extends Model
     /**
      * Scope a query to filter kolabs by city.
      *
+     * `preferred_city` is a free-text NAME, historically written from the venue's
+     * Google `locality`, so one city can sit in the column under several
+     * spellings ("Mexico City" / "Ciudad de Mexico" / a CDMX borough). Match them
+     * all, case-insensitively, or real listings stay invisible (BE-FX-60).
+     *
      * @param  Builder<Kolab>  $query
      * @return Builder<Kolab>
      */
     public function scopeForCity(Builder $query, string $city): Builder
     {
-        return $query->where('preferred_city', $city);
+        $names = array_map(mb_strtolower(...), app(CityResolver::class)->matchingNames($city));
+        $placeholders = implode(', ', array_fill(0, count($names), '?'));
+
+        return $query->whereRaw("LOWER(kolabs.preferred_city) IN ({$placeholders})", $names);
     }
 
     /**

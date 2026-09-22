@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\City;
 use App\Models\Kolab;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -31,6 +30,10 @@ class PublicKolabFeedService
      * Kolabs per page on the listing.
      */
     public const PER_PAGE = 24;
+
+    public function __construct(
+        private readonly CityResolver $cityResolver,
+    ) {}
 
     /**
      * The gate. Published, and still applicable.
@@ -110,25 +113,25 @@ class PublicKolabFeedService
      * Cities that actually have a listing, for the filter row.
      *
      * `kolabs.preferred_city` is a free-text city *name*, not a `cities.id` — so this
-     * returns the distinct names present, and only those that match a known city, which
-     * drops the "Unknown" rows the older client wrote. A filter offering a city with
-     * nothing in it just sends people to an empty page.
+     * returns the distinct names present, resolved to the canonical `cities.name`
+     * and keeping only the ones we recognise, which drops the "Unknown" rows the
+     * older client wrote. Resolving matters: rows written from a Google `locality`
+     * hold "Ciudad de México" or a CDMX borough, and listing those verbatim would
+     * offer a chip the picker's "Mexico City" filter cannot match (BE-FX-60).
+     * A filter offering a city with nothing in it just sends people to an empty page.
      *
      * @return Collection<int, string>
      */
     public function cities(): Collection
     {
-        $used = $this->publishable()
+        return $this->publishable()
             ->whereNotNull('preferred_city')
             ->distinct()
             ->pluck('preferred_city')
             ->filter()
-            ->values();
-
-        $known = City::query()->pluck('name')->all();
-
-        return $used
-            ->filter(fn (string $city): bool => in_array($city, $known, true))
+            ->map(fn (string $city): ?string => $this->cityResolver->canonicalFor($city))
+            ->filter()
+            ->unique()
             ->sort()
             ->values();
     }

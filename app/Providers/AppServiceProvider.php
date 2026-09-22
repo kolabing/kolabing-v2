@@ -17,6 +17,7 @@ use App\Policies\KolabPolicy;
 use App\Policies\MultiKolabEventPolicy;
 use App\Policies\MultiKolabRoleApplicationPolicy;
 use App\Services\Admin\CompanySettingService;
+use App\Services\CityResolver;
 use App\Services\PostmarkClient;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Gate;
@@ -31,6 +32,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // One lookup table of city names + aliases per request.
+        $this->app->singleton(CityResolver::class);
+
         $this->app->singleton(PostmarkClient::class, function ($app): PostmarkClient {
             $config = $app['config'];
 
