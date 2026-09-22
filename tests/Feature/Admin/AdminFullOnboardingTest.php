@@ -174,6 +174,70 @@ class AdminFullOnboardingTest extends TestCase
     }
 
     /**
+     * The public listing page reads `business_profiles.opening_hours` — the column,
+     * not the copy nested under `primary_venue` — so dropping it means a fully
+     * onboarded business shows no hours while a merely quick-added one does. That is
+     * a parity regression against BE-NF-62 on the very surface this form exists to
+     * reach parity with. Caught in review before merge.
+     */
+    public function test_opening_hours_reach_the_column_the_public_page_reads(): void
+    {
+        Mail::fake();
+        $hours = ['Monday: 9:00 – 18:00', 'Tuesday: 9:00 – 18:00'];
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.users.onboard.business'), $this->venuePayload(
+                $this->city(),
+                $this->businessType(),
+                ['opening_hours' => json_encode($hours)],
+            ))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $business = Profile::query()->where('email', 'eixample@example.com')->firstOrFail()->businessProfile;
+
+        $this->assertSame($hours, $business->opening_hours);
+        // And still nested under the venue, which is where the app models them.
+        $this->assertSame($hours, $business->primary_venue['opening_hours']);
+    }
+
+    /**
+     * A place in a locality with no `cities` row imports with `city_id = null`, which
+     * is exactly what the "City Name (unlisted)" input is for. Before the fix the
+     * `required_without` pair rejected a submission whose venue plainly named the
+     * city, telling the maintainer "the city field is required" twice with a
+     * filled-in address on screen.
+     */
+    public function test_an_unlisted_city_falls_back_to_the_imported_venues_city(): void
+    {
+        Mail::fake();
+        $type = $this->businessType();
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.users.onboard.business'), [
+                'email' => 'cuajimalpa@example.com',
+                'name' => 'Exploradores de Cafe',
+                'business_type' => $type->slug,
+                'has_venue' => '1',
+                // Neither city field filled — the import could not resolve one.
+                'city_id' => '',
+                'city_name' => '',
+                'primary_venue' => json_encode([
+                    'name' => 'Exploradores de Cafe',
+                    'formatted_address' => 'Av. Juarez 12, Cuajimalpa, CDMX',
+                    'city' => 'Cuajimalpa',
+                ]),
+                'venue' => ['venue_type' => 'cafe', 'capacity' => 25],
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $business = Profile::query()->where('email', 'cuajimalpa@example.com')->firstOrFail()->businessProfile;
+
+        $this->assertSame('Cuajimalpa', $business->city_name);
+    }
+
+    /**
      * A product-promoting business has no venue, so venue_type/capacity must not be
      * demanded — `required_with:primary_venue` would otherwise fire on the empty
      * array the form still posts.

@@ -136,6 +136,13 @@
                 setValueIfEmpty('website', d.website || '');
                 if (d.phone_number) { setValueIfEmpty('phone_number', d.phone_number); }
                 if (d.city_id) { setValueIfEmpty('city_id', d.city_id); }
+                // A place in a locality with no `cities` row imports with city_id
+                // null. The full-onboarding form has a "City Name (unlisted)" input
+                // for exactly that; without this the pair's required_without rule
+                // rejects a submission whose address plainly names the city. No-ops
+                // on quick-add/edit, which have no such field (setValueIfEmpty
+                // guards for a missing element).
+                setValueIfEmpty('city_name', d.city_name || '');
                 if (d.business_type) { setValueIfEmpty('business_type', d.business_type); }
 
                 document.getElementById('primary_venue').value = JSON.stringify(d.primary_venue || {});

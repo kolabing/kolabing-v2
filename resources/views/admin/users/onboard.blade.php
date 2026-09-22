@@ -46,6 +46,20 @@
 
             @include('admin.users._places-import')
 
+            @unless ($isBusiness)
+                {{-- The import card is shared with the business form, where the extra
+                     photos become the listing's gallery. A community profile has no
+                     gallery column and no venue, so `CommunityOnboardingRequest` drops
+                     all of it — say so here rather than let a maintainer pick six
+                     photos and silently keep one. --}}
+                <div class="alert alert-warning mb-0 mx-3">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    For a community the import only fills in the text fields and <strong>the first
+                    selected photo</strong>, which becomes the logo. Extra photos, venue details and
+                    opening hours are not stored on a community profile.
+                </div>
+            @endunless
+
             <div class="card-body">
 
                 {{-- ── Account ────────────────────────────────────────────── --}}
@@ -183,9 +197,10 @@
                         <hr>
                         <h5 class="mb-3 text-muted"><i class="fas fa-store-alt mr-1"></i> Venue</h5>
                         <p class="text-muted small">
-                            Address, hours and photos come from the Maps import above. Type and capacity
-                            do not — Google does not publish either — so the wizard asks a human, and so
-                            does this form.
+                            Address, hours, photos and a best-guess venue type come from the Maps import
+                            above; anything you type here wins over it. <strong>Capacity is the one field
+                            no import can fill</strong> — Google does not publish it — so the wizard asks a
+                            human, and so does this form.
                         </p>
                         <div class="row">
                             <div class="col-md-6">

@@ -37,6 +37,18 @@ final class AdminBusinessOnboardingRequest extends BusinessOnboardingRequest
                 'max:255',
                 Rule::unique('profiles', 'email')->whereNull('deleted_at'),
             ],
+            /*
+             * `opening_hours` is a top-level rule even though the app models hours
+             * under the venue, because `business_profiles.opening_hours` is a real
+             * column (BE-NF-62) and the public listing page reads *that*, not the
+             * nested copy — `PublicProfilePageController::openingHours()`. Without
+             * this rule `validated()` drops the field, `upsertDetailProfile()`
+             * writes null, and a fully-onboarded business shows no hours on its
+             * public page while a merely quick-added one does. The nesting in
+             * prepareForValidation() stays: both destinations are wanted.
+             */
+            'opening_hours' => ['nullable', 'array', 'max:7'],
+            'opening_hours.*' => ['string', 'max:255'],
         ];
     }
 
@@ -47,10 +59,13 @@ final class AdminBusinessOnboardingRequest extends BusinessOnboardingRequest
      *
      * 1. `primary_venue` arrives as a JSON string, because the shared Places import
      *    partial writes the whole Google Places payload into one hidden input.
-     * 2. `venue[...]` holds the fields a human must confirm — `venue_type` and
-     *    `capacity` are `required_with:primary_venue` and Google supplies neither.
-     *    They are overlaid on top of the imported venue, not merged under it, so a
-     *    maintainer's correction always wins over the import.
+     * 2. `venue[...]` holds the fields a human confirms. Both are
+     *    `required_with:primary_venue`; Google supplies one of them.
+     *    `GooglePlacesService::mapVenueType()` derives `venue_type` from the place's
+     *    `types`, but `capacity` is returned hardcoded null (`LookupController`), so
+     *    only a human can ever fill it. The overlay skips empty values, which is what
+     *    lets an imported `venue_type` survive while a maintainer's correction still
+     *    wins over the import.
      * 3. Places returns venue photos as objects (`{resource_name: …}`) while the
      *    request validates `primary_venue.photos.*` as strings. Flattening here is
      *    what keeps rule 1 of this class true: the API's rules stay untouched.
@@ -93,6 +108,20 @@ final class AdminBusinessOnboardingRequest extends BusinessOnboardingRequest
         $this->merge([
             'primary_venue' => ($hasVenue && $venue !== []) ? $venue : null,
         ]);
+
+        /*
+         * Fall back to the imported venue's city when neither city field is filled.
+         *
+         * `city_id`/`city_name` are a `required_without` pair, and a place in a
+         * locality with no `cities` row — the exact case the "City Name (unlisted)"
+         * input exists for — imports with `city_id = null`. Without this the form
+         * rejects a submission whose venue plainly says which city it is in, and the
+         * maintainer is told "the city field is required" twice with a filled-in
+         * address on screen.
+         */
+        if (blank($this->input('city_id')) && blank($this->input('city_name')) && filled($venue['city'] ?? null)) {
+            $this->merge(['city_name' => $venue['city']]);
+        }
 
         parent::prepareForValidation();
     }

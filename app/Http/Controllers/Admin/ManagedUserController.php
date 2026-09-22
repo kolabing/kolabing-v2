@@ -21,6 +21,7 @@ use App\Models\BusinessType;
 use App\Models\City;
 use App\Models\CommunityProfile;
 use App\Models\CommunityType;
+use App\Models\Kolab;
 use App\Models\OfferOption;
 use App\Models\Profile;
 use App\Models\Scopes\ActiveProfileScope;
@@ -218,8 +219,19 @@ class ManagedUserController extends Controller
             'user_type' => UserType::Business->value,
         ]);
 
+        /*
+         * Don't claim the Kolab is live without checking. provisionBusinessAutoOffer()
+         * returns early (logging, not throwing) when there is no primary venue or no
+         * resolvable city, and catches Throwable around create+publish — so the
+         * happy-path wording would tell a maintainer a listing exists when nothing in
+         * the panel would contradict it.
+         */
+        $hasKolab = Kolab::query()->where('creator_profile_id', $profile->id)->exists();
+
         return redirect()->route('admin.users.edit', $profile)
-            ->with('status', __('Business onboarded. Its first Kolab is live; send the welcome email below.'));
+            ->with('status', $hasKolab
+                ? __('Business onboarded. Its first Kolab is live; send the welcome email below.')
+                : __('Business onboarded, but no first Kolab could be composed from these details — create one manually. Send the welcome email below.'));
     }
 
     public function onboardCommunity(AdminCommunityOnboardingRequest $request): RedirectResponse
