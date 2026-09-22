@@ -2587,3 +2587,63 @@ ask. The image endpoint returned a valid PNG; the *upload* then failed locally b
 `.env` has no R2 bucket — an environment gap, not a code path (Laravel Cloud configures `cloud`).
 
 ---
+
+## 35. Explore's deck filter is server-side, and only server-side (BE-FX-61, added 2026-09-22)
+
+Visibility only. No gate moved, no role's rules changed, and the paywall is untouched.
+
+**The mistake this closes.** `GET /api/v1/discovery/opportunities` and the app both decided what
+reached the Explore deck. The app printed the API's `meta.total` as its result count
+(`explore_screen.dart` → `l10n.exploreResultCount`) but drew a list it had re-filtered itself
+(`filterExploreDeckItems`). Two authorities, one label: whenever the client's copy of a rule read a
+payload differently from the server's original, the count said one thing and the deck showed
+another. That is exactly how FX-57 reached production — the filter counted a Kolab the deck never
+drew — and the client had grown a workaround for whole pages arriving empty
+("a permanently dead feed with no empty state").
+
+**Where the two actually disagreed.** Most of the client's filter was already redundant: own
+records, blocked creators, expired windows, role scope, open/positions/eligibility for Multi-Kolab
+roles are all enforced in `DiscoveryOpportunityService::makeBaseQuery()` and
+`makeMultiKolabRoleBaseQuery()`. Two rules were not:
+
+1. **A blocked organiser's Multi-Kolab role.** `makeBaseQuery()` calls `excludeBlockedCreators()`;
+   the role query did not, and neither did `buildMultiKolabRoleItems()`. The block was enforced by
+   the client alone, so deleting the client filter would have put blocked content back on screen —
+   an App Review Guideline 1.2 regression. The role query now excludes roles whose **event creator**
+   is in `ModerationService::blockedIds($viewer)` (both directions, same as the Kolab path).
+2. **A recurring Kolab with no bookable day left.** `applyActiveAvailabilityFilter()` asks only
+   whether the window is still open: `COALESCE(availability_end, availability_start) >= today`. For
+   `availability_mode = recurring`, `kolabs.recurring_days` (ISO 1..7) decides which days inside
+   that window can actually be picked, so a window ending next month can hold no bookable day from
+   today. The server counted it, the client dropped it. `hasBookableDayFromToday()` now requires an
+   allowed weekday inside `[max(today, availability_start), COALESCE(end, start)]`. This is the
+   rule `docs/ROLES-AND-PERMISSIONS.md` §3.3 already states the intent of — *"so an applicant never
+   lands on a Kolab with an empty date picker"*.
+
+**Why `hasBookableDayFromToday()` and not `Kolab::hasSelectableDatesFrom()`.** They answer the same
+question with different window semantics: the model helper reads an absent `availability_end` as
+open-ended and scans 90 days forward, while discovery expiry is
+`COALESCE(availability_end, availability_start)` — the reading FX-57 settled between client and
+server. Reusing the model helper here would have quietly re-opened Kolabs the server has closed.
+Apply-time and browse-time still differ on open-ended Kolabs for that reason; that is pre-existing
+and deliberately untouched here.
+
+**Why it runs in PHP.** `discover()` already materialises the whole result set (`->get()`) and
+scores every row in PHP; `meta.total` is `$sortedResults->count()`, taken from that same collection.
+Filtering there means the count and the page are computed from one list and cannot diverge — the
+whole point of the ticket — and it avoids a weekday expression that would have to be written twice
+for Postgres and SQLite.
+
+**Tables/columns:** `kolabs.availability_mode`, `kolabs.availability_start`,
+`kolabs.availability_end`, `kolabs.recurring_days` (json, ISO 1..7);
+`multi_kolab_roles.multi_kolab_event_id` → `multi_kolab_events.creator_profile_id`;
+`user_blocks.blocker_profile_id` / `blocked_profile_id`.
+
+**Code:** `app/Services/DiscoveryOpportunityService.php` —
+`hasBookableDayFromToday()`, `makeMultiKolabRoleBaseQuery()`, the filter in `discover()`.
+**Contract:** `docs/superpowers/specs/2026-05-09-role-aware-discovery-backend-contract.md`
+§"Hard filters" now carries the complete list and says the client must not hold a copy of it.
+**Tests:** `tests/Feature/Api/V1/DiscoveryServerSideDeckFilterTest.php` (9, four confirmed failing
+against the unfixed service). Issues: kolabing-v2#316, kolabing-app#208.
+
+---

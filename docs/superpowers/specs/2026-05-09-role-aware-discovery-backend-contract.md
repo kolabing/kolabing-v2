@@ -261,7 +261,23 @@ Backend must always enforce:
 - published only
 - opposite-side only
 - exclude viewer-owned records
-- exclude expired availability windows
+- exclude expired availability windows —
+  `COALESCE(availability_end, availability_start) >= today`
+- exclude kolabs with no BOOKABLE day left — for `availability_mode = recurring`,
+  `recurring_days` (ISO 1..7) must contain at least one weekday inside
+  `[max(today, availability_start), COALESCE(availability_end, availability_start)]`.
+  A window that is still open is not the same as a window you can still book
+  (`DiscoveryOpportunityService::hasBookableDayFromToday()`)
+- exclude blocked creators, in BOTH directions and for BOTH item types — ordinary
+  kolabs via `excludeBlockedCreators()`, Multi-Kolab roles via their event's
+  creator in `makeMultiKolabRoleBaseQuery()`
+
+**This list is the whole filter.** The client renders the response verbatim and
+prints `meta.total` as its result count, so anything the server returns is a card
+the user sees. A rule enforced only on the client makes `meta.total` a lie — that
+is how FX-57 shipped (the filter counted a kolab the deck never drew) and it is
+why `filterExploreDeckItems` was deleted from the app in kolabing-app#208.
+Never re-add a client-side copy of a rule in this list; add it here instead.
 
 ### Recommended ranking inputs
 
