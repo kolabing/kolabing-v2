@@ -1231,6 +1231,7 @@
       .ideas-matrix { grid-template-columns: repeat(2, 1fr); gap: 30px 16px; }
     }
   </style>
+  <x-apollo-tracker />
 </head>
 <body style="font-size: 12px;">
 

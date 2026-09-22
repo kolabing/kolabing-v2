@@ -101,6 +101,7 @@
     <script type="application/ld+json">
         {!! $organizationSchema !!}
     </script>
+    <x-apollo-tracker />
     {{ $head ?? '' }}
 </head>
 <body class="bg-off-white text-off-black font-sans">
