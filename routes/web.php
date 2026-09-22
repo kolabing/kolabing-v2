@@ -279,6 +279,12 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     // never captured as a profile id.
     Route::get('/users/quick-add', [ManagedUserController::class, 'quickAddForm'])->name('users.quick-add');
     Route::post('/users/quick-add', [ManagedUserController::class, 'quickAddStore'])->name('users.quick-add.store');
+    // Full onboarding (BE-NF-64) — runs the app's own OnboardingService, so the
+    // resulting profile is indistinguishable from a self-onboarded one. Declared
+    // before the {profile} routes so 'onboard' is never captured as a profile id.
+    Route::get('/users/onboard', [ManagedUserController::class, 'onboardForm'])->name('users.onboard');
+    Route::post('/users/onboard/business', [ManagedUserController::class, 'onboardBusiness'])->name('users.onboard.business');
+    Route::post('/users/onboard/community', [ManagedUserController::class, 'onboardCommunity'])->name('users.onboard.community');
     Route::get('/users/{profile}/edit', [ManagedUserController::class, 'edit'])->name('users.edit');
     Route::put('/users/{profile}', [ManagedUserController::class, 'update'])->name('users.update');
     Route::delete('/users/{profile}', [ManagedUserController::class, 'destroy'])->name('users.destroy');
