@@ -42,6 +42,8 @@ class SalesOutreachDraft extends Model
         'community_profile_id',
         'locale',
         'kolab_ideas',
+        'intel',
+        'angle',
         'selected_idea_index',
         'cover_image_url',
         'cover_image_status',
@@ -51,6 +53,7 @@ class SalesOutreachDraft extends Model
         'estimated_revenue_cents',
         'subject',
         'body_markdown',
+        'whatsapp_message',
         'status',
         'sent_at',
         'created_by',
@@ -63,6 +66,7 @@ class SalesOutreachDraft extends Model
     {
         return [
             'kolab_ideas' => 'array',
+            'intel' => 'array',
             'selected_idea_index' => 'integer',
             'expected_attendees' => 'integer',
             'avg_spend_cents' => 'integer',
@@ -104,6 +108,39 @@ class SalesOutreachDraft extends Model
         }
 
         return $ideas[$this->selected_idea_index] ?? $ideas[0];
+    }
+
+    /**
+     * A `wa.me` deep link that opens WhatsApp with the message already typed.
+     *
+     * Deliberately NOT the WhatsApp Business API. That requires pre-approved
+     * templates for business-initiated conversations, and messaging people who never
+     * opted in breaches Meta's Business Messaging Policy — it gets numbers banned.
+     * A link a maintainer clicks, which opens their own WhatsApp with the text
+     * filled in and lets them press send, is compliant, needs no integration, and is
+     * what small sales teams actually do.
+     *
+     * Null when there is no message or no number to send it to.
+     */
+    public function whatsappLink(): ?string
+    {
+        $message = trim((string) $this->whatsapp_message);
+
+        if ($message === '') {
+            return null;
+        }
+
+        $raw = $this->business?->phone_number
+            ?? ($this->business?->businessProfile?->primary_venue['phone_number'] ?? null);
+
+        // wa.me wants digits only, country code included, no plus and no spaces.
+        $number = preg_replace('/\D+/', '', (string) $raw) ?? '';
+
+        if ($number === '') {
+            return null;
+        }
+
+        return 'https://wa.me/'.$number.'?text='.rawurlencode($message);
     }
 
     public function isSent(): bool

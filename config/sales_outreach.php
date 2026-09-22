@@ -61,6 +61,34 @@ return [
     'idea_count' => (int) env('SALES_IDEA_COUNT', 3),
 
     /*
+    |--------------------------------------------------------------------------
+    | Prospect research (BE-NF-67)
+    |--------------------------------------------------------------------------
+    |
+    | What the generator is allowed to look up about a business before pitching it.
+    | Each source is independently switchable, because each has a different failure
+    | mode: the stored Google data cannot fail (it is already in our database), a
+    | website fetch reaches an address a stranger supplied, and the weather call
+    | leaves our network for a third party.
+    |
+    | Instagram is deliberately not here. The official Graph API needs the business
+    | to authorise us and scraping breaks Meta's terms, so there is no version of it
+    | that keeps working.
+    |
+    */
+
+    'intel' => [
+        // Fetch the business's own website and read it. Guarded against private and
+        // reserved addresses — see ProspectIntel::isFetchable().
+        'website' => (bool) env('SALES_INTEL_WEBSITE', true),
+        'website_timeout' => (int) env('SALES_INTEL_WEBSITE_TIMEOUT', 8),
+
+        // Open-Meteo forecast at the venue's coordinates. No key, no account.
+        'weather' => (bool) env('SALES_INTEL_WEATHER', true),
+        'weather_timeout' => (int) env('SALES_INTEL_WEATHER_TIMEOUT', 8),
+    ],
+
+    /*
      * Languages the pitch can be written in. English and Spanish only for now —
      * the beachhead cities are Spanish-speaking and the rest of the admin email
      * surface (admin_welcome_email_templates) already proved that adding a locale

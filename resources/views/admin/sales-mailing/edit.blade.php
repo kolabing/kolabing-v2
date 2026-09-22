@@ -36,6 +36,59 @@
                 </div>
             </div>
 
+            {{-- What the research found, and which opening the model picked from it.
+                 Shown because a maintainer about to send a claim about someone's
+                 business should be able to see what that claim rests on. --}}
+            @if ($draft->angle || filled($draft->intel))
+                <div class="card">
+                    <div class="card-header"><h3 class="card-title">Research</h3></div>
+                    <div class="card-body">
+                        @if ($draft->angle)
+                            <p class="mb-2">
+                                <strong>Angle:</strong>
+                                <span class="badge badge-info">{{ str_replace('_', ' ', $draft->angle) }}</span>
+                            </p>
+                        @endif
+
+                        @php($places = $draft->intel['places'] ?? [])
+                        @if (filled($places))
+                            <ul class="list-unstyled mb-2 small">
+                                @isset($places['google_rating'])
+                                    <li><i class="fas fa-star text-warning mr-1"></i>
+                                        {{ $places['google_rating'] }} from {{ $places['google_review_count'] ?? '?' }} Google reviews</li>
+                                @endisset
+                                @isset($places['opening_hours'])
+                                    <li><i class="fas fa-clock text-muted mr-1"></i> {{ count($places['opening_hours']) }} days of opening hours on file</li>
+                                @endisset
+                                @isset($places['price_level'])
+                                    <li><i class="fas fa-tag text-muted mr-1"></i> Price level: {{ $places['price_level'] }}</li>
+                                @endisset
+                            </ul>
+                        @endif
+
+                        @isset($draft->intel['website']['url'])
+                            <p class="small mb-1">
+                                <i class="fas fa-globe text-muted mr-1"></i>
+                                Read their site: <a href="{{ $draft->intel['website']['url'] }}" target="_blank" rel="noopener noreferrer">{{ $draft->intel['website']['url'] }}</a>
+                            </p>
+                        @endisset
+
+                        @isset($draft->intel['weather']['next_7_days'])
+                            <p class="small mb-0">
+                                <i class="fas fa-cloud-rain text-muted mr-1"></i>
+                                7-day forecast at the venue was available.
+                            </p>
+                        @endisset
+
+                        @if (blank($places) && blank($draft->intel['website'] ?? null))
+                            <p class="text-muted small mb-0">
+                                Nothing was found for this business — the pitch is written from the profile alone.
+                            </p>
+                        @endif
+                    </div>
+                </div>
+            @endif
+
             <div class="card">
                 <div class="card-header"><h3 class="card-title">The estimate</h3></div>
                 <div class="card-body">
@@ -158,6 +211,33 @@
                     @endunless
                 </form>
             </div>
+
+            {{-- WhatsApp: a link the maintainer clicks, not an API we send through.
+                 The WhatsApp Business Platform requires pre-approved templates for
+                 business-initiated conversations and bans messaging people who never
+                 opted in, so sending from the server would get the number blocked.
+                 This opens their own WhatsApp with the text already typed. --}}
+            @if ($draft->whatsapp_message)
+                <div class="card">
+                    <div class="card-header"><h3 class="card-title">WhatsApp</h3></div>
+                    <div class="card-body">
+                        <pre class="bg-light p-3 rounded" style="white-space:pre-wrap">{{ $draft->whatsapp_message }}</pre>
+                        @if ($link = $draft->whatsappLink())
+                            <a href="{{ $link }}" target="_blank" rel="noopener noreferrer" class="btn btn-success">
+                                <i class="fab fa-whatsapp mr-1"></i> Open in WhatsApp
+                            </a>
+                            <small class="form-text text-muted">
+                                Opens your own WhatsApp with this text filled in. You press send.
+                            </small>
+                        @else
+                            <p class="text-muted small mb-0">
+                                No phone number on file for this business, so there is no link to open —
+                                copy the text above instead.
+                            </p>
+                        @endif
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 

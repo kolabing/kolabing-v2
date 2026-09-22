@@ -44,6 +44,7 @@ class SalesOutreachService
         private readonly OpenAiClient $client,
         private readonly FileUploadService $uploads,
         private readonly CoverImageBrief $coverBrief,
+        private readonly ProspectIntel $intel,
     ) {}
 
     /**
@@ -74,6 +75,11 @@ class SalesOutreachService
 
         $ideas = $this->generator->generateIdeas($business, $community, $locale);
 
+        // Researched once, at generation, and stored on the draft — a claim made to
+        // a real business has to stay explainable after their hours change and their
+        // website is redesigned.
+        $intel = $this->intel->gather($business);
+
         $email = $this->generator->composeEmail(
             $business,
             $community,
@@ -82,6 +88,7 @@ class SalesOutreachService
             $this->money($estimate),
             $this->money($avgSpend),
             $locale,
+            $intel,
         );
 
         return SalesOutreachDraft::query()->create([
@@ -89,12 +96,15 @@ class SalesOutreachService
             'community_profile_id' => $community->id,
             'locale' => $locale,
             'kolab_ideas' => $ideas,
+            'intel' => $intel,
+            'angle' => $email['angle'] ?: null,
             'selected_idea_index' => 0,
             'expected_attendees' => $attendees,
             'avg_spend_cents' => $avgSpend,
             'estimated_revenue_cents' => $estimate,
             'subject' => $email['subject'],
             'body_markdown' => $email['body_markdown'],
+            'whatsapp_message' => $email['whatsapp_message'] ?: null,
             'status' => SalesOutreachDraft::STATUS_DRAFT,
             'created_by' => $creator?->id,
         ]);
@@ -119,6 +129,9 @@ class SalesOutreachService
             throw new InvalidArgumentException('That idea does not exist on this draft.');
         }
 
+        // The stored research is reused rather than re-gathered: it describes the
+        // business, which has not changed because a different idea was picked, and
+        // re-fetching would make switching idea cost two network round trips.
         $email = $this->generator->composeEmail(
             $draft->business,
             $draft->community,
@@ -127,12 +140,15 @@ class SalesOutreachService
             $this->money($draft->estimated_revenue_cents),
             $this->money($draft->avg_spend_cents),
             $draft->locale,
+            is_array($draft->intel) ? $draft->intel : [],
         );
 
         $draft->update([
             'selected_idea_index' => $index,
+            'angle' => $email['angle'] ?: $draft->angle,
             'subject' => $email['subject'],
             'body_markdown' => $email['body_markdown'],
+            'whatsapp_message' => $email['whatsapp_message'] ?: $draft->whatsapp_message,
             // The old cover illustrates the old idea; keeping it would attach a wine
             // cellar to a running event. Cleared, not regenerated — images cost money
             // and the maintainer may not want one at all.
