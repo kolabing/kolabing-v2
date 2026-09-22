@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\PartnerRewardController as AdminPartnerRewardCont
 use App\Http\Controllers\Admin\RankingController as AdminRankingController;
 use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Admin\RewardEconomicsController as AdminRewardEconomicsController;
+use App\Http\Controllers\Admin\SalesMailingController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Admin\TaskController as AdminTaskController;
 use App\Http\Controllers\Admin\TypeController as AdminTypeController;
@@ -282,6 +283,20 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     // Full onboarding (BE-NF-64) — runs the app's own OnboardingService, so the
     // resulting profile is indistinguishable from a self-onboarded one. Declared
     // before the {profile} routes so 'onboard' is never captured as a profile id.
+    /*
+     * Sales outreach (BE-NF-65): generate a Kolab pitch for a business/community
+     * pair, illustrate it, read it, send it. `send` is a POST of its own behind a
+     * preview because it is the only irreversible step here.
+     */
+    Route::get('/sales-mailing', [SalesMailingController::class, 'index'])->name('sales-mailing.index');
+    Route::post('/sales-mailing', [SalesMailingController::class, 'generate'])->name('sales-mailing.generate');
+    Route::get('/sales-mailing/{draft}', [SalesMailingController::class, 'edit'])->name('sales-mailing.edit');
+    Route::post('/sales-mailing/{draft}/idea', [SalesMailingController::class, 'selectIdea'])->name('sales-mailing.idea');
+    Route::post('/sales-mailing/{draft}/image', [SalesMailingController::class, 'generateImage'])->name('sales-mailing.image');
+    Route::put('/sales-mailing/{draft}', [SalesMailingController::class, 'updateCopy'])->name('sales-mailing.copy');
+    Route::get('/sales-mailing/{draft}/preview', [SalesMailingController::class, 'preview'])->name('sales-mailing.preview');
+    Route::post('/sales-mailing/{draft}/send', [SalesMailingController::class, 'send'])->name('sales-mailing.send');
+
     Route::get('/users/onboard', [ManagedUserController::class, 'onboardForm'])->name('users.onboard');
     Route::post('/users/onboard/business', [ManagedUserController::class, 'onboardBusiness'])->name('users.onboard.business');
     Route::post('/users/onboard/community', [ManagedUserController::class, 'onboardCommunity'])->name('users.onboard.community');
