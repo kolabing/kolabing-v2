@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\BusinessProfile;
 use App\Models\CollaborationReview;
+use App\Models\CommunityProfile;
 use App\Models\Profile;
 use App\Services\ProfileService;
 use App\Support\PublicProfileLink;
@@ -20,9 +22,22 @@ use Illuminate\Support\Str;
  * where the value starts. Contact details, the full review list, reviewer
  * identities, past-event detail and collaboration partners are the reason to create
  * an account, so they are not merely hidden with CSS: they never reach the HTML.
+ * Opening hours are the one exception (added 2026-09-15): purely operational, not
+ * personal/contact info, and every benchmarked listing platform (Yelp/Google
+ * Business Profile/TripAdvisor) shows them on every listing.
  *
  * It reads models directly rather than calling /api/v1, which keeps the API
  * authenticated. Nothing here may become a way to enumerate the database.
+ *
+ * "Potential collaborations" (added 2026-09-15, Daniel: "you are missing a
+ * potential collaborations section of social proof and cta") is a COUNT, not the
+ * real match list: it deliberately does NOT run the authenticated Suggestions
+ * pipeline (PairCandidateFinder/SignalScorer) -- that is Kolabing's actual matching
+ * algorithm, expensive to compute and itself part of the value an account buys.
+ * Running it for every anonymous, crawlable page view would both leak proprietary
+ * signal (exactly who scores well against whom) and add real load to an unauthed
+ * surface. A plain active-profile count in the same city is real social proof
+ * without either cost.
  */
 class PublicProfilePageController extends Controller
 {
@@ -75,7 +90,46 @@ class PublicProfilePageController extends Controller
             'collaborationCount' => (int) ($stats['completed_collaborations_count'] ?? 0),
             'canonicalUrl' => url('/p/'.$canonicalSlug),
             'appUrl' => rtrim((string) config('webapp.url'), '/'),
+            'openingHours' => $this->openingHours($extended),
+            'potentialCollaborationCount' => $this->potentialCollaborationCount($profile),
         ]);
+    }
+
+    /**
+     * How many active, real (non-test) profiles of the OPPOSITE type share this
+     * profile's city — real social proof that the platform has people to meet here,
+     * without running the actual matching algorithm (see class doc comment).
+     */
+    private function potentialCollaborationCount(Profile $profile): int
+    {
+        $cityId = $profile->isBusiness()
+            ? $profile->businessProfile?->city_id
+            : $profile->communityProfile?->city_id;
+
+        if (! is_string($cityId) || $cityId === '') {
+            return 0;
+        }
+
+        $query = $profile->isBusiness()
+            ? CommunityProfile::query()->where('city_id', $cityId)
+            : BusinessProfile::query()->where('city_id', $cityId);
+
+        // ActiveProfileScope (a default scope on both models) already excludes
+        // is_active=false; is_test_user mirrors the same exclusion ManagedUserController
+        // uses for its own city counts, so a QA seed row never inflates real social proof.
+        return (int) $query->whereHas('profile', fn ($q) => $q->where('is_test_user', false))->count();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function openingHours(mixed $extended): array
+    {
+        if (! $extended instanceof BusinessProfile || ! is_array($extended->opening_hours)) {
+            return [];
+        }
+
+        return array_values(array_filter($extended->opening_hours, fn ($line): bool => is_string($line) && $line !== ''));
     }
 
     /**

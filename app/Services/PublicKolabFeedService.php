@@ -117,7 +117,7 @@ class PublicKolabFeedService
      * and keeping only the ones we recognise, which drops the "Unknown" rows the
      * older client wrote. Resolving matters: rows written from a Google `locality`
      * hold "Ciudad de México" or a CDMX borough, and listing those verbatim would
-     * offer a chip the picker's "Mexico City" filter cannot match (BE-FX-56).
+     * offer a chip the picker's "Mexico City" filter cannot match (BE-FX-60).
      * A filter offering a city with nothing in it just sends people to an empty page.
      *
      * @return Collection<int, string>

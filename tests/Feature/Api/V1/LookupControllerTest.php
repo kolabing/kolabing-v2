@@ -258,8 +258,13 @@ class LookupControllerTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_places_autocomplete_request_payload_biases_to_barcelona_without_primary_type_filter(): void
+    public function test_places_autocomplete_request_payload_is_not_restricted_to_a_single_region(): void
     {
+        // Regression guard (2026-09-14): this call used to hard-restrict every search to Spain
+        // (includedRegionCodes: ['es']) with a Barcelona-centered locationBias, left over from
+        // when the platform was Barcelona-only. Once international beachhead cities shipped
+        // (PR #263), that silently broke Places import for every business outside Spain --
+        // confirmed live with a real Mexico City search returning Zaragoza/Madrid results.
         config()->set('services.google_places.api_key', 'test-key');
 
         Http::fake([
@@ -279,12 +284,9 @@ class LookupControllerTest extends TestCase
             $body = $request->data();
 
             return $body['input'] === 'coffee'
-                && $body['includedRegionCodes'] === ['es']
-                && $body['languageCode'] === 'es'
-                && ! array_key_exists('includedPrimaryTypes', $body)
-                && $body['locationBias']['circle']['center']['latitude'] === 41.3874
-                && $body['locationBias']['circle']['center']['longitude'] === 2.1686
-                && $body['locationBias']['circle']['radius'] === 50000.0;
+                && ! array_key_exists('includedRegionCodes', $body)
+                && ! array_key_exists('locationBias', $body)
+                && ! array_key_exists('includedPrimaryTypes', $body);
         });
     }
 

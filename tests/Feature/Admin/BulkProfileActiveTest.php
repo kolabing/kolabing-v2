@@ -167,7 +167,11 @@ class BulkProfileActiveTest extends TestCase
 
     public function test_the_page_renders_the_bulk_controls(): void
     {
-        Profile::factory()->create();
+        // Explicit non-example.com/.org/.net email: Faker's default safeEmail()
+        // domain collides with the index's default "hide likely test rows" filter
+        // (added 2026-09-14) -- profile_ids[] only renders per visible row, so a
+        // hidden row here means an empty table and a flaky failure.
+        Profile::factory()->create(['email' => 'owner@bulkcontrolsco.com']);
 
         $this->actingAs($this->maintainer(), 'admin')
             ->get(route('admin.users.index'))

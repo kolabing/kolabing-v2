@@ -28,11 +28,29 @@ class SeoRemediationTest extends TestCase
         // canonical, so the two hosts competed as separate documents.
         $this->get('http://www.kolabing.com/')
             ->assertStatus(301)
-            ->assertRedirect('http://kolabing.com/');
+            ->assertRedirect('https://kolabing.com/');
 
         $this->get('http://www.kolabing.com/pricing')
             ->assertStatus(301)
-            ->assertRedirect('http://kolabing.com/pricing');
+            ->assertRedirect('https://kolabing.com/pricing');
+    }
+
+    public function test_the_redirect_target_is_always_https_even_when_the_request_scheme_is_not(): void
+    {
+        // Regression guard (2026-09-14): CanonicalUrl is prepend()-ed before
+        // Laravel's own TrustProxies middleware runs, so $request->getScheme()
+        // at this point still reflects the raw plain-HTTP hop from Laravel
+        // Cloud's load balancer, not the client's real HTTPS request. Echoing
+        // it back downgraded the redirect to http://, which breaks Secure
+        // session/CSRF cookies on whatever request follows -- this is why
+        // /admin/login intermittently failed for anyone entering via www.
+        $this->get('https://www.kolabing.com/admin/login')
+            ->assertStatus(301)
+            ->assertRedirect('https://kolabing.com/admin/login');
+
+        $this->get('http://www.kolabing.com/admin/login')
+            ->assertStatus(301)
+            ->assertRedirect('https://kolabing.com/admin/login');
     }
 
     public function test_a_query_string_survives_the_canonical_redirect(): void
@@ -40,7 +58,7 @@ class SeoRemediationTest extends TestCase
         // Campaign parameters must not be dropped on the way to the apex host.
         $this->get('http://www.kolabing.com/pricing?utm_source=newsletter')
             ->assertStatus(301)
-            ->assertRedirect('http://kolabing.com/pricing?utm_source=newsletter');
+            ->assertRedirect('https://kolabing.com/pricing?utm_source=newsletter');
     }
 
     public function test_trailing_slashes_redirect_instead_of_answering(): void
@@ -57,7 +75,7 @@ class SeoRemediationTest extends TestCase
         $redirect = $middleware->handle(Request::create('http://kolabing.com/pricing/'), $next);
 
         $this->assertSame(301, $redirect->getStatusCode());
-        $this->assertSame('http://kolabing.com/pricing', $redirect->headers->get('Location'));
+        $this->assertSame('https://kolabing.com/pricing', $redirect->headers->get('Location'));
 
         // The root keeps its slash — the one path where it is canonical.
         $root = $middleware->handle(Request::create('http://kolabing.com/'), $next);

@@ -456,7 +456,7 @@ class KolabService
 
         if (isset($filters['city']) && $filters['city'] !== '') {
             // Every known spelling of the city, not just the canonical one — see
-            // Kolab::scopeForCity (BE-FX-56).
+            // Kolab::scopeForCity (BE-FX-60).
             $query->forCity((string) $filters['city']);
         }
 
@@ -639,7 +639,7 @@ class KolabService
      * venue kolab it is filled from the venue's Google `locality` — which is the
      * local spelling, or in a metro area the borough ("Cuajimalpa de Morelos" for
      * an address in Mexico City). Left raw, the listing is unreachable from the
-     * city picker (BE-FX-56). An unknown city is kept as typed.
+     * city picker (BE-FX-60). An unknown city is kept as typed.
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>

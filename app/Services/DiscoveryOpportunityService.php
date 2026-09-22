@@ -588,7 +588,7 @@ class DiscoveryOpportunityService
 
         if ($filters['city'] !== null) {
             // Every known spelling of the city, not just the canonical one — see
-            // Kolab::scopeForCity (BE-FX-56).
+            // Kolab::scopeForCity (BE-FX-60).
             $query->forCity((string) $filters['city']);
         }
 
@@ -763,7 +763,7 @@ class DiscoveryOpportunityService
         if ($viewerCity !== null) {
             // The viewer's city and the kolab's may be two spellings of the same
             // place ("Mexico City" vs Google's "Ciudad de Mexico"), so the boost
-            // matches every known spelling (BE-FX-56).
+            // matches every known spelling (BE-FX-60).
             $cityNames = array_map(mb_strtolower(...), $this->cityResolver->matchingNames($viewerCity));
             $placeholders = implode(', ', array_fill(0, count($cityNames), '?'));
             $parts[] = "CASE WHEN LOWER(preferred_city) IN ({$placeholders}) THEN 40 ELSE 0 END";

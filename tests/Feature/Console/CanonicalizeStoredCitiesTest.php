@@ -13,7 +13,7 @@ use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
 /**
- * BE-FX-56 — the rows written before the fix still hold the Google spelling.
+ * BE-FX-60 — the rows written before the fix still hold the Google spelling.
  */
 class CanonicalizeStoredCitiesTest extends TestCase
 {

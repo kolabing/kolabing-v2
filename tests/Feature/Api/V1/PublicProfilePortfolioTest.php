@@ -75,6 +75,31 @@ class PublicProfilePortfolioTest extends TestCase
         $this->assertSame(1, $data['past_events_count']);
     }
 
+    /**
+     * `business_profiles.offer_photos` (the Google Maps import) never fed the
+     * in-app gallery a community member actually sees -- caught live 2026-09-15
+     * benchmarking against real listing platforms.
+     */
+    public function test_business_offer_photos_appear_in_the_in_app_gallery_alongside_uploaded_gallery_photos(): void
+    {
+        $viewer = Profile::factory()->attendee()->create();
+        $profile = Profile::factory()->business()->create();
+        \App\Models\BusinessProfile::factory()->create([
+            'profile_id' => $profile->id,
+            'offer_photos' => ['https://example.com/offer-a.jpg', 'https://example.com/offer-b.jpg'],
+        ]);
+        $this->galleryPhotoFor($profile, 0);
+
+        $data = $this->actingAs($viewer)
+            ->getJson("/api/v1/profiles/{$profile->id}")
+            ->assertOk()
+            ->json('data');
+
+        $this->assertCount(3, $data['gallery']);
+        $this->assertContains('https://example.com/offer-a.jpg', array_column($data['gallery'], 'url'));
+        $this->assertContains('https://example.com/offer-b.jpg', array_column($data['gallery'], 'url'));
+    }
+
     public function test_an_attendee_profile_still_returns_200_without_a_portfolio(): void
     {
         // getPublicProfileDetail() throws ModelNotFoundException for attendees, so

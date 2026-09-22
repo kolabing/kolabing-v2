@@ -10,7 +10,7 @@ use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
 /**
- * BE-FX-56: Google Places answers with the local spelling of a city, and in a
+ * BE-FX-60: Google Places answers with the local spelling of a city, and in a
  * metro area with the borough. The picker offers the canonical `cities.name`.
  * The resolver is what stops those two from being different cities.
  */

@@ -15,7 +15,7 @@ use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
 /**
- * BE-FX-56 — filtering Explore by a city must find the listings that are in it.
+ * BE-FX-60 — filtering Explore by a city must find the listings that are in it.
  *
  * `kolabs.preferred_city` is a free-text NAME filled from the venue's Google
  * Places `locality`, which for a Mexico City venue is "Ciudad de México" or the

@@ -70,6 +70,14 @@ class GooglePlacesService
     ];
 
     /**
+     * `includedRegionCodes: ['es']` + a Barcelona-centered `locationBias` used to hard-restrict
+     * every autocomplete call to Spain, from when the platform was Barcelona-only. Confirmed
+     * live 2026-09-14: searching for a real Mexico City business ("Exploradores de Café
+     * Cuajimalpa") returned Zaragoza/Madrid/Pontevedra results instead, once the international
+     * beachhead cities shipped (PR #263) this became a real onboarding blocker outside Spain,
+     * not a theoretical one. Removed rather than made city-aware -- the query text itself
+     * ("<business> <colonia/city>") carries enough context for Google's own relevance ranking.
+     *
      * @return array<int, array<string, mixed>>
      */
     public function autocomplete(string $query): array
@@ -89,17 +97,7 @@ class GooglePlacesService
         $response = Http::withHeaders($this->headers())
             ->post('https://places.googleapis.com/v1/places:autocomplete', [
                 'input' => $query,
-                'includedRegionCodes' => ['es'],
                 'languageCode' => 'es',
-                'locationBias' => [
-                    'circle' => [
-                        'center' => [
-                            'latitude' => 41.3874,
-                            'longitude' => 2.1686,
-                        ],
-                        'radius' => 50000.0,
-                    ],
-                ],
             ]);
 
         if (! $response->successful()) {

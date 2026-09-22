@@ -13,7 +13,7 @@ use Illuminate\Console\Command;
 /**
  * Rewrites the free-text city columns to the canonical `cities.name`.
  *
- * Rows written before BE-FX-56 hold whatever Google Places returned as the
+ * Rows written before BE-FX-60 hold whatever Google Places returned as the
  * venue's `locality` — "Ciudad de México", or in a metro area the borough
  * ("Cuajimalpa de Morelos") — while the picker and `GET /api/v1/cities` offer
  * "Mexico City". The filter compared the two literally, so those listings were

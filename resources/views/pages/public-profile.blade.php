@@ -9,6 +9,8 @@
      * here: contact details, the full review list, reviewer identities, past-event
      * detail and collaboration partners are deliberately absent from this HTML
      * rather than hidden with CSS — they are the reason to create an account.
+     * Opening hours are shown (operational, not contact info — see the controller's
+     * doc comment).
      */
     $ratingLabel = $averageRating ? number_format((float) $averageRating, 1) : null;
 
@@ -128,6 +130,18 @@
             </section>
         @endif
 
+        {{-- ── Hours (operational info, not the signup gate — see controller doc) ── --}}
+        @if (count($openingHours) > 0)
+            <section class="mt-8">
+                <h2 class="font-display text-lg font-black text-off-black">Hours</h2>
+                <ul class="mt-2 space-y-0.5 text-sm text-off-black/70">
+                    @foreach ($openingHours as $line)
+                        <li>{{ $line }}</li>
+                    @endforeach
+                </ul>
+            </section>
+        @endif
+
         {{-- ── A few photos ─────────────────────────────────────────────── --}}
         @if (count($photos) > 0)
             <section class="mt-10">
@@ -160,6 +174,24 @@
                         Verified {{ $featuredReview['reviewer_type'] === 'business' ? 'business' : 'community' }} partner
                     </figcaption>
                 </figure>
+            </section>
+        @endif
+
+        {{-- ── Potential collaborations (social proof + its own CTA) ──────── --}}
+        @if ($potentialCollaborationCount > 0)
+            <section class="mt-10 rounded-2xl border border-primary/30 bg-primary/10 p-5">
+                <h2 class="font-display text-lg font-black text-off-black">Potential collaborations</h2>
+                <p class="mt-2 leading-relaxed text-off-black/80">
+                    @if ($isBusiness)
+                        <strong>{{ $potentialCollaborationCount }}</strong> {{ $potentialCollaborationCount === 1 ? 'community is' : 'communities are' }} active on Kolabing{{ $cityName ? ' in '.$cityName : '' }} and open to partnering with a business like {{ $displayName }}.
+                    @else
+                        <strong>{{ $potentialCollaborationCount }}</strong> {{ $potentialCollaborationCount === 1 ? 'business is' : 'businesses are' }} active on Kolabing{{ $cityName ? ' in '.$cityName : '' }} and open to partnering with a community like {{ $displayName }}.
+                    @endif
+                </p>
+                <a href="{{ $appUrl }}/register"
+                   class="mt-4 inline-flex items-center justify-center rounded-full bg-off-black px-6 py-3 font-bold text-primary transition hover:bg-off-black/90">
+                    See who's interested
+                </a>
             </section>
         @endif
 

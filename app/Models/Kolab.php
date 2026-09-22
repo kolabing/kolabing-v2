@@ -243,7 +243,7 @@ class Kolab extends Model
      * `preferred_city` is a free-text NAME, historically written from the venue's
      * Google `locality`, so one city can sit in the column under several
      * spellings ("Mexico City" / "Ciudad de Mexico" / a CDMX borough). Match them
-     * all, case-insensitively, or real listings stay invisible (BE-FX-56).
+     * all, case-insensitively, or real listings stay invisible (BE-FX-60).
      *
      * @param  Builder<Kolab>  $query
      * @return Builder<Kolab>

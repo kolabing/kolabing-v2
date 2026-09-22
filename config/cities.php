@@ -16,7 +16,7 @@ return [
     | borough rather than the city ("Cuajimalpa de Morelos"), while the picker and
     | `GET /api/v1/cities` offer the canonical `cities.name` ("Mexico City").
     | Filtering compared the two byte-for-byte, so real listings were invisible to
-    | the city filter (BE-FX-56).
+    | the city filter (BE-FX-60).
     |
     | Each entry maps a canonical `cities.name` to every other spelling that means
     | the same city. Accents and case do not need a separate entry — the resolver

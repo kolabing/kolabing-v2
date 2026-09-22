@@ -28,6 +28,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $website
  * @property string|null $profile_photo
  * @property array<string, mixed>|null $primary_venue
+ * @property array<int, string>|null $opening_hours
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Profile $profile
@@ -62,6 +63,7 @@ class BusinessProfile extends Model
         'profile_photo',
         'primary_venue',
         'offer_photos',
+        'opening_hours',
     ];
 
     /**
@@ -77,6 +79,7 @@ class BusinessProfile extends Model
             'target_city_ids' => 'array',
             'primary_venue' => 'array',
             'offer_photos' => 'array',
+            'opening_hours' => 'array',
         ];
     }
 
