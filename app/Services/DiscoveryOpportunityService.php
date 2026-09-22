@@ -33,6 +33,7 @@ class DiscoveryOpportunityService
     public function __construct(
         private readonly BusinessPartnerStatusService $businessPartnerStatusService,
         private readonly BusinessVisibilityBoostService $businessVisibilityBoostService,
+        private readonly CityResolver $cityResolver,
     ) {}
 
     /**
@@ -586,7 +587,9 @@ class DiscoveryOpportunityService
         }
 
         if ($filters['city'] !== null) {
-            $query->where('preferred_city', $filters['city']);
+            // Every known spelling of the city, not just the canonical one — see
+            // Kolab::scopeForCity (BE-FX-60).
+            $query->forCity((string) $filters['city']);
         }
 
         if ($filters['availability_mode'] !== null) {
@@ -758,8 +761,13 @@ class DiscoveryOpportunityService
         array_push($bindings, ...$freshnessBindings);
 
         if ($viewerCity !== null) {
-            $parts[] = 'CASE WHEN preferred_city = ? THEN 40 ELSE 0 END';
-            $bindings[] = $viewerCity;
+            // The viewer's city and the kolab's may be two spellings of the same
+            // place ("Mexico City" vs Google's "Ciudad de Mexico"), so the boost
+            // matches every known spelling (BE-FX-60).
+            $cityNames = array_map(mb_strtolower(...), $this->cityResolver->matchingNames($viewerCity));
+            $placeholders = implode(', ', array_fill(0, count($cityNames), '?'));
+            $parts[] = "CASE WHEN LOWER(preferred_city) IN ({$placeholders}) THEN 40 ELSE 0 END";
+            array_push($bindings, ...$cityNames);
         }
 
         if ($viewerRole === 'business') {
@@ -973,8 +981,11 @@ class DiscoveryOpportunityService
         }
 
         if ($filters['city'] !== null) {
-            $query->whereHas('event', function (Builder $eventQuery) use ($filters): void {
-                $eventQuery->where('city', $filters['city']);
+            $cityNames = array_map(mb_strtolower(...), $this->cityResolver->matchingNames((string) $filters['city']));
+
+            $query->whereHas('event', function (Builder $eventQuery) use ($cityNames): void {
+                $placeholders = implode(', ', array_fill(0, count($cityNames), '?'));
+                $eventQuery->whereRaw("LOWER(city) IN ({$placeholders})", $cityNames);
             });
         }
 
@@ -1057,7 +1068,7 @@ class DiscoveryOpportunityService
 
         $viewerCity = $this->resolveViewerCity($viewer);
 
-        if ($viewerCity !== null && $event->city !== null && $event->city === $viewerCity) {
+        if ($this->cityResolver->sameCity($viewerCity, $event->city)) {
             $score += 40;
         }
 
@@ -1334,7 +1345,7 @@ class DiscoveryOpportunityService
     {
         $viewerCity = $this->resolveViewerCity($viewer);
 
-        if ($viewerCity !== null && $kolab->preferred_city === $viewerCity) {
+        if ($this->cityResolver->sameCity($viewerCity, $kolab->preferred_city)) {
             return 1.0;
         }
 
