@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Admin;
 
+use App\Jobs\GenerateSalesPitchCoverImage;
 use App\Mail\SalesPitchMail;
 use App\Models\BusinessProfile;
 use App\Models\CommunityProfile;
 use App\Models\Profile;
 use App\Models\SalesOutreachDraft;
 use App\Models\User;
+use App\Services\SalesOutreach\SalesOutreachService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -322,8 +325,14 @@ class SalesMailingTest extends TestCase
 
     // ── The image ───────────────────────────────────────────────────────
 
-    public function test_generating_a_cover_stores_a_url(): void
+    /**
+     * Queued, not drawn inline (BE-FX-61). Drawing it in the request produced a
+     * Cloudflare 504 in production, so the request must now return immediately and
+     * the work must land on a worker.
+     */
+    public function test_requesting_a_cover_queues_a_job_and_returns_at_once(): void
     {
+        Queue::fake();
         $this->fakeOpenAi();
         $draft = SalesOutreachDraft::factory()->create();
 
@@ -331,7 +340,79 @@ class SalesMailingTest extends TestCase
             ->post(route('admin.sales-mailing.image', $draft))
             ->assertRedirect();
 
-        $this->assertNotNull($draft->refresh()->cover_image_url);
+        Queue::assertPushed(
+            GenerateSalesPitchCoverImage::class,
+            fn (GenerateSalesPitchCoverImage $job): bool => $job->draftId === $draft->id,
+        );
+
+        $this->assertSame(SalesOutreachDraft::IMAGE_PENDING, $draft->refresh()->cover_image_status);
+    }
+
+    /** The worker side: this is what actually produces the image. */
+    public function test_the_job_draws_the_cover_and_marks_it_ready(): void
+    {
+        $this->fakeOpenAi();
+        $draft = SalesOutreachDraft::factory()->create();
+
+        (new GenerateSalesPitchCoverImage($draft->id))->handle(app(SalesOutreachService::class));
+
+        $draft->refresh();
+        $this->assertNotNull($draft->cover_image_url);
+        $this->assertSame(SalesOutreachDraft::IMAGE_READY, $draft->cover_image_status);
+    }
+
+    /**
+     * A failure has to reach the draft. The maintainer is no longer watching the
+     * response that does the work, so a failure that only reaches the log is a
+     * spinner that never resolves.
+     */
+    public function test_a_failed_draw_is_recorded_on_the_draft(): void
+    {
+        Http::fake(['*/images/generations' => Http::response(['error' => ['message' => 'nope']], 500)]);
+        $draft = SalesOutreachDraft::factory()->create([
+            'cover_image_status' => SalesOutreachDraft::IMAGE_PENDING,
+        ]);
+
+        try {
+            (new GenerateSalesPitchCoverImage($draft->id))->handle(app(SalesOutreachService::class));
+            $this->fail('The draw should have thrown.');
+        } catch (\RuntimeException) {
+            // expected — the job is allowed to fail, the draft must record it
+        }
+
+        $draft->refresh();
+        $this->assertSame(SalesOutreachDraft::IMAGE_FAILED, $draft->cover_image_status);
+        $this->assertNotNull($draft->cover_image_error);
+        $this->assertNull($draft->cover_image_url);
+    }
+
+    /** A draft deleted between dispatch and execution is a no-op, not a crash. */
+    public function test_the_job_tolerates_a_deleted_draft(): void
+    {
+        $this->fakeOpenAi();
+        $draft = SalesOutreachDraft::factory()->create();
+        $id = $draft->id;
+        $draft->delete();
+
+        (new GenerateSalesPitchCoverImage($id))->handle(app(SalesOutreachService::class));
+
+        $this->assertTrue(true, 'Handling a missing draft must not throw.');
+    }
+
+    /** Without a key the button fails on the screen, not silently in a worker. */
+    public function test_a_missing_key_refuses_before_queueing(): void
+    {
+        Queue::fake();
+        config()->set('services.openai.key', null);
+        $draft = SalesOutreachDraft::factory()->create();
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.sales-mailing.image', $draft))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        Queue::assertNothingPushed();
+        $this->assertSame(SalesOutreachDraft::IMAGE_IDLE, $draft->refresh()->cover_image_status);
     }
 
     /** A wine-cellar photo does not belong on a run-club pitch. */
@@ -355,6 +436,7 @@ class SalesMailingTest extends TestCase
 
         $this->assertSame(1, $draft->selected_idea_index);
         $this->assertNull($draft->cover_image_url);
+        $this->assertSame(SalesOutreachDraft::IMAGE_IDLE, $draft->cover_image_status);
     }
 
     // ── Preview and send ────────────────────────────────────────────────
@@ -448,26 +530,5 @@ class SalesMailingTest extends TestCase
 
         $this->assertSame(0, SalesOutreachDraft::query()->count());
         Mail::assertNothingQueued();
-    }
-
-    /**
-     * A failed image call must not leave the draft pointing at nothing, and must not
-     * be mistaken for a sent pitch.
-     */
-    public function test_a_failed_image_call_leaves_the_draft_alone(): void
-    {
-        Mail::fake();
-        Http::fake(['*/images/generations' => Http::response(['error' => ['message' => 'nope']], 500)]);
-
-        $draft = SalesOutreachDraft::factory()->create();
-
-        $this->actingAs($this->maintainer(), 'admin')
-            ->post(route('admin.sales-mailing.image', $draft))
-            ->assertRedirect()
-            ->assertSessionHas('error');
-
-        $draft->refresh();
-        $this->assertNull($draft->cover_image_url);
-        $this->assertFalse($draft->isSent());
     }
 }
