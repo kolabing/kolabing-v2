@@ -54,10 +54,30 @@
                 <div class="card-body text-center">
                     @if ($draft->cover_image_url)
                         <img src="{{ $draft->cover_image_url }}" alt="" class="img-fluid rounded mb-2">
-                    @else
+                    @elseif (! $draft->isCoverPending())
                         <p class="text-muted mb-2">No cover yet.</p>
                     @endif
-                    @unless ($draft->isSent())
+
+                    {{-- Generation is queued (BE-FX-61), so this page has to report a
+                         state the maintainer is no longer watching happen. The
+                         auto-refresh is what turns "pending" into a result without
+                         asking them to guess when to reload. --}}
+                    @if ($draft->isCoverPending())
+                        <div class="alert alert-info mb-2">
+                            <i class="fas fa-spinner fa-spin mr-1"></i>
+                            Drawing the cover — this takes up to a minute.
+                            <br><small>This page refreshes itself.</small>
+                        </div>
+                    @endif
+
+                    @if ($draft->coverFailed())
+                        <div class="alert alert-danger text-left mb-2">
+                            <strong>The cover could not be generated.</strong>
+                            <br><small>{{ $draft->cover_image_error }}</small>
+                        </div>
+                    @endif
+
+                    @unless ($draft->isSent() || $draft->isCoverPending())
                         <form method="post" action="{{ route('admin.sales-mailing.image', $draft) }}">
                             @csrf
                             <button class="btn btn-sm btn-info">
@@ -140,4 +160,14 @@
             </div>
         </div>
     </div>
+
+    @if ($draft->isCoverPending())
+        {{-- Poll by reloading rather than adding an endpoint and a fetch loop: the
+             page is already cheap, a maintainer has one of these open at a time, and
+             the job finishes in well under a minute. Stops as soon as the status
+             leaves `pending`, because this block stops rendering. --}}
+        <script>
+            setTimeout(function () { window.location.reload(); }, 6000);
+        </script>
+    @endif
 @endsection
