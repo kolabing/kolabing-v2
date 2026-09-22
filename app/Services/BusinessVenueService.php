@@ -13,26 +13,17 @@ class BusinessVenueService
     public function __construct(
         private readonly FileUploadService $fileUploadService,
         private readonly GooglePlacesService $googlePlacesService,
+        private readonly CityResolver $cityResolver,
     ) {}
 
     /**
-     * Resolve a city by ID or fallback name.
+     * Resolve a city by ID or fallback name. The name may be any known spelling —
+     * Google Places answers with the local one ("Ciudad de Mexico") or with a
+     * borough ("Cuajimalpa de Morelos") where our picker says "Mexico City".
      */
     public function resolveCity(?string $cityId, ?string $cityName): ?City
     {
-        if ($cityId !== null && $cityId !== '') {
-            return City::query()->find($cityId);
-        }
-
-        if ($cityName === null || $cityName === '') {
-            return null;
-        }
-
-        return City::query()
-            ->whereRaw('LOWER(name) = ?', [mb_strtolower($cityName)])
-            ->orderByDesc('is_active')
-            ->orderBy('sort_order')
-            ->first();
+        return $this->cityResolver->resolve($cityId, $cityName);
     }
 
     /**
