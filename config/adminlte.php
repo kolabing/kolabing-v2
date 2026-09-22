@@ -320,6 +320,12 @@ return [
             'active' => ['admin/users/create'],
         ],
         [
+            'text' => 'Full Onboarding',
+            'route' => 'admin.users.onboard',
+            'icon' => 'fas fa-fw fa-wand-magic-sparkles',
+            'active' => ['admin/users/onboard', 'admin/users/onboard/*'],
+        ],
+        [
             'text' => 'Verifications',
             'route' => 'admin.community-verification.index',
             'icon' => 'fas fa-fw fa-shield-alt',
@@ -369,6 +375,12 @@ return [
             'route' => 'admin.tasks.index',
             'icon' => 'fas fa-fw fa-list-check',
             'active' => ['admin/tasks', 'admin/tasks/*'],
+        ],
+        [
+            'text' => 'Sales Mailing',
+            'route' => 'admin.sales-mailing.index',
+            'icon' => 'fas fa-fw fa-paper-plane',
+            'active' => ['admin/sales-mailing', 'admin/sales-mailing/*'],
         ],
         ['header' => 'PLATFORM'],
         [
