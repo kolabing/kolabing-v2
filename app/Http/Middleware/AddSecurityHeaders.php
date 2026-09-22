@@ -43,6 +43,12 @@ class AddSecurityHeaders
         $frameSrc = ["'self'"];
         $connectSrc = ["'self'", 'https:'];
 
+        if (! $isWebApp) {
+            // The Apollo.io website tracker (x-apollo-tracker) injects its script
+            // from this host on the marketing pages; its beacons ride `https:` below.
+            $scriptSrc[] = 'https://assets.apollo.io';
+        }
+
         if ($isWebApp) {
             // Alpine compiles every x-*/@ expression with `new Function(...)`, so the
             // web app cannot run at all without 'unsafe-eval'. This host already

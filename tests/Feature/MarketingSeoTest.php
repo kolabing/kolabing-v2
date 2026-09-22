@@ -109,4 +109,27 @@ class MarketingSeoTest extends TestCase
         $this->assertStringContainsString('Kolabing is a collaboration platform', File::get($llms));
         $this->assertStringContainsString('Contact: mailto:support@kolabing.com', File::get($security));
     }
+
+    public function test_marketing_pages_load_the_apollo_tracker_and_the_csp_allows_it(): void
+    {
+        config(['services.apollo.app_id' => 'apollo-test-id']);
+
+        foreach (['/', '/pricing', '/for-businesses'] as $path) {
+            $response = $this->get($path);
+
+            $response->assertOk();
+            $response->assertSee('https://assets.apollo.io/micro/website-tracker/tracker.iife.js', false);
+            $response->assertSee("appId:'apollo-test-id'", false);
+            $this->assertStringContainsString('https://assets.apollo.io', (string) $response->headers->get('Content-Security-Policy'));
+        }
+    }
+
+    public function test_apollo_tracker_is_omitted_when_no_app_id_is_configured(): void
+    {
+        config(['services.apollo.app_id' => null]);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertDontSee('assets.apollo.io/micro/website-tracker', false);
+    }
 }

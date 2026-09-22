@@ -55,6 +55,20 @@ return [
         'client_id_web' => env('GOOGLE_CLIENT_ID_WEB'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Apollo.io Website Tracker
+    |--------------------------------------------------------------------------
+    |
+    | Visitor tracker loaded on the marketing site (not /admin, not the web app).
+    | An empty APOLLO_APP_ID turns the snippet off.
+    |
+    */
+
+    'apollo' => [
+        'app_id' => env('APOLLO_APP_ID', '6ab2db46aec1e90010bf6d50'),
+    ],
+
     'google_places' => [
         'api_key' => env('GOOGLE_PLACES_API_KEY'),
     ],
