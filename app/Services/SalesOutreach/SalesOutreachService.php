@@ -163,7 +163,45 @@ class SalesOutreachService
     }
 
     /**
-     * Switch the pitch to a different generated idea and rewrite the email around it.
+     * Queue a switch to a different generated idea (BE-FX-64).
+     *
+     * Queued for the same reason writing is: rewriting the copy is another `gpt-5.2`
+     * call, and production runs those three to four times slower than a laptop. It
+     * measured comfortably under the edge timeout locally, which is exactly the
+     * reasoning that put generation in the request in the first place.
+     *
+     * Reuses `generation_status`, so the page's existing "writing…" banner, its
+     * self-refresh and every guard that depends on the copy all apply unchanged.
+     *
+     * @throws InvalidArgumentException|RuntimeException
+     */
+    public function queueIdeaSwitch(SalesOutreachDraft $draft, int $index): SalesOutreachDraft
+    {
+        $this->assertEditable($draft);
+
+        if (! isset($draft->kolab_ideas[$index])) {
+            throw new InvalidArgumentException('That idea does not exist on this draft.');
+        }
+
+        $draft->update([
+            'selected_idea_index' => $index,
+            // The old cover illustrates the old idea; keeping it would attach a wine
+            // cellar to a running event. Cleared, not regenerated — images cost money
+            // and the maintainer may not want one at all.
+            'cover_image_url' => null,
+            'cover_image_status' => SalesOutreachDraft::IMAGE_IDLE,
+            'cover_image_error' => null,
+            'generation_status' => SalesOutreachDraft::GENERATION_PENDING,
+            'generation_error' => null,
+        ]);
+
+        WriteSalesPitch::dispatch($draft->id, $index);
+
+        return $draft->refresh();
+    }
+
+    /**
+     * Rewrite the copy around an already-chosen idea. Runs on a worker.
      *
      * The copy is regenerated rather than patched: an email written for a wine
      * tasting does not become an email for a morning run club by swapping the title,
@@ -171,29 +209,35 @@ class SalesOutreachService
      *
      * @throws RuntimeException
      */
-    public function selectIdea(SalesOutreachDraft $draft, int $index): SalesOutreachDraft
+    public function rewriteForIdea(SalesOutreachDraft $draft, int $index): SalesOutreachDraft
     {
-        $this->assertEditable($draft);
-
         $ideas = $draft->kolab_ideas;
 
         if (! isset($ideas[$index])) {
             throw new InvalidArgumentException('That idea does not exist on this draft.');
         }
 
-        // The stored research is reused rather than re-gathered: it describes the
-        // business, which has not changed because a different idea was picked, and
-        // re-fetching would make switching idea cost two network round trips.
-        $email = $this->generator->composeEmail(
-            $draft->business,
-            $draft->community,
-            $ideas[$index],
-            $draft->expected_attendees,
-            $this->money($draft->estimated_revenue_cents),
-            $this->money($draft->avg_spend_cents),
-            $draft->locale,
-            is_array($draft->intel) ? $draft->intel : [],
-        );
+        try {
+            // The stored research is reused rather than re-gathered: it describes the
+            // business, which has not changed because a different idea was picked.
+            $email = $this->generator->composeEmail(
+                $draft->business,
+                $draft->community,
+                $ideas[$index],
+                $draft->expected_attendees,
+                $this->money($draft->estimated_revenue_cents),
+                $this->money($draft->avg_spend_cents),
+                $draft->locale,
+                is_array($draft->intel) ? $draft->intel : [],
+            );
+        } catch (Throwable $e) {
+            $draft->update([
+                'generation_status' => SalesOutreachDraft::GENERATION_FAILED,
+                'generation_error' => mb_substr($e->getMessage(), 0, 500),
+            ]);
+
+            throw $e;
+        }
 
         $draft->update([
             'selected_idea_index' => $index,
@@ -201,12 +245,8 @@ class SalesOutreachService
             'subject' => $email['subject'],
             'body_markdown' => $email['body_markdown'],
             'whatsapp_message' => $email['whatsapp_message'] ?: $draft->whatsapp_message,
-            // The old cover illustrates the old idea; keeping it would attach a wine
-            // cellar to a running event. Cleared, not regenerated — images cost money
-            // and the maintainer may not want one at all.
-            'cover_image_url' => null,
-            'cover_image_status' => SalesOutreachDraft::IMAGE_IDLE,
-            'cover_image_error' => null,
+            'generation_status' => SalesOutreachDraft::GENERATION_READY,
+            'generation_error' => null,
         ]);
 
         return $draft->refresh();

@@ -86,9 +86,9 @@ class SalesMailingController extends Controller
         $index = (int) $request->input('index');
 
         return $this->attempt(
-            fn () => $this->outreach->selectIdea($draft, $index),
+            fn () => $this->outreach->queueIdeaSwitch($draft, $index),
             $draft,
-            __('Idea switched and the email rewritten around it.'),
+            __('Rewriting the email around that idea — it appears here in under a minute.'),
         );
     }
 
