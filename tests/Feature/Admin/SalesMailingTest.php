@@ -444,6 +444,56 @@ class SalesMailingTest extends TestCase
         $this->assertSame(SalesOutreachDraft::IMAGE_IDLE, $draft->cover_image_status);
     }
 
+    /**
+     * Switching idea is another model call, so it is queued too (BE-FX-64) — the
+     * request must not wait for it. It reuses `generation_status`, so the page's
+     * existing "writing…" banner and guards apply unchanged.
+     */
+    public function test_switching_idea_is_queued_not_done_in_the_request(): void
+    {
+        Queue::fake();
+
+        $draft = SalesOutreachDraft::factory()->create([
+            'kolab_ideas' => [
+                ['title' => 'A', 'format' => '', 'business_provides' => '', 'community_delivers' => '', 'why_it_works' => '', 'cover_image_prompt' => 'a'],
+                ['title' => 'B', 'format' => '', 'business_provides' => '', 'community_delivers' => '', 'why_it_works' => '', 'cover_image_prompt' => 'b'],
+            ],
+        ]);
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.sales-mailing.idea', $draft), ['index' => 1])
+            ->assertRedirect();
+
+        Queue::assertPushed(
+            WriteSalesPitch::class,
+            fn (WriteSalesPitch $job): bool => $job->draftId === $draft->id && $job->ideaIndex === 1,
+        );
+
+        $this->assertTrue($draft->refresh()->isWriting());
+    }
+
+    /** The worker's half actually rewrites the copy around the new idea. */
+    public function test_the_job_rewrites_the_copy_for_the_chosen_idea(): void
+    {
+        $this->fakeOpenAi(subject: 'Rewritten for idea B');
+
+        $draft = SalesOutreachDraft::factory()->create([
+            'subject' => 'Original',
+            'generation_status' => SalesOutreachDraft::GENERATION_PENDING,
+            'kolab_ideas' => [
+                ['title' => 'A', 'format' => '', 'business_provides' => '', 'community_delivers' => '', 'why_it_works' => '', 'cover_image_prompt' => 'a'],
+                ['title' => 'B', 'format' => '', 'business_provides' => '', 'community_delivers' => '', 'why_it_works' => '', 'cover_image_prompt' => 'b'],
+            ],
+        ]);
+
+        (new WriteSalesPitch($draft->id, 1))->handle(app(SalesOutreachService::class));
+
+        $draft->refresh();
+        $this->assertSame('Rewritten for idea B', $draft->subject);
+        $this->assertSame(1, $draft->selected_idea_index);
+        $this->assertTrue($draft->isWritten());
+    }
+
     // ── Preview and send ────────────────────────────────────────────────
 
     public function test_previewing_sends_nothing(): void

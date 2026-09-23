@@ -37,7 +37,14 @@ class WriteSalesPitch implements ShouldQueue
      */
     public int $timeout = 300;
 
-    public function __construct(public readonly string $draftId) {}
+    /**
+     * @param  int|null  $ideaIndex  null = write the pitch from scratch; set = rewrite
+     *                               the copy around an already-generated idea
+     */
+    public function __construct(
+        public readonly string $draftId,
+        public readonly ?int $ideaIndex = null,
+    ) {}
 
     public function handle(SalesOutreachService $outreach): void
     {
@@ -47,7 +54,13 @@ class WriteSalesPitch implements ShouldQueue
             return;
         }
 
-        $outreach->writePitch($draft);
+        if ($this->ideaIndex === null) {
+            $outreach->writePitch($draft);
+
+            return;
+        }
+
+        $outreach->rewriteForIdea($draft, $this->ideaIndex);
     }
 
     /**
