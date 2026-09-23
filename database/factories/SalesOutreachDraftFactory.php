@@ -43,6 +43,7 @@ class SalesOutreachDraftFactory extends Factory
             'subject' => $this->faker->sentence(5),
             'body_markdown' => $this->faker->paragraph(),
             'status' => SalesOutreachDraft::STATUS_DRAFT,
+            'generation_status' => SalesOutreachDraft::GENERATION_READY,
         ];
     }
 

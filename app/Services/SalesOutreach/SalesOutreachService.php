@@ -7,6 +7,7 @@ namespace App\Services\SalesOutreach;
 use App\Enums\FileUploadType;
 use App\Enums\UserType;
 use App\Jobs\GenerateSalesPitchCoverImage;
+use App\Jobs\WriteSalesPitch;
 use App\Mail\SalesPitchMail;
 use App\Models\Profile;
 use App\Models\SalesOutreachDraft;
@@ -48,13 +49,23 @@ class SalesOutreachService
     ) {}
 
     /**
-     * Generate ideas and the email for the recommended one, and persist the draft.
+     * Create the draft and queue the writing (BE-FX-63).
+     *
+     * Returns in milliseconds. The pitch itself — research plus two `gpt-5.2` calls —
+     * runs on a worker, because the same work measured ~23s from a laptop and three
+     * to four times that from production, which is how the form POST reached
+     * Cloudflare's 100s edge timeout. The tell was two complete drafts a minute
+     * apart: the server had finished the first while the maintainer was looking at a
+     * 504 and clicking again.
+     *
+     * The revenue arithmetic stays here, synchronous, because it is instant and
+     * because the maintainer's own inputs belong to the request that supplied them.
      *
      * @param  array{business_profile_id: string, community_profile_id: string, locale: string, expected_attendees?: int|null, avg_spend_cents?: int|null}  $data
      *
      * @throws InvalidArgumentException|RuntimeException
      */
-    public function generate(array $data, ?User $creator = null): SalesOutreachDraft
+    public function queuePitch(array $data, ?User $creator = null): SalesOutreachDraft
     {
         $business = Profile::query()->with('businessProfile')->findOrFail($data['business_profile_id']);
         $community = Profile::query()->with('communityProfile.city')->findOrFail($data['community_profile_id']);
@@ -62,6 +73,10 @@ class SalesOutreachService
         $this->assertPair($business, $community);
 
         $locale = $this->assertLocale($data['locale']);
+
+        if (! $this->client->isConfigured()) {
+            throw new RuntimeException('OPENAI_API_KEY is not set, so no pitch can be written.');
+        }
 
         $attendees = (int) ($data['expected_attendees'] ?? 0) > 0
             ? (int) $data['expected_attendees']
@@ -71,43 +86,80 @@ class SalesOutreachService
             ? (int) $data['avg_spend_cents']
             : $this->revenue->defaultAvgSpendCents();
 
-        $estimate = $this->revenue->estimateCents($attendees, $avgSpend);
-
-        $ideas = $this->generator->generateIdeas($business, $community, $locale);
-
-        // Researched once, at generation, and stored on the draft — a claim made to
-        // a real business has to stay explainable after their hours change and their
-        // website is redesigned.
-        $intel = $this->intel->gather($business);
-
-        $email = $this->generator->composeEmail(
-            $business,
-            $community,
-            $ideas[0],
-            $attendees,
-            $this->money($estimate),
-            $this->money($avgSpend),
-            $locale,
-            $intel,
-        );
-
-        return SalesOutreachDraft::query()->create([
+        $draft = SalesOutreachDraft::query()->create([
             'business_profile_id' => $business->id,
             'community_profile_id' => $community->id,
             'locale' => $locale,
+            'expected_attendees' => $attendees,
+            'avg_spend_cents' => $avgSpend,
+            'estimated_revenue_cents' => $this->revenue->estimateCents($attendees, $avgSpend),
+            'status' => SalesOutreachDraft::STATUS_DRAFT,
+            'generation_status' => SalesOutreachDraft::GENERATION_PENDING,
+            'created_by' => $creator?->id,
+        ]);
+
+        WriteSalesPitch::dispatch($draft->id);
+
+        return $draft;
+    }
+
+    /**
+     * Do the slow half: research the business, generate the ideas, write the copy.
+     *
+     * Runs on a worker — see {@see WriteSalesPitch}. Failures are recorded on the
+     * draft as well as thrown, because the page is polling and cannot otherwise tell
+     * "slow" from "dead".
+     *
+     * @throws RuntimeException
+     */
+    public function writePitch(SalesOutreachDraft $draft): SalesOutreachDraft
+    {
+        $business = $draft->business;
+        $community = $draft->community;
+
+        if ($business === null || $community === null) {
+            throw new RuntimeException('This draft no longer has both profiles.');
+        }
+
+        try {
+            $ideas = $this->generator->generateIdeas($business, $community, $draft->locale);
+
+            // Researched once, here, and stored — a claim made to a real business has
+            // to stay explainable after their hours change and their site is redesigned.
+            $intel = $this->intel->gather($business);
+
+            $email = $this->generator->composeEmail(
+                $business,
+                $community,
+                $ideas[0],
+                $draft->expected_attendees,
+                $this->money($draft->estimated_revenue_cents),
+                $this->money($draft->avg_spend_cents),
+                $draft->locale,
+                $intel,
+            );
+        } catch (Throwable $e) {
+            $draft->update([
+                'generation_status' => SalesOutreachDraft::GENERATION_FAILED,
+                'generation_error' => mb_substr($e->getMessage(), 0, 500),
+            ]);
+
+            throw $e;
+        }
+
+        $draft->update([
             'kolab_ideas' => $ideas,
             'intel' => $intel,
             'angle' => $email['angle'] ?: null,
             'selected_idea_index' => 0,
-            'expected_attendees' => $attendees,
-            'avg_spend_cents' => $avgSpend,
-            'estimated_revenue_cents' => $estimate,
             'subject' => $email['subject'],
             'body_markdown' => $email['body_markdown'],
             'whatsapp_message' => $email['whatsapp_message'] ?: null,
-            'status' => SalesOutreachDraft::STATUS_DRAFT,
-            'created_by' => $creator?->id,
+            'generation_status' => SalesOutreachDraft::GENERATION_READY,
+            'generation_error' => null,
         ]);
+
+        return $draft->refresh();
     }
 
     /**
@@ -345,6 +397,12 @@ class SalesOutreachService
     {
         if ($draft->isSent()) {
             throw new RuntimeException('This pitch has already been sent and can no longer be changed.');
+        }
+
+        // Nothing to edit, illustrate or re-idea until the writing finishes —
+        // and a cover drawn now would illustrate an idea that does not exist yet.
+        if (! $draft->isWritten()) {
+            throw new RuntimeException('This pitch is still being written. Wait for it to finish.');
         }
     }
 
