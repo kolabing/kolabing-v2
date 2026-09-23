@@ -1,0 +1,83 @@
+original_line	rule_summary	new_location	status
+3	file provides guidance to Claude Code	CLAUDE.md#top	kept
+9-16	Volkan/Reverb trigger: read+surface ticket 2026-06-05-reverb-realtime-chat-VOLKAN.md first, summarise status, then help	CLAUDE.md#CONTRIBUTOR ROUTING	kept
+22-23	master protected; no direct pushes; only olucvolkan merges; all work via PR	CLAUDE.md#MUST FOLLOW — Pull requests	kept
+25-26	never commit/push master; feat/fix/chore branch + PR into master	CLAUDE.md#MUST FOLLOW — Pull requests	kept
+27-31	every PR uses .github/pull_request_template.md; fill mandatory sections; N/A+reason; never blank; never delete headings	CLAUDE.md#MUST FOLLOW — Pull requests	kept
+32-36	mobile impact mandatory for API contract changes; describe + link kolabing-app ticket; no-change must be explicit	CLAUDE.md#MUST FOLLOW — Pull requests	kept
+37-39	link tracking item with Closes #; Projects item then branch then PR	CLAUDE.md#MUST FOLLOW — Pull requests	kept
+40-41	php artisan test green + vendor/bin/pint clean, counts in Testing	CLAUDE.md#MUST FOLLOW — Pull requests	kept
+42-43	keep docs-sync rules satisfied; tick Docs & rules updated	CLAUDE.md#MUST FOLLOW — Pull requests	kept
+46-49	every work item on GitHub Project board, PR links back; BACKLOG.md narrative source of truth in sync	CLAUDE.md#Project tracking	kept
+51-55	ticket.yml template; blank issues disabled; required fields; add to Kolabing Engineering board and mirror fields	CLAUDE.md#Project tracking	kept
+61-64	read BACKLOG.md at session start, list 3 sections; keep in sync per Maintenance rules	CLAUDE.md#MUST READ — Backlog	kept
+65-69	backlog maintenance: begin→Incomplete; verified→remove; bug→Fixes, strike with date once confirmed; update Last updated	CLAUDE.md#MUST READ — Backlog	kept
+75-77	read docs/BACKEND-SCHEMA.md before data/model/API/DB change; real prod Postgres schema	CLAUDE.md#MUST READ — Backend schema	kept
+78-79	never invent columns/tables/enum values; verify	CLAUDE.md#MUST READ — Backend schema	kept
+80-82	never hardcode IDs/emails/city/category/sample records; identity in profiles not users	CLAUDE.md#MUST READ — Backend schema	kept
+83-85	lifecycle; GET /collaborations viewer-scoped; paywall backend-enforced never bypass	CLAUDE.md#MUST READ — Backend schema	kept
+91-93	role-scope list; read both ROLES docs (§7, §8, §12 pointers)	CLAUDE.md#MUST READ — Roles & Permissions	kept
+95	docs coverage list incl. source=maintainer, /admin/*, NF-6 tables, free-community cap not paywall	CLAUDE.md#MUST READ — Roles & Permissions	kept
+97	update rule: update both docs, bump Last updated, tick checklist; add/remove surface → update CLAUDE.md + mirror to kolabing-app	CLAUDE.md#MUST READ — Roles & Permissions	kept
+99	never paywall a community; check both docs; ask if fix contradicts	CLAUDE.md#MUST READ — Roles & Permissions	kept
+103	Kolabing overview; Laravel 12 backend API; mobile separate	CLAUDE.md#Project Overview	kept
+106-110	key constraints: Google OAuth only; Stripe monthly only; no DB triggers; pure Postgres; backend only	CLAUDE.md#Project Overview	kept
+114-118	tech stack	CLAUDE.md#Project Overview (Stack line)	kept
+122-145	common commands	CLAUDE.md#Common Commands	kept
+151-157	dual-portal profiles/user_type; business needs subscription; 1:1 extension tables	CLAUDE.md#Architecture	kept
+161-170	core workflow + status flows	CLAUDE.md#Architecture	kept
+174-181	8-table MVP schema	CLAUDE.md#Architecture	kept
+185-195	all business logic in services; service list	CLAUDE.md#Architecture (tree copy in docs/CLAUDE-REFERENCE.md#Service layer tree)	kept
+199-212	API structure	CLAUDE.md#Architecture	kept
+216	use Laravel Policies not middleware-only	CLAUDE.md#Architecture	kept
+218-230	OpportunityPolicy code example	docs/CLAUDE-REFERENCE.md#Authorization policy example	moved-to-reference
+234-245	JSONB shapes example	CLAUDE.md#Architecture (field names) + docs/CLAUDE-REFERENCE.md#JSONB field shapes	moved-to-reference
+249	use DatabaseTransactions not RefreshDatabase	CLAUDE.md#Testing Conventions	kept
+250-252	factories for all models; Feature by domain; Unit/Services	CLAUDE.md#Testing Conventions	kept
+254-271	example test pattern	docs/CLAUDE-REFERENCE.md#Example feature test pattern	moved-to-reference
+275-278	4 key business rules	CLAUDE.md#Key Business Rules	kept
+282-291	file organization (.agent, mobile_mvp_database.sql, README.MD)	CLAUDE.md#Architecture (Files bullet)	kept
+295-330	use PHP enums; enum values	CLAUDE.md#Architecture (PHP enums bullet); full code docs/CLAUDE-REFERENCE.md#Enum definitions	kept
+339	follow Boost guidelines closely	CLAUDE.md#Laravel Boost Guidelines	kept
+342-351	package versions to abide by	CLAUDE.md#Foundational Context	kept
+354-356	follow conventions; descriptive names; reuse components	CLAUDE.md#Conventions	kept
+359	no verification scripts/tinker when tests cover it	CLAUDE.md#Conventions	kept
+362-363	no new base folders / dependency changes without approval	CLAUDE.md#Conventions	kept
+366	frontend not reflected → npm run build/dev or composer run dev, ask	CLAUDE.md#Conventions	kept
+369	be concise	CLAUDE.md#Conventions	kept
+372	only create documentation files if explicitly requested	CLAUDE.md#Conventions	kept
+377	Boost MCP: use its tools	CLAUDE.md#Laravel Boost (MCP server — use its tools)	kept
+380	list-artisan-commands to check params	CLAUDE.md#Laravel Boost (MCP server — use its tools)	kept
+383	get-absolute-url when sharing URLs	CLAUDE.md#Laravel Boost (MCP server — use its tools)	kept
+386-387	tinker for PHP debug; database-query for reads	CLAUDE.md#Laravel Boost (MCP server — use its tools)	kept
+390-391	browser-logs; only recent logs useful	CLAUDE.md#Laravel Boost (MCP server — use its tools)	kept
+394-399	search-docs first for Laravel ecosystem; before code changes; broad multi queries; no package names	CLAUDE.md#Laravel Boost (MCP server — use its tools)	kept
+401-408	search syntax examples	CLAUDE.md#Laravel Boost (syntax summary) + docs/CLAUDE-REFERENCE.md#search-docs syntax examples	moved-to-reference
+414	curly braces always	CLAUDE.md#PHP	kept
+417-419	constructor promotion; no empty zero-param constructor unless private	CLAUDE.md#PHP (snippet in reference)	kept
+422-430	explicit return types; param type hints	CLAUDE.md#PHP (snippet in reference)	kept
+433-436	PHPDoc over inline comments; array shapes	CLAUDE.md#PHP	kept
+439	enum keys TitleCase	CLAUDE.md#PHP	kept
+445-446	every change tested; minimum tests with --compact	CLAUDE.md#Test Enforcement	kept
+452-454	make: commands; make:class; --no-interaction	CLAUDE.md#Do Things the Laravel Way	kept
+457-461	Eloquent relationships, Model::query, avoid DB::, eager loading, query builder for complex	CLAUDE.md#Do Things the Laravel Way	kept
+464	new models: factories+seeders; ask about other things	CLAUDE.md#Do Things the Laravel Way	kept
+467	API Resources + versioning unless convention differs	CLAUDE.md#Do Things the Laravel Way	kept
+470-471	Form Requests; check sibling rule style	CLAUDE.md#Do Things the Laravel Way	kept
+474	queued jobs ShouldQueue	CLAUDE.md#Do Things the Laravel Way	kept
+477	built-in auth features	CLAUDE.md#Do Things the Laravel Way	kept
+480	named routes + route()	CLAUDE.md#Do Things the Laravel Way	kept
+483	env() only in config files	CLAUDE.md#Do Things the Laravel Way	kept
+486-488	test factories/states; faker convention; make:test, --unit, most feature	CLAUDE.md#Do Things the Laravel Way	kept
+491	Vite manifest error fix	CLAUDE.md#Do Things the Laravel Way	kept
+497-498	search-docs for v12; streamlined structure	CLAUDE.md#Laravel 12	kept
+501-506	middleware in bootstrap/app.php; providers.php; no Console Kernel; commands auto-register	CLAUDE.md#Laravel 12	kept
+509	column modify must include all attributes	CLAUDE.md#Laravel 12	kept
+510	native eager-load limit	CLAUDE.md#Laravel 12	kept
+513	casts() method preferred	CLAUDE.md#Laravel 12	kept
+519-520	pint --dirty before finalizing; not --test	CLAUDE.md#Laravel Pint	kept
+526-527	PHPUnit only; convert Pest	CLAUDE.md#PHPUnit	kept
+528-529	run updated test; ask about full suite	CLAUDE.md#PHPUnit	kept
+530	test happy/failure/weird paths	CLAUDE.md#PHPUnit	kept
+531	never remove tests without approval	CLAUDE.md#PHPUnit	kept
+534-537	running tests commands	CLAUDE.md#PHPUnit	kept
