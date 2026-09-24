@@ -24,6 +24,25 @@
         </div>
     @endif
 
+    {{-- Writing happens on a worker (BE-FX-63), so the page has to report a state it
+         is no longer watching happen. It refreshes itself and stops on its own, because
+         this block stops rendering once the copy lands. --}}
+    @if ($draft->isWriting())
+        <div class="alert alert-info">
+            <i class="fas fa-spinner fa-spin mr-1"></i>
+            <strong>Researching the business and writing the pitch.</strong>
+            This takes up to a minute — the page refreshes itself, and it is safe to leave.
+        </div>
+    @endif
+
+    @if ($draft->writingFailed())
+        <div class="alert alert-danger">
+            <strong>The pitch could not be written.</strong>
+            <br><small>{{ $draft->generation_error }}</small>
+            <br><small class="text-muted">Nothing was sent. Start a new pitch from the list.</small>
+        </div>
+    @endif
+
     <div class="row">
         <div class="col-md-5">
             <div class="card">
@@ -130,7 +149,7 @@
                         </div>
                     @endif
 
-                    @unless ($draft->isSent() || $draft->isCoverPending())
+                    @unless ($draft->isSent() || $draft->isCoverPending() || ! $draft->isWritten())
                         <form method="post" action="{{ route('admin.sales-mailing.image', $draft) }}">
                             @csrf
                             <button class="btn btn-sm btn-info">
@@ -145,6 +164,13 @@
         </div>
 
         <div class="col-md-7">
+            @if (! $draft->isWritten())
+                <div class="card">
+                    <div class="card-body text-muted">
+                        The ideas, the email and the WhatsApp message appear here once the writing finishes.
+                    </div>
+                </div>
+            @else
             <div class="card">
                 <div class="card-header"><h3 class="card-title">Kolab ideas</h3></div>
                 <div class="card-body">
@@ -217,6 +243,8 @@
                  business-initiated conversations and bans messaging people who never
                  opted in, so sending from the server would get the number blocked.
                  This opens their own WhatsApp with the text already typed. --}}
+            @endif
+
             @if ($draft->whatsapp_message)
                 <div class="card">
                     <div class="card-header"><h3 class="card-title">WhatsApp</h3></div>
@@ -241,11 +269,11 @@
         </div>
     </div>
 
-    @if ($draft->isCoverPending())
+    @if ($draft->isCoverPending() || $draft->isWriting())
         {{-- Poll by reloading rather than adding an endpoint and a fetch loop: the
              page is already cheap, a maintainer has one of these open at a time, and
-             the job finishes in well under a minute. Stops as soon as the status
-             leaves `pending`, because this block stops rendering. --}}
+             the jobs finish in well under a minute. Stops as soon as both statuses
+             leave `pending`, because this block stops rendering. --}}
         <script>
             setTimeout(function () { window.location.reload(); }, 6000);
         </script>

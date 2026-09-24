@@ -378,4 +378,4 @@ Decided 2026-09-24 and closed: own events live in `events`; outlets are dropped;
 - `CLAUDE.md`: the roles block gains "Venue Pro plan + attendee messages" as a role surface.
 - The `kolabing-app` copies of the two roles docs.
 - `BACKLOG.md`: BE-NF-68 moves to Incomplete when step 1 starts.
-- `docs/BACKEND-SCHEMA.md` does not exist in the repo (see BE-FX-63). This spec was checked against the migrations directly.
+- `docs/BACKEND-SCHEMA.md` does not exist in the repo (see BE-FX-65). This spec was checked against the migrations directly.

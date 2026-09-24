@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Admin;
 
 use App\Jobs\GenerateSalesPitchCoverImage;
+use App\Jobs\WriteSalesPitch;
 use App\Mail\SalesPitchMail;
 use App\Models\BusinessProfile;
 use App\Models\CommunityProfile;
@@ -175,6 +176,10 @@ class SalesMailingTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $draft = SalesOutreachDraft::query()->firstOrFail();
+
+        // Queued now (BE-FX-63) — run the worker's half to see the result.
+        (new WriteSalesPitch($draft->id))->handle(app(SalesOutreachService::class));
+        $draft->refresh();
 
         $this->assertCount(3, $draft->kolab_ideas);
         $this->assertSame('Run club recovery night', $draft->selectedIdea()['title']);
@@ -439,6 +444,56 @@ class SalesMailingTest extends TestCase
         $this->assertSame(SalesOutreachDraft::IMAGE_IDLE, $draft->cover_image_status);
     }
 
+    /**
+     * Switching idea is another model call, so it is queued too (BE-FX-64) — the
+     * request must not wait for it. It reuses `generation_status`, so the page's
+     * existing "writing…" banner and guards apply unchanged.
+     */
+    public function test_switching_idea_is_queued_not_done_in_the_request(): void
+    {
+        Queue::fake();
+
+        $draft = SalesOutreachDraft::factory()->create([
+            'kolab_ideas' => [
+                ['title' => 'A', 'format' => '', 'business_provides' => '', 'community_delivers' => '', 'why_it_works' => '', 'cover_image_prompt' => 'a'],
+                ['title' => 'B', 'format' => '', 'business_provides' => '', 'community_delivers' => '', 'why_it_works' => '', 'cover_image_prompt' => 'b'],
+            ],
+        ]);
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.sales-mailing.idea', $draft), ['index' => 1])
+            ->assertRedirect();
+
+        Queue::assertPushed(
+            WriteSalesPitch::class,
+            fn (WriteSalesPitch $job): bool => $job->draftId === $draft->id && $job->ideaIndex === 1,
+        );
+
+        $this->assertTrue($draft->refresh()->isWriting());
+    }
+
+    /** The worker's half actually rewrites the copy around the new idea. */
+    public function test_the_job_rewrites_the_copy_for_the_chosen_idea(): void
+    {
+        $this->fakeOpenAi(subject: 'Rewritten for idea B');
+
+        $draft = SalesOutreachDraft::factory()->create([
+            'subject' => 'Original',
+            'generation_status' => SalesOutreachDraft::GENERATION_PENDING,
+            'kolab_ideas' => [
+                ['title' => 'A', 'format' => '', 'business_provides' => '', 'community_delivers' => '', 'why_it_works' => '', 'cover_image_prompt' => 'a'],
+                ['title' => 'B', 'format' => '', 'business_provides' => '', 'community_delivers' => '', 'why_it_works' => '', 'cover_image_prompt' => 'b'],
+            ],
+        ]);
+
+        (new WriteSalesPitch($draft->id, 1))->handle(app(SalesOutreachService::class));
+
+        $draft->refresh();
+        $this->assertSame('Rewritten for idea B', $draft->subject);
+        $this->assertSame(1, $draft->selected_idea_index);
+        $this->assertTrue($draft->isWritten());
+    }
+
     // ── Preview and send ────────────────────────────────────────────────
 
     public function test_previewing_sends_nothing(): void
@@ -518,17 +573,76 @@ class SalesMailingTest extends TestCase
     // ── Failure ─────────────────────────────────────────────────────────
 
     /** A failed generation must leave nothing behind and say so on the form. */
-    public function test_an_openai_failure_saves_nothing(): void
+    /**
+     * Generation is queued, so an OpenAI failure can no longer be reported on the
+     * request that started it — it is recorded on the draft, which is what the page
+     * polls. A draft stuck at "writing" forever would be indistinguishable from slow.
+     */
+    public function test_an_openai_failure_is_recorded_on_the_draft(): void
     {
         Mail::fake();
         Http::fake(['*' => Http::response(['error' => ['message' => 'nope']], 500)]);
 
         $this->actingAs($this->maintainer(), 'admin')
             ->post(route('admin.sales-mailing.generate'), $this->payload($this->business(), $this->community()))
+            ->assertRedirect();
+
+        $draft = SalesOutreachDraft::query()->firstOrFail();
+
+        try {
+            (new WriteSalesPitch($draft->id))->handle(app(SalesOutreachService::class));
+            $this->fail('Writing should have thrown.');
+        } catch (\RuntimeException) {
+            // expected — the job fails, the draft records why
+        }
+
+        $draft->refresh();
+        $this->assertTrue($draft->writingFailed());
+        $this->assertNotNull($draft->generation_error);
+        $this->assertNull($draft->subject);
+        Mail::assertNothingQueued();
+    }
+
+    /** The request itself must return at once and send nothing. */
+    public function test_generating_queues_a_job_and_returns_immediately(): void
+    {
+        Mail::fake();
+        Queue::fake();
+        $this->fakeOpenAi();
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.sales-mailing.generate'), $this->payload($this->business(), $this->community()))
+            ->assertRedirect();
+
+        $draft = SalesOutreachDraft::query()->firstOrFail();
+
+        Queue::assertPushed(WriteSalesPitch::class, fn (WriteSalesPitch $j): bool => $j->draftId === $draft->id);
+        $this->assertTrue($draft->isWriting());
+        $this->assertNull($draft->subject, 'A queued draft has no copy yet.');
+        Mail::assertNothingQueued();
+    }
+
+    /** Nothing that depends on the copy may run before the copy exists. */
+    public function test_a_draft_still_writing_cannot_be_sent_or_edited(): void
+    {
+        Mail::fake();
+        $draft = SalesOutreachDraft::factory()->create([
+            'generation_status' => SalesOutreachDraft::GENERATION_PENDING,
+            'subject' => null,
+            'body_markdown' => null,
+        ]);
+
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.sales-mailing.send', $draft))
             ->assertRedirect()
             ->assertSessionHas('error');
 
-        $this->assertSame(0, SalesOutreachDraft::query()->count());
+        $this->actingAs($this->maintainer(), 'admin')
+            ->post(route('admin.sales-mailing.image', $draft))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
         Mail::assertNothingQueued();
+        $this->assertFalse($draft->refresh()->isSent());
     }
 }
