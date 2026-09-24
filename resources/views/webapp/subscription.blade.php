@@ -5,6 +5,7 @@
     // Display-only prices, read from the same config the Stripe checkout bills.
     $monthlyPrice = (int) config('subscriptions.business.stripe.monthly.price');
     $quarterPrice = (int) config('subscriptions.business.stripe.three_months.price');
+    $proPrice = (int) config('subscriptions.business.stripe.pro_monthly.price');
 
     // What a quarterly buyer effectively pays per month, and the saving against
     // the monthly plan — derived, never hardcoded, so a price change is one edit.
@@ -16,12 +17,17 @@
     $configured = [
         'monthly' => filled(config('subscriptions.business.stripe.monthly.stripe_price_id')),
         'three_months' => filled(config('subscriptions.business.stripe.three_months.stripe_price_id')),
+        'pro_monthly' => filled(config('subscriptions.business.stripe.pro_monthly.stripe_price_id')),
     ];
 
     // Plans without a Stripe price would 502 on click, so they are hidden — unless
     // nothing is configured at all (local dev / CI), where hiding everything would
     // leave a blank page instead of a working preview.
     $showAll = ! in_array(true, $configured, true);
+
+    // Venue Pro (BE-NF-68) is its own plan, drawn apart from the two standard
+    // cards: it is sold to hotels on what it adds, not as a third billing period.
+    $showPro = $showAll || $configured['pro_monthly'];
 
     $plans = [
         'monthly' => [
@@ -102,11 +108,36 @@
                     @endforeach
                 </div>
 
-                <div class="bg-white border border-ink/[.08] rounded-3xl p-[26px] mt-3 shadow-card">
-                    <span class="inline-block px-3 py-[5px] rounded-pill bg-inverse text-on-inverse text-[11px] font-bold tracking-[.8px]">{{ __('webapp.subscription.badge') }}</span>
+                @if ($showPro)
+                    <button type="button" @click="plan = 'pro_monthly'" data-plan="pro_monthly"
+                            :class="plan === 'pro_monthly' ? 'kb-on-yellow border-ink bg-primary ring-2 ring-ink' : 'border-ink/[.12] bg-white hover:border-ink/40'"
+                            class="w-full text-left rounded-3xl border p-5 mt-3 transition">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-[13px] font-bold tracking-[.06em] uppercase text-ink">{{ __('webapp.subscription.plan_pro') }}</span>
+                            <span class="px-2.5 py-1 rounded-pill bg-inverse text-on-inverse text-[10px] font-bold tracking-[.6px]">{{ __('webapp.subscription.pro_badge') }}</span>
+                        </div>
+                        <div class="flex items-baseline gap-1 mt-3">
+                            <span class="font-anton text-[36px] leading-none text-ink">€{{ $proPrice }}</span>
+                            <span class="text-[13px] font-semibold text-amber">{{ __('webapp.subscription.per_month') }}</span>
+                        </div>
+                        <p class="text-[12px] text-body mt-1.5">{{ __('webapp.subscription.pro_tagline') }}</p>
+                    </button>
+                @endif
 
-                    <div class="flex flex-col gap-2.5 mt-4">
+                <div class="bg-white border border-ink/[.08] rounded-3xl p-[26px] mt-3 shadow-card">
+                    <span class="inline-block px-3 py-[5px] rounded-pill bg-inverse text-on-inverse text-[11px] font-bold tracking-[.8px]"
+                          x-text="plan === 'pro_monthly' ? t('subscription.pro_benefits_badge') : t('subscription.badge')">{{ __('webapp.subscription.badge') }}</span>
+
+                    <div class="flex flex-col gap-2.5 mt-4" x-show="plan !== 'pro_monthly'">
                         @foreach (__('webapp.subscription.benefits') as $benefit)
+                            <div class="flex items-center gap-2.5 text-sm font-medium text-ink">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M20 6 9 17l-5-5"/></svg>
+                                {{ $benefit }}
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="flex flex-col gap-2.5 mt-4" x-show="plan === 'pro_monthly'" x-cloak>
+                        @foreach (__('webapp.subscription.pro_benefits') as $benefit)
                             <div class="flex items-center gap-2.5 text-sm font-medium text-ink">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M20 6 9 17l-5-5"/></svg>
                                 {{ $benefit }}
@@ -135,7 +166,7 @@
                 <div class="flex items-start justify-between gap-4">
                     <div class="min-w-0">
                         <div class="flex items-center gap-2.5 flex-wrap">
-                            <span class="text-[17px] font-bold text-ink">{{ __('webapp.subscription.plan_name') }}</span>
+                            <span class="text-[17px] font-bold text-ink" x-text="isPro ? t('subscription.plan_pro') : t('subscription.plan_name')">{{ __('webapp.subscription.plan_name') }}</span>
                             <span class="px-3 py-1 rounded-xl text-[11px] font-bold tracking-[.4px]"
                                   :style="`background:${statusPill(sub.status).bg};color:${statusPill(sub.status).c}`"
                                   x-text="statusPill(sub.status).label"></span>
@@ -164,6 +195,43 @@
                 <p class="text-[11px] text-muted mt-3">{{ __('webapp.subscription.portal_note') }}</p>
             </div>
         </template>
+
+        {{-- ── Active standard plan → the Venue Pro upgrade (BE-NF-68) ───────── --}}
+        @if ($showPro)
+        <template x-if="!loading && isBusiness && subActive && !isPro">
+            <div class="bg-white border border-ink/[.08] rounded-3xl p-[26px] mt-3 shadow-card" data-upgrade="pro">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-[17px] font-bold text-ink">{{ __('webapp.subscription.upgrade_title') }}</span>
+                    <span class="px-2.5 py-1 rounded-pill bg-inverse text-on-inverse text-[10px] font-bold tracking-[.6px]">{{ __('webapp.subscription.pro_badge') }}</span>
+                </div>
+                <p class="text-sm text-body mt-2 leading-relaxed">{{ __('webapp.subscription.upgrade_desc') }}</p>
+
+                <template x-if="sub.source === 'stripe'">
+                    <div class="mt-4 flex flex-col gap-2">
+                        <button type="button" x-show="!upgradeArmed" @click="upgradeArmed = true"
+                                class="h-[52px] rounded-pill bg-inverse text-on-inverse text-[15px] font-bold hover:-translate-y-px transition">{{ __('webapp.subscription.upgrade_cta', ['price' => '€'.$proPrice]) }}</button>
+                        <div x-show="upgradeArmed" x-cloak class="flex flex-col gap-2">
+                            <p class="text-[12.5px] text-muted">{{ __('webapp.subscription.upgrade_confirm_note') }}</p>
+                            <div class="flex flex-col sm:flex-row gap-2.5">
+                                <button type="button" @click="upgrade()" :disabled="busy"
+                                        class="flex-1 h-11 rounded-pill bg-inverse text-on-inverse text-[13px] font-bold disabled:opacity-50">
+                                    <span x-text="busy ? t('subscription.opening') : t('subscription.upgrade_confirm')">{{ __('webapp.subscription.upgrade_confirm') }}</span>
+                                </button>
+                                <button type="button" @click="upgradeArmed = false" :disabled="busy"
+                                        class="flex-1 h-11 rounded-pill bg-white border border-line text-ink text-[13px] font-bold">{{ __('webapp.common.cancel') }}</button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                <template x-if="sub.source === 'apple_iap'">
+                    <p class="mt-4 rounded-2xl bg-cream-low px-4 py-3 text-[13px] font-semibold text-ink">{{ __('webapp.subscription.upgrade_apple') }}</p>
+                </template>
+                <template x-if="sub.source === 'maintainer'">
+                    <p class="mt-4 rounded-2xl bg-cream-low px-4 py-3 text-[13px] font-semibold text-ink">{{ __('webapp.subscription.upgrade_maintainer') }}</p>
+                </template>
+            </div>
+        </template>
+        @endif
     </div>
     </main>
 </div>
@@ -175,7 +243,10 @@
             loading: true, busy: false, error: '',
             subActive: false, sub: {}, statusLine: '', endsLine: '',
             referralCode: '', referralNote: '', referralOk: false,
-            plan: 'monthly', reasonText: '',
+            plan: 'monthly', reasonText: '', upgradeArmed: false,
+
+            /** Venue Pro (BE-NF-68). `/me/subscription` names the plan outright. */
+            get isPro() { return this.sub.plan === 'pro'; },
 
             statusPill(s) { return window.kbStatus(s || 'active'); },
 
@@ -191,6 +262,7 @@
                 return days > 45;
             },
             get activePlanPrice() {
+                if (this.isPro) return {{ $proPrice }};
                 return this.activePlanIsQuarterly ? {{ $quarterPrice }} : {{ $monthlyPrice }};
             },
             get planPriceLabel() {
@@ -207,7 +279,7 @@
                 // Preselect the plan the buyer picked on the public pricing page
                 // (?plan=…, or stashed at registration before they had an account).
                 const wanted = params.get('plan') || localStorage.getItem('kolabing_plan');
-                if (wanted === 'monthly' || wanted === 'three_months') this.plan = wanted;
+                if (['monthly', 'three_months', 'pro_monthly'].includes(wanted)) this.plan = wanted;
                 localStorage.removeItem('kolabing_plan');
 
                 // Which paywalled action sent them here. Allowlisted, not passed
@@ -235,7 +307,7 @@
                         // `sub` must be assigned before reading activePlanPrice — it
                         // derives the plan from this subscription's billing period.
                         this.statusLine = sub.current_period_end
-                            ? t(this.activePlanIsQuarterly ? 'subscription.next_billing_quarterly' : 'subscription.next_billing', {
+                            ? t(this.activePlanIsQuarterly && !this.isPro ? 'subscription.next_billing_quarterly' : 'subscription.next_billing', {
                                 price: '€' + this.activePlanPrice,
                                 date: window.kbDate(sub.current_period_end),
                             })
@@ -283,6 +355,20 @@
                 }
                 this.busy = false;
                 this.error = window.kb.errorText(res, t('subscription.checkout_error'));
+            },
+
+            async upgrade() {
+                this.error = ''; this.busy = true;
+                const res = await window.kb.api('/me/subscription/change-plan', { method: 'POST', body: { plan: 'pro_monthly' } });
+                this.busy = false; this.upgradeArmed = false;
+                if (res.ok && res.json?.data) {
+                    this.sub = res.json.data;
+                    this.statusLine = this.sub.current_period_end
+                        ? t('subscription.next_billing', { price: '€' + this.activePlanPrice, date: window.kbDate(this.sub.current_period_end) })
+                        : t('subscription.active_generic');
+                    return;
+                }
+                this.error = window.kb.errorText(res, t('subscription.upgrade_error'));
             },
 
             async portal() {

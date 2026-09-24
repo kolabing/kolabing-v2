@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminBusinessOnboardingRequest;
 use App\Http\Requests\Admin\AdminCommunityOnboardingRequest;
 use App\Http\Requests\Admin\BulkProfileActiveRequest;
+use App\Http\Requests\Admin\GrantSubscriptionRequest;
 use App\Http\Requests\Admin\PreviewWelcomeEmailRequest;
 use App\Http\Requests\Admin\QuickAddProfileRequest;
 use App\Http\Requests\Admin\SendWelcomeEmailRequest;
@@ -358,14 +359,15 @@ class ManagedUserController extends Controller
         ));
     }
 
-    public function grantSubscription(Profile $profile): RedirectResponse
+    public function grantSubscription(GrantSubscriptionRequest $request, Profile $profile): RedirectResponse
     {
         abort_unless($profile->isBusiness(), 422, 'Only business users can receive a subscription.');
 
-        $this->managedProfileService->grantSubscription($profile);
+        $plan = $request->plan();
+        $this->managedProfileService->grantSubscription($profile, 12, $plan);
 
         return redirect()->back()
-            ->with('status', __('Subscription granted for 12 months.'));
+            ->with('status', __(':plan granted for 12 months.', ['plan' => $plan->label()]));
     }
 
     public function revokeSubscription(Profile $profile): RedirectResponse

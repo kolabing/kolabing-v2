@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Enums\SubscriptionPlan;
 use App\Http\Requests\Concerns\ValidatesReturnUrl;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -28,7 +29,7 @@ class CreateCheckoutSessionRequest extends FormRequest
         return [
             'success_url' => ['required', 'string', 'max:2048', $this->returnUrlRule()],
             'cancel_url' => ['required', 'string', 'max:2048', $this->returnUrlRule()],
-            'plan' => ['sometimes', Rule::in(['monthly', 'three_months'])],
+            'plan' => ['sometimes', Rule::in(SubscriptionPlan::stripeCheckoutKeys())],
             'referral_code' => ['sometimes', 'nullable', 'string', 'max:64'],
         ];
     }
@@ -37,7 +38,7 @@ class CreateCheckoutSessionRequest extends FormRequest
     {
         $plan = (string) $this->input('plan', 'monthly');
 
-        return in_array($plan, ['monthly', 'three_months'], true) ? $plan : 'monthly';
+        return in_array($plan, SubscriptionPlan::stripeCheckoutKeys(), true) ? $plan : 'monthly';
     }
 
     public function referralCode(): ?string
