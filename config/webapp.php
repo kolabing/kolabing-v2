@@ -97,7 +97,9 @@ return [
     |
     */
     'app_links' => [
-        'apple_app_id' => env('APPLE_APP_ID'),
+        // Team LPFNQ76GB6 + bundle com.kolabing.kolabingApp, both read from
+        // kolabing-app's Runner.xcodeproj (BE-NF-69). Not a secret; env overrides.
+        'apple_app_id' => env('APPLE_APP_ID', 'LPFNQ76GB6.com.kolabing.kolabingApp'),
         'android_package' => env('ANDROID_PACKAGE_NAME', 'com.kolabing.kolabingApp'),
         // Comma-separated, so more than one signing cert (Play App Signing plus a
         // local release key) can be trusted at once.
@@ -105,9 +107,18 @@ return [
         /*
          * The paths worth handing to the app. Everything else stays in the browser:
          * a marketing page opening inside an app is a worse experience, not a better
-         * one.
+         * one. Only paths the app actually handles belong here — a link the app
+         * opens and then ignores is worse than the web page it replaced (BE-NF-69):
+         *
+         * - `/kolabs/*` and `/c/{uuid}` — a Kolab. The app shares Kolabs as
+         *   `/c/{kolabId}`; `?` matches one character, so the pattern only takes
+         *   the UUID shape and a community invite `/c/{slug}` stays on the web,
+         *   where its join page lives.
+         * - `/checkin/*` is deliberately NOT here yet: the app reads check-in links
+         *   only inside its own scanner, so a phone-camera scan must keep opening
+         *   the web door page until the app handles a tapped check-in link.
          */
-        'paths' => ['/checkin/*', '/c/*'],
+        'paths' => ['/kolabs/*', '/c/????????-????-????-????-????????????'],
     ],
 
     'deep_link' => env('WEBAPP_DEEP_LINK', 'kolabing://'),

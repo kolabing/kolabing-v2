@@ -198,7 +198,7 @@ class EventCheckinSyncTest extends TestCase
         $this->get("http://{$host}/.well-known/assetlinks.json")->assertNotFound();
     }
 
-    public function test_the_app_link_files_hand_the_checkin_path_to_the_app(): void
+    public function test_the_app_link_files_hand_kolab_links_to_the_app(): void
     {
         config([
             'webapp.app_links.apple_app_id' => 'ABCDE12345.com.kolabing.kolabingApp',
@@ -212,12 +212,26 @@ class EventCheckinSyncTest extends TestCase
         $this->get("http://{$host}/.well-known/apple-app-site-association")
             ->assertOk()
             ->assertJsonPath('applinks.details.0.appIDs.0', 'ABCDE12345.com.kolabing.kolabingApp')
-            ->assertJsonPath('applinks.details.0.components.0./', '/checkin/*');
+            ->assertJsonPath('applinks.details.0.components.0./', '/kolabs/*')
+            // Only the UUID shape: a community invite /c/{slug} stays on the web.
+            ->assertJsonPath('applinks.details.0.components.1./', '/c/????????-????-????-????-????????????')
+            // The app reads check-in links only in its own scanner, so a camera
+            // scan must keep reaching the web door page.
+            ->assertJsonCount(2, 'applinks.details.0.components');
 
         $this->get("http://{$host}/.well-known/assetlinks.json")
             ->assertOk()
             ->assertJsonPath('0.target.package_name', 'com.kolabing.kolabingApp')
             // Comma-separated so Play App Signing and a local release key can coexist.
             ->assertJsonPath('0.target.sha256_cert_fingerprints', ['AA:BB:CC', 'DD:EE:FF']);
+    }
+
+    public function test_the_ios_association_file_is_served_from_the_repo_default(): void
+    {
+        // The Team ID and bundle id come from kolabing-app's Xcode project, so the
+        // file is live without an environment variable (BE-NF-69).
+        $this->get('http://'.config('webapp.host').'/.well-known/apple-app-site-association')
+            ->assertOk()
+            ->assertJsonPath('applinks.details.0.appIDs.0', 'LPFNQ76GB6.com.kolabing.kolabingApp');
     }
 }
