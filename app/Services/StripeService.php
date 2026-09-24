@@ -166,6 +166,40 @@ class StripeService
     }
 
     /**
+     * Move an existing subscription onto another Price by swapping its single
+     * item, instead of opening a second Checkout Session (which would bill two
+     * subscriptions in parallel). An upgrade invoices the prorated difference
+     * immediately; a downgrade credits it on the next invoice.
+     */
+    public function changeSubscriptionPrice(string $subscriptionId, string $priceId, bool $invoiceImmediately): Subscription
+    {
+        $current = $this->retrieveSubscription($subscriptionId);
+        $itemId = $current->items?->data[0]?->id ?? null;
+
+        if (blank($itemId)) {
+            throw new \RuntimeException("Stripe subscription [{$subscriptionId}] has no item to swap.");
+        }
+
+        return $this->client()->subscriptions->update($subscriptionId, [
+            'items' => [['id' => (string) $itemId, 'price' => $priceId]],
+            'proration_behavior' => $invoiceImmediately ? 'always_invoice' : 'create_prorations',
+            'cancel_at_period_end' => false,
+        ]);
+    }
+
+    /**
+     * The Price the subscription bills, read from its first item. Kolabing
+     * subscriptions always carry exactly one item.
+     */
+    public static function subscriptionPriceId(Subscription $subscription): ?string
+    {
+        $item = ($subscription->items?->data ?? [])[0] ?? null;
+        $priceId = $item?->price?->id ?? null;
+
+        return blank($priceId) ? null : (string) $priceId;
+    }
+
+    /**
      * Create a Stripe Billing Portal session so a paying customer can manage or
      * cancel their subscription, then return its hosted URL. `return_url` is where
      * Stripe sends them back (validated against the return-URL allowlist upstream).

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionSource;
 use App\Enums\SubscriptionStatus;
 use App\Models\BusinessSubscription;
@@ -33,6 +34,7 @@ class BusinessSubscriptionFactory extends Factory
         return [
             'profile_id' => Profile::factory()->business(),
             'source' => SubscriptionSource::Stripe,
+            'plan' => SubscriptionPlan::Standard,
             'stripe_customer_id' => null,
             'stripe_subscription_id' => null,
             'status' => SubscriptionStatus::Inactive,
@@ -54,6 +56,16 @@ class BusinessSubscriptionFactory extends Factory
             'current_period_start' => now(),
             'current_period_end' => now()->addMonth(),
             'cancel_at_period_end' => false,
+        ]);
+    }
+
+    /**
+     * Indicate that the subscription is on Venue Pro (BE-NF-68).
+     */
+    public function pro(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'plan' => SubscriptionPlan::Pro,
         ]);
     }
 

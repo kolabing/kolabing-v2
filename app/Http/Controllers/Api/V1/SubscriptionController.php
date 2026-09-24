@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Exceptions\InvalidReferralCodeException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\BillingPortalRequest;
+use App\Http\Requests\Api\V1\ChangeSubscriptionPlanRequest;
 use App\Http\Requests\Api\V1\ConfirmCheckoutSessionRequest;
 use App\Http\Requests\Api\V1\CreateCheckoutSessionRequest;
 use App\Http\Resources\Api\V1\SubscriptionResource;
@@ -189,6 +190,50 @@ class SubscriptionController extends Controller
         return response()->json([
             'success' => true,
             'data' => new SubscriptionResource($subscription),
+        ]);
+    }
+
+    /**
+     * Switch an active Stripe subscription to another plan (BE-NF-68), e.g. the
+     * €49 plan → Venue Pro. Checkout refuses anyone already paying (see above),
+     * so this is the only way an existing subscriber reaches Pro.
+     */
+    public function changePlan(ChangeSubscriptionPlanRequest $request): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        if (! $profile->isBusiness()) {
+            return response()->json([
+                'success' => false,
+                'message' => __('Only business users can subscribe'),
+            ], 403);
+        }
+
+        try {
+            $subscription = $this->subscriptionService->changePlan($profile, $request->plan());
+        } catch (\LogicException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 409);
+        } catch (ApiErrorException|\RuntimeException $e) {
+            Log::error('Stripe plan change failed', [
+                'profile_id' => $profile->id,
+                'plan' => $request->plan(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => __('Could not change your plan. Please try again.'),
+            ], 502);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => new SubscriptionResource($subscription),
+            'message' => __('Your plan has been changed.'),
         ]);
     }
 

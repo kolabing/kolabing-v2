@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Admin;
 
+use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionSource;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserType;
@@ -458,14 +459,15 @@ class ManagedProfileService
             ->update(['is_active' => true]));
     }
 
-    public function grantSubscription(Profile $profile, int $months = 12): BusinessSubscription
+    public function grantSubscription(Profile $profile, int $months = 12, SubscriptionPlan $plan = SubscriptionPlan::Standard): BusinessSubscription
     {
-        return DB::transaction(function () use ($profile, $months): BusinessSubscription {
+        return DB::transaction(function () use ($profile, $months, $plan): BusinessSubscription {
             $subscription = BusinessSubscription::query()->firstOrNew(
                 ['profile_id' => $profile->id],
             );
 
             $subscription->source = SubscriptionSource::Maintainer;
+            $subscription->plan = $plan;
             $subscription->status = SubscriptionStatus::Active;
             $subscription->current_period_start = now();
             $subscription->current_period_end = now()->addMonths($months);

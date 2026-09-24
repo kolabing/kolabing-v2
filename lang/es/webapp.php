@@ -1001,6 +1001,27 @@ return [
         'not_business_desc' => 'Las cuentas de comunidad exploran, aplican y colaboran gratis — sin plan.',
         'back_home' => 'Volver a Inicio',
         'checkout_error' => 'No pudimos iniciar el pago. Inténtalo de nuevo.',
+
+        /* Venue Pro (BE-NF-68): el plan de 299 € para hoteles, solo en la web. */
+        'plan_pro' => 'Venue Pro',
+        'pro_badge' => 'PARA HOTELES',
+        'pro_tagline' => 'Para hoteles y espacios que organizan eventos cada semana · facturación mensual',
+        'pro_benefits_badge' => 'VENUE PRO',
+        'pro_benefits' => [
+            'Todo lo de Kolabing Business',
+            'Ingresos y asistencia prevista y real de cada evento',
+            'Tus comunidades y colaboraciones con más éxito, en ranking',
+            'Los tipos de evento que vale la pena repetir',
+            'Exporta tus resultados a CSV',
+        ],
+        'upgrade_title' => 'Pásate a Venue Pro',
+        'upgrade_desc' => 'Mantén todo lo de tu plan y añade resultados y gráficos: ingresos por evento, tus mejores comunidades y los tipos de evento que vale la pena repetir.',
+        'upgrade_cta' => 'Mejorar por :price / mes',
+        'upgrade_confirm' => 'Confirmar el cambio',
+        'upgrade_confirm_note' => 'Hoy se cobra la diferencia prorrateada; después Venue Pro se renueva cada mes.',
+        'upgrade_apple' => 'Tu plan se factura a través del App Store. Cancélalo allí primero y luego suscríbete a Venue Pro aquí.',
+        'upgrade_maintainer' => 'Tu plan lo configuró Kolabing. Escribe a support@kolabing.com para pasarte a Venue Pro.',
+        'upgrade_error' => 'No pudimos cambiar tu plan. Inténtalo de nuevo.',
         'portal_error' => 'No pudimos abrir el portal de facturación. Inténtalo de nuevo.',
     ],
     'welcome' => [
