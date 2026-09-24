@@ -29,10 +29,12 @@ return [
                 'plan' => 'standard',
                 'stripe_price_id' => env('STRIPE_THREE_MONTHS_PRICE_ID'),
             ],
+            // Stripe product "Kolabing Hotel — Monthly" (prod_VJnuMVAiq7be6P); the
+            // live Price id is set per environment, like the two plans above.
             'pro_monthly' => [
                 'price' => 299,
                 'plan' => 'pro',
-                'stripe_price_id' => env('STRIPE_PRO_MONTHLY_PRICE_ID'),
+                'stripe_price_id' => env('STRIPE_HOTEL_MONTHLY_PRICE_ID'),
             ],
         ],
     ],

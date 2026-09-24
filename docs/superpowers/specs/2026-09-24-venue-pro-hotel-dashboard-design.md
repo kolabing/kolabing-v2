@@ -47,7 +47,7 @@ The plan is marketed to hotels, but nothing in the code checks the business type
       'pro_monthly' => [
           'price' => 299,
           'plan' => 'pro',
-          'stripe_price_id' => env('STRIPE_PRO_MONTHLY_PRICE_ID'),
+          'stripe_price_id' => env('STRIPE_HOTEL_MONTHLY_PRICE_ID'),
       ],
   ],
   ```
