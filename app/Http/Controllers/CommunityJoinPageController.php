@@ -8,8 +8,12 @@ use App\Enums\CommunityMemberStatus;
 use App\Enums\JoinPolicy;
 use App\Models\Community;
 use App\Models\Event;
+use App\Models\Kolab;
+use App\Support\PublicKolabLink;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 /**
  * Public landing page for a community's shareable join link.
@@ -20,7 +24,7 @@ use Illuminate\Http\Request;
  */
 class CommunityJoinPageController extends Controller
 {
-    public function show(Request $request): View
+    public function show(Request $request): View|RedirectResponse
     {
         // Read by NAME, not by position: this route is registered twice — once at
         // /c/{slug} and once at /{locale}/c/{slug} — so a positional argument
@@ -33,7 +37,15 @@ class CommunityJoinPageController extends Controller
                 'communityProfile',
                 'tiers' => fn ($query) => $query->orderByDesc('rank'),
             ])
-            ->firstOrFail();
+            ->first();
+
+        if ($community === null) {
+            $kolab = Str::isUuid($slug) ? Kolab::query()->find($slug) : null;
+
+            abort_if($kolab === null, 404);
+
+            return redirect()->away($this->kolabUrl($request, $kolab));
+        }
 
         $memberCount = $community->members()
             ->where('status', CommunityMemberStatus::Active->value)
@@ -65,5 +77,33 @@ class CommunityJoinPageController extends Controller
             'inviteToken' => $request->query('invite'),
             'invitationToken' => $request->query('i'),
         ]);
+    }
+
+    /**
+     * The mobile app shares a Kolab as `https://kolabing.com/c/{kolabId}` (its
+     * `buildOpportunityShareUri()`), so /c/ carries two kinds of id: a community
+     * slug and a Kolab UUID. Community slugs are never UUIDs, so a UUID that
+     * matches a Kolab is sent to that Kolab — the public page when the open-web
+     * surface is on and the Kolab is publishable, otherwise the in-app detail,
+     * which asks a signed-out visitor to sign in first. The query string
+     * (e.g. `?apply=1`) rides along.
+     */
+    private function kolabUrl(Request $request, Kolab $kolab): string
+    {
+        $query = $request->getQueryString();
+        $suffix = $query ? '?'.$query : '';
+
+        if ((bool) config('kolabing.public_kolabs.enabled')) {
+            $public = PublicKolabLink::resolve($kolab->id);
+
+            if ($public !== null) {
+                return PublicKolabLink::urlFor($public).$suffix;
+            }
+        }
+
+        $locale = (string) $request->route('locale', '');
+        $prefix = $locale !== '' ? '/'.$locale : '';
+
+        return rtrim((string) config('webapp.url'), '/').$prefix.'/kolabs/'.$kolab->id.$suffix;
     }
 }
