@@ -20,14 +20,14 @@
         'pro_monthly' => filled(config('subscriptions.business.stripe.pro_monthly.stripe_price_id')),
     ];
 
-    // Venue Pro (BE-NF-68) is its own plan, drawn apart from the two standard
-    // cards: it is sold to hotels on what it adds, not as a third billing period.
-    $showPro = $showAll || $configured['pro_monthly'];
-
     // Plans without a Stripe price would 502 on click, so they are hidden — unless
     // nothing is configured at all (local dev / CI), where hiding everything would
     // leave a blank page instead of a working preview.
     $showAll = ! in_array(true, $configured, true);
+
+    // Venue Pro (BE-NF-68) is its own plan, drawn apart from the two standard
+    // cards: it is sold to hotels on what it adds, not as a third billing period.
+    $showPro = $showAll || $configured['pro_monthly'];
 
     $plans = [
         'monthly' => [
