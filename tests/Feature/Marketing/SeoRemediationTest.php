@@ -178,7 +178,9 @@ class SeoRemediationTest extends TestCase
     public function test_an_empty_blog_keeps_itself_out_of_the_index(): void
     {
         // The engine shipped without content: /blog was an indexable 77-word page
-        // sitting in the sitemap.
+        // sitting in the sitemap. The launch articles now arrive via migration,
+        // so the empty state this guards must be constructed explicitly.
+        BlogPost::query()->delete();
         $this->assertSame(0, BlogPost::query()->count());
 
         $this->get('http://kolabing.com/blog')

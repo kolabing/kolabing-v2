@@ -12,7 +12,7 @@ class BlogController extends Controller
     public function index(): View
     {
         return view('blog.index', [
-            'posts' => BlogPost::query()->published()->orderByDesc('published_at')->paginate(12),
+            'posts' => BlogPost::query()->published()->orderByDesc('published_at')->orderBy('slug')->paginate(12),
         ]);
     }
 
@@ -25,6 +25,7 @@ class BlogController extends Controller
             'related' => BlogPost::query()->published()
                 ->whereKeyNot($post->getKey())
                 ->orderByDesc('published_at')
+                ->orderBy('slug')
                 ->limit(3)
                 ->get(),
         ]);
