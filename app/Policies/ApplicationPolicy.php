@@ -57,7 +57,8 @@ class ApplicationPolicy
 
     /**
      * Determine whether the user can accept the application.
-     * Only opportunity creator; must be pending; business creators need active subscription.
+     * Only opportunity creator; must be pending. Accepting is never subscription-gated
+     * (BE-FX-73) — the paywall applies to applying and publishing, not accepting.
      */
     public function accept(Profile $user, Application $application): bool
     {
@@ -69,16 +70,7 @@ class ApplicationPolicy
             return true;
         }
 
-        if (! $application->canBeAccepted()) {
-            return false;
-        }
-
-        // Business users need active subscription to accept applications
-        if ($user->isBusiness() && ! $user->hasActiveSubscription()) {
-            return false;
-        }
-
-        return true;
+        return $application->canBeAccepted();
     }
 
     /**

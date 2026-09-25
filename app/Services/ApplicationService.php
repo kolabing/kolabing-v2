@@ -17,7 +17,6 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
-use RuntimeException;
 
 class ApplicationService
 {
@@ -101,7 +100,6 @@ class ApplicationService
      * @return array{application: Application, collaboration: Collaboration}
      *
      * @throws InvalidArgumentException When application cannot be accepted
-     * @throws RuntimeException When subscription requirements are not met
      */
     public function accept(Application $application, array $data = []): array
     {
@@ -416,7 +414,6 @@ class ApplicationService
      * Validate that an application can be accepted.
      *
      * @throws InvalidArgumentException When application cannot be accepted
-     * @throws RuntimeException When subscription requirements are not met
      */
     private function validateCanAccept(Application $application): void
     {
@@ -431,15 +428,9 @@ class ApplicationService
         if ($opportunity === null) {
             throw new InvalidArgumentException('Application is not linked to a Kolab.');
         }
-        $opportunity->loadMissing('creatorProfile');
 
-        // Business users must have active subscription to accept applications
-        $creator = $opportunity->creatorProfile;
-        if ($creator->isBusiness() && ! $creator->hasActiveSubscription()) {
-            throw new RuntimeException(
-                'An active subscription is required to accept applications.'
-            );
-        }
+        // Accepting is never subscription-gated (BE-FX-73) — the paywall applies
+        // to applying and publishing, not to accepting an application.
     }
 
     /**
