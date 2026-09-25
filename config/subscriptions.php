@@ -38,4 +38,22 @@ return [
             ],
         ],
     ],
+
+    // Free-listing expiry (issue #341, BE-NF-73). The free listing ends at the
+    // EARLIER of `kolab_limit` completed kolabs or `day_limit` days after the
+    // business profile was created — numbers confirmed by Daniel 2026-09-25.
+    // `enforcement_city_ids` is empty (off) everywhere by default per the
+    // ticket's acceptance criteria; a city is added only once it hits the
+    // traction bar (~20 active communities, ~10 closed kolabs/month) and
+    // Daniel decides to switch it on. Nothing currently reads this list —
+    // App\Services\FreeListingService::isEnforcedForCity() computes the
+    // state/expiry but does not yet gate any access; see BACKLOG.md.
+    'free_listing' => [
+        'kolab_limit' => (int) env('KOLABING_FREE_LISTING_KOLAB_LIMIT', 3),
+        'day_limit' => (int) env('KOLABING_FREE_LISTING_DAY_LIMIT', 90),
+        'enforcement_city_ids' => array_filter(explode(
+            ',',
+            (string) env('KOLABING_FREE_LISTING_ENFORCEMENT_CITY_IDS', '')
+        )),
+    ],
 ];

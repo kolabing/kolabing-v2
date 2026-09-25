@@ -48,7 +48,26 @@ class SubscriptionControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
             ->assertJsonPath('data', null)
-            ->assertJsonPath('message', 'No subscription found');
+            ->assertJsonPath('message', 'No subscription found')
+            ->assertJsonPath('free_listing.state', 'free')
+            ->assertJsonPath('free_listing.kolabs_remaining', 3)
+            ->assertJsonPath('free_listing.days_remaining', 90);
+    }
+
+    public function test_show_subscription_flags_free_listing_as_expired_past_the_day_limit(): void
+    {
+        $profile = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $profile->id,
+            'created_at' => now()->subDays(91),
+        ]);
+
+        $response = $this->actingAs($profile)
+            ->getJson('/api/v1/me/subscription');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('free_listing.state', 'expired')
+            ->assertJsonPath('free_listing.days_remaining', 0);
     }
 
     public function test_show_subscription_returns_active_apple_subscription(): void
@@ -69,6 +88,7 @@ class SubscriptionControllerTest extends TestCase
             ->assertJsonPath('data.source', 'apple_iap')
             ->assertJsonPath('data.cancel_at_period_end', true)
             ->assertJsonPath('data.is_active', true)
+            ->assertJsonPath('free_listing.state', 'subscribed')
             ->assertJsonStructure([
                 'success',
                 'data' => [

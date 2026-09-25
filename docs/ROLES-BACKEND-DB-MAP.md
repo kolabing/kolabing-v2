@@ -2838,3 +2838,25 @@ Step 1 of the spec (`docs/superpowers/specs/2026-09-24-venue-pro-hotel-dashboard
 **Web:** `webapp/subscription.blade.php` — the post-registration paywall (`/subscription?reason=welcome`) — draws a Venue Pro card under the two standard cards, with its own benefit list, and an *Upgrade to Venue Pro* card for an active standard subscriber (Stripe: two-step confirm → change-plan; App Store / maintainer: an explanation instead). Both are hidden until `STRIPE_HOTEL_MONTHLY_PRICE_ID` is set, so production shows nothing until the Stripe Price exists. `register.blade.php` carries `?plan=pro_monthly` through sign-up.
 
 **Tests:** `tests/Feature/Api/V1/VenueProPlanTest.php`.
+
+## 37. Free-listing expiry — computed, not yet enforced (BE-NF-73, added 2026-09-25)
+
+Issue [#341](https://github.com/kolabing/kolabing-v2/issues/341). The rule is ROLES §2.20. Only the two numeric constants were decided (Daniel, deliverable `01239a7b` decision d4); notification copy, grace period and delist mechanics are still open on the ticket, so nothing here reads from an enforcement path yet.
+
+**Config:** `config/subscriptions.php` → `free_listing`: `kolab_limit` (int, default 3, `KOLABING_FREE_LISTING_KOLAB_LIMIT`), `day_limit` (int, default 90, `KOLABING_FREE_LISTING_DAY_LIMIT`), `enforcement_city_ids` (array, default empty, `KOLABING_FREE_LISTING_ENFORCEMENT_CITY_IDS` comma-separated).
+
+**Enum:** `App\Enums\FreeListingState` (`Free`, `Expired`, `Subscribed`, `NotApplicable`).
+
+**Service:** `App\Services\FreeListingService` — live-read only (no persisted column), the same pattern as `Profile::hasActiveSubscription()` / `hasEventCreatorEntitlement()`:
+- `state(Profile): FreeListingState` — `NotApplicable` for a non-business; `Subscribed` when `hasActiveSubscription()`; else `Expired` once `endsAt()` is in the past, otherwise `Free`.
+- `endsAt(Profile): ?Carbon` — the EARLIER of `business_profiles.created_at + day_limit days` and the `completed_at` of the Nth (`kolab_limit`) `collaborations` row with `business_profile_id` = this business and `status = completed`, ordered by `completed_at`.
+- `remaining(Profile): array{kolabs_remaining, days_remaining}` — both clamped at 0; lets a client render "ending soon" without a hardcoded server threshold (issue doesn't specify one).
+- `isEnforcedForCity(?string $cityId): bool` — reads `enforcement_city_ids`; false for every city today since the config default is empty. No caller passes a real gate through this yet.
+
+**"Completed kolabs" = `collaborations.status = 'completed'` keyed by `business_profile_id`**, not `kolabs.status` (which only has `draft | published | closed` — a Kolab's own status never reaches "completed"; completion lives on the Collaboration created when an application is accepted).
+
+**Where it's read (informational only, nothing gated):**
+- `GET /api/v1/me/subscription` (`SubscriptionController::show()`) — adds a `free_listing` object (`state`, `state_label`, `ends_at`, `kolabs_remaining`, `days_remaining`) alongside the existing `data`, for both the null-subscription and active-subscription branches. Additive field, no existing key changed.
+- `GET /admin/users/{profile}/edit` (`ManagedUserController::edit()`) — passes `freeListingState` / `freeListingEndsAt` / `freeListingRemaining`; the view shows a read-only alert when the business is not subscribed. No extend / mark-presale action exists yet (open in issue #341).
+
+**Tests:** `tests/Unit/Services/FreeListingServiceTest.php` (kolab-triggered expiry, day-triggered expiry, subscribed bypass, non-completed statuses don't count, enforcement off by default), `tests/Feature/Api/V1/SubscriptionControllerTest.php` (the new `free_listing` block on both response branches).
