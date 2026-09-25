@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionSource;
 use App\Enums\SubscriptionStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property \Illuminate\Support\Carbon|null $current_period_end
  * @property bool $cancel_at_period_end
  * @property SubscriptionSource $source
+ * @property SubscriptionPlan $plan
  * @property string|null $apple_original_transaction_id
  * @property string|null $apple_transaction_id
  * @property string|null $apple_product_id
@@ -47,9 +49,20 @@ class BusinessSubscription extends Model
         'current_period_end',
         'cancel_at_period_end',
         'source',
+        'plan',
         'apple_original_transaction_id',
         'apple_transaction_id',
         'apple_product_id',
+    ];
+
+    /**
+     * Mirrors the column default, so a freshly created row (Apple IAP, a
+     * maintainer grant) reports its plan without a refresh.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'plan' => 'standard',
     ];
 
     /**
@@ -62,6 +75,7 @@ class BusinessSubscription extends Model
         return [
             'status' => SubscriptionStatus::class,
             'source' => SubscriptionSource::class,
+            'plan' => SubscriptionPlan::class,
             'current_period_start' => 'datetime',
             'current_period_end' => 'datetime',
             'cancel_at_period_end' => 'boolean',
@@ -84,5 +98,13 @@ class BusinessSubscription extends Model
     public function isActive(): bool
     {
         return $this->status === SubscriptionStatus::Active;
+    }
+
+    /**
+     * Active and on Venue Pro (BE-NF-68).
+     */
+    public function isActivePro(): bool
+    {
+        return $this->isActive() && $this->plan === SubscriptionPlan::Pro;
     }
 }

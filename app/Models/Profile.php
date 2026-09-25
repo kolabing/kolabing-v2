@@ -540,6 +540,25 @@ class Profile extends Authenticatable
     }
 
     /**
+     * Venue Pro access (BE-NF-68): the one paid surface beyond the two
+     * create/apply gates is the venue insights. Pro is a superset of the
+     * standard plan, so a Pro business also passes {@see hasActiveSubscription()}.
+     * Test users pass here for the same reason they pass the standard gate.
+     */
+    public function hasVenueProAccess(): bool
+    {
+        if (! $this->isBusiness()) {
+            return false;
+        }
+
+        if ($this->is_test_user) {
+            return true;
+        }
+
+        return $this->subscription?->isActivePro() ?? false;
+    }
+
+    /**
      * Live-read check for the maintainer-granted Multi-Kolab Event Creator
      * capability. Deliberately independent of {@see hasActiveSubscription()}
      * — a Business or a Community can hold this entitlement, and holding (or

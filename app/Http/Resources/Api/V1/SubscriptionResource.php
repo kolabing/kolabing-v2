@@ -26,6 +26,8 @@ class SubscriptionResource extends JsonResource
             'status' => $this->status->value,
             'status_label' => $this->status->label(),
             'source' => $this->source->value,
+            'plan' => $this->plan->value,
+            'plan_label' => $this->plan->label(),
             'current_period_start' => $this->current_period_start?->toIso8601String(),
             'current_period_end' => $this->current_period_end?->toIso8601String(),
             'cancel_at_period_end' => $this->cancel_at_period_end,

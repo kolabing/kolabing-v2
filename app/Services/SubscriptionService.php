@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionSource;
 use App\Enums\SubscriptionStatus;
 use App\Exceptions\InvalidReferralCodeException;
@@ -76,6 +77,7 @@ class SubscriptionService
                     'stripe_subscription_id' => $stripeSubscription->id,
                     'status' => $this->mapStripeStatus((string) $stripeSubscription->status),
                     'source' => SubscriptionSource::Stripe,
+                    'plan' => $this->planFor($stripeSubscription, null),
                     'current_period_start' => $this->timestamp(StripeService::periodStart($stripeSubscription)),
                     'current_period_end' => $this->timestamp(StripeService::periodEnd($stripeSubscription)),
                     'cancel_at_period_end' => (bool) $stripeSubscription->cancel_at_period_end,
@@ -115,10 +117,76 @@ class SubscriptionService
 
         $subscription->update([
             'status' => $this->mapStripeStatus((string) $stripeSubscription->status),
+            'plan' => $this->planFor($stripeSubscription, $subscription->plan),
             'current_period_start' => $this->timestamp(StripeService::periodStart($stripeSubscription)) ?? $subscription->current_period_start,
             'current_period_end' => $this->timestamp(StripeService::periodEnd($stripeSubscription)) ?? $subscription->current_period_end,
             'cancel_at_period_end' => (bool) $stripeSubscription->cancel_at_period_end,
         ]);
+    }
+
+    /**
+     * Move an active Stripe subscription to another plan (BE-NF-68), e.g. from
+     * the €49 plan to Venue Pro. The local row is updated from what Stripe
+     * answers, so it never claims a plan Stripe did not accept; the webhook that
+     * follows converges on the same values.
+     *
+     * @throws \LogicException when the subscription cannot be changed on the web
+     */
+    public function changePlan(Profile $profile, string $checkoutKey): BusinessSubscription
+    {
+        $subscription = $this->getSubscription($profile);
+
+        if ($subscription === null || ! $subscription->isActive()) {
+            throw new \LogicException(__('There is no active plan to change. Pick a plan to subscribe.'));
+        }
+
+        if ($subscription->source !== SubscriptionSource::Stripe || blank($subscription->stripe_subscription_id)) {
+            throw new \LogicException($subscription->source === SubscriptionSource::AppleIap
+                ? __('Your plan is billed through the App Store. Cancel it there first, then subscribe on the web.')
+                : __('This plan was granted by Kolabing and cannot be changed here. Contact support@kolabing.com.'));
+        }
+
+        $priceId = (string) config("subscriptions.business.stripe.{$checkoutKey}.stripe_price_id");
+
+        if ($priceId === '') {
+            throw new \RuntimeException("No Stripe price configured for plan [{$checkoutKey}].");
+        }
+
+        $stripeSubscription = $this->stripeService->retrieveSubscription((string) $subscription->stripe_subscription_id);
+
+        if (StripeService::subscriptionPriceId($stripeSubscription) === $priceId) {
+            throw new \LogicException(__('You are already on this plan.'));
+        }
+
+        $targetPlan = SubscriptionPlan::forCheckoutKey($checkoutKey);
+        $isUpgrade = $targetPlan === SubscriptionPlan::Pro && $subscription->plan !== SubscriptionPlan::Pro;
+
+        $updated = $this->stripeService->changeSubscriptionPrice(
+            (string) $subscription->stripe_subscription_id,
+            $priceId,
+            $isUpgrade,
+        );
+
+        $subscription->update([
+            'status' => $this->mapStripeStatus((string) $updated->status),
+            'plan' => $this->planFor($updated, $targetPlan),
+            'current_period_start' => $this->timestamp(StripeService::periodStart($updated)) ?? $subscription->current_period_start,
+            'current_period_end' => $this->timestamp(StripeService::periodEnd($updated)) ?? $subscription->current_period_end,
+            'cancel_at_period_end' => (bool) $updated->cancel_at_period_end,
+        ]);
+
+        return $subscription->refresh();
+    }
+
+    /**
+     * The plan a Stripe subscription is on, from the Price it bills. An unknown
+     * price keeps the fallback (the stored plan) rather than downgrading anyone.
+     */
+    private function planFor(StripeSubscription $stripeSubscription, ?SubscriptionPlan $fallback): SubscriptionPlan
+    {
+        return SubscriptionPlan::fromStripePriceId(StripeService::subscriptionPriceId($stripeSubscription))
+            ?? $fallback
+            ?? SubscriptionPlan::Standard;
     }
 
     private function mapStripeStatus(string $stripeStatus): SubscriptionStatus
