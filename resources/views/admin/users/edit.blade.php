@@ -27,6 +27,14 @@
                     Grant subscription (12mo)
                 </button>
             </form>
+            <form method="POST" action="{{ route('admin.users.subscription.grant', $profile) }}" class="d-inline mr-2">
+                @csrf
+                <input type="hidden" name="plan" value="pro">
+                <button type="submit" class="btn btn-outline-success">
+                    <i class="fas fa-hotel mr-1"></i>
+                    Grant Venue Pro (12mo)
+                </button>
+            </form>
         @endif
     @endif
 

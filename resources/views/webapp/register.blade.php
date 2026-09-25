@@ -327,7 +327,7 @@
                     if (this.hasGoogle) this.$nextTick(() => this.loadGoogle());
                 }
                 const plan = params.get('plan');
-                if (plan === 'monthly' || plan === 'three_months') this.plan = plan;
+                if (['monthly', 'three_months', 'pro_monthly'].includes(plan)) this.plan = plan;
                 this.loadLookups();
             },
             /** Where a freshly registered account lands: businesses go straight to the offer. */

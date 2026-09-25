@@ -299,6 +299,10 @@ Route::prefix('v1')->group(function (): void {
         Route::post('me/subscription/checkout/confirm', [SubscriptionController::class, 'confirmCheckout'])
             ->name('api.v1.me.subscription.checkout.confirm');
 
+        // Switch an active Stripe subscription to another plan (e.g. → Venue Pro, BE-NF-68).
+        Route::post('me/subscription/change-plan', [SubscriptionController::class, 'changePlan'])
+            ->name('api.v1.me.subscription.change-plan');
+
         // Stripe Billing Portal so a business can manage / cancel its web subscription.
         Route::post('me/subscription/portal', [SubscriptionController::class, 'billingPortal'])
             ->name('api.v1.me.subscription.portal');

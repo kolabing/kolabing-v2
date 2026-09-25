@@ -9,6 +9,7 @@ use App\Models\Community;
 use App\Models\CommunityMember;
 use App\Models\CommunityTier;
 use App\Models\Event;
+use App\Models\Kolab;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
@@ -42,6 +43,44 @@ class CommunityJoinPageTest extends TestCase
     public function test_an_unknown_slug_is_404(): void
     {
         $this->joinPage('does-not-exist')->assertNotFound();
+    }
+
+    /**
+     * The mobile app shares a Kolab as `kolabing.com/c/{kolabId}`; the marketing
+     * host 301s it here. It used to 404 because only community slugs were looked
+     * up — every Kolab link shared from the app was dead on the web.
+     */
+    public function test_a_kolab_shared_from_the_app_redirects_to_that_kolab(): void
+    {
+        config(['kolabing.public_kolabs.enabled' => false]);
+        $kolab = Kolab::factory()->published()->create();
+
+        $this->joinPage($kolab->id, '?apply=1')
+            ->assertRedirect(rtrim((string) config('webapp.url'), '/').'/kolabs/'.$kolab->id.'?apply=1');
+    }
+
+    public function test_a_kolab_link_falls_back_to_the_app_when_the_kolab_is_not_publishable(): void
+    {
+        // The open web only shows publishable Kolabs; a draft must not leak there,
+        // but its owner can still open it in the app.
+        config(['kolabing.public_kolabs.enabled' => true]);
+        $kolab = Kolab::factory()->create();
+
+        $this->joinPage($kolab->id)
+            ->assertRedirect(rtrim((string) config('webapp.url'), '/').'/kolabs/'.$kolab->id);
+    }
+
+    public function test_a_uuid_that_is_no_kolab_is_still_404(): void
+    {
+        $this->joinPage('0199aaaa-bbbb-7ccc-8ddd-eeeeeeeeeeee')->assertNotFound();
+    }
+
+    public function test_a_legacy_marketing_kolab_link_reaches_the_app_host(): void
+    {
+        $kolab = Kolab::factory()->published()->create();
+
+        $this->get('http://kolabing.com/c/'.$kolab->id)
+            ->assertRedirect(rtrim((string) config('webapp.url'), '/').'/c/'.$kolab->id);
     }
 
     /**
