@@ -21,6 +21,7 @@ use App\Models\Notification;
 use App\Models\NotificationPreference;
 use App\Models\Profile;
 use App\Models\RewardClaim;
+use App\Support\CommunityIdentityMask;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -419,7 +420,9 @@ class NotificationService
 
         $recipient = $opportunity->creatorProfile;
         $actor = $application->applicantProfile;
-        $actorName = $actor->getExtendedProfile()?->name ?? 'Someone';
+        // ROLES §2.5: a free business must not learn who applied. The same
+        // masked name goes to the in-app row, the push and the email.
+        $actorName = $this->nameForRecipient($recipient, $actor, 'Someone');
         $opportunityTitle = $opportunity->title;
 
         $this->createLocalizedNotification(
@@ -523,10 +526,11 @@ class NotificationService
 
         $creator = $opportunity->creatorProfile;
         $applicant = $application->applicantProfile;
-        $applicantName = $applicant?->getExtendedProfile()?->name ?? 'Someone';
         $opportunityTitle = $opportunity->title;
 
         if ($creator !== null) {
+            $applicantName = $this->nameForRecipient($creator, $applicant, 'Someone');
+
             $this->createLocalizedNotification(
                 recipient: $creator,
                 type: NotificationType::ApplicationWithdrawn,
@@ -622,7 +626,7 @@ class NotificationService
                 bodyKey: 'notifications.collab.follow_up_reminder.body',
                 targetId: $collaboration->id,
                 targetType: 'collaboration',
-                emailModel: ['partner_name' => $counterpart?->getExtendedProfile()?->name ?? 'your partner'],
+                emailModel: ['partner_name' => $this->nameForRecipient($profile, $counterpart, 'your partner')],
             );
         }
     }
@@ -791,17 +795,24 @@ class NotificationService
                 ? $collaboration->applicantProfile
                 : $collaboration->creatorProfile;
 
+            // `:name` is the actor's name. Resolve it per recipient so a free
+            // business counterpart gets the neutral name (ROLES §2.5).
+            $recipientReplace = $replace;
+            if ($actor !== null && array_key_exists('name', $replace)) {
+                $recipientReplace['name'] = $this->nameForRecipient($profile, $actor, (string) $replace['name']);
+            }
+
             $this->createLocalizedNotification(
                 recipient: $profile,
                 type: $type,
                 titleKey: (string) $resolvedTitleKey,
                 bodyKey: (string) $resolvedBodyKey,
-                replace: $replace,
+                replace: $recipientReplace,
                 actor: $actor,
                 targetId: $collaboration->id,
                 targetType: 'collaboration',
                 emailModel: [
-                    'partner_name' => $counterpart?->getExtendedProfile()?->name ?? 'your partner',
+                    'partner_name' => $this->nameForRecipient($profile, $counterpart, 'your partner'),
                     'scheduled_date' => $collaboration->scheduled_date?->format('l, j M Y') ?? 'soon',
                 ],
             );
@@ -823,6 +834,29 @@ class NotificationService
     private function actorDisplayName(?Profile $actor): string
     {
         return $actor?->getExtendedProfile()?->name ?? 'Someone';
+    }
+
+    /**
+     * The name of `$subject` as `$recipient` may see it.
+     *
+     * A business without an active subscription must not see a community's
+     * name (ROLES §2.5), and a notification is one more door onto it: the
+     * in-app row, the push and the email all carry the text resolved here.
+     * The decision is {@see CommunityIdentityMask::applies()} — role first,
+     * then subscription — so a community or attendee recipient is never
+     * masked. Masked, the name is a neutral, localized "A community".
+     */
+    private function nameForRecipient(Profile $recipient, ?Profile $subject, string $fallback): string
+    {
+        if ($subject !== null && CommunityIdentityMask::applies($recipient, $subject)) {
+            return (string) __(
+                'notifications.masked_community',
+                [],
+                $recipient->preferred_locale ?? config('app.fallback_locale'),
+            );
+        }
+
+        return $subject?->getExtendedProfile()?->name ?? $fallback;
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources\Api\V1;
 
 use App\Models\Application;
+use App\Support\CommunityIdentityMask;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -55,8 +56,13 @@ class ApplicationResource extends JsonResource
             'collab_opportunity_id' => $this->kolab_id,
             'collab_opportunity' => $opportunityResource,
             'opportunity' => $opportunityResource,
-            'applicant_profile' => $this->whenLoaded('applicantProfile', function () {
-                return new ProfileSummaryResource($this->applicantProfile);
+            // ROLES §2.5: the kolab owner is told an application arrived, but a
+            // free business must not see which community sent it — not in the
+            // notification, and not one tap later on the application it links to.
+            'applicant_profile' => $this->whenLoaded('applicantProfile', function () use ($request) {
+                return (new ProfileSummaryResource($this->applicantProfile))->maskIdentity(
+                    CommunityIdentityMask::applies($request->user(), $this->applicantProfile),
+                );
             }),
             'message' => $this->message,
             'availability' => $this->availability,
