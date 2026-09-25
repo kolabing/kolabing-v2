@@ -101,6 +101,25 @@ class PublicProfileMaskTest extends TestCase
         }
     }
 
+    /**
+     * `public_channels` rides in with the verification fields and carries the same
+     * Instagram / TikTok / website URLs the named keys already null (BE-FX-68).
+     */
+    public function test_the_mask_withholds_the_public_contact_channels(): void
+    {
+        $community = $this->community();
+        $community->communityProfile->update(['verification_channels' => [
+            ['type' => 'instagram', 'url' => 'https://instagram.com/barcelonarunclub', 'is_public' => true],
+        ]]);
+
+        $masked = $this->openProfile($this->business(subscribed: false), $community)->assertOk();
+        $this->assertSame([], $masked->json('data.public_channels'));
+        $this->assertStringNotContainsString('barcelonarunclub', (string) $masked->getContent());
+
+        $open = $this->openProfile($this->business(subscribed: true), $community)->assertOk();
+        $this->assertSame('https://instagram.com/barcelonarunclub', $open->json('data.public_channels.0.url'));
+    }
+
     /** A blur, not a block: everything that is not identity survives (golden rule 5). */
     public function test_the_mask_leaves_everything_that_is_not_identity(): void
     {

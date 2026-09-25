@@ -42,8 +42,40 @@
             <div class="form-group">
                 <label>Body (HTML)</label>
                 <textarea name="body" rows="18" class="form-control text-monospace" required>{{ old('body', $post->body) }}</textarea>
-                <small class="form-text text-muted">Trusted HTML, rendered in a prose container. Use &lt;h2&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;a&gt;. Lead each section with a direct 40&ndash;60 word answer so answer-engines can extract it.</small>
+                <small class="form-text text-muted">Trusted HTML, rendered in a prose container. Use &lt;h2&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;a&gt;. Put FAQs in the FAQ box below, not here. Lead each section with a direct 40&ndash;60 word answer so answer-engines can extract it.</small>
             </div>
+        </div></div>
+
+        @php
+            $faqRows = old('faq', $post->faq ?? []);
+            $faqRows = is_array($faqRows) ? array_values($faqRows) : [];
+        @endphp
+        <div class="card"><div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="mb-0">FAQ (optional)</label>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-faq-add><i class="fas fa-plus mr-1"></i> Add question</button>
+            </div>
+            <small class="form-text text-muted mb-3">Shown as the article's FAQ section and emitted as FAQPage schema. Don't repeat it in the body. Empty rows are ignored.</small>
+            <div data-faq-rows>
+                @foreach ($faqRows as $i => $row)
+                    <div class="border rounded p-2 mb-2" data-faq-row>
+                        <div class="d-flex">
+                            <input name="faq[{{ $i }}][question]" value="{{ $row['question'] ?? '' }}" class="form-control mr-2" placeholder="Question" maxlength="300">
+                            <button type="button" class="btn btn-sm btn-outline-danger" data-faq-remove title="Remove">&times;</button>
+                        </div>
+                        <textarea name="faq[{{ $i }}][answer]" rows="2" class="form-control mt-2" placeholder="Answer (plain text)" maxlength="2000">{{ $row['answer'] ?? '' }}</textarea>
+                    </div>
+                @endforeach
+            </div>
+            <template data-faq-template>
+                <div class="border rounded p-2 mb-2" data-faq-row>
+                    <div class="d-flex">
+                        <input name="faq[__i__][question]" class="form-control mr-2" placeholder="Question" maxlength="300">
+                        <button type="button" class="btn btn-sm btn-outline-danger" data-faq-remove title="Remove">&times;</button>
+                    </div>
+                    <textarea name="faq[__i__][answer]" rows="2" class="form-control mt-2" placeholder="Answer (plain text)" maxlength="2000"></textarea>
+                </div>
+            </template>
         </div></div>
 
         <div class="d-flex justify-content-between">
@@ -51,4 +83,21 @@
             <button class="btn btn-primary">{{ $post->exists ? 'Save' : 'Create' }}</button>
         </div>
     </form>
+
+    <script>
+        (function () {
+            var rows = document.querySelector('[data-faq-rows]');
+            var template = document.querySelector('[data-faq-template]');
+            var next = rows.querySelectorAll('[data-faq-row]').length;
+            document.querySelector('[data-faq-add]').addEventListener('click', function () {
+                rows.insertAdjacentHTML('beforeend', template.innerHTML.replace(/__i__/g, String(next++)));
+            });
+            rows.addEventListener('click', function (event) {
+                var button = event.target.closest('[data-faq-remove]');
+                if (button) {
+                    button.closest('[data-faq-row]').remove();
+                }
+            });
+        })();
+    </script>
 @endsection

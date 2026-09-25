@@ -1923,7 +1923,8 @@ COMMUNITIES GET PERKS.</div>
   </div>
   <p class="footer-copy">
     free for communities · paid plans for businesses · cancel anytime<br>
-    © <span id="yr">2026</span> kolabing. built for real people, in real places.
+    © <span id="yr">2026</span> kolabing. built for real people, in real places.<br>
+    <a href="https://www.serrawealth.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">Venture backed by SerraWealth</a>
   </p>
 </footer>
 

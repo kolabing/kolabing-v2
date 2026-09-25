@@ -3,6 +3,10 @@
 declare(strict_types=1);
 
 return [
+    // ROLES §2.5: stands in for a community's name when the recipient is a
+    // business without an active subscription (see CommunityIdentityMask).
+    'masked_community' => 'Una comunitat',
+
     'new_message' => [
         'title' => 'Nou missatge',
     ],

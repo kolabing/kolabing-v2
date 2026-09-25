@@ -9,6 +9,7 @@ use App\Jobs\SendTransactionalEmail;
 use App\Models\Application;
 use App\Models\AttendeeProfile;
 use App\Models\BusinessProfile;
+use App\Models\BusinessSubscription;
 use App\Models\Collaboration;
 use App\Models\Community;
 use App\Models\CommunityMember;
@@ -39,10 +40,19 @@ class LifecycleEmailTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
-    private function business(string $name): Profile
+    /**
+     * Subscribed by default: these tests pin which template and merge vars go
+     * out, and a free business gets the community name masked (ROLES §2.5) —
+     * that case is pinned in {@see NotificationIdentityMaskTest}.
+     */
+    private function business(string $name, bool $subscribed = true): Profile
     {
         $profile = Profile::factory()->business()->create();
         BusinessProfile::factory()->create(['profile_id' => $profile->id, 'name' => $name]);
+
+        if ($subscribed) {
+            BusinessSubscription::factory()->active()->create(['profile_id' => $profile->id]);
+        }
 
         return $profile->refresh();
     }
