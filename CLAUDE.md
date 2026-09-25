@@ -1,333 +1,119 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code in this repository. Long examples live in [docs/CLAUDE-REFERENCE.md](docs/CLAUDE-REFERENCE.md) (not auto-loaded).
 
 ---
 
 ## CONTRIBUTOR ROUTING — Volkan → Reverb real-time ticket
 
-If the current user is *Volkan* — they introduce themselves as Volkan, the git
-user / commit author is Volkan (volkanoluc@gmail.com), or they ask about
-*Reverb, WebSockets, real-time chat, broadcasting, or live messages* — then
-BEFORE anything else, read and surface
-[docs/tickets/2026-06-05-reverb-realtime-chat-VOLKAN.md](docs/tickets/2026-06-05-reverb-realtime-chat-VOLKAN.md)
-and orient the conversation around it: it is his assigned task (turning on
-real-time chat — ops daemons + Flutter Echo client). Lead with a short summary of
-where that ticket stands and what's next, then help with it.
+Trigger: the user is *Volkan* (introduces himself, or git user / commit author is volkanoluc@gmail.com), OR the user asks about *Reverb, WebSockets, real-time chat, broadcasting, or live messages*.
+- BEFORE anything else, read and surface [docs/tickets/2026-06-05-reverb-realtime-chat-VOLKAN.md](docs/tickets/2026-06-05-reverb-realtime-chat-VOLKAN.md). It is his assigned task (turn on real-time chat: ops daemons + Flutter Echo client).
+- Lead with a short summary of where the ticket stands and what is next. Then help with it.
 
 ---
 
 ## MUST FOLLOW — Pull requests & branching (every change that ships)
 
-`master` is a **protected branch**: no direct pushes, and **only `olucvolkan` can
-merge**. All work lands through a pull request.
-
-- **Never commit or push to `master` directly.** Create a feature/fix branch
-  (`feat/…`, `fix/…`, `chore/…`) and open a PR into `master`.
-- **Every PR MUST use the repository PR template**
-  ([`.github/pull_request_template.md`](.github/pull_request_template.md)) and
-  **every mandatory section MUST be filled in** before review. Sections marked
-  REQUIRED are non-negotiable; if one does not apply, write `N/A` with a one-line
-  reason — never leave it blank. Do not delete template headings.
-- **Mobile impact is mandatory.** If a change touches the API contract (JSON payload
-  shape, new/renamed endpoints, enum values, auth, or error codes), the PR MUST say
-  so in the *Mobile impact (kolabing-app)* section, describe the contract change, and
-  link the corresponding `kolabing-app` ticket/PR. "No mobile changes required" must
-  be an explicit, deliberate choice — not an omission.
-- **Link the tracking item.** Every PR must reference its GitHub Projects item /
-  issue with a closing keyword (`Closes #123`). New work starts as a Projects item
-  first (see below), then a branch, then a PR.
-- Before requesting review: `php artisan test` green and `vendor/bin/pint` clean,
-  with counts pasted into the *Testing* section.
-- Keep the docs-sync rules in this file satisfied (BACKLOG, ROLES docs,
-  BACKEND-SCHEMA) and tick them in the PR template's *Docs & rules updated* section.
+`master` is protected: no direct pushes. Only `olucvolkan` can merge. All work lands through a PR.
+- Never commit or push to `master`. Branch `feat/…`, `fix/…` or `chore/…` and open a PR into `master`.
+- Every PR MUST use [`.github/pull_request_template.md`](.github/pull_request_template.md). Fill every mandatory section before review. REQUIRED sections are non-negotiable. If one does not apply, write `N/A` + a one-line reason. Never leave it blank. Never delete template headings.
+- Mobile impact is mandatory. If the change touches the API contract (JSON payload shape, new/renamed endpoints, enum values, auth, error codes), say so in *Mobile impact (kolabing-app)*, describe the contract change, and link the `kolabing-app` ticket/PR. "No mobile changes required" must be an explicit choice, not an omission.
+- Link the tracking item with a closing keyword (`Closes #123`). Order: Projects item → branch → PR.
+- Before requesting review: `php artisan test` green and `vendor/bin/pint` clean. Paste the counts into *Testing*.
+- Keep the docs-sync rules below satisfied (BACKLOG, ROLES docs, BACKEND-SCHEMA). Tick them in the template's *Docs & rules updated* section.
 
 ### Project tracking (GitHub Projects)
-Every new piece of work — feature, fix, or chore — is tracked as an item on the
-repo's GitHub Project board before/while it is built, and its PR links back to that
-item. The board is the live view of what is in flight; `BACKLOG.md` remains the
-narrative source of truth and must stay in sync with it.
-
-**Every ticket uses the same structure.** Open work items with the standard issue
-template ([`.github/ISSUE_TEMPLATE/ticket.yml`](.github/ISSUE_TEMPLATE/ticket.yml)) —
-blank issues are disabled. Fill in Summary, Context, Acceptance criteria, Work Type,
-Priority, Area, **Mobile impact**, and Definition of done; then add the issue to the
-**Kolabing Engineering** board and mirror those values into the board fields.
+- Every feature, fix or chore is an item on the repo's GitHub Project board before/while it is built. Its PR links back to the item.
+- The board is the live view of in-flight work. `BACKLOG.md` stays the narrative source of truth and must stay in sync with the board.
+- Open items with [`.github/ISSUE_TEMPLATE/ticket.yml`](.github/ISSUE_TEMPLATE/ticket.yml) (blank issues are disabled). Fill Summary, Context, Acceptance criteria, Work Type, Priority, Area, **Mobile impact**, Definition of done.
+- Add the issue to the **Kolabing Engineering** board and mirror those values into the board fields.
 
 ---
 
 ## MUST READ — Backlog (every session, before anything else)
 
-At the START of every session, read [BACKLOG.md](BACKLOG.md) and list its current
-contents back to the user (the three sections: New Features, Incomplete Features,
-Fixes). It is the single source of truth for outstanding work. You MUST keep it in
-sync as you work, following its "Maintenance rules":
-- A New Feature you begin → move to *Incomplete Features*.
-- An Incomplete Feature verified working end-to-end → remove it.
-- A bug you detect → add to *Fixes* immediately; once the fix is *confirmed*
-  (tested, not just written), strike it through with the date, then remove later.
-- Update the Last updated: date whenever you edit it.
+At session START, read [BACKLOG.md](BACKLOG.md) and list its contents to the user (New Features, Incomplete Features, Fixes). It is the single source of truth for outstanding work. You MUST keep it in sync per its "Maintenance rules":
+- New Feature you begin → move to *Incomplete Features*.
+- Incomplete Feature verified working end-to-end → remove it.
+- Bug you detect → add to *Fixes* immediately. Once the fix is *confirmed* (tested, not just written), strike it through with the date, then remove later.
+- Update the `Last updated:` date on every edit.
 
 ---
 
 ## MUST READ — Backend schema (before any data/model/API/DB change)
 
-Read [docs/BACKEND-SCHEMA.md](docs/BACKEND-SCHEMA.md) before changing anything that
-touches data, models, API payloads, JSON keys, or the database. It documents the
-*real production Postgres schema* (Laravel backend, db main). Hard rules:
-- *Never invent columns, tables, or enum values* — if it's not in that doc (or the
-  live schema), it does not exist. Verify before relying on a field.
-- *Never hardcode* IDs, emails, city/category names, or sample records in app code;
-  fetch from the API. Identity lives in profiles (+ business_profiles /
-  community_profiles), NOT the users table.
-- Lifecycle: collab_opportunities → applications → collaborations (+ reviews /
-  feedback). GET /collaborations is viewer-scoped. The business paywall is
-  backend-enforced; never bypass it.
+Read [docs/BACKEND-SCHEMA.md](docs/BACKEND-SCHEMA.md) before changing data, models, API payloads, JSON keys or the database. It documents the *real production Postgres schema* (Laravel backend, db main). Hard rules:
+- *Never invent columns, tables or enum values.* Not in that doc (or the live schema) = does not exist. Verify before relying on a field.
+- *Never hardcode* IDs, emails, city/category names or sample records in app code; fetch from the API.
+- Identity lives in profiles (+ business_profiles / community_profiles), NOT the users table.
+- Lifecycle: collab_opportunities → applications → collaborations (+ reviews / feedback). GET /collaborations is viewer-scoped.
+- The business paywall is backend-enforced. Never bypass it.
 
 ---
 
 ## MUST READ — Roles & Permissions (before planning OR executing changes)
 
-Before planning or writing any code that touches **user roles, permissions, the paywall, the Explore feed, profiles, onboarding, the create/apply flows, the admin operator surfaces, the attendee gamification track, the community-members & tiers surface, or subscription state**, read BOTH:
-1. [`docs/ROLES-AND-PERMISSIONS.md`](docs/ROLES-AND-PERMISSIONS.md) — the authoritative *what* (Business, Community, the attendee §7 first-pass, and the community-members & tiers surface in §8).
-2. [`docs/ROLES-BACKEND-DB-MAP.md`](docs/ROLES-BACKEND-DB-MAP.md) — the authoritative *where* (how each rule maps to backend code + DB tables/columns, plus every known role-handling mistake; the community-members & tiers backend map is §12).
+Scope: user roles, permissions, the paywall, the Explore feed, profiles, onboarding, the create/apply flows, the admin operator surfaces, the attendee gamification track, the community-members & tiers surface, subscription state. Before planning or coding in scope, read BOTH:
+1. [`docs/ROLES-AND-PERMISSIONS.md`](docs/ROLES-AND-PERMISSIONS.md) — authoritative *what* (Business, Community, attendee §7 first-pass, community-members & tiers §8).
+2. [`docs/ROLES-BACKEND-DB-MAP.md`](docs/ROLES-BACKEND-DB-MAP.md) — authoritative *where* (rule → backend code + DB tables/columns, every known role-handling mistake; community-members & tiers backend map §12).
 
-These docs cover the Business / Community / Attendee taxonomy, the two-action paywall, the **Venue Pro plan** (`business_subscriptions.plan = pro`, €299 web-only; gates the venue insights and nothing else — ROLES §2.19), the subscription-lapse re-gate, **maintainer-granted subscriptions** (`source = maintainer`), the **admin operator routes** under `/admin/*`, the lifecycle-observability timestamps, the **community members + customisable tiers** surface (NF-6: `communities` / `community_tiers` / `community_members`, the one-free-community cap that is NOT the paywall), and the open mistakes-to-fix checklist.
+They cover: Business / Community / Attendee taxonomy; the two-action paywall; the **Venue Pro plan** (`business_subscriptions.plan = pro`, €299 web-only; gates the venue insights and nothing else — ROLES §2.19); the subscription-lapse re-gate; **maintainer-granted subscriptions** (`source = maintainer`); **admin operator routes** under `/admin/*`; lifecycle-observability timestamps; **community members + customisable tiers** (NF-6: `communities` / `community_tiers` / `community_members`; the one-free-community cap is NOT the paywall); the open mistakes-to-fix checklist.
 
-**Update rule (non-optional, applies to every role-affecting PR):** when you change any of the surfaces above, you MUST update both docs in the same change — adjust the affected sections, bump the *Last updated* date at the top of each file, and tick / add items in the mistakes-to-fix checklist. If the change adds or removes a role surface entirely, also update this `CLAUDE.md` block and mirror everything into the `kolabing-app` repo's copy of the same two files. Treat this as part of the change, not optional housekeeping.
+**Update rule (non-optional, every role-affecting PR):** when you change any surface above, update both docs in the same change: adjust the sections, bump *Last updated* at the top of each, tick/add mistakes-to-fix items. If the change adds or removes a role surface, also update this `CLAUDE.md` block and mirror everything into `kolabing-app`'s copy of the two files.
 
-Most regressions come from applying one role's rules to the other (for example paywalling a community, which must never happen). Do not change role behaviour without checking both documents first; if a fix seems to contradict them, ask before proceeding.
+Most regressions come from applying one role's rules to the other (e.g. paywalling a community, which must never happen). Do not change role behaviour without checking both docs. If a fix seems to contradict them, ask before proceeding.
 
 ## Project Overview
 
-Kolabing is a B2B/B2C collaboration platform connecting businesses with community organizers in Spain. This repository contains the **Laravel 12 backend API** for the Mobile MVP. The frontend mobile app is in a separate repository.
+Kolabing is a B2B/B2C collaboration platform connecting businesses with community organizers in Spain. This repo is the **Laravel 12 backend API** for the Mobile MVP. The mobile app is a separate repo.
 
-**Key constraints:**
-- Google OAuth only (no password authentication)
-- Monthly Stripe subscription only (no credit system)
-- No database triggers - all logic in Laravel service layer
-- Pure PostgreSQL database (no Supabase dependency)
-- Backend API only - landing page uses Blade, mobile app is separate
+Key constraints:
+- Google OAuth only (no password auth).
+- Monthly Stripe subscription only (no credit system).
+- No database triggers. All logic in the Laravel service layer.
+- Pure PostgreSQL (no Supabase dependency).
+- Backend API only. Landing page uses Blade; mobile app is separate.
 
-## Tech Stack
-
-- **Framework:** Laravel 12 with PHP 8.3+
-- **Database:** PostgreSQL 15+
-- **Authentication:** Laravel Sanctum + Google OAuth
-- **Payments:** Stripe (monthly subscriptions)
-- **API:** RESTful JSON API with versioning (`/api/v1/`)
+Stack: Laravel 12, PHP 8.3+, PostgreSQL 15+, Laravel Sanctum + Google OAuth, Stripe (monthly subscriptions), RESTful JSON API versioned under `/api/v1/`.
 
 ## Common Commands
 
 ```bash
-# Development
-php artisan serve                    # Start dev server
-php artisan migrate                  # Run migrations
-php artisan migrate:fresh --seed     # Reset database with seeds
-php artisan db:seed                  # Run seeders only
-
-# Testing
-php artisan test                     # Run all tests
-php artisan test --filter=TestName   # Run specific test
-php artisan test tests/Feature/Auth  # Run tests in directory
-
-# Code Generation
-php artisan make:model ModelName -mfs   # Model + migration + factory + seeder
+php artisan serve | migrate | migrate:fresh --seed | db:seed
+php artisan test [--filter=TestName | tests/Feature/Auth]
+php artisan make:model ModelName -mfs          # model + migration + factory + seeder
 php artisan make:controller Api/V1/ControllerName --api
-php artisan make:request StoreModelRequest
-php artisan make:resource ModelResource
-php artisan make:policy ModelPolicy --model=Model
-
-# Queues & Cache
-php artisan queue:work               # Process queue jobs
-php artisan cache:clear              # Clear application cache
-php artisan config:clear             # Clear config cache
+php artisan make:request StoreModelRequest | make:resource ModelResource | make:policy ModelPolicy --model=Model
+php artisan queue:work | cache:clear | config:clear
 ```
 
 ## Architecture
 
-### Dual-Portal User System
-
-Single `profiles` table with `user_type` discriminator (`business` | `community`):
-- **Business users:** Create opportunities, require active subscription to publish
-- **Community users:** Browse and apply to opportunities, free access
-
-Each profile type has a 1:1 extended profile table:
-- `profiles` → `business_profiles` (business details, type, city)
-- `profiles` → `community_profiles` (community details, type, featured flag)
-
-### Core Workflow
-
-```
-Opportunity (draft) → publish → Application → accept → Collaboration
-                                    ↓
-                              decline/withdraw
-```
-
-Status flows:
-- Opportunity: `draft` → `published` → `closed` → `completed`
-- Application: `pending` → `accepted` | `declined` | `withdrawn`
-- Collaboration: `scheduled` → `active` → `completed` | `cancelled`
-
-### Database Schema (8 Tables MVP)
-
-1. `profiles` - Main user table (Google OAuth)
-2. `business_profiles` - Extended business user data
-3. `community_profiles` - Extended community user data
-4. `business_subscriptions` - Stripe monthly subscriptions
-5. `cities` - City lookup
-6. `collab_opportunities` - Collaboration opportunities
-7. `applications` - Applications to opportunities
-8. `collaborations` - Active collaborations
-
-### Service Layer Pattern
-
-All business logic resides in service classes, not controllers or models:
-
-```
-app/Services/
-├── GoogleAuthService.php      # Google token verification, user creation
-├── ProfileService.php         # Profile CRUD operations
-├── OpportunityService.php     # Opportunity lifecycle management
-├── ApplicationService.php     # Application accept/decline/withdraw
-├── CollaborationService.php   # Collaboration status transitions
-└── SubscriptionService.php    # Stripe integration
-```
-
-### API Structure
-
-```
-/api/v1/auth/google           # Google OAuth login/register
-/api/v1/auth/logout           # Logout
-/api/v1/auth/me               # Current user
-
-/api/v1/profiles/{id}         # Profile CRUD
-/api/v1/opportunities         # Opportunity CRUD + publish/close
-/api/v1/applications          # Application accept/decline/withdraw
-/api/v1/collaborations        # Collaboration status transitions
-/api/v1/me/subscription       # Business subscription management
-
-/api/v1/webhooks/stripe       # Stripe webhook receiver
-/api/v1/cities                # City lookup
-```
-
-### Authorization
-
-Use Laravel Policies for authorization, not middleware-only checks:
-
-```php
-// OpportunityPolicy
-public function update(User $user, Opportunity $opportunity): bool
-{
-    return $user->profile->id === $opportunity->creator_profile_id;
-}
-
-public function publish(User $user, Opportunity $opportunity): bool
-{
-    return $this->update($user, $opportunity)
-        && $user->profile->hasActiveSubscription();
-}
-```
-
-### JSONB Fields
-
-Opportunities use JSONB for flexible offer structures:
-
-```php
-// business_offer
-['venue' => true, 'food_drink' => true, 'discount' => ['enabled' => true, 'percentage' => 20]]
-
-// community_deliverables
-['instagram_post' => true, 'instagram_story' => true, 'attendee_count' => 50]
-
-// categories
-['Food & Drink', 'Sports', 'Wellness']
-```
+- **Dual-portal users:** single `profiles` table, `user_type` discriminator (`business` | `community`). Business users create opportunities and need an active subscription to publish. Community users browse and apply, free. 1:1 extension tables: `business_profiles` (details, type, city), `community_profiles` (details, type, featured flag).
+- **Core workflow:** Opportunity (draft) → publish → Application → accept → Collaboration (application may be declined/withdrawn).
+  - Opportunity: `draft` → `published` → `closed` → `completed`
+  - Application: `pending` → `accepted` | `declined` | `withdrawn`
+  - Collaboration: `scheduled` → `active` → `completed` | `cancelled`
+- **MVP schema (8 tables):** `profiles` (main user, Google OAuth), `business_profiles`, `community_profiles`, `business_subscriptions` (Stripe monthly), `cities`, `collab_opportunities`, `applications`, `collaborations`.
+- **Service layer:** all business logic in `app/Services/`, not controllers or models. Core: `GoogleAuthService` (token verify, user create), `ProfileService`, `OpportunityService`, `ApplicationService` (accept/decline/withdraw), `CollaborationService` (status transitions), `SubscriptionService` (Stripe).
+- **API (`/api/v1/`):** `auth/google`, `auth/logout`, `auth/me`, `profiles/{id}`, `opportunities` (CRUD + publish/close), `applications` (accept/decline/withdraw), `collaborations`, `me/subscription`, `webhooks/stripe`, `cities`.
+- **Authorization:** use Laravel Policies, not middleware-only checks (e.g. `OpportunityPolicy::publish` = owner AND `hasActiveSubscription()`; see reference).
+- **JSONB fields** on opportunities: `business_offer`, `community_deliverables`, `categories` (shapes in reference).
+- **PHP enums:** `UserType` (business, community); `OfferStatus` (draft, published, closed, completed); `ApplicationStatus` (pending, accepted, declined, withdrawn); `CollaborationStatus` (scheduled, active, completed, cancelled); `SubscriptionStatus` (active, cancelled, past_due, inactive).
+- **Files:** `.agent/` = agent task management (`documentations/`, `todo/`, `inprogess/`, `done/`); `mobile_mvp_database.sql` = MVP Postgres schema; `README.MD` = full project docs.
 
 ## Testing Conventions
 
-- Use `DatabaseTransactions` trait (not `RefreshDatabase`)
-- Create factories for all models
-- Feature tests in `tests/Feature/` organized by domain
-- Unit tests for services in `tests/Unit/Services/`
-
-```php
-// Example test pattern
-public function test_accepting_application_creates_collaboration(): void
-{
-    $creator = Profile::factory()->business()->withSubscription()->create();
-    $opportunity = Opportunity::factory()->published()->for($creator)->create();
-    $application = Application::factory()->for($opportunity)->create();
-
-    $this->actingAs($creator->user)
-        ->postJson("/api/v1/applications/{$application->id}/accept")
-        ->assertOk();
-
-    $this->assertDatabaseHas('collaborations', [
-        'application_id' => $application->id,
-        'status' => 'scheduled',
-    ]);
-}
-```
+- Use the `DatabaseTransactions` trait (not `RefreshDatabase`).
+- Create factories for all models.
+- Feature tests in `tests/Feature/`, by domain. Service unit tests in `tests/Unit/Services/`.
 
 ## Key Business Rules
 
-1. **Subscription required for business publish:** Business users must have active Stripe subscription to publish opportunities
-2. **One application per user per opportunity:** Enforced by unique constraint
-3. **Accepting application creates collaboration:** When accepted, a collaboration record is created and opportunity may close
-4. **Google OAuth only:** No password-based authentication in MVP
-
-## File Organization
-
-```
-.agent/                        # Agent task management
-  ├── documentations/          # Generated documentation
-  ├── todo/                    # Pending tasks
-  ├── inprogess/              # In-progress tasks
-  └── done/                   # Completed tasks
-
-mobile_mvp_database.sql        # PostgreSQL schema for MVP
-README.MD                      # Full project documentation
-```
-
-## Enum Definitions
-
-Use PHP enums for type safety:
-
-```php
-enum UserType: string {
-    case Business = 'business';
-    case Community = 'community';
-}
-
-enum OfferStatus: string {
-    case Draft = 'draft';
-    case Published = 'published';
-    case Closed = 'closed';
-    case Completed = 'completed';
-}
-
-enum ApplicationStatus: string {
-    case Pending = 'pending';
-    case Accepted = 'accepted';
-    case Declined = 'declined';
-    case Withdrawn = 'withdrawn';
-}
-
-enum CollaborationStatus: string {
-    case Scheduled = 'scheduled';
-    case Active = 'active';
-    case Completed = 'completed';
-    case Cancelled = 'cancelled';
-}
-
-enum SubscriptionStatus: string {
-    case Active = 'active';
-    case Cancelled = 'cancelled';
-    case PastDue = 'past_due';
-    case Inactive = 'inactive';
-}
-```
+1. Business users need an active Stripe subscription to publish opportunities.
+2. One application per user per opportunity (unique constraint).
+3. Accepting an application creates a collaboration; the opportunity may close.
+4. Google OAuth only; no password auth in MVP.
 
 ===
 
