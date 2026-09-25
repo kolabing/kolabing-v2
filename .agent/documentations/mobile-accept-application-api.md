@@ -142,14 +142,7 @@ Not the opportunity owner:
 }
 ```
 
-Subscription required (business users):
-
-```json
-{
-  "success": false,
-  "message": "An active subscription is required to accept applications."
-}
-```
+Accepting is never subscription-gated (BE-FX-73, 2026-09-25) — a business creator with no active subscription can still accept. There is no longer a subscription-required 403/402 for this endpoint.
 
 ### Bad Request (400)
 

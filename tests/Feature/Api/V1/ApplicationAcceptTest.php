@@ -139,6 +139,54 @@ class ApplicationAcceptTest extends TestCase
             ->assertJsonPath('data.collaboration.contact_methods', null);
     }
 
+    public function test_accept_endpoint_succeeds_for_a_business_without_an_active_subscription(): void
+    {
+        // Accepting is never subscription-gated (BE-FX-73) — only applying and
+        // publishing are. Deliberately no BusinessSubscription here.
+        $business = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $business->id,
+            'name' => 'Free Business Creator',
+        ]);
+
+        $community = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $community->id,
+            'name' => 'Community Applicant',
+        ]);
+
+        $opportunity = Kolab::factory()
+            ->published()
+            ->forCreator($business)
+            ->create();
+
+        $application = Application::factory()
+            ->pending()
+            ->forKolab($opportunity)
+            ->forApplicant($community)
+            ->create();
+
+        $scheduledDate = $opportunity->availability_start?->copy();
+        if ($scheduledDate !== null
+            && $opportunity->availability_end !== null
+            && $scheduledDate->lt($opportunity->availability_end)) {
+            $scheduledDate = $scheduledDate->addDay();
+        }
+        $scheduledDate = $scheduledDate?->toDateString() ?? now()->addDays(7)->toDateString();
+
+        $this->assertFalse($business->fresh()->hasActiveSubscription());
+
+        $response = $this->actingAs($business)
+            ->postJson("/api/v1/applications/{$application->id}/accept", [
+                'scheduled_date' => $scheduledDate,
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.application.status', 'accepted')
+            ->assertJsonPath('data.collaboration.status', 'scheduled');
+    }
+
     public function test_accept_endpoint_rejects_dates_outside_publisher_availability_window(): void
     {
         $business = Profile::factory()->business()->create();

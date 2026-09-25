@@ -180,9 +180,6 @@ class CollaborationHappeningTest extends TestCase
     public function test_accepting_an_application_creates_the_happening(): void
     {
         $business = Profile::factory()->business()->create();
-        // Accepting is subscription-gated for a business (ROLES §2.7); that gate is
-        // not what this test is about, so it is satisfied rather than bypassed.
-        \App\Models\BusinessSubscription::factory()->active()->create(['profile_id' => $business->id]);
         $community = Profile::factory()->community()->create();
         $kolab = $this->kolab($business);
 

@@ -165,7 +165,6 @@ class LifecycleTimestampsTest extends TestCase
     {
         $kolab = Kolab::factory()->published()->create();
 
-        // The creator must have an active subscription to accept applications.
         BusinessSubscription::query()->updateOrCreate(
             ['profile_id' => $kolab->creator_profile_id],
             ['source' => SubscriptionSource::Maintainer, 'status' => SubscriptionStatus::Active],
