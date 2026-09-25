@@ -17,6 +17,21 @@
     if ($post->cover_image_url) {
         $articleSchema['image'] = $post->cover_image_url;
     }
+    // The visible FAQ section and the FAQPage schema are both rendered from
+    // blog_posts.faq (edited in /admin/blog), so prose and schema cannot drift.
+    $faqPairs = $post->faqPairs();
+    $faqSchema = null;
+    if ($faqPairs !== []) {
+        $faqSchema = [
+            '@context' => 'https://schema.org',
+            '@type' => 'FAQPage',
+            'mainEntity' => collect($faqPairs)->map(fn (array $pair) => [
+                '@type' => 'Question',
+                'name' => $pair['question'],
+                'acceptedAnswer' => ['@type' => 'Answer', 'text' => $pair['answer']],
+            ])->values()->all(),
+        ];
+    }
 @endphp
 <x-layouts.marketing-page
     :title="$post->title"
@@ -27,8 +42,13 @@
 >
     <x-slot:head>
         <script type="application/ld+json">
-            {!! json_encode($articleSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+            {!! json_encode($articleSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) !!}
         </script>
+        @if ($faqSchema)
+            <script type="application/ld+json">
+                {!! json_encode($faqSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) !!}
+            </script>
+        @endif
     </x-slot:head>
 
     <article class="mx-auto max-w-3xl px-6 py-16">
@@ -47,6 +67,16 @@
         <div class="prose prose-lg mt-8 max-w-none prose-headings:font-montserrat prose-a:text-off-black">
             {!! $post->body !!}
         </div>
+
+        @if ($faqPairs !== [])
+            <section class="prose prose-lg mt-12 max-w-none prose-headings:font-montserrat" aria-labelledby="faq-heading">
+                <h2 id="faq-heading">FAQ</h2>
+                @foreach ($faqPairs as $pair)
+                    <h3>{{ $pair['question'] }}</h3>
+                    <p>{{ $pair['answer'] }}</p>
+                @endforeach
+            </section>
+        @endif
 
         {{-- End-of-article funnel: readers who got this far are the warmest
              traffic the blog produces, so the sign-up sits before "keep reading". --}}
