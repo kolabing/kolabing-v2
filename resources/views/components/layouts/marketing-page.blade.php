@@ -158,6 +158,9 @@
                 <a href="{{ route('llms') }}" class="hover:text-primary">llms.txt</a>
             </div>
         </div>
+        <div class="mx-auto mt-8 max-w-6xl px-6 text-xs text-white/50">
+            <a href="https://www.serrawealth.com" target="_blank" rel="noopener" class="hover:text-primary">Venture backed by SerraWealth</a>
+        </div>
     </footer>
 </body>
 </html>
