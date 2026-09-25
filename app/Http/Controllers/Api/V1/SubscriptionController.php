@@ -12,6 +12,7 @@ use App\Http\Requests\Api\V1\ConfirmCheckoutSessionRequest;
 use App\Http\Requests\Api\V1\CreateCheckoutSessionRequest;
 use App\Http\Resources\Api\V1\SubscriptionResource;
 use App\Models\Profile;
+use App\Services\FreeListingService;
 use App\Services\ReferralService;
 use App\Services\StripeService;
 use App\Services\SubscriptionService;
@@ -26,6 +27,7 @@ class SubscriptionController extends Controller
         private readonly SubscriptionService $subscriptionService,
         private readonly StripeService $stripeService,
         private readonly ReferralService $referralService,
+        private readonly FreeListingService $freeListingService,
     ) {}
 
     public function show(Request $request): JsonResponse
@@ -47,13 +49,31 @@ class SubscriptionController extends Controller
                 'success' => true,
                 'data' => null,
                 'message' => __('No subscription found'),
+                'free_listing' => $this->freeListingPayload($profile),
             ]);
         }
 
         return response()->json([
             'success' => true,
             'data' => new SubscriptionResource($subscription),
+            'free_listing' => $this->freeListingPayload($profile),
         ]);
+    }
+
+    /**
+     * @return array{state: string, state_label: string, ends_at: string|null, kolabs_remaining: int, days_remaining: int}
+     */
+    private function freeListingPayload(Profile $profile): array
+    {
+        $state = $this->freeListingService->state($profile);
+        $remaining = $this->freeListingService->remaining($profile);
+
+        return [
+            'state' => $state->value,
+            'state_label' => $state->label(),
+            'ends_at' => $this->freeListingService->endsAt($profile)?->toIso8601String(),
+            ...$remaining,
+        ];
     }
 
     /**

@@ -76,6 +76,20 @@
         </div>
     @endif
 
+    @if ($profile->user_type->value === 'business' && $freeListingState && $freeListingState !== \App\Enums\FreeListingState::Subscribed)
+        @php
+            $flClass = $freeListingState === \App\Enums\FreeListingState::Expired ? 'danger' : 'info';
+        @endphp
+        <div class="alert alert-{{ $flClass }}">
+            <strong>Free listing:</strong>
+            {{ $freeListingState->label() }}
+            @if ($freeListingEndsAt)
+                · ends {{ $freeListingEndsAt->toDayDateTimeString() }}
+            @endif
+            <span class="text-muted">({{ $freeListingRemaining['kolabs_remaining'] }} kolabs / {{ $freeListingRemaining['days_remaining'] }} days remaining before the earlier gate fires)</span>
+        </div>
+    @endif
+
     @if ($profile->user_type->value === 'community')
         @include('admin.users._verification', ['profile' => $profile])
     @endif

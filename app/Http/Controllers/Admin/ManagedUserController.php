@@ -27,6 +27,7 @@ use App\Models\OfferOption;
 use App\Models\Profile;
 use App\Models\Scopes\ActiveProfileScope;
 use App\Services\Admin\ManagedProfileService;
+use App\Services\FreeListingService;
 use App\Services\OrganizerEntitlementService;
 use App\Support\OfferOptionValues;
 use Illuminate\Contracts\View\View;
@@ -38,6 +39,7 @@ class ManagedUserController extends Controller
     public function __construct(
         private readonly ManagedProfileService $managedProfileService,
         private readonly OrganizerEntitlementService $organizerEntitlementService,
+        private readonly FreeListingService $freeListingService,
     ) {}
 
     /**
@@ -263,6 +265,9 @@ class ManagedUserController extends Controller
                 ->where('is_active', true)
                 ->orderBy('label')
                 ->get(['locale', 'label']),
+            'freeListingState' => $profile->isBusiness() ? $this->freeListingService->state($profile) : null,
+            'freeListingEndsAt' => $profile->isBusiness() ? $this->freeListingService->endsAt($profile) : null,
+            'freeListingRemaining' => $profile->isBusiness() ? $this->freeListingService->remaining($profile) : null,
         ]);
     }
 
