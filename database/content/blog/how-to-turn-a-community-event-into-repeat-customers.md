@@ -38,23 +38,6 @@ Track three things over the weeks after the event, beyond the headcount on the n
 
 A busy event night proves little on its own. The proof is the fourth Tuesday, when a handful of the runners are back without the club, ordering the same coffee, because the place became part of their week. That is the figure worth watching, and it is exactly the kind of before-and-after lift Kolabing is built to capture, so a collaboration stops being a good story and becomes a number you can trust.
 
-## FAQ
-
-**Why is a repeat customer more valuable than a new one?**
-Repeat customers cost far less to reach and spend more when they return. Work long cited from Bain & Company found a 5% lift in retention can raise profit by 25% to 95%, and keeping a customer costs several times less than acquiring a new one.
-
-**How do I turn a one-off community event into a recurring one?**
-Book the next date while the group is still in the room and still happy. Offer the same weekday each month, a small standing perk for members, and a spot that feels like theirs. A recurring collaboration fills a predictable slot instead of a marketing task you repeat each month.
-
-**How do I get individual attendees to come back after the group leaves?**
-Give each person one small reason to return alone: a member discount, a follow-us offer redeemed at the door, or a loyalty stamp started the night of the event. The community brings the crowd once; a light, specific incentive turns individuals into weekday regulars.
-
-**Do community events really build more loyalty than influencer marketing?**
-Usually yes, for a local business that needs return visits. An influencer is paid once and has no stake in whether anyone comes back. A community wants the place to stay good because it wants to keep gathering there, and that shared interest produces regulars.
-
-**How do I measure repeat customers from an event?**
-Track how many attendees returned, how often, and the lift against a normal week in the weeks after. Return visits over the following month, not headcount on the night, are the number that tells you the event created regulars.
-
 ---
 
 Kolabing connects your venue with nearby communities who bring real people through the door, helps you turn a single event into a recurring one, and measures what each collaboration actually added. Listing your venue is free. See how it works at [kolabing.com/for-businesses](https://kolabing.com/for-businesses).

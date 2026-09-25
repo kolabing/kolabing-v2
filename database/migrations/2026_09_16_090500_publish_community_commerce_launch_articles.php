@@ -16,24 +16,31 @@ use Illuminate\Support\Str;
  *
  * Bodies live as markdown in database/content/blog/{slug}.md and are
  * converted to the trusted HTML `blog_posts.body` expects at migrate time
- * (league/commonmark via Str::markdown). Guarded per slug: if a post with
- * the slug already exists (e.g. a maintainer published it via /admin/blog
- * first), that article is skipped, never overwritten.
+ * (league/commonmark via Str::markdown). The FAQ is NOT part of the body: it
+ * is stored only in `blog_posts.faq`, and /blog/{slug} renders both the
+ * visible FAQ section and the FAQPage JSON-LD from it, so the two cannot
+ * drift (and /admin/blog edits it as structured rows). Guarded per slug: if
+ * a post with the slug already exists (e.g. a maintainer published it via
+ * /admin/blog first), that article is skipped, never overwritten.
  */
 return new class extends Migration
 {
     public function up(): void
     {
-        foreach ($this->articles() as $article) {
+        foreach ($this->articles() as $position => $article) {
             $exists = DB::table('blog_posts')->where('slug', $article['slug'])->exists();
             if ($exists) {
                 continue;
             }
 
-            $markdown = file_get_contents(database_path('content/blog/'.$article['slug'].'.md'));
-            if ($markdown === false) {
-                continue; // Content file missing from the build — never insert an empty body.
+            // Content file missing from the build: skip rather than fail the deploy
+            // (file_get_contents on a missing path throws under Laravel's error
+            // handler) and never insert an empty body.
+            $path = database_path('content/blog/'.$article['slug'].'.md');
+            if (! is_file($path)) {
+                continue;
             }
+            $markdown = (string) file_get_contents($path);
 
             DB::table('blog_posts')->insert([
                 'id' => (string) Str::orderedUuid(),
@@ -45,7 +52,9 @@ return new class extends Migration
                 'author_name' => 'Daniel Martinez',
                 'author_title' => 'Founder of Kolabing',
                 'locale' => 'en',
-                'published_at' => now(),
+                // Staggered so /blog and "Keep reading" have a stable order
+                // (first article in the list = newest).
+                'published_at' => now()->subMinutes($position),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -54,7 +63,15 @@ return new class extends Migration
 
     public function down(): void
     {
-        DB::table('blog_posts')->whereIn('slug', array_column($this->articles(), 'slug'))->delete();
+        // Only rows this migration wrote: a post a maintainer created by hand
+        // under the same slug (which up() skipped) must survive a rollback.
+        foreach ($this->articles() as $article) {
+            DB::table('blog_posts')
+                ->where('slug', $article['slug'])
+                ->where('title', $article['title'])
+                ->where('author_name', 'Daniel Martinez')
+                ->delete();
+        }
     }
 
     /**

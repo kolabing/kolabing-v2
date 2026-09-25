@@ -64,17 +64,3 @@ Start with a community that already meets near you and a room you already have.
 The hard part is not the event. The hard part is finding the right community, reaching the organiser, and agreeing the terms without a dozen back-and-forth messages. That matchmaking is exactly what Kolabing exists to do: it connects local venues with the communities already meeting nearby, and handles the intro and the details so you can say yes to a full room instead of chasing one through a feed.
 
 You do not need a bigger ad budget. You need the group that already gathers three streets away to gather at your place instead. That is not an impression you rent. It is a relationship you keep.
-
-## FAQ
-
-**Are community events better than ads for a small local business?**
-For steady, repeat footfall, yes. Ads are best for short, reach-driven pushes with a deadline, such as a launch. For turning a local catchment into regulars, a community event brings a pre-trusting group and a list of names you keep, while an ad brings anonymous reach that disappears when you stop paying.
-
-**How much does it cost to run a community event at my venue?**
-Usually far less than a sustained ad campaign. The community already exists and the organiser brings the people, so your main cost is the room you already have plus a small welcome. Unlike ads, reaching the same people a second time costs you almost nothing.
-
-**What kinds of local businesses can run community events?**
-Any venue with a room and a slow slot — gyms, fitness and yoga studios, cafés, bars, restaurants, coworking spaces, bookshops. If you have space that sits underused on certain nights, a local community can fill it.
-
-**Should I stop running ads if I start doing community events?**
-No. Keep ads for time-boxed, reach-first goals like an opening or a seasonal deadline. Shift the everyday "boost the post" budget toward events with local communities, which build the repeat customers ads rarely deliver.

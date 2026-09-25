@@ -37,6 +37,26 @@ class BlogPost extends Model
         return 'slug';
     }
 
+    /**
+     * The FAQ pairs that are safe to render: rows with both a question and an
+     * answer. One list feeds the visible FAQ section and the FAQPage JSON-LD.
+     *
+     * @return list<array{question: string, answer: string}>
+     */
+    public function faqPairs(): array
+    {
+        return collect($this->faq ?? [])
+            ->filter(fn ($pair) => is_array($pair)
+                && filled($pair['question'] ?? null)
+                && filled($pair['answer'] ?? null))
+            ->map(fn (array $pair) => [
+                'question' => (string) $pair['question'],
+                'answer' => (string) $pair['answer'],
+            ])
+            ->values()
+            ->all();
+    }
+
     public function isPublished(): bool
     {
         return $this->published_at !== null && $this->published_at->isPast();

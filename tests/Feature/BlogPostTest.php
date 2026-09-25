@@ -42,6 +42,51 @@ class BlogPostTest extends TestCase
             ->assertSee('"@type":"Organization"', false);
     }
 
+    public function test_show_renders_the_faq_section_and_faqpage_schema_from_the_same_data(): void
+    {
+        BlogPost::factory()->create([
+            'slug' => 'faq-post',
+            'published_at' => now()->subDay(),
+            'faq' => [
+                ['question' => 'Do events beat ads?', 'answer' => 'For repeat footfall, yes.'],
+                ['question' => 'Half-filled row', 'answer' => ''],
+            ],
+        ]);
+
+        $this->get('/blog/faq-post')
+            ->assertOk()
+            ->assertSee('<h2 id="faq-heading">FAQ</h2>', false)
+            ->assertSee('<h3>Do events beat ads?</h3>', false)
+            ->assertSee('"@type":"FAQPage"', false)
+            ->assertSee('"name":"Do events beat ads?"', false)
+            ->assertSee('"text":"For repeat footfall, yes."', false)
+            ->assertDontSee('Half-filled row');
+    }
+
+    public function test_show_emits_no_faq_when_the_post_has_none(): void
+    {
+        BlogPost::factory()->create(['slug' => 'no-faq', 'published_at' => now()->subDay(), 'faq' => null]);
+
+        $this->get('/blog/no-faq')
+            ->assertOk()
+            ->assertDontSee('faq-heading', false)
+            ->assertDontSee('FAQPage', false);
+    }
+
+    public function test_faq_text_cannot_close_the_json_ld_script_block(): void
+    {
+        BlogPost::factory()->create([
+            'slug' => 'hostile-faq',
+            'published_at' => now()->subDay(),
+            'faq' => [['question' => 'Q', 'answer' => '</script><script>alert(1)</script>']],
+        ]);
+
+        $this->get('/blog/hostile-faq')
+            ->assertOk()
+            ->assertDontSee('</script><script>alert(1)', false)
+            ->assertSee('\u003C/script\u003E', false);
+    }
+
     public function test_show_404s_for_a_draft(): void
     {
         BlogPost::factory()->draft()->create(['slug' => 'hidden-draft']);

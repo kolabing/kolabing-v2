@@ -19,6 +19,26 @@ class StoreBlogPostRequest extends FormRequest
     }
 
     /**
+     * The admin form always posts the full FAQ list (blank rows included), so
+     * drop rows with neither a question nor an answer and store "no FAQ" as
+     * null. A missing `faq` key therefore means "cleared", not "unchanged".
+     */
+    protected function prepareForValidation(): void
+    {
+        $rows = collect(is_array($this->input('faq')) ? $this->input('faq') : [])
+            ->filter(fn ($row) => is_array($row)
+                && (filled($row['question'] ?? null) || filled($row['answer'] ?? null)))
+            ->map(fn (array $row) => [
+                'question' => trim((string) ($row['question'] ?? '')),
+                'answer' => trim((string) ($row['answer'] ?? '')),
+            ])
+            ->values()
+            ->all();
+
+        $this->merge(['faq' => $rows === [] ? null : $rows]);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function rules(): array
@@ -35,6 +55,20 @@ class StoreBlogPostRequest extends FormRequest
             'cover_image_url' => ['nullable', 'url', 'max:2048'],
             'locale' => ['required', 'string', 'max:8'],
             'published_at' => ['nullable', 'date'],
+            'faq' => ['nullable', 'array', 'max:20'],
+            'faq.*.question' => ['required', 'string', 'max:300'],
+            'faq.*.answer' => ['required', 'string', 'max:2000'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'faq.*.question' => 'FAQ question',
+            'faq.*.answer' => 'FAQ answer',
         ];
     }
 }

@@ -43,23 +43,6 @@ Avoid three types: the mismatched, the dormant, and the far-away. A group can be
 
 Be honest about mismatch even when a group is keen. A community whose interests have nothing to do with what you sell will give you a pleasant night and no regulars — the members enjoyed the room and will not think of you again, because there was never a reason to. Skip the dormant group whose numbers are historical, because a list that does not gather will not fill your room no matter how large it looks. And be wary of the distant group, however perfect on paper, because proximity is what turns an event into a habit and distance is what keeps it a one-off. None of these are bad communities. They are simply the wrong first choice, and the whole return on your event rides on that first choice being right.
 
-## FAQ
-
-**What matters most when choosing a community to partner with?**
-Whether the group's members are the customers you want — people who would come back to your door on a normal day. That fit matters far more than follower count, the organiser's profile, or how many events the group has run.
-
-**Is a bigger community a better partner?**
-Not usually. A smaller, tightly matched group beats a large loose one, because attendance and repeat visits come from relevance and proximity, not headline numbers. A focused group of thirty who fit your place brings more regulars than a diluted group of thousands.
-
-**How do I tell if a community is a genuine fit for my venue?**
-Run four checks: proximity (can members reach you), overlap (would they want what you sell), activity (does the group actually meet), and rhythm (do they gather on a night you need to fill). A group that clears all four is a strong first partner.
-
-**Several communities want to work with me — how do I choose?**
-Rank them on fit and commitment, not size. Apply the same four checks side by side and favour the group whose members map most cleanly onto your regulars and whose meeting rhythm matches your quiet slot, because that group is likeliest to want a second event.
-
-**Which communities should I avoid for a first event?**
-The mismatched (members who would never become customers), the dormant (impressive numbers but no real gatherings), and the far-away (too distant to return between events). Any of the three gives you a pleasant night and no regulars.
-
 ---
 
 Kolabing connects your venue with nearby communities, lets you read who is applying before you commit, and helps you pick the partner most likely to turn a first event into a standing one. Listing your venue is free. See how it works at [kolabing.com/for-businesses](https://kolabing.com/for-businesses).
