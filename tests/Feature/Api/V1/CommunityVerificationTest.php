@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Api\V1;
 
 use App\Enums\VerificationStatus;
+use App\Models\BusinessSubscription;
 use App\Models\City;
 use App\Models\CommunityProfile;
 use App\Models\Profile;
@@ -302,11 +303,14 @@ class CommunityVerificationTest extends TestCase
             ],
         ]);
 
+        // Subscribed: an unsubscribed business gets the community identity mask
+        // (BE-FX-22 / BE-FX-68), which empties public_channels — covered below.
         $business = Profile::factory()->business()->create();
+        BusinessSubscription::factory()->active()->create(['profile_id' => $business->id]);
 
         $community->load('communityProfile');
         $resource = (new \App\Http\Resources\Api\V1\CommunityPublicProfileResource($community))
-            ->toArray(\Illuminate\Http\Request::create('/', 'GET')->setUserResolver(fn () => $business));
+            ->toArray(\Illuminate\Http\Request::create('/', 'GET')->setUserResolver(fn () => $business->fresh()));
 
         // Always present: is_verified + public_channels (public items only).
         $this->assertTrue($resource['is_verified']);
@@ -317,6 +321,28 @@ class CommunityVerificationTest extends TestCase
         // Private fields are NOT exposed to a non-owner viewer.
         $this->assertArrayNotHasKey('verification_channels', $resource);
         $this->assertArrayNotHasKey('verification_flagged_at', $resource);
+    }
+
+    public function test_unsubscribed_business_gets_no_channels_under_the_identity_mask(): void
+    {
+        $community = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $community->id,
+            'verification_status' => VerificationStatus::Verified->value,
+            'verification_channels' => [
+                ['type' => 'instagram', 'url' => 'https://instagram.com/biz-sees', 'is_public' => true],
+            ],
+        ]);
+
+        $business = Profile::factory()->business()->create();
+
+        $community->load('communityProfile');
+        $resource = (new \App\Http\Resources\Api\V1\CommunityPublicProfileResource($community))
+            ->toArray(\Illuminate\Http\Request::create('/', 'GET')->setUserResolver(fn () => $business));
+
+        $this->assertTrue($resource['is_verified']);
+        $this->assertSame([], $resource['public_channels']);
+        $this->assertArrayNotHasKey('verification_channels', $resource);
     }
 
     public function test_register_community_still_requires_at_least_one_channel_when_present(): void

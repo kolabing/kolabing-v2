@@ -61,7 +61,9 @@ class CommunityPublicProfileResource extends JsonResource
             'profile_photo' => $masked ? null : $extended?->profile_photo,
             // Verification is a community-only programme; a business passes null and
             // serialises as unverified rather than throwing on the type hint.
-            ...$this->verificationFields($this->communityProfile, $request, $this->id),
+            // `public_channels` inside it are the community's contact links
+            // (Instagram, TikTok, website), so the mask empties them too.
+            ...$this->maskedVerificationFields($request, $masked),
             // Past events and collaborations name the partners; the gallery is the
             // community's own photographs. §4.2 withholds exactly this from a viewer
             // who has not earned it, and it is what "the full profile" means.
@@ -79,5 +81,24 @@ class CommunityPublicProfileResource extends JsonResource
                 'past_events_count' => 0,
             ],
         ];
+    }
+
+    /**
+     * Verification fields with the contact links withheld under the mask.
+     * ROLES §2.5 names "contact" among what a free business cannot see, and
+     * `public_channels` carries the same Instagram/TikTok/website URLs the
+     * `instagram` / `tiktok` / `website` keys above already null.
+     *
+     * @return array<string, mixed>
+     */
+    private function maskedVerificationFields(Request $request, bool $masked): array
+    {
+        $fields = $this->verificationFields($this->communityProfile, $request, $this->id);
+
+        if ($masked) {
+            $fields['public_channels'] = [];
+        }
+
+        return $fields;
     }
 }
