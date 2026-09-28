@@ -86,7 +86,7 @@ class GamificationController extends Controller
             'communities' => $communities,
             'selected' => $community,
             'rows' => $community !== null
-                ? $this->leaderboard->getCommunityPointsLeaderboard($community, 100)
+                ? $this->leaderboard->getCommunityPointsLeaderboard($community, 100, includeEmail: true)
                 : collect(),
         ]);
     }
@@ -97,7 +97,7 @@ class GamificationController extends Controller
     public function globalLeaderboard(): View
     {
         return view('admin.gamification.global-leaderboard', [
-            'rows' => $this->leaderboard->getGlobalLeaderboard(100),
+            'rows' => $this->leaderboard->getGlobalLeaderboard(100, includeEmail: true),
         ]);
     }
 }

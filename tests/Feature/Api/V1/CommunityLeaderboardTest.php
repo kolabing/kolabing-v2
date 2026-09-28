@@ -48,18 +48,24 @@ class CommunityLeaderboardTest extends TestCase
         $this->assertNotContains($nonMember->id, $ids);
     }
 
-    public function test_my_rank_is_null_for_non_member(): void
+    public function test_non_member_cannot_read_the_chapter_leaderboard(): void
     {
+        // Incentives v1: a community's ranking is for its members and organisers
+        // only (it used to hand any logged-in user the roster).
         $community = Community::factory()->create();
         $member = $this->attendee(300);
         CommunityMember::factory()->forCommunity($community)->create(['profile_id' => $member->id]);
 
         $outsider = $this->attendee(500);
 
-        $response = $this->actingAs($outsider)
-            ->getJson("/api/v1/leaderboard/global?community_id={$community->id}");
+        $this->actingAs($outsider)
+            ->getJson("/api/v1/leaderboard/global?community_id={$community->id}")
+            ->assertForbidden();
 
-        $response->assertStatus(200)->assertJsonPath('data.my_rank', null);
+        $this->actingAs($community->owner)
+            ->getJson("/api/v1/leaderboard/global?community_id={$community->id}")
+            ->assertOk()
+            ->assertJsonPath('data.my_rank', null);
     }
 
     public function test_unknown_community_id_returns_404(): void

@@ -80,6 +80,10 @@
         @include('admin.users._verification', ['profile' => $profile])
     @endif
 
+    @if ($profile->user_type->value === 'community')
+        @include('admin.users._organiser-level', ['profile' => $profile, 'snapshot' => $organiserLevel ?? null, 'honours' => $leagueHonours ?? collect()])
+    @endif
+
     @if (in_array($profile->user_type->value, ['business', 'community'], true))
         <div class="card card-outline card-info">
             <div class="card-header">
