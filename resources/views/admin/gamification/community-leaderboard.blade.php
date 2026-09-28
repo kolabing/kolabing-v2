@@ -44,7 +44,7 @@
                             @forelse ($rows as $row)
                                 <tr>
                                     <td class="text-center font-weight-bold">#{{ $row['rank'] }}</td>
-                                    <td>{{ $row['display_name'] }}</td>
+                                    <td>{{ $row['display_name'] }}@if (! empty($row['email']))<br><small class="text-muted">{{ $row['email'] }}</small>@endif</td>
                                     <td>
                                         @if ($row['tier'])
                                             <span class="badge badge-light">

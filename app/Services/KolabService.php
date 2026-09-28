@@ -224,6 +224,40 @@ class KolabService
     }
 
     /**
+     * Create and publish the listing the platform keeps for a business on its
+     * behalf (BusinessAutoListingService).
+     *
+     * It runs through create() so the payload gets the same normalisation and
+     * venue enrichment as a Kolab the business writes itself, then goes live
+     * without publish()'s side effects: the business did not act, so there is
+     * no publish gate to pass, no XP, no mission progress and no "your offer is
+     * live" notification — a backfill over existing venues must not message
+     * owners who have never opened the app. After this it is an ordinary Kolab:
+     * the owner edits it with update() and takes it down with close().
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function createAutoListing(Profile $creator, array $data): Kolab
+    {
+        return DB::transaction(function () use ($creator, $data): Kolab {
+            $kolab = $this->create($creator, $data);
+
+            $this->assertMediaUrlsAreValid($kolab->media);
+
+            $kolab->forceFill([
+                'is_auto_listing' => true,
+                'status' => KolabStatus::Published,
+                'published_at' => Carbon::now(),
+            ])->save();
+
+            $kolab->refresh();
+            $this->notificationReminderService->syncKolabDraftReminder($kolab);
+
+            return $kolab;
+        });
+    }
+
+    /**
      * Close the suggestion funnel (BE-NF-39 §3.9): the row this Kolab came from
      * records which Kolab it produced, which is the only link between a card
      * being shown and a real collaboration existing.
