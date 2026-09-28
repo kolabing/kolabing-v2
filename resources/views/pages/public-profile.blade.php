@@ -95,6 +95,17 @@
                     {{ $typeLabel }}@if ($cityName) · {{ $cityName }}@endif
                 </p>
 
+                @if (! empty($leagueBadges))
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        @foreach ($leagueBadges as $badge)
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-off-black px-3 py-1 text-xs font-bold text-white">
+                                <span aria-hidden="true">{{ $badge['type'] === 'champion' ? '🏆' : '★' }}</span>
+                                {{ $badge['label'] }}
+                            </span>
+                        @endforeach
+                    </div>
+                @endif
+
                 @if ($ratingLabel && $reviewCount > 0)
                     <p class="mt-3 inline-flex items-center gap-2 rounded-full bg-primary/30 px-3 py-1.5 text-sm font-bold text-off-black">
                         <span aria-hidden="true">★</span>

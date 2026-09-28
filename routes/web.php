@@ -327,6 +327,10 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::post('/users/{profile}/event-creator/grant', [ManagedUserController::class, 'grantEventCreatorEntitlement'])->name('users.event-creator.grant');
     Route::post('/users/{profile}/event-creator/revoke', [ManagedUserController::class, 'revokeEventCreatorEntitlement'])->name('users.event-creator.revoke');
 
+    // Incentives v1: Top organisers and city league winners are owed a personal intro.
+    Route::post('/users/{profile}/organiser-intro/done', [ManagedUserController::class, 'markOrganiserIntroDone'])->name('users.organiser-intro.done');
+    Route::post('/users/{profile}/league-intro/{standing}/done', [ManagedUserController::class, 'markLeagueIntroDone'])->name('users.league-intro.done');
+
     // Admin-editable quick-add welcome email content, per language (BE-NF-57) — add/
     // edit/remove languages from the dashboard, no code deploy per copy change.
     Route::resource('email-templates', AdminEmailTemplateController::class)

@@ -14,9 +14,9 @@ use App\Models\CommunityMember;
 use App\Models\CommunityPoints;
 use App\Models\Event;
 use App\Models\Profile;
+use App\Support\PublicDisplayName;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class LeaderboardService
 {
@@ -74,7 +74,7 @@ class LeaderboardService
 
             return [
                 'profile_id' => $member->profile_id,
-                'display_name' => $this->displayName($member->profile),
+                'display_name' => PublicDisplayName::for($member->profile),
                 'profile_photo' => $member->profile?->avatar_url,
                 'points' => $memberPoints,
                 'tier' => $member->tier !== null ? [
@@ -163,7 +163,7 @@ class LeaderboardService
 
             return [
                 'profile_id' => $row->profile_id,
-                'display_name' => $this->displayName($profile),
+                'display_name' => PublicDisplayName::for($profile),
                 'profile_photo' => $profile?->avatar_url,
                 'total_points' => (int) $row->total_points,
                 'rank' => $rank,
@@ -180,6 +180,7 @@ class LeaderboardService
     {
         $attendeeProfiles = AttendeeProfile::query()
             ->where('total_points', '>', 0)
+            ->whereHas('profile', fn ($q) => $q->active())
             ->orderByDesc('total_points')
             ->limit($limit)
             ->with('profile')
@@ -196,7 +197,7 @@ class LeaderboardService
 
             return [
                 'profile_id' => $ap->profile_id,
-                'display_name' => $this->displayName($ap->profile),
+                'display_name' => PublicDisplayName::for($ap->profile),
                 'profile_photo' => $ap->profile?->avatar_url,
                 'total_points' => $ap->total_points,
                 'rank' => $rank,
@@ -221,6 +222,7 @@ class LeaderboardService
         $attendeeProfiles = AttendeeProfile::query()
             ->whereIn('profile_id', $memberIds)
             ->where('total_points', '>', 0)
+            ->whereHas('profile', fn ($q) => $q->active())
             ->orderByDesc('total_points')
             ->limit($limit)
             ->with('profile')
@@ -237,7 +239,7 @@ class LeaderboardService
 
             return [
                 'profile_id' => $ap->profile_id,
-                'display_name' => $this->displayName($ap->profile),
+                'display_name' => PublicDisplayName::for($ap->profile),
                 'profile_photo' => $ap->profile?->avatar_url,
                 'total_points' => $ap->total_points,
                 'rank' => $rank,
@@ -274,25 +276,6 @@ class LeaderboardService
             'total_points' => $attendeeProfile->total_points,
             'rank' => $rank,
         ];
-    }
-
-    /**
-     * The name a leaderboard row shows. Never the email address: these rows are
-     * visible to other members, so an email here leaks contact details. Mirrors
-     * `/communities/{id}/stats` top_members: the profile name, else the part of
-     * the email before the "@".
-     */
-    private function displayName(?Profile $profile): string
-    {
-        if ($profile === null) {
-            return 'Unknown';
-        }
-
-        if (filled($profile->name)) {
-            return (string) $profile->name;
-        }
-
-        return Str::before((string) $profile->email, '@');
     }
 
     /**

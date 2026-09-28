@@ -61,3 +61,18 @@ Schedule::command('app:send-onboarding-drip')
  * so this only tidies the data, and there is nothing to race.
  */
 Schedule::command('app:expire-pending-challenges')->dailyAt('03:30');
+
+// City league (incentives v1): close last month's season per city on the 1st
+// (Europe/Madrid) — final standings, promotion/relegation, Champion/Top 3
+// badges. Runs before the level pass so Top and venue ranking see the result.
+Schedule::command('app:close-league-seasons')
+    ->monthlyOn(1, '00:30')
+    ->timezone('Europe/Madrid')
+    ->withoutOverlapping();
+
+// Organiser levels (incentives v1): New/Rising/Trusted/Top from in-app verified
+// actions per calendar month, plus the venue-side discovery_score. After the
+// 02:00 tier pass. Levels go down when a month passes without a qualifying kolab.
+Schedule::command('app:evaluate-organiser-levels')
+    ->dailyAt('02:30')
+    ->withoutOverlapping();

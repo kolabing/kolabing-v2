@@ -124,6 +124,17 @@ class CommunityController extends Controller
             $query->orderByRaw("CASE WHEN type IN ($placeholders) THEN 0 ELSE 1 END", $interests);
         }
 
+        // Incentives v1: venues see communities ranked by the organiser's
+        // league points + level (discovery_score, refreshed nightly).
+        if ($profile->isBusiness() && config('incentives.organiser_levels.discovery.enabled', false)) {
+            $latestScore = '(select s.discovery_score from organiser_level_snapshots s where s.profile_id = communities.owner_profile_id order by s.evaluated_at desc limit 1)';
+            $query->orderByRaw("COALESCE({$latestScore}, 0) DESC");
+
+            if (config('incentives.organiser_levels.discovery.hide_below_trusted', false)) {
+                $query->whereRaw("(select s.level from organiser_level_snapshots s where s.profile_id = communities.owner_profile_id order by s.evaluated_at desc limit 1) in ('trusted', 'top')");
+            }
+        }
+
         $query->orderByDesc('is_featured')
             ->orderByDesc('active_members_count')
             ->orderBy('name');

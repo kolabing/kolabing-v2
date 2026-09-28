@@ -23,7 +23,9 @@ use App\Models\City;
 use App\Models\CommunityProfile;
 use App\Models\CommunityType;
 use App\Models\Kolab;
+use App\Models\LeagueStanding;
 use App\Models\OfferOption;
+use App\Models\OrganiserLevelSnapshot;
 use App\Models\Profile;
 use App\Models\Scopes\ActiveProfileScope;
 use App\Services\Admin\ManagedProfileService;
@@ -284,7 +286,51 @@ class ManagedUserController extends Controller
                 ->where('is_active', true)
                 ->orderBy('label')
                 ->get(['locale', 'label']),
+            'organiserLevel' => $profile->user_type === UserType::Community
+                ? OrganiserLevelSnapshot::latestFor($profile->id)
+                : null,
+            'leagueHonours' => $profile->user_type === UserType::Community
+                ? LeagueStanding::query()
+                    ->where('profile_id', $profile->id)
+                    ->whereNotNull('badge')
+                    ->with('season.city')
+                    ->latest('created_at')
+                    ->limit(12)
+                    ->get()
+                : collect(),
         ]);
+    }
+
+    /**
+     * Top-level organisers are owed personal introductions from our pipeline
+     * (sports brands, fashion brands, venues). The team marks the intro done
+     * here; the flag stays cleared while the organiser stays Top.
+     */
+    public function markOrganiserIntroDone(Profile $profile): RedirectResponse
+    {
+        $snapshot = OrganiserLevelSnapshot::latestFor($profile->id);
+
+        if ($snapshot === null || ! $snapshot->isIntroDue()) {
+            return redirect()->back()->with('status', __('No introduction is due for this organiser.'));
+        }
+
+        $snapshot->update(['intro_done_at' => now()]);
+
+        return redirect()->back()->with('status', __('Introduction marked as done.'));
+    }
+
+    /**
+     * City league division winners are owed the same personal introductions.
+     */
+    public function markLeagueIntroDone(Profile $profile, LeagueStanding $standing): RedirectResponse
+    {
+        abort_unless($standing->profile_id === $profile->id, 404);
+
+        if ($standing->isIntroDue()) {
+            $standing->update(['intro_done_at' => now()]);
+        }
+
+        return redirect()->back()->with('status', __('Introduction marked as done.'));
     }
 
     /**

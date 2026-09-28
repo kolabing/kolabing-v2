@@ -63,6 +63,10 @@ class LeaderboardController extends Controller
             /** @var Community $community */
             $community = Community::query()->findOrFail($communityId);
 
+            if ($profile->cannot('viewLeaderboard', $community)) {
+                return $this->forbidden();
+            }
+
             $leaderboard = $this->leaderboardService->getCommunityLeaderboard($community, $limit);
             $myRank = $this->leaderboardService->getMyCommunityRank($community, $profile);
         } else {
@@ -95,10 +99,7 @@ class LeaderboardController extends Controller
         $limit = max($limit, 1);
 
         if ($profile->cannot('viewLeaderboard', $community)) {
-            return response()->json([
-                'success' => false,
-                'message' => __('Only members of this community can view its leaderboard.'),
-            ], 403);
+            return $this->forbidden();
         }
 
         $leaderboard = $this->leaderboardService->getCommunityPointsLeaderboard($community, $limit);
@@ -111,5 +112,16 @@ class LeaderboardController extends Controller
                 'my_rank' => $myRank,
             ],
         ]);
+    }
+
+    /**
+     * Community rankings are for that community's members and organisers only.
+     */
+    private function forbidden(): JsonResponse
+    {
+        return response()->json([
+            'success' => false,
+            'message' => __('Only members of this community can view its leaderboard.'),
+        ], 403);
     }
 }

@@ -7,9 +7,11 @@ namespace App\Http\Controllers;
 use App\Models\BusinessProfile;
 use App\Models\CollaborationReview;
 use App\Models\CommunityProfile;
+use App\Models\LeagueStanding;
 use App\Models\Profile;
 use App\Services\ProfileService;
 use App\Support\PublicProfileLink;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Str;
 
@@ -92,6 +94,7 @@ class PublicProfilePageController extends Controller
             'appUrl' => rtrim((string) config('webapp.url'), '/'),
             'openingHours' => $this->openingHours($extended),
             'potentialCollaborationCount' => $this->potentialCollaborationCount($profile),
+            'leagueBadges' => $this->leagueBadges($profile),
         ]);
     }
 
@@ -100,6 +103,37 @@ class PublicProfilePageController extends Controller
      * profile's city — real social proof that the platform has people to meet here,
      * without running the actual matching algorithm (see class doc comment).
      */
+    /**
+     * City league honours (incentives v1): "Champion" / "Top 3" from closed
+     * seasons, newest first.
+     *
+     * @return array<int, array{type: string, label: string}>
+     */
+    private function leagueBadges(Profile $profile): array
+    {
+        if (! $profile->isCommunity()) {
+            return [];
+        }
+
+        return LeagueStanding::query()
+            ->where('profile_id', $profile->id)
+            ->whereNotNull('badge')
+            ->with('season.city')
+            ->latest('created_at')
+            ->limit(6)
+            ->get()
+            ->map(function (LeagueStanding $standing): array {
+                $when = CarbonImmutable::createFromFormat('Y-m-d', $standing->season->month.'-01')->translatedFormat('M Y');
+                $title = $standing->badge === LeagueStanding::BADGE_CHAMPION ? 'Champion' : 'Top 3';
+
+                return [
+                    'type' => $standing->badge,
+                    'label' => trim("{$title} · ".($standing->season->city?->name ?? '')." league {$when}"),
+                ];
+            })
+            ->all();
+    }
+
     private function potentialCollaborationCount(Profile $profile): int
     {
         $cityId = $profile->isBusiness()
