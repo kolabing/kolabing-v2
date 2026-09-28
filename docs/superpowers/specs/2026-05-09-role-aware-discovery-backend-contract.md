@@ -262,10 +262,15 @@ Backend must always enforce:
 - opposite-side only
 - exclude viewer-owned records
 - exclude expired availability windows —
-  `COALESCE(availability_end, availability_start) >= today`
+  `availability_end IS NULL OR availability_end >= today`. An absent end is
+  open-ended (BE-FX-74). Until 2026-09-28 this was
+  `COALESCE(availability_end, availability_start)`, which expired every start-only
+  kolab the day after its start
 - exclude kolabs with no BOOKABLE day left — for `availability_mode = recurring`,
   `recurring_days` (ISO 1..7) must contain at least one weekday inside
-  `[max(today, availability_start), COALESCE(availability_end, availability_start)]`.
+  `[max(today, availability_start), availability_end]`, looking at most 90 days
+  ahead when there is no end. This is `Kolab::hasSelectableDatesFrom()`, the
+  apply-time guard.
   A window that is still open is not the same as a window you can still book
   (`DiscoveryOpportunityService::hasBookableDayFromToday()`)
 - exclude blocked creators, in BOTH directions and for BOTH item types — ordinary
