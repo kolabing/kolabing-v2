@@ -135,7 +135,7 @@ class ManagedProfileService
      */
     public function quickAdd(array $data): Profile
     {
-        return DB::transaction(function () use ($data): Profile {
+        $profile = DB::transaction(function () use ($data): Profile {
             $userType = UserType::from((string) $data['user_type']);
 
             $profile = Profile::query()->create([
@@ -161,6 +161,26 @@ class ManagedProfileService
 
             return $profile->fresh(['businessProfile', 'communityProfile']);
         });
+
+        return $this->listBusiness($profile);
+    }
+
+    /**
+     * A business added from the panel is listed in Explore straight away, the
+     * same as one that onboards itself: one open-ended auto listing, and an
+     * empty avatar filled from the Maps import's top photo
+     * ({@see \App\Services\BusinessAutoListingService}). Runs after the
+     * profile's own transaction commits and never throws.
+     */
+    private function listBusiness(Profile $profile): Profile
+    {
+        if (! $profile->isBusiness()) {
+            return $profile;
+        }
+
+        $this->onboardingService->provisionBusinessAutoOffer($profile);
+
+        return $profile->fresh(['businessProfile', 'communityProfile', 'attendeeProfile', 'subscription']);
     }
 
     /**
@@ -220,7 +240,7 @@ class ManagedProfileService
      */
     public function create(array $data): Profile
     {
-        return DB::transaction(function () use ($data): Profile {
+        $profile = DB::transaction(function () use ($data): Profile {
             $userType = UserType::from((string) $data['user_type']);
 
             $profile = Profile::query()->create([
@@ -251,6 +271,8 @@ class ManagedProfileService
                 'subscription',
             ]);
         });
+
+        return $this->listBusiness($profile);
     }
 
     /**
