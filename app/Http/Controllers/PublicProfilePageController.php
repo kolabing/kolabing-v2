@@ -66,7 +66,7 @@ class PublicProfilePageController extends Controller
 
         return view('pages.public-profile', [
             'profile' => $profile,
-            'displayName' => $extended?->name ?? $profile->name ?? 'Kolabing member',
+            'displayName' => PublicProfileLink::displayName($profile) ?? 'Kolabing member',
             'isBusiness' => $profile->isBusiness(),
             'typeLabel' => $this->typeLabel($profile),
             'cityName' => $extended?->city?->name ?? ($profile->isBusiness() ? $extended?->city_name : null),
@@ -83,7 +83,8 @@ class PublicProfilePageController extends Controller
              * but asks not to be indexed, so a few hundred of them cannot turn into a
              * thin-page cluster. The same bar gates the sitemap — see routes/web.php.
              */
-            'noindex' => ($reputation['review_count'] ?? 0) < 1 && count($photos) < 3,
+            'noindex' => PublicProfileLink::displayName($profile) === null
+                || (($reputation['review_count'] ?? 0) < 1 && count($photos) < 3),
             'hiddenPhotoCount' => max(0, count($detail->getAttribute('community_public_photos') ?? []) - self::PUBLIC_PHOTO_COUNT),
             'featuredReview' => $this->featuredReview($profile),
             'pastEventCount' => (int) ($stats['past_events_count'] ?? 0),
