@@ -28,7 +28,7 @@ class SendTransactionalEmail implements ShouldQueue
 
     /**
      * @param  'template'|'raw'  $mode
-     * @param  array<string, mixed>  $data  template: {alias, model}; raw: {subject, html, text}
+     * @param  array<string, mixed>  $data  template: {alias, model, reply_to}; raw: {subject, html, text}
      */
     private function __construct(
         public readonly string $mode,
@@ -46,11 +46,12 @@ class SendTransactionalEmail implements ShouldQueue
      *
      * @param  array<string, mixed>  $model
      */
-    public static function template(string $to, string $templateAlias, array $model, ?string $toName = null): self
+    public static function template(string $to, string $templateAlias, array $model, ?string $toName = null, ?string $replyTo = null): self
     {
         return new self('template', $to, $toName, [
             'alias' => $templateAlias,
             'model' => $model,
+            'reply_to' => $replyTo,
         ]);
     }
 
@@ -74,6 +75,8 @@ class SendTransactionalEmail implements ShouldQueue
                 templateAlias: $this->data['alias'],
                 model: $this->data['model'],
                 toName: $this->toName,
+                // ?? null: jobs queued before reply_to existed have no such key.
+                replyTo: $this->data['reply_to'] ?? null,
             );
 
             return;

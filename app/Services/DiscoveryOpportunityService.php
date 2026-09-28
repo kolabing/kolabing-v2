@@ -140,7 +140,9 @@ class DiscoveryOpportunityService
             'model' => $kolab,
             'score' => (int) ($kolab->getAttribute('discovery_match_score') ?? 0),
             'timestamp' => $kolab->published_at?->timestamp ?? 0,
-            'sort_date' => ($kolab->availability_end ?? $kolab->availability_start)?->toDateString(),
+            // An absent end is open-ended, so it has no date to end on: it sorts
+            // with the undated kolabs under `ending_soon` (BE-FX-74).
+            'sort_date' => $kolab->availability_end?->toDateString(),
         ]);
 
         $multiKolabBaseQuery = $this->makeMultiKolabRoleBaseQuery($viewer, $viewerRole);
@@ -585,26 +587,30 @@ class DiscoveryOpportunityService
         ]);
     }
 
+    /**
+     * Keep kolabs whose window has not ended: an absent `availability_end` is
+     * open-ended, a present one must be today or later. This is
+     * Kolab::scopeWithSelectableDates(), the reading the apply-time guard
+     * (Kolab::hasSelectableDatesFrom()) already uses.
+     *
+     * It used to be `COALESCE(availability_end, availability_start) >= today`,
+     * which read a start-only window as a ONE-DAY window. Onboarding creates
+     * every business's first kolab as `flexible`, starting tomorrow, with no end
+     * (OnboardingService::provisionBusinessAutoOffer()), so each one left
+     * Explore the day after it started, and a city whose businesses had all
+     * onboarded that way showed communities an empty feed (BE-FX-74).
+     */
     private function applyActiveAvailabilityFilter(Builder $query): void
     {
-        $today = Carbon::today()->toDateString();
-
-        $query->where(function (Builder $innerQuery) use ($today): void {
-            $innerQuery
-                ->where(function (Builder $noAvailabilityQuery): void {
-                    $noAvailabilityQuery->whereNull('availability_start')
-                        ->whereNull('availability_end');
-                })
-                ->orWhereRaw('COALESCE(availability_end, availability_start) >= ?', [$today]);
-        });
+        $query->withSelectableDates();
     }
 
     /**
      * Whether [$kolab] still has a day that can actually be BOOKED from
      * [$today] onward.
      *
-     * applyActiveAvailabilityFilter() above answers "is the window still open?"
-     * in SQL. That is not the same question for a recurring kolab: its
+     * applyActiveAvailabilityFilter() above answers "has the window ended?" in
+     * SQL. That is not the same question for a recurring kolab: its
      * `recurring_days` (ISO 1..7) restrict which weekdays inside that window are
      * selectable, so a window that ends next month can still contain no bookable
      * day from today. SQL said yes, the app's buildSelectableApplicationDates
@@ -612,11 +618,10 @@ class DiscoveryOpportunityService
      * already counted it — the shape of FX-57, one field over. Now the server
      * answers it, and the client renders what it is given (kolabing-app#208).
      *
-     * Deliberately NOT Kolab::hasSelectableDatesFrom(): that helper reads an
-     * absent `availability_end` as open-ended and scans 90 days ahead, while
-     * discovery expiry is COALESCE(availability_end, availability_start) — the
-     * rule FX-57 settled between client and server. This mirrors the window the
-     * SQL filter just applied and only adds the weekday requirement inside it.
+     * This is Kolab::hasSelectableDatesFrom(), the apply-time guard itself, so
+     * the feed can never show a kolab that the apply endpoint would refuse, or
+     * hide one it would accept. Both read an absent `availability_end` as
+     * open-ended (BE-FX-74).
      *
      * Runs in PHP, next to the scoring pass that already materialises the whole
      * result set, so it is counted by the same collection `meta.total` is taken
@@ -624,53 +629,7 @@ class DiscoveryOpportunityService
      */
     private function hasBookableDayFromToday(Kolab $kolab, Carbon $today): bool
     {
-        $todayStart = $today->copy()->startOfDay();
-
-        $start = $kolab->availability_start?->copy()->startOfDay();
-        // COALESCE(availability_end, availability_start), exactly as above.
-        $end = ($kolab->availability_end ?? $kolab->availability_start)?->copy()->startOfDay();
-
-        // No window at all: always bookable (the SQL filter lets these through too).
-        if ($start === null && $end === null) {
-            return true;
-        }
-
-        $cursor = ($start !== null && $start->gt($todayStart)) ? $start->copy() : $todayStart->copy();
-
-        if ($end !== null && $cursor->gt($end)) {
-            return false;
-        }
-
-        if ($kolab->availability_mode !== 'recurring') {
-            return true;
-        }
-
-        $recurringDays = collect($kolab->recurring_days ?? [])
-            ->filter(fn (mixed $day): bool => is_numeric($day))
-            ->map(fn (mixed $day): int => (int) $day)
-            ->values()
-            ->all();
-
-        // A recurring kolab with no weekdays recorded behaves like any other
-        // window — same reading as Kolab::isDateWithinAvailability().
-        if ($recurringDays === []) {
-            return true;
-        }
-
-        // Seven consecutive days cover every weekday, so the scan can never run
-        // longer than a week however long the window is.
-        $scanEnd = $cursor->copy()->addDays(6);
-        if ($end !== null && $end->lt($scanEnd)) {
-            $scanEnd = $end->copy();
-        }
-
-        for ($day = $cursor->copy(); $day->lte($scanEnd); $day->addDay()) {
-            if (in_array($day->dayOfWeekIso, $recurringDays, true)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $kolab->hasSelectableDatesFrom($today);
     }
 
     /**
@@ -694,12 +653,9 @@ class DiscoveryOpportunityService
 
         if ($filters['availability_from'] !== null) {
             $query->where(function (Builder $innerQuery) use ($filters): void {
-                $innerQuery
-                    ->where(function (Builder $noAvailabilityQuery): void {
-                        $noAvailabilityQuery->whereNull('availability_start')
-                            ->whereNull('availability_end');
-                    })
-                    ->orWhereRaw('COALESCE(availability_end, availability_start) >= ?', [$filters['availability_from']]);
+                // An absent end is open-ended, so it reaches any date (BE-FX-74).
+                $innerQuery->whereNull('availability_end')
+                    ->orWhereDate('availability_end', '>=', $filters['availability_from']);
             });
         }
 

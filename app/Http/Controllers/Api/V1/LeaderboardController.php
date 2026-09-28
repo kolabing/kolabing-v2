@@ -63,7 +63,7 @@ class LeaderboardController extends Controller
             /** @var Community $community */
             $community = Community::query()->findOrFail($communityId);
 
-            if (! $this->leaderboardService->canViewCommunityBoard($profile, $community)) {
+            if ($profile->cannot('viewLeaderboard', $community)) {
                 return $this->forbidden();
             }
 
@@ -86,6 +86,7 @@ class LeaderboardController extends Controller
     /**
      * The per-community POINTS leaderboard. Each row carries the member's
      * tier, badge_count, and points (the canonical community ranking).
+     * Members and organisers only (403 otherwise): the rows are the roster.
      *
      * GET /api/v1/communities/{community}/leaderboard
      */
@@ -97,7 +98,7 @@ class LeaderboardController extends Controller
         $limit = min((int) $request->query('limit', '50'), 100);
         $limit = max($limit, 1);
 
-        if (! $this->leaderboardService->canViewCommunityBoard($profile, $community)) {
+        if ($profile->cannot('viewLeaderboard', $community)) {
             return $this->forbidden();
         }
 
@@ -120,7 +121,7 @@ class LeaderboardController extends Controller
     {
         return response()->json([
             'success' => false,
-            'message' => __('Only members of this community can see its leaderboard.'),
+            'message' => __('Only members of this community can view its leaderboard.'),
         ], 403);
     }
 }

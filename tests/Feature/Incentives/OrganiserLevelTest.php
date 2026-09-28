@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\Incentives\OrganiserLevelService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class OrganiserLevelTest extends TestCase
@@ -170,6 +171,29 @@ class OrganiserLevelTest extends TestCase
             ->assertJsonPath('data.next_perks', [])
             ->assertJsonPath('data.next_reward.type', 'keep')
             ->assertJsonFragment(['Personal introductions to sports brands, fashion brands and venues']);
+    }
+
+    public function test_the_nightly_job_scores_each_city_once_not_once_per_organiser(): void
+    {
+        // The league table used to be memoised per viewer, so the nightly job
+        // rebuilt the city-wide scores (and its event_checkins scan) once for
+        // every organiser in the city.
+        foreach (['A', 'B', 'C'] as $name) {
+            $this->eventWithCheckins($this->organiser(name: "Busy {$name}"), 20, '2026-09-10 19:00:00');
+        }
+        $this->organiser(name: 'Quiet D'); // no points yet: gets its own table row
+
+        $checkinScans = 0;
+        DB::listen(function ($query) use (&$checkinScans): void {
+            if (str_contains($query->sql, 'event_checkins') && str_contains($query->sql, 'checked_in_at')) {
+                $checkinScans++;
+            }
+        });
+
+        $this->artisan('app:evaluate-organiser-levels')->assertSuccessful();
+
+        $this->assertSame(1, $checkinScans);
+        $this->assertSame(4, OrganiserLevelSnapshot::query()->count());
     }
 
     public function test_a_league_leader_without_a_qualifying_kolab_is_not_top(): void

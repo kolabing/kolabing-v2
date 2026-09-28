@@ -300,7 +300,9 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::get('/users/onboard', [ManagedUserController::class, 'onboardForm'])->name('users.onboard');
     Route::post('/users/onboard/business', [ManagedUserController::class, 'onboardBusiness'])->name('users.onboard.business');
     Route::post('/users/onboard/community', [ManagedUserController::class, 'onboardCommunity'])->name('users.onboard.community');
-    Route::get('/users/{profile}/edit', [ManagedUserController::class, 'edit'])->name('users.edit');
+    // withTrashed: a deleted account's page stays readable (created date, kolabs)
+    // so a maintainer can diagnose it before restoring (bug report 2026-09-28, #11).
+    Route::get('/users/{profile}/edit', [ManagedUserController::class, 'edit'])->name('users.edit')->withTrashed();
     Route::put('/users/{profile}', [ManagedUserController::class, 'update'])->name('users.update');
     Route::delete('/users/{profile}', [ManagedUserController::class, 'destroy'])->name('users.destroy');
     // Bulk form of the switch (#256) — declared before the {profile} routes so
@@ -310,6 +312,7 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     // The global active/passive switch (#254).
     Route::post('/users/{profile}/deactivate', [ManagedUserController::class, 'deactivate'])->name('users.deactivate');
     Route::post('/users/{profile}/activate', [ManagedUserController::class, 'activate'])->name('users.activate');
+    Route::post('/users/{profile}/restore', [ManagedUserController::class, 'restore'])->name('users.restore')->withTrashed();
     Route::post('/users/{profile}/subscription/grant', [ManagedUserController::class, 'grantSubscription'])->name('users.subscription.grant');
     Route::post('/users/{profile}/subscription/revoke', [ManagedUserController::class, 'revokeSubscription'])->name('users.subscription.revoke');
 

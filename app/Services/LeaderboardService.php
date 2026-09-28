@@ -17,6 +17,7 @@ use App\Models\Profile;
 use App\Support\PublicDisplayName;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class LeaderboardService
 {
@@ -28,13 +29,13 @@ class LeaderboardService
      *
      * @return Collection<int, array{profile_id: string, display_name: string, profile_photo: string|null, points: int, tier: array{id: string, name: string, color: string|null}|null, badge_count: int, rank: int}>
      */
-    public function getCommunityPointsLeaderboard(Community $community, int $limit = 50, bool $includeEmail = false): Collection
+    public function getCommunityPointsLeaderboard(Community $community, int $limit = 50): Collection
     {
         $members = CommunityMember::query()
             ->where('community_id', $community->id)
             ->where('status', CommunityMemberStatus::Active->value)
-            // Switched-off accounts drop off every ranked surface (#258).
-            ->whereHas('profile', fn ($q) => $q->active())
+            // A switched-off or deleted account is invisible everywhere (#258).
+            ->whereHas('profile', fn ($profile) => $profile->active())
             ->with(['profile', 'tier'])
             ->get();
 
@@ -64,7 +65,7 @@ class LeaderboardService
         $rank = 0;
         $previousPoints = null;
 
-        return $sorted->map(function (CommunityMember $member) use ($points, $badgeCounts, $includeEmail, &$rank, &$previousPoints): array {
+        return $sorted->map(function (CommunityMember $member) use ($points, $badgeCounts, &$rank, &$previousPoints): array {
             $memberPoints = (int) ($points[$member->profile_id] ?? 0);
 
             if ($memberPoints !== $previousPoints) {
@@ -75,7 +76,6 @@ class LeaderboardService
             return [
                 'profile_id' => $member->profile_id,
                 'display_name' => PublicDisplayName::for($member->profile),
-                ...($includeEmail ? ['email' => $member->profile?->email] : []),
                 'profile_photo' => $member->profile?->avatar_url,
                 'points' => $memberPoints,
                 'tier' => $member->tier !== null ? [
@@ -177,7 +177,7 @@ class LeaderboardService
      *
      * @return Collection<int, array{profile_id: string, display_name: string, profile_photo: string|null, total_points: int, rank: int}>
      */
-    public function getGlobalLeaderboard(int $limit = 50, bool $includeEmail = false): Collection
+    public function getGlobalLeaderboard(int $limit = 50): Collection
     {
         $attendeeProfiles = AttendeeProfile::query()
             ->where('total_points', '>', 0)
@@ -190,7 +190,7 @@ class LeaderboardService
         $rank = 0;
         $previousPoints = null;
 
-        return $attendeeProfiles->map(function (AttendeeProfile $ap) use ($includeEmail, &$rank, &$previousPoints): array {
+        return $attendeeProfiles->map(function (AttendeeProfile $ap) use (&$rank, &$previousPoints): array {
             if ($ap->total_points !== $previousPoints) {
                 $rank++;
                 $previousPoints = $ap->total_points;
@@ -199,7 +199,6 @@ class LeaderboardService
             return [
                 'profile_id' => $ap->profile_id,
                 'display_name' => PublicDisplayName::for($ap->profile),
-                ...($includeEmail ? ['email' => $ap->profile?->email] : []),
                 'profile_photo' => $ap->profile?->avatar_url,
                 'total_points' => $ap->total_points,
                 'rank' => $rank,
@@ -280,21 +279,6 @@ class LeaderboardService
         ];
     }
 
-    /**
-     * A community's rankings are for its active members and its organisers
-     * (owner / can_manage) only.
-     */
-    public function canViewCommunityBoard(Profile $viewer, Community $community): bool
-    {
-        if ($viewer->can('manage', $community)) {
-            return true;
-        }
-
-        return $community->members()
-            ->where('profile_id', $viewer->id)
-            ->where('status', CommunityMemberStatus::Active->value)
-            ->exists();
-    }
 
     /**
      * @return array<int, string>
@@ -304,6 +288,7 @@ class LeaderboardService
         return CommunityMember::query()
             ->where('community_id', $community->id)
             ->where('status', CommunityMemberStatus::Active->value)
+            ->whereHas('profile', fn ($profile) => $profile->active())
             ->pluck('profile_id')
             ->all();
     }

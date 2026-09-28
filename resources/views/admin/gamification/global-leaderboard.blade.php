@@ -19,7 +19,7 @@
                         @forelse ($rows as $row)
                             <tr>
                                 <td class="text-center font-weight-bold">#{{ $row['rank'] }}</td>
-                                <td>{{ $row['display_name'] }}@if (! empty($row['email'])) <small class="text-muted d-block">{{ $row['email'] }}</small>@endif</td>
+                                <td>{{ $row['display_name'] }}@if (! empty($row['email']))<br><small class="text-muted">{{ $row['email'] }}</small>@endif</td>
                                 <td class="text-right pr-4 font-weight-bold">{{ number_format($row['total_points']) }}</td>
                             </tr>
                         @empty

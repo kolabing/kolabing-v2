@@ -48,6 +48,14 @@ class CityLeagueService
      */
     private array $tables = [];
 
+    /**
+     * Memoised organisers and scores per city and month, shared by every
+     * viewer's table.
+     *
+     * @var array<string, array{0: \Illuminate\Support\Collection<string, Profile>, 1: array<string, array<string, mixed>>}>
+     */
+    private array $tableInputs = [];
+
     public function enabled(): bool
     {
         return (bool) config('incentives.city_league.enabled', true);
@@ -92,15 +100,32 @@ class CityLeagueService
      */
     public function table(City $city, string $month, ?Profile $viewer = null): array
     {
-        $key = $city->id.'|'.$month.'|'.($viewer?->id ?? '-');
+        [$start, $end] = $this->monthBounds($month);
+
+        // The organisers and their scores do not depend on the viewer, and the
+        // scores are the expensive part. Compute them once per city and month.
+        $inputsKey = $city->id.'|'.$month;
+        if (! isset($this->tableInputs[$inputsKey])) {
+            $cityOrganisers = $this->organisersIn($city);
+            $this->tableInputs[$inputsKey] = [
+                $cityOrganisers,
+                $this->scores($cityOrganisers->keys()->all(), $start, $end),
+            ];
+        }
+        [$organisers, $scores] = $this->tableInputs[$inputsKey];
+
+        // The viewer only changes the table when it adds a row that would not
+        // otherwise be there: an organiser in this city with no points yet.
+        // Everyone else shares one table, so the nightly level job builds it
+        // once per city instead of once per organiser.
+        $viewerAddsRow = $viewer !== null
+            && $organisers->has($viewer->id)
+            && ($scores[$viewer->id]['points'] ?? 0) <= 0;
+        $key = $inputsKey.'|'.($viewerAddsRow ? $viewer->id : '-');
         if (isset($this->tables[$key])) {
             return $this->tables[$key];
         }
 
-        [$start, $end] = $this->monthBounds($month);
-        $organisers = $this->organisersIn($city);
-
-        $scores = $this->scores($organisers->keys()->all(), $start, $end);
         $participants = $organisers->filter(
             fn (Profile $p): bool => ($scores[$p->id]['points'] ?? 0) > 0 || $p->id === $viewer?->id
         );

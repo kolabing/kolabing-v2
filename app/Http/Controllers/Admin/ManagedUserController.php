@@ -31,6 +31,7 @@ use App\Models\Scopes\ActiveProfileScope;
 use App\Services\Admin\ManagedProfileService;
 use App\Services\OrganizerEntitlementService;
 use App\Support\OfferOptionValues;
+use DomainException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -58,6 +59,9 @@ class ManagedUserController extends Controller
         $userType = $request->query('user_type');
         $cityId = $request->query('city_id');
         $hideTest = ! $request->boolean('show_test');
+        // Deleted accounts are soft-deleted rows the default query never sees, so a
+        // maintainer could not find (or undo) one (bug report 2026-09-28, item 11).
+        $onlyDeleted = $request->boolean('deleted');
 
         // Deliberately unfiltered on is_active: an admin that cannot see a switched-off
         // account cannot switch it back on. The sub-profile relations carry
@@ -70,6 +74,10 @@ class ManagedUserController extends Controller
                 'attendeeProfile' => fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class),
                 'subscription',
             ]);
+
+        if ($onlyDeleted) {
+            $query->onlyTrashed();
+        }
 
         if ($q !== '') {
             $needle = '%'.mb_strtolower($q).'%';
@@ -102,7 +110,9 @@ class ManagedUserController extends Controller
                 ->whereDoesntHave('communityProfile', fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->whereRaw('LOWER(name) LIKE ?', ['%test%']));
         }
 
-        $profiles = $query->latest()->paginate(20)->withQueryString();
+        $profiles = $onlyDeleted
+            ? $query->orderByDesc('deleted_at')->paginate(20)->withQueryString()
+            : $query->latest()->paginate(20)->withQueryString();
 
         return view('admin.users.index', [
             'profiles' => $profiles,
@@ -114,6 +124,7 @@ class ManagedUserController extends Controller
                 'user_type' => $userType,
                 'city_id' => $cityId,
                 'show_test' => ! $hideTest,
+                'deleted' => $onlyDeleted,
             ],
         ]);
     }
@@ -257,8 +268,18 @@ class ManagedUserController extends Controller
             'subscription',
         ]);
 
+        // Kolabs are counted without the active-owner filter on purpose: the point
+        // is to see what a deleted or switched-off account still owns.
+        $kolabCounts = $profile->kolabs()
+            ->toBase()
+            ->selectRaw('status, count(*) as n')
+            ->groupBy('status')
+            ->pluck('n', 'status')
+            ->map(fn ($n): int => (int) $n);
+
         return view('admin.users.edit', [
             'profile' => $profile,
+            'kolabCounts' => $kolabCounts,
             'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->get(),
             'businessTypes' => BusinessType::query()->active()->ordered()->get(),
             'welcomeEmailLocales' => AdminWelcomeEmailTemplate::query()
@@ -355,6 +376,22 @@ class ManagedUserController extends Controller
 
         return redirect()->route('admin.users.index')
             ->with('status', __('User deleted.'));
+    }
+
+    /**
+     * Undo an admin delete (bug report 2026-09-28, item 11). Refused, with the
+     * reason shown, when the email now belongs to a live account.
+     */
+    public function restore(Profile $profile): RedirectResponse
+    {
+        try {
+            $this->managedProfileService->restore($profile);
+        } catch (DomainException $e) {
+            return redirect()->back()->withErrors(['restore' => $e->getMessage()]);
+        }
+
+        return redirect()->route('admin.users.edit', $profile)
+            ->with('status', __('Account restored.'));
     }
 
     /**

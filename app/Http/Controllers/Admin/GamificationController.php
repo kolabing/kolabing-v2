@@ -10,9 +10,11 @@ use App\Models\CommunityBadge;
 use App\Models\CommunityGoal;
 use App\Models\CommunityPoints;
 use App\Models\CommunityReward;
+use App\Models\Profile;
 use App\Models\RewardRedemption;
 use App\Services\LeaderboardService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -86,7 +88,7 @@ class GamificationController extends Controller
             'communities' => $communities,
             'selected' => $community,
             'rows' => $community !== null
-                ? $this->leaderboard->getCommunityPointsLeaderboard($community, 100, includeEmail: true)
+                ? $this->withEmails($this->leaderboard->getCommunityPointsLeaderboard($community, 100))
                 : collect(),
         ]);
     }
@@ -97,7 +99,24 @@ class GamificationController extends Controller
     public function globalLeaderboard(): View
     {
         return view('admin.gamification.global-leaderboard', [
-            'rows' => $this->leaderboard->getGlobalLeaderboard(100, includeEmail: true),
+            'rows' => $this->withEmails($this->leaderboard->getGlobalLeaderboard(100)),
         ]);
+    }
+
+    /**
+     * Leaderboard rows no longer carry the email as display_name (it leaked to
+     * members). Operators still need to tell accounts apart, so the admin view
+     * attaches the email here, maintainer-only.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function withEmails(Collection $rows): Collection
+    {
+        $emails = Profile::query()
+            ->whereIn('id', $rows->pluck('profile_id')->all())
+            ->pluck('email', 'id');
+
+        return $rows->map(fn (array $row): array => $row + ['email' => $emails[$row['profile_id']] ?? null]);
     }
 }
