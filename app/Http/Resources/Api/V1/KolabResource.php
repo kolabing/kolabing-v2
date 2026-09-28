@@ -76,6 +76,7 @@ class KolabResource extends JsonResource
             'expects' => $this->expects ?? [],
             'past_events' => $this->normalizePastEvents($this->past_events),
             'published_at' => $this->published_at?->toIso8601String(),
+            'is_auto_listing' => (bool) $this->is_auto_listing,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
             'creator_profile' => $this->whenLoaded('creatorProfile', function () {

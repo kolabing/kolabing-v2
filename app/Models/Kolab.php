@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $recipient_community_id
  * @property IntentType $intent_type
  * @property KolabStatus $status
+ * @property bool $is_auto_listing
  * @property string $title
  * @property string $description
  * @property string|null $goal
@@ -135,6 +136,7 @@ class Kolab extends Model
         return [
             'intent_type' => IntentType::class,
             'status' => KolabStatus::class,
+            'is_auto_listing' => 'boolean',
             'negotiation_triggers' => 'array',
             'media' => 'array',
             'availability_start' => 'date',
@@ -235,6 +237,42 @@ class Kolab extends Model
     public function scopePublished(Builder $query): Builder
     {
         return $query->where('status', KolabStatus::Published);
+    }
+
+    /**
+     * Scope a query to the listing the platform created for a business on its
+     * behalf (BusinessAutoListingService), in any status.
+     *
+     * @param  Builder<Kolab>  $query
+     * @return Builder<Kolab>
+     */
+    public function scopeAutoListing(Builder $query): Builder
+    {
+        return $query->where('is_auto_listing', true);
+    }
+
+    /**
+     * Scope a query to offers a community can still find in Explore: published,
+     * a venue or product offer, not a Multi-Kolab child, and with a window that
+     * has not run out — the same COALESCE(availability_end, availability_start)
+     * rule DiscoveryOpportunityService applies.
+     *
+     * @param  Builder<Kolab>  $query
+     * @return Builder<Kolab>
+     */
+    public function scopeOpenBusinessOffer(Builder $query): Builder
+    {
+        $today = now()->toDateString();
+
+        return $query
+            ->where('status', KolabStatus::Published)
+            ->whereIn('intent_type', [IntentType::VenuePromotion, IntentType::ProductPromotion])
+            ->whereNull('multi_kolab_event_id')
+            ->where(function (Builder $window) use ($today): void {
+                $window->where(function (Builder $open): void {
+                    $open->whereNull('availability_start')->whereNull('availability_end');
+                })->orWhereRaw('COALESCE(availability_end, availability_start) >= ?', [$today]);
+            });
     }
 
     /**

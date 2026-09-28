@@ -6,12 +6,10 @@ namespace App\Services;
 
 use App\Enums\CommunityType;
 use App\Enums\FileUploadType;
-use App\Enums\IntentType;
 use App\Enums\JoinPolicy;
 use App\Enums\MissionTrigger;
 use App\Jobs\GenerateSuggestionsForProfile;
 use App\Models\Community;
-use App\Models\Kolab;
 use App\Models\Profile;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -66,7 +64,7 @@ class OnboardingService
         private readonly HandleService $handleService,
         private readonly CommunityMemberService $communityMemberService,
         private readonly CommunityService $communityService,
-        private readonly KolabService $kolabService,
+        private readonly BusinessAutoListingService $businessAutoListingService,
         private readonly MissionService $missionService,
     ) {}
 
@@ -268,136 +266,17 @@ class OnboardingService
     }
 
     /**
-     * Create + publish the single free auto-offer for a freshly onboarded
-     * business, mirroring the validated KolabController::store -> publish path.
-     *
-     * Free tier = exactly one auto-offer. Idempotent: skips when the business
-     * already owns any kolab. has_venue=true -> VenuePromotion (requires a
-     * primary_venue on the profile); otherwise -> ProductPromotion.
-     *
-     * Public + shared so BOTH onboarding-complete and the one-shot register
-     * path (AuthService::registerBusiness) provision the same auto-offer with
-     * identical logic. Must be invoked AFTER the business profile (name, city,
-     * primary_venue) is persisted so the composed kolab has the right data.
+     * List the business in Explore (and fill an empty avatar from its top Maps
+     * photo) — see {@see BusinessAutoListingService}. Shared by
+     * onboarding-complete, the one-shot register path
+     * (AuthService::registerBusiness) and the admin paths, so every way a
+     * business comes to exist ends with the same single listing. Idempotent,
+     * never recreates a listing the business closed, and never throws: must
+     * run AFTER the business profile (name, city, primary_venue) is persisted.
      */
     public function provisionBusinessAutoOffer(Profile $profile): void
     {
-        $businessProfile = $profile->businessProfile;
-
-        if ($businessProfile === null) {
-            return;
-        }
-
-        // Idempotent: never create a second auto-offer.
-        if (Kolab::query()->where('creator_profile_id', $profile->id)->exists()) {
-            return;
-        }
-
-        $hasVenue = (bool) $businessProfile->has_venue;
-        $name = $businessProfile->name ?: 'My business';
-        $about = $businessProfile->about;
-        $offering = $businessProfile->offering;
-
-        try {
-            if ($hasVenue) {
-                // VenuePromotion needs a primary_venue; KolabService enriches
-                // venue_name/type/capacity/address + preferred_city from it.
-                if (empty($businessProfile->primary_venue)) {
-                    Log::info('Skipping venue auto-offer: no primary venue on profile', [
-                        'profile_id' => $profile->id,
-                    ]);
-
-                    return;
-                }
-
-                $venue = $businessProfile->primary_venue;
-                $description = $about
-                    ?: ($offering ?: 'Partner with '.$name.' at our venue.');
-
-                $payload = [
-                    'intent_type' => IntentType::VenuePromotion->value,
-                    'title' => $name,
-                    'description' => $description,
-                    'offering' => ['venue'],
-                    // preferred_city is filled from the primary venue by the
-                    // KolabService when omitted; pass our best guess too.
-                    'preferred_city' => $venue['city'] ?? $businessProfile->city_name ?? null,
-                    // Mirror the create form's availability default.
-                    'availability_mode' => 'flexible',
-                    'availability_start' => now()->addDay()->toDateString(),
-                    // Reuse the venue's rehosted photos when present (optional at
-                    // the service layer).
-                    'media' => $this->venueMediaFromVenue($venue),
-                ];
-            } else {
-                // ProductPromotion needs product_name + product_type + offering
-                // + preferred_city.
-                $description = $about
-                    ?: ($offering ?: 'Collaborate with '.$name.' to promote our product.');
-
-                // ProductPromotion requires a preferred_city; without one we
-                // cannot build a valid offer, so skip rather than persist junk.
-                if (empty($businessProfile->city_name)) {
-                    Log::info('Skipping product auto-offer: unresolved preferred city', [
-                        'profile_id' => $profile->id,
-                    ]);
-
-                    return;
-                }
-
-                $payload = [
-                    'intent_type' => IntentType::ProductPromotion->value,
-                    'title' => $name,
-                    'description' => $description,
-                    'offering' => ['products'],
-                    'preferred_city' => $businessProfile->city_name,
-                    'product_name' => $name,
-                    'product_type' => $businessProfile->product_type ?: 'other',
-                ];
-            }
-
-            $kolab = $this->kolabService->create($profile, $payload);
-            $this->kolabService->publish($kolab);
-        } catch (\Throwable $e) {
-            // Never let auto-offer provisioning break onboarding.
-            Log::error('Failed to auto-provision business kolab', [
-                'profile_id' => $profile->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
-
-    /**
-     * Build the kolab media collection from a primary venue's stored photos.
-     * Venue promotions require at least one media item; we reuse the venue's
-     * already-rehosted photo URLs. Returns null when no usable photo exists
-     * (the caller treats that as "skip" for venue auto-offers).
-     *
-     * @param  array<string, mixed>  $venue
-     * @return array<int, array{url: string, type: string, sort_order: int}>|null
-     */
-    private function venueMediaFromVenue(array $venue): ?array
-    {
-        $photos = $venue['photos'] ?? [];
-
-        if (! is_array($photos)) {
-            return null;
-        }
-
-        $media = [];
-        $order = 0;
-
-        foreach ($photos as $photo) {
-            if (is_string($photo) && filter_var($photo, FILTER_VALIDATE_URL)) {
-                $media[] = [
-                    'url' => $photo,
-                    'type' => 'image',
-                    'sort_order' => $order++,
-                ];
-            }
-        }
-
-        return $media === [] ? null : $media;
+        $this->businessAutoListingService->provisionSafely($profile);
     }
 
     /**
