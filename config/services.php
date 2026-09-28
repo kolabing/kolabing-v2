@@ -196,7 +196,7 @@ return [
         'max_import_per_request' => (int) env('INSTAGRAM_MAX_IMPORT_PER_REQUEST', 10),
         // Imported videos: stored mp4 + thumbnail, capped by size (the Instagram
         // API does not return a duration, so length is bounded by the size cap).
-        'max_video_mb' => (int) env('INSTAGRAM_MAX_VIDEO_MB', 50),
+        'max_video_mb' => (int) env('INSTAGRAM_MAX_VIDEO_MB', 100),
         'kolab_max_media' => (int) env('INSTAGRAM_KOLAB_MAX_MEDIA', 10),
         'timeout' => (int) env('INSTAGRAM_TIMEOUT', 20),
     ],

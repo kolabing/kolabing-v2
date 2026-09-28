@@ -39,7 +39,7 @@ Kolabing uses its **own** Meta app (one Meta app per brand, decision 24 Sep 2026
 | `INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET` | — | Instagram app credentials. Missing = feature off for everyone. |
 | `INSTAGRAM_REDIRECT_URI` | `https://kolabing.com/instagram/callback` | OAuth redirect URI. |
 | `INSTAGRAM_TESTER_PROFILE_IDS` | empty | Kolabing profile ids that may connect while disabled. |
-| `INSTAGRAM_MAX_VIDEO_MB` | `50` | Per-video size cap on import (the API returns no duration; the size cap bounds length). |
+| `INSTAGRAM_MAX_VIDEO_MB` | `100` | Per-video size cap on import. The API returns no duration, so size bounds length: 100 MB covers a 3-minute reel (Instagram stops recommending longer ones) at up to ~4.4 Mbps; typical 45-60 s reels are well under. |
 | `INSTAGRAM_WEB_RETURN_URL` | `https://app.kolabing.com/settings` | Where the web flow lands (`?instagram=ok|error&reason=`). |
 
 The app flow lands on `kolabing://instagram/connected?status=ok|error&reason=…`.

@@ -827,7 +827,7 @@ class InstagramService
             }
 
             $videoType = $isGallery ? FileUploadType::GalleryVideo : FileUploadType::KolabMedia;
-            $cap = min((int) config('services.instagram.max_video_mb', 50) * 1024 * 1024, $videoType->getMaxFileSize());
+            $cap = min((int) config('services.instagram.max_video_mb', 100) * 1024 * 1024, $videoType->getMaxFileSize());
 
             $video = $this->download($mediaUrl, $cap, $reason);
             if ($video === null) {

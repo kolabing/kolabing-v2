@@ -65,7 +65,7 @@ enum FileUploadType: string
             self::KolabMedia => 50 * 1024 * 1024, // 50MB
             self::OpportunityPhoto => 5 * 1024 * 1024, // 5MB
             self::GalleryPhoto => 5 * 1024 * 1024, // 5MB
-            self::GalleryVideo => 50 * 1024 * 1024, // 50MB
+            self::GalleryVideo => 100 * 1024 * 1024, // 100MB: a 3-min Instagram reel at up to ~4.4 Mbps
             self::EventPhoto => 5 * 1024 * 1024, // 5MB
             self::ChallengeProof => 5 * 1024 * 1024, // 5MB
         };
