@@ -275,6 +275,9 @@ Route::post('/instagram/deauthorize', [InstagramCallbackController::class, 'deau
 Route::post('/instagram/data-deletion', [InstagramCallbackController::class, 'dataDeletion'])
     ->middleware('throttle:60,1')
     ->name('instagram.data-deletion');
+// Plain visits (and Meta's URL check) get a page instead of 405.
+Route::view('/instagram/data-deletion', 'instagram.data-deletion-instructions')->name('instagram.data-deletion.instructions');
+Route::get('/instagram/deauthorize', fn () => response('OK', 200))->name('instagram.deauthorize.ping');
 Route::get('/instagram/data-deletion/{code}', [InstagramCallbackController::class, 'deletionStatus'])
     ->where('code', '[A-Z0-9]{8,64}')
     ->name('instagram.data-deletion.status');

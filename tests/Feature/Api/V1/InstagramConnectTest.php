@@ -890,4 +890,13 @@ class InstagramConnectTest extends TestCase
 
         $this->assertNull($account->fresh()->access_token);
     }
+
+    public function test_plain_get_on_meta_callback_urls_returns_a_page_not_405(): void
+    {
+        $this->get('/instagram/data-deletion')
+            ->assertOk()
+            ->assertSee('Delete your Instagram data from Kolabing');
+
+        $this->get('/instagram/deauthorize')->assertOk();
+    }
 }
