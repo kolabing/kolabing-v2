@@ -59,7 +59,8 @@ class CityLeagueController extends Controller
             'relegation_zone' => false,
             'level' => $snapshot->level->value,
             'next_reward' => $this->levels->nextReward($snapshot, $now),
-            'top_reward' => (string) config('incentives.city_league.top_reward'),
+            'top_slots' => $this->league->topThreshold(0),
+            'top_reward' => $this->topReward($this->league->topThreshold(0)),
         ];
 
         if ($city === null) {
@@ -89,6 +90,8 @@ class CityLeagueController extends Controller
             'preview' => array_map(fn (int $i): array => $this->row($division[$i], $profile), $keep),
             'promotion_zone' => $me['promotion_zone'],
             'relegation_zone' => $me['relegation_zone'],
+            'top_slots' => $me['top_slots'],
+            'top_reward' => $this->topReward($me['top_slots']),
         ])]);
     }
 
@@ -147,6 +150,19 @@ class CityLeagueController extends Controller
             'promotion_zone' => $row['promotion_zone'],
             'relegation_zone' => $row['relegation_zone'],
         ];
+    }
+
+    /**
+     * Who gets Top in this division, in plain words ("The #1 organiser…" in a
+     * small division, "The top 3 organisers…" in a larger one).
+     */
+    private function topReward(int $slots): string
+    {
+        $copy = (array) config('incentives.city_league.top_reward', []);
+
+        return $slots <= 1
+            ? (string) ($copy['one'] ?? '')
+            : str_replace(':slots', (string) $slots, (string) ($copy['many'] ?? ''));
     }
 
     private function divisionLabel(string $key): string

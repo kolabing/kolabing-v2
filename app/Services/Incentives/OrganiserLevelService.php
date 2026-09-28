@@ -23,9 +23,10 @@ use Illuminate\Support\Facades\DB;
  *  Trusted ≥1 kolab completed in the app this month (or last month) with
  *          ≥20 verified check-ins at it. A month without one drops the
  *          organiser back to Rising at the start of the next month.
- *  Top     Trusted AND inside the top of their city league division (top 3,
- *          or top 10% when the division is large), live this month or in
- *          last month's final table.
+ *  Top     Trusted AND inside the Top slots of their city league division
+ *          (top 1 under 5 ranked communities, top 2 for 5 to 9, top 3 for
+ *          10+, or top 10% when larger), live this month or in last month's
+ *          final table.
  *
  * Thresholds, perks and copy live in config/incentives.php.
  */
@@ -126,7 +127,8 @@ class OrganiserLevelService
         $label = fn (OrganiserLevel $l): string => (string) config("incentives.organiser_levels.levels.{$l->value}.label", ucfirst($l->value));
         $qualifiedThisMonth = ($metrics['qualifying_kolabs_this_month'] ?? 0) >= $this->kolabsPerMonth();
         $rank = $metrics['league_rank'] ?? null;
-        $threshold = (int) ($metrics['league_threshold'] ?? config('incentives.city_league.top_ranks', 3));
+        $threshold = (int) ($metrics['league_threshold'] ?? $this->league->topThreshold(0));
+        $topText = $this->topText($threshold);
 
         $reward = fn (string $type, OrganiserLevel $target, string $message, array $remaining): array => [
             'type' => $type,
@@ -150,17 +152,17 @@ class OrganiserLevelService
                 ['kolabs_completed' => 1, 'checkins' => $minCheckins]),
 
             $snapshot->level === OrganiserLevel::Trusted && $rank !== null => $reward('level', OrganiserLevel::Top,
-                "You're #{$rank}. Reach the top {$threshold} of your city league for Top: {$copy['top']}",
+                "You're #{$rank}. Reach {$topText} of your city league for Top: {$copy['top']}",
                 ['ranks' => max(1, $rank - $threshold)]),
 
             $snapshot->level === OrganiserLevel::Trusted => $reward('level', OrganiserLevel::Top,
-                "Earn city league points this month to reach the top {$threshold} for Top: {$copy['top']}",
+                "Earn city league points this month to reach {$topText} for Top: {$copy['top']}",
                 []),
 
             default => $reward('keep', OrganiserLevel::Top,
                 $rank !== null
-                    ? "You're #{$rank}. Stay in the top {$threshold} of your city league to keep Top: {$copy['top']}"
-                    : "Stay in the top {$threshold} of your city league to keep Top: {$copy['top']}",
+                    ? "You're #{$rank}. Stay {$this->stayText($threshold)} your city league to keep Top: {$copy['top']}"
+                    : "Stay {$this->stayText($threshold)} your city league to keep Top: {$copy['top']}",
                 []),
         };
     }
@@ -185,12 +187,13 @@ class OrganiserLevelService
 
         $row = $this->league->enabled() ? $this->league->rowFor($profile, $now) : null;
         $liveRank = $row !== null && $row['points'] > 0 ? (int) $row['rank'] : null;
-        $liveThreshold = $row !== null ? $this->league->topThreshold((int) $row['division_size']) : null;
+        $liveThreshold = $row !== null ? (int) $row['top_slots'] : null;
 
         $last = $this->league->enabled() ? $this->league->lastStanding($profile, $month) : null;
         $lastThreshold = null;
         if ($last !== null) {
-            $lastSize = LeagueStanding::query()->where('season_id', $last->season_id)->where('division', $last->division)->count();
+            // Standings only hold communities with points: all of them ranked.
+            $lastSize = LeagueStanding::query()->where('season_id', $last->season_id)->where('division', $last->division)->where('points', '>', 0)->count();
             $lastThreshold = $this->league->topThreshold($lastSize);
         }
 
@@ -208,7 +211,8 @@ class OrganiserLevelService
             'league_division' => $row['division'] ?? null,
             'league_rank' => $liveRank,
             'league_division_size' => $row['division_size'] ?? null,
-            'league_threshold' => $liveThreshold ?? (int) config('incentives.city_league.top_ranks', 3),
+            'league_ranked_size' => $row['ranked_size'] ?? null,
+            'league_threshold' => $liveThreshold ?? $this->league->topThreshold(0),
             'league_points' => (int) ($row['points'] ?? 0),
             'league_last_rank' => $last?->rank,
             'league_last_points' => (int) ($last?->points ?? 0),
@@ -358,6 +362,19 @@ class OrganiserLevelService
         $breakdown = ['level' => $levelPoints, 'league' => $league, 'champion' => $champion];
 
         return [array_sum($breakdown), $breakdown];
+    }
+
+    /**
+     * "#1" when the division has one Top slot, else "the top N".
+     */
+    public function topText(int $slots): string
+    {
+        return $slots <= 1 ? '#1' : "the top {$slots}";
+    }
+
+    private function stayText(int $slots): string
+    {
+        return $slots <= 1 ? '#1 in' : "in the top {$slots} of";
     }
 
     private function daysLeft(string $month, ?CarbonInterface $now = null): int
