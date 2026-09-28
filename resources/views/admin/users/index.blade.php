@@ -42,8 +42,12 @@
                     <input type="checkbox" class="custom-control-input" id="show_test" name="show_test" value="1" @checked($filters['show_test'])>
                     <label class="custom-control-label" for="show_test">Show test accounts</label>
                 </div>
+                <div class="custom-control custom-checkbox">
+                    <input type="checkbox" class="custom-control-input" id="deleted" name="deleted" value="1" @checked($filters['deleted'])>
+                    <label class="custom-control-label" for="deleted">Deleted accounts</label>
+                </div>
                 <button class="btn btn-sm btn-outline-secondary">Filter</button>
-                @if ($filters['q'] || $filters['user_type'] || $filters['city_id'] || $filters['show_test'])
+                @if ($filters['q'] || $filters['user_type'] || $filters['city_id'] || $filters['show_test'] || $filters['deleted'])
                     <a href="{{ route('admin.users.index') }}" class="btn btn-sm btn-link">Clear</a>
                 @endif
             </form>
@@ -180,13 +184,15 @@
                                     $cityName = $profile->businessProfile?->city?->name
                                         ?? $profile->communityProfile?->city?->name;
                                 @endphp
-                                <tr class="{{ $profile->is_active ? '' : 'table-secondary text-muted' }}">
+                                <tr class="{{ $profile->is_active && ! $profile->trashed() ? '' : 'table-secondary text-muted' }}">
                                     <td>
+                                        @if (! $profile->trashed())
                                         <input type="checkbox"
                                                name="profile_ids[]"
                                                value="{{ $profile->id }}"
                                                class="bulk-select-row"
                                                aria-label="Select {{ $label }}">
+                                        @endif
                                     </td>
                                     <td>
                                         <div class="font-weight-bold">{{ $label }}</div>
@@ -204,11 +210,23 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <span class="badge {{ $profile->is_active ? 'badge-success' : 'badge-danger' }}">
-                                            {{ $profile->is_active ? 'Active' : 'Passive' }}
-                                        </span>
+                                        @if ($profile->trashed())
+                                            <span class="badge badge-dark" title="Deleted {{ $profile->deleted_at->toDayDateTimeString() }}">Deleted</span>
+                                            <small class="d-block text-muted">{{ $profile->deleted_at->format('d M Y') }}</small>
+                                        @else
+                                            <span class="badge {{ $profile->is_active ? 'badge-success' : 'badge-danger' }}">
+                                                {{ $profile->is_active ? 'Active' : 'Passive' }}
+                                            </span>
+                                        @endif
                                     </td>
                                     <td class="text-right pr-4">
+                                        @if ($profile->trashed())
+                                            <a href="{{ route('admin.users.edit', $profile) }}" class="btn btn-sm btn-outline-primary">View</a>
+                                            <button type="submit"
+                                                    form="row-restore-{{ $profile->id }}"
+                                                    class="btn btn-sm btn-outline-success"
+                                                    title="Undo the delete">Restore</button>
+                                        @else
                                         <a href="{{ route('admin.users.edit', $profile) }}" class="btn btn-sm btn-outline-primary">Edit</a>
 
                                         @if ($profile->is_active)
@@ -241,6 +259,7 @@
                                         <button type="submit"
                                                 form="row-destroy-{{ $profile->id }}"
                                                 class="btn btn-sm btn-outline-danger">Delete</button>
+                                        @endif
                                     </td>
                                 </tr>
                             @empty
@@ -263,6 +282,13 @@
     {{-- Per-row forms, kept out of the bulk form because HTML does not allow a
          form inside a form. The buttons above reference them by id. --}}
     @foreach ($profiles as $profile)
+        @if ($profile->trashed())
+            <form method="POST" id="row-restore-{{ $profile->id }}" action="{{ route('admin.users.restore', $profile) }}"
+                  onsubmit="return confirm('Restore this account? It comes back exactly as it was before the delete.');">
+                @csrf
+            </form>
+            @continue
+        @endif
         <form method="POST" id="row-deactivate-{{ $profile->id }}" action="{{ route('admin.users.deactivate', $profile) }}"
               onsubmit="return confirm('Deactivate this account? It disappears from the app and cannot sign in. Nothing is deleted, and you can switch it back on.');">
             @csrf
