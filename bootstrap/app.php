@@ -73,6 +73,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'cache_marketing' => CacheMarketingPage::class,
         ]);
 
+        // Meta's Instagram deauthorize + data-deletion callbacks are server-to-
+        // server POSTs authenticated by their HMAC signed_request (BE-NF-75).
+        $middleware->validateCsrfTokens(except: [
+            'instagram/deauthorize',
+            'instagram/data-deletion',
+        ]);
+
         // Sanctum stateful domains for API
         $middleware->statefulApi();
     })

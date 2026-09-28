@@ -159,4 +159,46 @@ return [
         'image_timeout' => (int) env('OPENAI_IMAGE_TIMEOUT', 180),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Instagram Connect (BE-NF-75, docs/instagram-connect.md)
+    |--------------------------------------------------------------------------
+    |
+    | Instagram API with Instagram Login on Kolabing's own Meta app (permission
+    | instagram_business_basic; Business or Creator accounts only). Until Meta
+    | approves the permission in App Review only the app's Instagram testers can
+    | connect, so the feature ships off: `enabled` opens it to every business and
+    | community, `tester_profile_ids` opens it to named Kolabing profiles only.
+    | Nothing is reachable without app_id + app_secret.
+    |
+    */
+    'instagram' => [
+        'enabled' => (bool) env('INSTAGRAM_ENABLED', false),
+        'app_id' => env('INSTAGRAM_APP_ID'),
+        'app_secret' => env('INSTAGRAM_APP_SECRET'),
+        'redirect_uri' => env('INSTAGRAM_REDIRECT_URI', 'https://kolabing.com/instagram/callback'),
+        'tester_profile_ids' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('INSTAGRAM_TESTER_PROFILE_IDS', ''))
+        ))),
+        'scope' => 'instagram_business_basic',
+        'authorize_url' => 'https://www.instagram.com/oauth/authorize',
+        'token_url' => 'https://api.instagram.com/oauth/access_token',
+        'graph_url' => 'https://graph.instagram.com',
+        'graph_version' => env('INSTAGRAM_GRAPH_VERSION', 'v25.0'),
+        // Where the callback sends the user back: the app deep link, or the web app.
+        'app_return_url' => env('INSTAGRAM_APP_RETURN_URL', 'kolabing://instagram/connected'),
+        'web_return_url' => env('INSTAGRAM_WEB_RETURN_URL', 'https://app.kolabing.com/settings'),
+        'state_ttl_minutes' => (int) env('INSTAGRAM_STATE_TTL_MINUTES', 15),
+        // Long-lived tokens last 60 days; the nightly job refreshes them from day 50.
+        'refresh_after_days' => (int) env('INSTAGRAM_REFRESH_AFTER_DAYS', 50),
+        'media_page_size' => 24,
+        'max_import_per_request' => (int) env('INSTAGRAM_MAX_IMPORT_PER_REQUEST', 10),
+        // Imported videos: stored mp4 + thumbnail, capped by size (the Instagram
+        // API does not return a duration, so length is bounded by the size cap).
+        'max_video_mb' => (int) env('INSTAGRAM_MAX_VIDEO_MB', 100),
+        'kolab_max_media' => (int) env('INSTAGRAM_KOLAB_MAX_MEDIA', 10),
+        'timeout' => (int) env('INSTAGRAM_TIMEOUT', 20),
+    ],
+
 ];

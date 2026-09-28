@@ -315,6 +315,17 @@ class Profile extends Authenticatable
     }
 
     /**
+     * The Instagram professional account this profile connected (BE-NF-75).
+     * The row outlives a disconnect with a NULL token; see InstagramAccount.
+     *
+     * @return HasOne<InstagramAccount, $this>
+     */
+    public function instagramAccount(): HasOne
+    {
+        return $this->hasOne(InstagramAccount::class);
+    }
+
+    /**
      * Get events for this profile.
      *
      * @return HasMany<Event, $this>

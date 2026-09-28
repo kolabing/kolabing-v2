@@ -122,42 +122,15 @@ class FileUploadService
                 throw new RuntimeException("Failed to download file from URL. HTTP status: {$response->status()}");
             }
 
-            $content = $response->body();
-
-            // Detect MIME type from content
-            $finfo = new \finfo(FILEINFO_MIME_TYPE);
-            $mimeType = $finfo->buffer($content);
-
-            if ($mimeType === false) {
-                throw new RuntimeException('Unable to determine file MIME type.');
-            }
-
-            // Validate MIME type
-            $this->validateMimeType($mimeType, $type);
-
-            // Validate file size
-            $this->validateFileSize(strlen($content), $type);
-
-            // Generate filename and path
-            $extension = $this->getExtensionFromMimeType($mimeType);
-            $filename = $this->generateFilename($extension);
-            $path = $this->getPath($type, $entityId, $filename);
-
-            // Store the file
-            $stored = Storage::disk($this->storageDisk)->put($path, $content);
-
-            if (! $stored) {
-                throw new RuntimeException('Failed to store the uploaded file.');
-            }
+            $stored = $this->uploadFromContents($response->body(), $type, $entityId);
 
             Log::info('File uploaded from URL', [
                 'type' => $type->value,
                 'entity_id' => $entityId,
-                'path' => $path,
                 'source_url' => $url,
             ]);
 
-            return $this->getUrl($path);
+            return $stored;
 
         } catch (RuntimeException $e) {
             throw $e;
@@ -170,6 +143,38 @@ class FileUploadService
             ]);
             throw new RuntimeException("Failed to upload file from URL: {$e->getMessage()}");
         }
+    }
+
+    /**
+     * Store raw file contents that were already downloaded (e.g. an Instagram
+     * media file fetched by InstagramService). The MIME type is sniffed from the
+     * bytes, then the same type and size rules as every other upload apply.
+     *
+     * @return string The full public URL of the stored file
+     *
+     * @throws RuntimeException If validation or storage fails
+     */
+    public function uploadFromContents(string $content, FileUploadType $type, string $entityId): string
+    {
+        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        $mimeType = $finfo->buffer($content);
+
+        if ($mimeType === false) {
+            throw new RuntimeException('Unable to determine file MIME type.');
+        }
+
+        $this->validateMimeType($mimeType, $type);
+        $this->validateFileSize(strlen($content), $type);
+
+        $extension = $this->getExtensionFromMimeType($mimeType);
+        $filename = $this->generateFilename($extension);
+        $path = $this->getPath($type, $entityId, $filename);
+
+        if (! Storage::disk($this->storageDisk)->put($path, $content)) {
+            throw new RuntimeException('Failed to store the uploaded file.');
+        }
+
+        return $this->getUrl($path);
     }
 
     /**
