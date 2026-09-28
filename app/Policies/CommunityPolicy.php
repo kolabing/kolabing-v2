@@ -40,4 +40,21 @@ class CommunityPolicy
             ->where('status', CommunityMemberStatus::Active->value)
             ->exists();
     }
+
+    /**
+     * The per-community points leaderboard lists every member with their
+     * points, tier and badges, so only people inside the community may read
+     * it: an active member, or someone who may manage it (owner / can_manage).
+     */
+    public function viewLeaderboard(Profile $user, Community $community): bool
+    {
+        if ($this->manage($user, $community)) {
+            return true;
+        }
+
+        return $community->members()
+            ->where('profile_id', $user->id)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->exists();
+    }
 }
