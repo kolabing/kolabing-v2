@@ -17,7 +17,6 @@ use App\Models\Profile;
 use App\Support\PublicDisplayName;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class LeaderboardService
 {
@@ -278,7 +277,6 @@ class LeaderboardService
             'rank' => $rank,
         ];
     }
-
 
     /**
      * @return array<int, string>
