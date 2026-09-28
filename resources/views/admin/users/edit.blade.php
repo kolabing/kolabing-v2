@@ -9,6 +9,15 @@
         Back to Users
     </a>
 
+    @if ($profile->trashed())
+        <form method="POST" action="{{ route('admin.users.restore', $profile) }}" class="d-inline" onsubmit="return confirm('Restore this account? It comes back exactly as it was before the delete.');">
+            @csrf
+            <button type="submit" class="btn btn-success">
+                <i class="fas fa-undo mr-1"></i>
+                Restore account
+            </button>
+        </form>
+    @else
     @if ($profile->user_type->value === 'business')
         @php $subActive = $profile->subscription?->status?->value === 'active'; @endphp
         @if ($subActive)
@@ -53,9 +62,46 @@
             Delete user
         </button>
     </form>
+    @endif
 @endsection
 
 @section('admin_content')
+    @if ($profile->trashed())
+        <div class="alert alert-dark">
+            <i class="fas fa-trash mr-1"></i>
+            <strong>Deleted</strong> on {{ $profile->deleted_at->toDayDateTimeString() }}.
+            It is hidden from the app and cannot sign in. Restore it to edit it again.
+        </div>
+    @endif
+
+    @php
+        $kolabTotal = $kolabCounts->sum();
+    @endphp
+    <div class="card card-outline card-secondary">
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-id-card mr-1"></i> Account</h3>
+        </div>
+        <div class="card-body py-2">
+            <dl class="row mb-0">
+                <dt class="col-sm-3">Profile ID</dt>
+                <dd class="col-sm-9"><code>{{ $profile->id }}</code></dd>
+                <dt class="col-sm-3">Created</dt>
+                <dd class="col-sm-9">{{ $profile->created_at?->toDayDateTimeString() ?? '—' }}</dd>
+                <dt class="col-sm-3">Kolabs</dt>
+                <dd class="col-sm-9">
+                    {{ $kolabTotal }}
+                    @if ($kolabTotal > 0)
+                        @foreach (\App\Enums\KolabStatus::cases() as $kolabStatus)
+                            @if (($kolabCounts[$kolabStatus->value] ?? 0) > 0)
+                                <span class="badge badge-light ml-1">{{ ucfirst($kolabStatus->value) }}: {{ $kolabCounts[$kolabStatus->value] }}</span>
+                            @endif
+                        @endforeach
+                    @endif
+                </dd>
+            </dl>
+        </div>
+    </div>
+
     @if ($profile->user_type->value === 'business' && $profile->subscription)
         @php
             $sub = $profile->subscription;
@@ -76,11 +122,11 @@
         </div>
     @endif
 
-    @if ($profile->user_type->value === 'community')
+    @if ($profile->user_type->value === 'community' && ! $profile->trashed())
         @include('admin.users._verification', ['profile' => $profile])
     @endif
 
-    @if (in_array($profile->user_type->value, ['business', 'community'], true))
+    @if (in_array($profile->user_type->value, ['business', 'community'], true) && ! $profile->trashed())
         <div class="card card-outline card-info">
             <div class="card-header">
                 <h3 class="card-title"><i class="fas fa-envelope mr-1"></i> Send welcome email</h3>
@@ -115,13 +161,15 @@
             @csrf
             @method('PUT')
             <div class="card-body">
-                @php($isEdit = true)
-                @php($userTypes = [])
-                @include('admin.users.form')
+                <fieldset class="mb-0" @disabled($profile->trashed())>
+                    @php($isEdit = true)
+                    @php($userTypes = [])
+                    @include('admin.users.form')
+                </fieldset>
             </div>
 
             <div class="card-footer">
-                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="submit" class="btn btn-primary" @disabled($profile->trashed())>Save Changes</button>
                 <a href="{{ route('admin.users.index') }}" class="btn btn-default">Back</a>
             </div>
         </form>

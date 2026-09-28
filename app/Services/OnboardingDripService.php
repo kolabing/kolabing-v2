@@ -187,7 +187,7 @@ class OnboardingDripService
 
         return $this->emailService->send($profile, $alias, [
             'first_name' => $this->displayName($profile),
-        ], EmailService::CATEGORY_NUDGE);
+        ], EmailService::CATEGORY_NUDGE, $this->replyTo());
     }
 
     private function sendCompleteProfileNudge(Profile $profile): bool
@@ -211,7 +211,7 @@ class OnboardingDripService
 
         return $this->emailService->send($profile, $alias, [
             'first_name' => $this->displayName($profile),
-        ], EmailService::CATEGORY_NUDGE);
+        ], EmailService::CATEGORY_NUDGE, $this->replyTo());
     }
 
     private function sendActivationNudge(Profile $profile): bool
@@ -228,7 +228,7 @@ class OnboardingDripService
 
         return $this->emailService->send($profile, $alias, [
             'first_name' => $this->displayName($profile),
-        ], EmailService::CATEGORY_NUDGE);
+        ], EmailService::CATEGORY_NUDGE, $this->replyTo());
     }
 
     private function sendInactiveNudge(Profile $profile): bool
@@ -239,7 +239,16 @@ class OnboardingDripService
 
         return $this->emailService->send($profile, 'inactive-nudge', [
             'first_name' => $this->displayName($profile),
-        ], EmailService::CATEGORY_NUDGE);
+        ], EmailService::CATEGORY_NUDGE, $this->replyTo());
+    }
+
+    /**
+     * The drip emails ask people to reply (bug report 2026-09-28, item 6), and
+     * the From address is a no-reply sender, so every step sets a Reply-To.
+     */
+    private function replyTo(): string
+    {
+        return (string) config('services.postmark.reply_to', 'hello@kolabing.com');
     }
 
     /**

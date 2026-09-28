@@ -34,15 +34,21 @@ class PostmarkClient
      *
      * @param  array<string, mixed>  $model  Template merge variables.
      */
-    public function sendTemplate(string $to, string $templateAlias, array $model, ?string $toName = null): void
+    public function sendTemplate(string $to, string $templateAlias, array $model, ?string $toName = null, ?string $replyTo = null): void
     {
-        $this->post('/email/withTemplate', [
+        $payload = [
             'From' => $this->fromHeader(),
             'To' => $this->formatRecipient($to, $toName),
             'TemplateAlias' => $templateAlias,
             'TemplateModel' => (object) $model,
             'MessageStream' => $this->messageStream,
-        ]);
+        ];
+
+        if ($replyTo !== null && $replyTo !== '') {
+            $payload['ReplyTo'] = $replyTo;
+        }
+
+        $this->post('/email/withTemplate', $payload);
     }
 
     /**

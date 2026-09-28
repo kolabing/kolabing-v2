@@ -19,6 +19,19 @@ return [
         'from' => env('MAIL_FROM_ADDRESS', 'hello@kolabing.com'),
         'from_name' => env('MAIL_FROM_NAME', 'Kolabing'),
         'message_stream' => env('POSTMARK_MESSAGE_STREAM_ID', 'outbound'),
+        // Reply-To on emails that ask the recipient to reply (onboarding drip). The
+        // From address can be a no-reply sender; replies must reach a person.
+        'reply_to' => env('POSTMARK_REPLY_TO', 'hello@kolabing.com'),
+        // Postmark template aliases that exist in a translated copy, listed in full
+        // as '<alias>-<locale>' (e.g. 'business-welcome-01-es'). EmailService::send
+        // uses the localized alias only when it is listed here, so a translation
+        // goes live by publishing it in Postmark and adding it to this list, and an
+        // unlisted one can never be requested (Postmark rejects unknown aliases).
+        // Comma-separated in POSTMARK_LOCALIZED_ALIASES. Default: none (English).
+        'localized_aliases' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('POSTMARK_LOCALIZED_ALIASES', '')),
+        ))),
     ],
 
     'resend' => [
