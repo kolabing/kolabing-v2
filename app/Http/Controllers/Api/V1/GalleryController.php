@@ -20,7 +20,8 @@ use Illuminate\Support\Facades\DB;
 
 class GalleryController extends Controller
 {
-    private const int MAX_GALLERY_PHOTOS = 20;
+    /** Shared with the Instagram import (InstagramService), which fills the same gallery. */
+    public const int MAX_GALLERY_PHOTOS = 20;
 
     private const int MAX_PER_REQUEST = 5;
 
@@ -176,6 +177,9 @@ class GalleryController extends Controller
         }
 
         $this->fileUploadService->delete($photo->url);
+        if ($photo->video_url !== null) {
+            $this->fileUploadService->delete($photo->video_url);
+        }
         $photo->delete();
 
         return response()->json([

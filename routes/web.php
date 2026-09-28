@@ -30,6 +30,7 @@ use App\Http\Controllers\Admin\XpEarnRuleController as AdminXpEarnRuleController
 use App\Http\Controllers\Admin\XpLevelController as AdminXpLevelController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\DirectoryController;
+use App\Http\Controllers\InstagramCallbackController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\PasswordResetPageController;
 use App\Http\Controllers\PublicEventPageController;
@@ -259,6 +260,24 @@ Route::get('/c/{slug}', function (string $slug) {
         301,
     );
 })->name('communities.join-page.legacy');
+
+/*
+| Instagram Connect (BE-NF-75, docs/instagram-connect.md). The OAuth redirect_uri
+| and the two callbacks Meta calls with a signed_request (CSRF-exempt in
+| bootstrap/app.php; the HMAC signature is the authentication).
+*/
+Route::get('/instagram/callback', [InstagramCallbackController::class, 'callback'])
+    ->middleware('throttle:30,1')
+    ->name('instagram.callback');
+Route::post('/instagram/deauthorize', [InstagramCallbackController::class, 'deauthorize'])
+    ->middleware('throttle:60,1')
+    ->name('instagram.deauthorize');
+Route::post('/instagram/data-deletion', [InstagramCallbackController::class, 'dataDeletion'])
+    ->middleware('throttle:60,1')
+    ->name('instagram.data-deletion');
+Route::get('/instagram/data-deletion/{code}', [InstagramCallbackController::class, 'deletionStatus'])
+    ->where('code', '[A-Z0-9]{8,64}')
+    ->name('instagram.data-deletion.status');
 
 Route::post('/newsletter', [NewsletterController::class, 'store'])
     ->middleware('throttle:10,1')

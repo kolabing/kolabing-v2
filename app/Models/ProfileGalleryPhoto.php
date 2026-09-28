@@ -15,6 +15,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $url
  * @property string|null $caption
  * @property int $sort_order
+ * @property string $media_type image|video — for a video, `url` is the poster frame
+ * @property string|null $video_url
+ * @property string|null $instagram_media_id
+ * @property string|null $instagram_source_id
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Profile $profile
@@ -34,6 +38,17 @@ class ProfileGalleryPhoto extends Model
         'url',
         'caption',
         'sort_order',
+        'media_type',
+        'video_url',
+        'instagram_media_id',
+        'instagram_source_id',
+    ];
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'media_type' => 'image',
     ];
 
     /**

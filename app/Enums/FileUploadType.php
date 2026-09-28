@@ -26,6 +26,14 @@ enum FileUploadType: string
     case ChallengeProof = 'challenge_proof';
 
     /**
+     * A video in the profile gallery, today only ever imported from Instagram
+     * (BE-NF-75). Same `gallery/` directory as GalleryPhoto; its poster frame is
+     * stored as a GalleryPhoto. The ceiling matches KolabMedia; the import applies
+     * the lower `services.instagram.max_video_mb` cap on top.
+     */
+    case GalleryVideo = 'gallery_video';
+
+    /**
      * Get the storage directory for this upload type.
      *
      * @return string The directory path within the public disk
@@ -38,6 +46,7 @@ enum FileUploadType: string
             self::KolabMedia => 'kolabs',
             self::OpportunityPhoto => 'opportunities',
             self::GalleryPhoto => 'gallery',
+            self::GalleryVideo => 'gallery',
             self::EventPhoto => 'events',
             self::ChallengeProof => 'challenge-proofs',
         };
@@ -56,6 +65,7 @@ enum FileUploadType: string
             self::KolabMedia => 50 * 1024 * 1024, // 50MB
             self::OpportunityPhoto => 5 * 1024 * 1024, // 5MB
             self::GalleryPhoto => 5 * 1024 * 1024, // 5MB
+            self::GalleryVideo => 50 * 1024 * 1024, // 50MB
             self::EventPhoto => 5 * 1024 * 1024, // 5MB
             self::ChallengeProof => 5 * 1024 * 1024, // 5MB
         };
@@ -75,6 +85,11 @@ enum FileUploadType: string
                 'image/png',
                 'image/gif',
                 'image/webp',
+            ],
+            self::GalleryVideo => [
+                'video/mp4',
+                'video/quicktime',
+                'video/webm',
             ],
             self::KolabMedia => [
                 'image/jpeg',
@@ -103,6 +118,11 @@ enum FileUploadType: string
                 'png',
                 'gif',
                 'webp',
+            ],
+            self::GalleryVideo => [
+                'mp4',
+                'mov',
+                'webm',
             ],
             self::KolabMedia => [
                 'jpeg',

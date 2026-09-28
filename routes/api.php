@@ -45,6 +45,7 @@ use App\Http\Controllers\Api\V1\GalleryController;
 use App\Http\Controllers\Api\V1\GamificationConfigController;
 use App\Http\Controllers\Api\V1\GamificationController;
 use App\Http\Controllers\Api\V1\GamificationStatsController;
+use App\Http\Controllers\Api\V1\InstagramController;
 use App\Http\Controllers\Api\V1\KolabController;
 use App\Http\Controllers\Api\V1\LeaderboardController;
 use App\Http\Controllers\Api\V1\LookupController;
@@ -333,6 +334,35 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.me.gallery.update');
         Route::delete('me/gallery/{photo}', [GalleryController::class, 'destroy'])
             ->name('api.v1.me.gallery.destroy');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Instagram Connect (BE-NF-75, docs/instagram-connect.md)
+        |--------------------------------------------------------------------------
+        | Businesses and communities connect their Instagram professional account
+        | and import their own photos / videos into the gallery or a Kolab. Gated
+        | on services.instagram.enabled + tester_profile_ids inside the controller
+        | (404 INSTAGRAM_UNAVAILABLE), so GET /me/instagram can report `enabled`.
+        */
+        Route::get('me/instagram', [InstagramController::class, 'show'])
+            ->name('api.v1.me.instagram');
+        Route::post('me/instagram/connect-url', [InstagramController::class, 'connectUrl'])
+            ->middleware('throttle:20,1')
+            ->name('api.v1.me.instagram.connect-url');
+        Route::get('me/instagram/media', [InstagramController::class, 'media'])
+            ->middleware('throttle:60,1')
+            ->name('api.v1.me.instagram.media');
+        Route::post('me/instagram/media/import', [InstagramController::class, 'import'])
+            ->middleware('throttle:10,1')
+            ->name('api.v1.me.instagram.import');
+        Route::post('me/instagram/sync', [InstagramController::class, 'sync'])
+            ->middleware('throttle:6,1')
+            ->name('api.v1.me.instagram.sync');
+        Route::post('me/instagram/avatar', [InstagramController::class, 'avatar'])
+            ->middleware('throttle:10,1')
+            ->name('api.v1.me.instagram.avatar');
+        Route::delete('me/instagram', [InstagramController::class, 'destroy'])
+            ->name('api.v1.me.instagram.destroy');
 
         // View another profile's gallery
         Route::get('profiles/{profile}/gallery', [GalleryController::class, 'show'])
