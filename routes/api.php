@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\ChallengeCompletionController;
 use App\Http\Controllers\Api\V1\ChallengeController;
 use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\CheckinController;
+use App\Http\Controllers\Api\V1\CityLeagueController;
 use App\Http\Controllers\Api\V1\CollaborationChallengeBonusController;
 use App\Http\Controllers\Api\V1\CollaborationChallengeController;
 use App\Http\Controllers\Api\V1\CollaborationController;
@@ -55,6 +56,7 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OnboardingController;
 use App\Http\Controllers\Api\V1\OpportunityController;
+use App\Http\Controllers\Api\V1\OrganiserLevelController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\ReferralController;
 use App\Http\Controllers\Api\V1\ReportController;
@@ -179,7 +181,7 @@ Route::prefix('v1')->group(function (): void {
     |--------------------------------------------------------------------------
     */
 
-    Route::middleware(['auth:sanctum', 'profile_active', 'log_auth_token_first_use', 'touch_profile_activity'])->group(function (): void {
+    Route::middleware(['auth:sanctum', 'profile_user', 'profile_active', 'log_auth_token_first_use', 'touch_profile_activity'])->group(function (): void {
         // City suggestions
         Route::post('cities/suggest', [LookupController::class, 'suggestCity'])
             ->name('api.v1.cities.suggest');
@@ -647,6 +649,16 @@ Route::prefix('v1')->group(function (): void {
         // Per-community POINTS leaderboard (tier + badge_count + points rows)
         Route::get('communities/{community}/leaderboard', [LeaderboardController::class, 'communityLeaderboard'])
             ->name('api.v1.communities.leaderboard');
+
+        // Incentives v1 (C): organiser level card (community profiles only).
+        Route::get('me/organiser-level', [OrganiserLevelController::class, 'show'])
+            ->name('api.v1.me.organiser-level');
+
+        // Incentives v1 (A): city league — home preview + full city table.
+        Route::get('me/community-rank', [CityLeagueController::class, 'me'])
+            ->name('api.v1.me.community-rank');
+        Route::get('leagues/{city}/current', [CityLeagueController::class, 'current'])
+            ->name('api.v1.leagues.current');
 
         // Personal rewards overview (global XP + partner rewards + per-community)
         Route::get('me/rewards-overview', [MeRewardsOverviewController::class, 'show'])

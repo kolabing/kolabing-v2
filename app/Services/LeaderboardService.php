@@ -14,6 +14,7 @@ use App\Models\CommunityMember;
 use App\Models\CommunityPoints;
 use App\Models\Event;
 use App\Models\Profile;
+use App\Support\PublicDisplayName;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -32,6 +33,8 @@ class LeaderboardService
         $members = CommunityMember::query()
             ->where('community_id', $community->id)
             ->where('status', CommunityMemberStatus::Active->value)
+            // A switched-off or deleted account is invisible everywhere (#258).
+            ->whereHas('profile', fn ($profile) => $profile->active())
             ->with(['profile', 'tier'])
             ->get();
 
@@ -71,7 +74,7 @@ class LeaderboardService
 
             return [
                 'profile_id' => $member->profile_id,
-                'display_name' => $member->profile?->email ?? 'Unknown',
+                'display_name' => PublicDisplayName::for($member->profile),
                 'profile_photo' => $member->profile?->avatar_url,
                 'points' => $memberPoints,
                 'tier' => $member->tier !== null ? [
@@ -160,7 +163,7 @@ class LeaderboardService
 
             return [
                 'profile_id' => $row->profile_id,
-                'display_name' => $profile?->email ?? 'Unknown',
+                'display_name' => PublicDisplayName::for($profile),
                 'profile_photo' => $profile?->avatar_url,
                 'total_points' => (int) $row->total_points,
                 'rank' => $rank,
@@ -177,6 +180,7 @@ class LeaderboardService
     {
         $attendeeProfiles = AttendeeProfile::query()
             ->where('total_points', '>', 0)
+            ->whereHas('profile', fn ($q) => $q->active())
             ->orderByDesc('total_points')
             ->limit($limit)
             ->with('profile')
@@ -193,7 +197,7 @@ class LeaderboardService
 
             return [
                 'profile_id' => $ap->profile_id,
-                'display_name' => $ap->profile?->email ?? 'Unknown',
+                'display_name' => PublicDisplayName::for($ap->profile),
                 'profile_photo' => $ap->profile?->avatar_url,
                 'total_points' => $ap->total_points,
                 'rank' => $rank,
@@ -218,6 +222,7 @@ class LeaderboardService
         $attendeeProfiles = AttendeeProfile::query()
             ->whereIn('profile_id', $memberIds)
             ->where('total_points', '>', 0)
+            ->whereHas('profile', fn ($q) => $q->active())
             ->orderByDesc('total_points')
             ->limit($limit)
             ->with('profile')
@@ -234,7 +239,7 @@ class LeaderboardService
 
             return [
                 'profile_id' => $ap->profile_id,
-                'display_name' => $ap->profile?->email ?? 'Unknown',
+                'display_name' => PublicDisplayName::for($ap->profile),
                 'profile_photo' => $ap->profile?->avatar_url,
                 'total_points' => $ap->total_points,
                 'rank' => $rank,
@@ -281,6 +286,7 @@ class LeaderboardService
         return CommunityMember::query()
             ->where('community_id', $community->id)
             ->where('status', CommunityMemberStatus::Active->value)
+            ->whereHas('profile', fn ($profile) => $profile->active())
             ->pluck('profile_id')
             ->all();
     }

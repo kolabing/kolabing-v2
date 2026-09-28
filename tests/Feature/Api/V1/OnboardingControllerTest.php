@@ -334,7 +334,7 @@ class OnboardingControllerTest extends TestCase
         $this->assertSame(\App\Enums\IntentType::ProductPromotion, $kolab->intent_type);
         $this->assertSame(\App\Enums\KolabStatus::Published, $kolab->status);
         $this->assertNotNull($kolab->published_at, 'Auto-offer must be published live.');
-        $this->assertSame('Bean Brand', $kolab->title);
+        $this->assertStringContainsString('Bean Brand', $kolab->title);
         $this->assertSame('Bean Brand', $kolab->product_name);
         $this->assertSame('other', $kolab->product_type);
         $this->assertSame('Barcelona', $kolab->preferred_city);

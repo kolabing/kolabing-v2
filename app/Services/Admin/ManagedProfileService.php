@@ -16,6 +16,7 @@ use App\Models\BusinessSubscription;
 use App\Models\CommunityProfile;
 use App\Models\Profile;
 use App\Services\OnboardingService;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -135,7 +136,7 @@ class ManagedProfileService
      */
     public function quickAdd(array $data): Profile
     {
-        return DB::transaction(function () use ($data): Profile {
+        $profile = DB::transaction(function () use ($data): Profile {
             $userType = UserType::from((string) $data['user_type']);
 
             $profile = Profile::query()->create([
@@ -161,6 +162,26 @@ class ManagedProfileService
 
             return $profile->fresh(['businessProfile', 'communityProfile']);
         });
+
+        return $this->listBusiness($profile);
+    }
+
+    /**
+     * A business added from the panel is listed in Explore straight away, the
+     * same as one that onboards itself: one open-ended auto listing, and an
+     * empty avatar filled from the Maps import's top photo
+     * ({@see \App\Services\BusinessAutoListingService}). Runs after the
+     * profile's own transaction commits and never throws.
+     */
+    private function listBusiness(Profile $profile): Profile
+    {
+        if (! $profile->isBusiness()) {
+            return $profile;
+        }
+
+        $this->onboardingService->provisionBusinessAutoOffer($profile);
+
+        return $profile->fresh(['businessProfile', 'communityProfile', 'attendeeProfile', 'subscription']);
     }
 
     /**
@@ -220,7 +241,7 @@ class ManagedProfileService
      */
     public function create(array $data): Profile
     {
-        return DB::transaction(function () use ($data): Profile {
+        $profile = DB::transaction(function () use ($data): Profile {
             $userType = UserType::from((string) $data['user_type']);
 
             $profile = Profile::query()->create([
@@ -251,6 +272,8 @@ class ManagedProfileService
                 'subscription',
             ]);
         });
+
+        return $this->listBusiness($profile);
     }
 
     /**
@@ -371,6 +394,44 @@ class ManagedProfileService
     public function delete(Profile $profile): void
     {
         $profile->delete();
+    }
+
+    /**
+     * Undo delete() (bug report 2026-09-28, item 11). Admin delete is a soft
+     * delete, so the row, its kolabs and its sub-profiles are all still there;
+     * clearing deleted_at brings the account back as it was.
+     *
+     * Refused when a live profile now holds the same email. The unique index
+     * on profiles.email is partial (deleted_at IS NULL, since PR #297), so a
+     * deleted account's address can be re-registered. Restoring the old row on
+     * top of that would violate the index, and even if it did not, two live
+     * accounts on one address is the mix-up this action exists to fix.
+     *
+     * @throws DomainException when the profile is not deleted, or its email now belongs to a live profile
+     */
+    public function restore(Profile $profile): Profile
+    {
+        if (! $profile->trashed()) {
+            throw new DomainException(__('This account is not deleted.'));
+        }
+
+        $emailTaken = Profile::query()
+            ->whereKeyNot($profile->getKey())
+            ->whereRaw('LOWER(email) = ?', [mb_strtolower($profile->email)])
+            ->exists();
+
+        if ($emailTaken) {
+            throw new DomainException(__(
+                'Cannot restore: :email now belongs to another live account. Move what you need from this account to that one instead (php artisan kolabing:move-kolabs), or change the other account\'s email first.',
+                ['email' => $profile->email],
+            ));
+        }
+
+        return DB::transaction(function () use ($profile): Profile {
+            $profile->restore();
+
+            return $profile->refresh();
+        });
     }
 
     /**

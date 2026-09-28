@@ -23,12 +23,15 @@ use App\Models\City;
 use App\Models\CommunityProfile;
 use App\Models\CommunityType;
 use App\Models\Kolab;
+use App\Models\LeagueStanding;
 use App\Models\OfferOption;
+use App\Models\OrganiserLevelSnapshot;
 use App\Models\Profile;
 use App\Models\Scopes\ActiveProfileScope;
 use App\Services\Admin\ManagedProfileService;
 use App\Services\OrganizerEntitlementService;
 use App\Support\OfferOptionValues;
+use DomainException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -56,6 +59,9 @@ class ManagedUserController extends Controller
         $userType = $request->query('user_type');
         $cityId = $request->query('city_id');
         $hideTest = ! $request->boolean('show_test');
+        // Deleted accounts are soft-deleted rows the default query never sees, so a
+        // maintainer could not find (or undo) one (bug report 2026-09-28, item 11).
+        $onlyDeleted = $request->boolean('deleted');
 
         // Deliberately unfiltered on is_active: an admin that cannot see a switched-off
         // account cannot switch it back on. The sub-profile relations carry
@@ -68,6 +74,10 @@ class ManagedUserController extends Controller
                 'attendeeProfile' => fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class),
                 'subscription',
             ]);
+
+        if ($onlyDeleted) {
+            $query->onlyTrashed();
+        }
 
         if ($q !== '') {
             $needle = '%'.mb_strtolower($q).'%';
@@ -100,7 +110,9 @@ class ManagedUserController extends Controller
                 ->whereDoesntHave('communityProfile', fn ($sub) => $sub->withoutGlobalScope(ActiveProfileScope::class)->whereRaw('LOWER(name) LIKE ?', ['%test%']));
         }
 
-        $profiles = $query->latest()->paginate(20)->withQueryString();
+        $profiles = $onlyDeleted
+            ? $query->orderByDesc('deleted_at')->paginate(20)->withQueryString()
+            : $query->latest()->paginate(20)->withQueryString();
 
         return view('admin.users.index', [
             'profiles' => $profiles,
@@ -112,6 +124,7 @@ class ManagedUserController extends Controller
                 'user_type' => $userType,
                 'city_id' => $cityId,
                 'show_test' => ! $hideTest,
+                'deleted' => $onlyDeleted,
             ],
         ]);
     }
@@ -255,15 +268,69 @@ class ManagedUserController extends Controller
             'subscription',
         ]);
 
+        // Kolabs are counted without the active-owner filter on purpose: the point
+        // is to see what a deleted or switched-off account still owns.
+        $kolabCounts = $profile->kolabs()
+            ->toBase()
+            ->selectRaw('status, count(*) as n')
+            ->groupBy('status')
+            ->pluck('n', 'status')
+            ->map(fn ($n): int => (int) $n);
+
         return view('admin.users.edit', [
             'profile' => $profile,
+            'kolabCounts' => $kolabCounts,
             'cities' => City::query()->where('is_active', true)->orderBy('sort_order')->get(),
             'businessTypes' => BusinessType::query()->active()->ordered()->get(),
             'welcomeEmailLocales' => AdminWelcomeEmailTemplate::query()
                 ->where('is_active', true)
                 ->orderBy('label')
                 ->get(['locale', 'label']),
+            'organiserLevel' => $profile->user_type === UserType::Community
+                ? OrganiserLevelSnapshot::latestFor($profile->id)
+                : null,
+            'leagueHonours' => $profile->user_type === UserType::Community
+                ? LeagueStanding::query()
+                    ->where('profile_id', $profile->id)
+                    ->whereNotNull('badge')
+                    ->with('season.city')
+                    ->latest('created_at')
+                    ->limit(12)
+                    ->get()
+                : collect(),
         ]);
+    }
+
+    /**
+     * Top-level organisers are owed personal introductions from our pipeline
+     * (sports brands, fashion brands, venues). The team marks the intro done
+     * here; the flag stays cleared while the organiser stays Top.
+     */
+    public function markOrganiserIntroDone(Profile $profile): RedirectResponse
+    {
+        $snapshot = OrganiserLevelSnapshot::latestFor($profile->id);
+
+        if ($snapshot === null || ! $snapshot->isIntroDue()) {
+            return redirect()->back()->with('status', __('No introduction is due for this organiser.'));
+        }
+
+        $snapshot->update(['intro_done_at' => now()]);
+
+        return redirect()->back()->with('status', __('Introduction marked as done.'));
+    }
+
+    /**
+     * City league division winners are owed the same personal introductions.
+     */
+    public function markLeagueIntroDone(Profile $profile, LeagueStanding $standing): RedirectResponse
+    {
+        abort_unless($standing->profile_id === $profile->id, 404);
+
+        if ($standing->isIntroDue()) {
+            $standing->update(['intro_done_at' => now()]);
+        }
+
+        return redirect()->back()->with('status', __('Introduction marked as done.'));
     }
 
     /**
@@ -309,6 +376,22 @@ class ManagedUserController extends Controller
 
         return redirect()->route('admin.users.index')
             ->with('status', __('User deleted.'));
+    }
+
+    /**
+     * Undo an admin delete (bug report 2026-09-28, item 11). Refused, with the
+     * reason shown, when the email now belongs to a live account.
+     */
+    public function restore(Profile $profile): RedirectResponse
+    {
+        try {
+            $this->managedProfileService->restore($profile);
+        } catch (DomainException $e) {
+            return redirect()->back()->withErrors(['restore' => $e->getMessage()]);
+        }
+
+        return redirect()->route('admin.users.edit', $profile)
+            ->with('status', __('Account restored.'));
     }
 
     /**

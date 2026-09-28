@@ -10,11 +10,13 @@ use App\Enums\KolabStatus;
 use App\Enums\MultiKolabEligibleAccountType;
 use App\Enums\MultiKolabEventStatus;
 use App\Enums\MultiKolabRoleStatus;
+use App\Enums\OrganiserLevel;
 use App\Enums\UserType;
 use App\Models\Collaboration;
 use App\Models\Kolab;
 use App\Models\MultiKolabEvent;
 use App\Models\MultiKolabRole;
+use App\Models\OrganiserLevelSnapshot;
 use App\Models\Profile;
 use App\Services\Admin\BusinessVisibilityBoostService;
 use App\Support\Matching\CategoryFitMatrix;
@@ -30,6 +32,14 @@ use InvalidArgumentException;
 
 class DiscoveryOpportunityService
 {
+    /**
+     * Latest organiser level per community creator for the current discover()
+     * call (see primeOrganiserLevels()).
+     *
+     * @var array<string, array{level: string, points: int}>
+     */
+    private array $organiserLevels = [];
+
     public function __construct(
         private readonly BusinessPartnerStatusService $businessPartnerStatusService,
         private readonly BusinessVisibilityBoostService $businessVisibilityBoostService,
@@ -106,10 +116,12 @@ class DiscoveryOpportunityService
 
         $this->applyCommonFilters($query, $normalizedFilters);
         $this->applyRoleAwareFilters($query, $normalizedFilters, $viewerRole);
-        $scoredResults = $query
+        $candidates = $query
             ->get()
             ->filter(fn (Kolab $kolab): bool => $this->hasBookableDayFromToday($kolab, Carbon::today()))
-            ->values()
+            ->values();
+        $this->primeOrganiserLevels($candidates, $viewerRole);
+        $scoredResults = $candidates
             ->map(function (Kolab $kolab) use ($viewer, $normalizedFilters, $viewerRole): Kolab {
                 $matchPayload = $this->buildMatchPayload($kolab, $viewer, $normalizedFilters, $viewerRole);
 
@@ -510,6 +522,14 @@ class DiscoveryOpportunityService
 
         $this->applyRecipientVisibilityScope($query, $viewer);
         $this->applyRoleScope($query, $viewerRole);
+
+        // Off by default: New/Rising organisers are shown lower, not hidden.
+        if ($viewerRole === 'business' && config('incentives.organiser_levels.discovery.hide_below_trusted', false)) {
+            $query->whereIn('kolabs.creator_profile_id', OrganiserLevelSnapshot::query()
+                ->latestPerProfile()
+                ->whereIn('level', [OrganiserLevel::Trusted->value, OrganiserLevel::Top->value])
+                ->select('profile_id'));
+        }
         $this->applyActiveAvailabilityFilter($query);
         $this->excludeAlreadyAppliedKolabs($query, $viewer);
         $this->excludeBlockedCreators($query, $viewer);
@@ -1331,7 +1351,8 @@ class DiscoveryOpportunityService
         ) * 100);
 
         $partnerStatusBoost = $this->resolvePartnerStatusBoost($kolab, $viewerRole);
-        $score = min(100, $score + $partnerStatusBoost['points']);
+        $organiserLevelBoost = $this->resolveOrganiserLevelBoost($kolab, $viewerRole);
+        $score = min(100, $score + $partnerStatusBoost['points'] + $organiserLevelBoost['points']);
 
         return [
             'feed' => $filters['feed'],
@@ -1340,7 +1361,56 @@ class DiscoveryOpportunityService
             'reasons' => array_values(array_unique($reasons)),
             'breakdown' => $breakdown,
             'partner_status_boost' => $partnerStatusBoost,
+            'organiser_level_boost' => $organiserLevelBoost,
         ];
+    }
+
+    /**
+     * Incentives v1: the more a community earns in the city league and the
+     * higher its organiser level, the higher venues see it. The nightly
+     * level run stores discovery_score (level boost + league points this
+     * month and last month decayed + last season's division-winner boost);
+     * here it is one query per request. Business viewers only.
+     *
+     * @param  Collection<int, Kolab>  $candidates
+     */
+    private function primeOrganiserLevels(Collection $candidates, string $viewerRole): void
+    {
+        $this->organiserLevels = [];
+
+        if ($viewerRole !== 'business' || ! config('incentives.organiser_levels.discovery.enabled', false)) {
+            return;
+        }
+
+        $creatorIds = $candidates->pluck('creator_profile_id')->filter()->unique()->values()->all();
+
+        if ($creatorIds === []) {
+            return;
+        }
+
+        $this->organiserLevels = OrganiserLevelSnapshot::query()
+            ->whereIn('profile_id', $creatorIds)
+            ->latestPerProfile()
+            ->get(['profile_id', 'level', 'discovery_score'])
+            ->mapWithKeys(fn (OrganiserLevelSnapshot $s): array => [$s->profile_id => [
+                'level' => $s->level->value,
+                'points' => (int) $s->discovery_score,
+            ]])
+            ->all();
+    }
+
+    /**
+     * @return array{level: ?string, points: int}
+     */
+    private function resolveOrganiserLevelBoost(Kolab $kolab, string $viewerRole): array
+    {
+        if ($viewerRole !== 'business') {
+            return ['level' => null, 'points' => 0];
+        }
+
+        $entry = $this->organiserLevels[$kolab->creator_profile_id] ?? null;
+
+        return ['level' => $entry['level'] ?? null, 'points' => (int) ($entry['points'] ?? 0)];
     }
 
     /**

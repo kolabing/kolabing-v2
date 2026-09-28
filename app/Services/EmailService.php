@@ -38,13 +38,26 @@ class EmailService
     public const CATEGORY_MARKETING = 'marketing';
 
     /**
+     * Locales with (planned) translated Postmark templates. English is the
+     * base alias and needs no suffix.
+     *
+     * @var list<string>
+     */
+    public const LOCALIZED_LOCALES = ['es', 'ca', 'tr'];
+
+    /**
      * Send a Postmark template email to a profile, respecting preferences.
      *
+     * The alias is localized to the recipient's preferred_locale when a
+     * translated copy is listed in config('services.postmark.localized_aliases');
+     * otherwise the English alias is sent (see localizedAlias()).
+     *
      * @param  array<string, mixed>  $model
+     * @param  string|null  $replyTo  Reply-To address, for emails that ask the recipient to reply
      * @return bool Whether an email was actually queued (false = suppressed by
      *              the recipient's preferences).
      */
-    public function send(Profile $recipient, string $templateAlias, array $model, string $category): bool
+    public function send(Profile $recipient, string $templateAlias, array $model, string $category, ?string $replyTo = null): bool
     {
         if (! $this->shouldSend($recipient, $category)) {
             return false;
@@ -52,12 +65,37 @@ class EmailService
 
         dispatch(SendTransactionalEmail::template(
             to: $recipient->email,
-            templateAlias: $templateAlias,
+            templateAlias: $this->localizedAlias($templateAlias, $recipient),
             model: $model,
             toName: $this->recipientName($recipient),
+            replyTo: $replyTo,
         ));
 
         return true;
+    }
+
+    /**
+     * '<alias>-<locale>' when the recipient prefers es/ca/tr and that exact
+     * alias is listed as published in config, else the English alias.
+     *
+     * Bug report 2026-09-28, item 5: every email went out in English although
+     * profiles store preferred_locale and push already uses it. The allow-list
+     * keeps this safe to deploy before the translations exist: Postmark rejects
+     * an unknown alias, so a localized alias is only ever requested once it has
+     * been published and listed.
+     */
+    public function localizedAlias(string $templateAlias, Profile $recipient): string
+    {
+        $locale = strtolower(substr((string) $recipient->preferred_locale, 0, 2));
+
+        if (! in_array($locale, self::LOCALIZED_LOCALES, true)) {
+            return $templateAlias;
+        }
+
+        $localized = $templateAlias.'-'.$locale;
+        $published = (array) config('services.postmark.localized_aliases', []);
+
+        return in_array($localized, $published, true) ? $localized : $templateAlias;
     }
 
     /**
