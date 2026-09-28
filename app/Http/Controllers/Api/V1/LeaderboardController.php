@@ -82,6 +82,7 @@ class LeaderboardController extends Controller
     /**
      * The per-community POINTS leaderboard. Each row carries the member's
      * tier, badge_count, and points (the canonical community ranking).
+     * Members and organisers only (403 otherwise): the rows are the roster.
      *
      * GET /api/v1/communities/{community}/leaderboard
      */
@@ -92,6 +93,13 @@ class LeaderboardController extends Controller
 
         $limit = min((int) $request->query('limit', '50'), 100);
         $limit = max($limit, 1);
+
+        if ($profile->cannot('viewLeaderboard', $community)) {
+            return response()->json([
+                'success' => false,
+                'message' => __('Only members of this community can view its leaderboard.'),
+            ], 403);
+        }
 
         $leaderboard = $this->leaderboardService->getCommunityPointsLeaderboard($community, $limit);
         $myRank = $this->leaderboardService->getMyCommunityPointsRank($community, $profile);

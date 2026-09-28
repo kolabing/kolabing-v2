@@ -16,6 +16,7 @@ use App\Models\Event;
 use App\Models\Profile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class LeaderboardService
 {
@@ -32,6 +33,8 @@ class LeaderboardService
         $members = CommunityMember::query()
             ->where('community_id', $community->id)
             ->where('status', CommunityMemberStatus::Active->value)
+            // A switched-off or deleted account is invisible everywhere (#258).
+            ->whereHas('profile', fn ($profile) => $profile->active())
             ->with(['profile', 'tier'])
             ->get();
 
@@ -71,7 +74,7 @@ class LeaderboardService
 
             return [
                 'profile_id' => $member->profile_id,
-                'display_name' => $member->profile?->email ?? 'Unknown',
+                'display_name' => $this->displayName($member->profile),
                 'profile_photo' => $member->profile?->avatar_url,
                 'points' => $memberPoints,
                 'tier' => $member->tier !== null ? [
@@ -160,7 +163,7 @@ class LeaderboardService
 
             return [
                 'profile_id' => $row->profile_id,
-                'display_name' => $profile?->email ?? 'Unknown',
+                'display_name' => $this->displayName($profile),
                 'profile_photo' => $profile?->avatar_url,
                 'total_points' => (int) $row->total_points,
                 'rank' => $rank,
@@ -193,7 +196,7 @@ class LeaderboardService
 
             return [
                 'profile_id' => $ap->profile_id,
-                'display_name' => $ap->profile?->email ?? 'Unknown',
+                'display_name' => $this->displayName($ap->profile),
                 'profile_photo' => $ap->profile?->avatar_url,
                 'total_points' => $ap->total_points,
                 'rank' => $rank,
@@ -234,7 +237,7 @@ class LeaderboardService
 
             return [
                 'profile_id' => $ap->profile_id,
-                'display_name' => $ap->profile?->email ?? 'Unknown',
+                'display_name' => $this->displayName($ap->profile),
                 'profile_photo' => $ap->profile?->avatar_url,
                 'total_points' => $ap->total_points,
                 'rank' => $rank,
@@ -274,6 +277,25 @@ class LeaderboardService
     }
 
     /**
+     * The name a leaderboard row shows. Never the email address: these rows are
+     * visible to other members, so an email here leaks contact details. Mirrors
+     * `/communities/{id}/stats` top_members: the profile name, else the part of
+     * the email before the "@".
+     */
+    private function displayName(?Profile $profile): string
+    {
+        if ($profile === null) {
+            return 'Unknown';
+        }
+
+        if (filled($profile->name)) {
+            return (string) $profile->name;
+        }
+
+        return Str::before((string) $profile->email, '@');
+    }
+
+    /**
      * @return array<int, string>
      */
     private function activeMemberIds(Community $community): array
@@ -281,6 +303,7 @@ class LeaderboardService
         return CommunityMember::query()
             ->where('community_id', $community->id)
             ->where('status', CommunityMemberStatus::Active->value)
+            ->whereHas('profile', fn ($profile) => $profile->active())
             ->pluck('profile_id')
             ->all();
     }
