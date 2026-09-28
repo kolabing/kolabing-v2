@@ -6,10 +6,13 @@ namespace App\Http\Controllers;
 
 use App\Enums\CommunityMemberStatus;
 use App\Enums\JoinPolicy;
+use App\Enums\UserType;
 use App\Models\Community;
 use App\Models\Event;
 use App\Models\Kolab;
+use App\Models\Profile;
 use App\Support\PublicKolabLink;
+use App\Support\PublicProfileLink;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,9 +45,15 @@ class CommunityJoinPageController extends Controller
         if ($community === null) {
             $kolab = Str::isUuid($slug) ? Kolab::query()->find($slug) : null;
 
-            abort_if($kolab === null, 404);
+            if ($kolab !== null) {
+                return redirect()->away($this->kolabUrl($request, $kolab));
+            }
 
-            return redirect()->away($this->kolabUrl($request, $kolab));
+            $profile = $this->profileFor($slug);
+
+            abort_if($profile === null, 404);
+
+            return redirect()->away(PublicProfileLink::urlFor($profile), 301);
         }
 
         $memberCount = $community->members()
@@ -77,6 +86,45 @@ class CommunityJoinPageController extends Controller
             'inviteToken' => $request->query('invite'),
             'invitationToken' => $request->query('i'),
         ]);
+    }
+
+    /**
+     * `/c/` is the community join path, but links get shared with a business's slug
+     * in it (e.g. `kolabing.com/c/labtwentytwo-barcelona`). A business has no join
+     * page, so those used to 301 from the marketing host to a 404 here. Its live
+     * page is the public profile at `/p/`, so resolve the slug to a business or
+     * community profile and send the visitor there: first the shapes `/p/` itself
+     * accepts (`name-1dd66a`, `@handle`, UUID), then a plain name slug, matched
+     * exactly against the profile's display name.
+     */
+    private function profileFor(string $slug): ?Profile
+    {
+        $profile = PublicProfileLink::resolve($slug);
+
+        if ($profile !== null) {
+            return $profile;
+        }
+
+        $slug = Str::lower(trim($slug));
+
+        if (preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug) !== 1) {
+            return null;
+        }
+
+        // Narrow in SQL on the words in order (LIKE is portable across both
+        // drivers), then require an exact slug match in PHP.
+        $pattern = str_replace('-', '%', $slug).'%';
+        $matches = fn (string $table, string $type) => Profile::query()
+            ->where('user_type', $type)
+            ->whereIn('id', fn ($query) => $query->select('profile_id')->from($table)
+                ->whereRaw('LOWER(name) LIKE ?', [$pattern]))
+            ->with(['businessProfile', 'communityProfile'])
+            ->limit(20)
+            ->get();
+
+        return $matches('business_profiles', UserType::Business->value)
+            ->concat($matches('community_profiles', UserType::Community->value))
+            ->first(fn (Profile $candidate) => Str::slug((string) PublicProfileLink::displayName($candidate)) === $slug);
     }
 
     /**

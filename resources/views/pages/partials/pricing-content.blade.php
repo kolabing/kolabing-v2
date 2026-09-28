@@ -1,17 +1,28 @@
 @php
     /**
-     * Shared pricing markup for /pricing and /es/pricing. Only the copy differs per
-     * locale ($c), so the plan maths and the CTA wiring live here once — a price
-     * change is a config edit, not a hunt through per-locale files.
+     * Shared pricing markup for /pricing, /es/pricing and /ca/pricing. Only the copy
+     * differs per locale ($c), so the plan maths and the CTA wiring live here once —
+     * a price change is a config edit, not a hunt through per-locale files.
      *
-     * Expects: $c (copy array), $faqs (list of ['q' => …, 'a' => …]).
+     * The model (Daniel, 25 Sep 2026): listing is free; receiving and accepting
+     * applications and running kolabs are free. The free listing ends at 3 completed
+     * kolabs or 90 days, whichever comes first (issue #341; the expiry mechanism is
+     * PR #346, enforcement off by default); after that a business pays the standard
+     * plan to stay listed. Venue Pro is the
+     * web-only plan for hotels.
+     *
+     * Expects: $c (copy array), $faqs (list of ['q' => …, 'a' => …]), $locale.
      */
     $monthly = (int) config('subscriptions.business.stripe.monthly.price');
     $quarterly = (int) config('subscriptions.business.stripe.three_months.price');
+    $pro = (int) config('subscriptions.business.stripe.pro_monthly.price');
     $quarterlyPerMonth = (int) round($quarterly / 3);
     $savePercent = $monthly > 0 ? (int) round((1 - ($quarterly / 3) / $monthly) * 100) : 0;
+    // Venue Pro's feature list already exists in every app locale; reuse it.
+    $proBenefits = (array) __('webapp.subscription.pro_benefits', [], $locale ?? 'en');
 
     $appUrl = rtrim(config('webapp.url'), '/');
+    $check = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 shrink-0 text-off-black" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
 @endphp
 
 <section class="mx-auto max-w-6xl px-6 py-20">
@@ -19,43 +30,86 @@
     <h1 class="max-w-4xl font-montserrat text-4xl font-black uppercase leading-tight md:text-6xl">{{ $c['headline'] }}</h1>
     <p class="mt-6 max-w-3xl text-lg text-off-black/70">{{ $c['intro'] }}</p>
 
-    {{-- ── Plans ─────────────────────────────────────────────────────────── --}}
-    <div class="mt-12 grid gap-6 md:grid-cols-2">
+    {{-- ── Free listing: the default for every business ───────────────────── --}}
+    <div class="mt-12 rounded-[2rem] border-2 border-off-black bg-primary/25 p-8 md:flex md:items-start md:justify-between md:gap-10">
+        <div class="max-w-2xl">
+            <span class="inline-block rounded-full bg-off-black px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-primary">{{ $c['free_badge'] }}</span>
+            <h2 class="mt-4 text-2xl font-bold">{{ $c['free_title'] }}</h2>
+            <p class="mt-2 text-off-black/75">{{ $c['free_desc'] }}</p>
+            <ul class="mt-6 grid gap-3">
+                @foreach ($c['free_items'] as $item)
+                    <li class="flex items-start gap-3 text-off-black/80">{!! $check !!} {{ $item }}</li>
+                @endforeach
+            </ul>
+        </div>
+        <div class="mt-8 flex shrink-0 flex-col md:mt-0 md:items-end">
+            <div class="flex items-baseline gap-2">
+                <span class="font-montserrat text-5xl font-black">€0</span>
+                <span class="text-sm font-semibold text-off-black/60">{{ $c['free_price_note'] }}</span>
+            </div>
+            <a href="{{ $appUrl }}/register?type=business"
+               class="mt-6 rounded-full bg-off-black px-7 py-3 text-center font-bold text-primary transition hover:bg-off-black/85">{{ $c['free_cta'] }}</a>
+        </div>
+    </div>
+
+    {{-- ── Paid plans: to stay listed once the free listing ends ─────────── --}}
+    <div class="mt-16">
+        <h2 class="font-montserrat text-2xl font-black uppercase">{{ $c['paid_title'] }}</h2>
+        <p class="mt-3 max-w-3xl text-off-black/70">{{ $c['paid_desc'] }}</p>
+    </div>
+
+    <div class="mt-8 grid gap-6 md:grid-cols-3">
         <article class="flex flex-col rounded-3xl border border-off-black/10 bg-white p-8 shadow-sm">
-            <h2 class="text-sm font-bold uppercase tracking-[0.14em] text-off-black/60">{{ $c['monthly_name'] }}</h2>
+            <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-off-black/60">{{ $c['monthly_name'] }}</h3>
             <div class="mt-4 flex items-baseline gap-2">
                 <span class="font-montserrat text-5xl font-black">€{{ $monthly }}</span>
                 <span class="text-sm font-semibold text-off-black/60">{{ $c['per_month'] }}</span>
             </div>
-            <p class="mt-2 text-sm text-off-black/60">{{ $c['monthly_note'] }}</p>
+            <p class="mt-2 flex-1 text-sm text-off-black/60">{{ $c['monthly_note'] }}</p>
             <a href="{{ $appUrl }}/register?type=business&amp;plan=monthly"
                class="mt-8 rounded-full bg-off-black px-7 py-3 text-center font-bold text-white transition hover:bg-off-black/85">{{ $c['cta'] }}</a>
         </article>
 
-        <article class="relative flex flex-col rounded-3xl border-2 border-off-black bg-primary/25 p-8 shadow-sm">
+        <article class="relative flex flex-col rounded-3xl border border-off-black/10 bg-white p-8 shadow-sm">
             @if ($savePercent > 0)
                 <span class="absolute right-6 top-6 rounded-full bg-off-black px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-primary">{{ str_replace(':percent', (string) $savePercent, $c['save_badge']) }}</span>
             @endif
-            <h2 class="text-sm font-bold uppercase tracking-[0.14em] text-off-black/60">{{ $c['quarterly_name'] }}</h2>
+            <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-off-black/60">{{ $c['quarterly_name'] }}</h3>
             <div class="mt-4 flex items-baseline gap-2">
                 <span class="font-montserrat text-5xl font-black">€{{ $quarterlyPerMonth }}</span>
                 <span class="text-sm font-semibold text-off-black/60">{{ $c['per_month'] }}</span>
             </div>
-            <p class="mt-2 text-sm text-off-black/60">{{ str_replace(':price', '€'.$quarterly, $c['quarterly_note']) }}</p>
+            <p class="mt-2 flex-1 text-sm text-off-black/60">{{ str_replace(':price', '€'.$quarterly, $c['quarterly_note']) }}</p>
             <a href="{{ $appUrl }}/register?type=business&amp;plan=three_months"
-               class="mt-8 rounded-full bg-off-black px-7 py-3 text-center font-bold text-primary transition hover:bg-off-black/85">{{ $c['cta'] }}</a>
+               class="mt-8 rounded-full bg-off-black px-7 py-3 text-center font-bold text-white transition hover:bg-off-black/85">{{ $c['cta'] }}</a>
+        </article>
+
+        {{-- Venue Pro (BE-NF-68) is sold on the web only, so its CTA goes to web checkout. --}}
+        <article class="relative flex flex-col rounded-3xl bg-off-black p-8 text-white shadow-sm">
+            <span class="absolute right-6 top-6 rounded-full bg-primary px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-off-black">{{ $c['pro_badge'] }}</span>
+            <h3 class="text-sm font-bold uppercase tracking-[0.14em] text-white/60">{{ $c['pro_name'] }}</h3>
+            <div class="mt-4 flex items-baseline gap-2">
+                <span class="font-montserrat text-5xl font-black">€{{ $pro }}</span>
+                <span class="text-sm font-semibold text-white/60">{{ $c['per_month'] }}</span>
+            </div>
+            <p class="mt-2 text-sm text-white/60">{{ $c['pro_note'] }}</p>
+            <p class="mt-4 text-sm text-white/80">{{ $c['pro_desc'] }}</p>
+            <ul class="mt-4 grid flex-1 gap-2 text-sm text-white/80">
+                @foreach ($proBenefits as $benefit)
+                    <li>· {{ $benefit }}</li>
+                @endforeach
+            </ul>
+            <a href="{{ $appUrl }}/register?type=business&amp;plan=pro_monthly"
+               class="mt-8 rounded-full bg-primary px-7 py-3 text-center font-bold text-off-black transition hover:bg-primary/90">{{ $c['pro_cta'] }}</a>
         </article>
     </div>
 
-    {{-- ── What's included ───────────────────────────────────────────────── --}}
-    <div class="mt-12 rounded-[2rem] border border-off-black/10 bg-white p-8">
+    {{-- ── What every paid plan adds ─────────────────────────────────────── --}}
+    <div class="mt-6 rounded-[2rem] border border-off-black/10 bg-white p-8">
         <h2 class="text-2xl font-bold">{{ $c['included_title'] }}</h2>
         <ul class="mt-6 grid gap-4 md:grid-cols-2">
             @foreach ($c['included'] as $item)
-                <li class="flex items-start gap-3 text-off-black/75">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 shrink-0 text-off-black"><path d="M20 6 9 17l-5-5"/></svg>
-                    {{ $item }}
-                </li>
+                <li class="flex items-start gap-3 text-off-black/75">{!! $check !!} {{ $item }}</li>
             @endforeach
         </ul>
     </div>
@@ -87,7 +141,7 @@
             <p class="mt-3 max-w-xl text-white/70">{{ $c['final_desc'] }}</p>
         </div>
         <div class="mt-6 flex shrink-0 flex-col gap-3 md:mt-0">
-            <a href="{{ $appUrl }}/register?type=business&amp;plan=monthly" class="rounded-full bg-primary px-7 py-3 text-center font-bold text-off-black transition hover:bg-primary/90">{{ $c['cta'] }}</a>
+            <a href="{{ $appUrl }}/register?type=business" class="rounded-full bg-primary px-7 py-3 text-center font-bold text-off-black transition hover:bg-primary/90">{{ $c['free_cta'] }}</a>
             <a href="{{ $appUrl }}/login" class="text-center text-sm font-medium text-white/60 hover:text-white">{{ $c['login'] }}</a>
         </div>
     </div>

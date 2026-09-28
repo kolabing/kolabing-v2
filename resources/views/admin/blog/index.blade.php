@@ -1,7 +1,7 @@
 @extends('admin.layout', ['title' => 'Blog'])
 
 @section('page_title', 'Blog')
-@section('page_subtitle', 'Community Commerce articles published at /blog.')
+@section('page_subtitle', 'Community-led footfall articles published at /blog.')
 
 @section('page_actions')
     <a href="{{ route('admin.blog.create') }}" class="btn btn-primary"><i class="fas fa-plus mr-1"></i> New post</a>

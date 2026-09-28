@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * A public marketing / SEO blog post (Community Commerce content) served at
+ * A public marketing / SEO blog post (community-led footfall content) served at
  * /blog and /blog/{slug}. Route-bound by slug; only published posts are public
  * (see scopePublished + isPublished). Draft = published_at null or in the future.
  */

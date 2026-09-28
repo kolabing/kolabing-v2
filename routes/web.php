@@ -481,6 +481,7 @@ Route::view('/for-businesses', 'pages.for-businesses')->name('for-businesses')->
 Route::view('/for-communities', 'pages.for-communities')->name('for-communities')->middleware('cache_marketing');
 Route::view('/pricing', 'pages.pricing')->name('pricing')->middleware('cache_marketing');
 Route::view('/es/pricing', 'pages.es.pricing')->name('pricing.es')->middleware('cache_marketing');
+Route::view('/ca/pricing', 'pages.ca.pricing')->name('pricing.ca')->middleware('cache_marketing');
 Route::view('/support', 'pages.support')->name('support')->middleware('cache_marketing');
 Route::view('/careers', 'pages.careers')->name('careers')->middleware('cache_marketing');
 Route::view('/privacy', 'pages.privacy')->name('privacy')->middleware('cache_marketing');
@@ -531,7 +532,11 @@ Route::get('/sitemap.xml', function () {
         route('for-communities'),
         route('pricing'),
         route('pricing.es'),
+        route('pricing.ca'),
         route('support'),
+        // The events hub is always indexable (it has its own empty state), so it is
+        // listed even before any upcoming public event exists.
+        route('public-events'),
         route('careers'),
         route('privacy'),
         route('terms'),
@@ -563,7 +568,6 @@ Route::get('/sitemap.xml', function () {
         ->limit(500)
         ->get();
     if ($publicEvents->isNotEmpty()) {
-        $urls[] = route('public-events');
         foreach ($publicEvents as $publicEvent) {
             $urls[] = PublicEventLink::urlFor($publicEvent);
         }
@@ -589,10 +593,17 @@ Route::get('/sitemap.xml', function () {
         }
     }
 
+    /*
+     * The /communities hub is listed as soon as it is indexable, which is the same
+     * test its page uses for `robots`: at least one published city hub. Before that
+     * it serves `noindex`, and a sitemap must not advertise a noindex URL.
+     */
     $rankingPages = RankingPage::query()->published()->orderBy('sort')->get(['city', 'topic', 'slug']);
-    if ($rankingPages->isNotEmpty()) {
+    if ($rankingPages->contains(fn (RankingPage $page) => $page->topic === null)) {
         $urls[] = route('directory.index');
         $urls[] = route('directory.how-we-rank');
+    }
+    if ($rankingPages->isNotEmpty()) {
         foreach ($rankingPages as $page) {
             // A hub page is a city; the rest hang off a city as a topic.
             $urls[] = $page->topic === null
@@ -618,6 +629,13 @@ Route::get('/sitemap.xml', function () {
         ->with(['businessProfile', 'communityProfile'])
         ->limit(500)
         ->get() as $profile) {
+        // A profile with no display name renders as "Kolabing member" with a
+        // `profile-…` slug: nothing a searcher would look for. It stays reachable
+        // but out of the index (the page serves `noindex` under the same rule).
+        if (PublicProfileLink::displayName($profile) === null) {
+            continue;
+        }
+
         $urls[] = route('public-profile', PublicProfileLink::slugFor($profile));
     }
 

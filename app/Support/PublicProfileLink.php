@@ -22,11 +22,26 @@ final class PublicProfileLink
     /** How many trailing UUID characters disambiguate a slug. */
     private const SUFFIX_LENGTH = 6;
 
+    /**
+     * The name a profile is shown under, or null when none is set (blank or
+     * whitespace counts as none). The business/community name wins over the
+     * account name, as on the page itself.
+     */
+    public static function displayName(Profile $profile): ?string
+    {
+        foreach ([$profile->getExtendedProfile()?->name, $profile->name] as $candidate) {
+            if (is_string($candidate) && trim($candidate) !== '') {
+                return trim($candidate);
+            }
+        }
+
+        return null;
+    }
+
     /** The path segment for a profile, e.g. `barcelona-runners-1dd66a`. */
     public static function slugFor(Profile $profile): string
     {
-        $name = $profile->getExtendedProfile()?->name ?? $profile->name;
-        $readable = Str::slug((string) $name);
+        $readable = Str::slug((string) self::displayName($profile));
 
         if ($readable === '') {
             $readable = 'profile';
