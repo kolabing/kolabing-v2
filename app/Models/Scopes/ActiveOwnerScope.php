@@ -10,7 +10,8 @@ use Illuminate\Database\Eloquent\Scope;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Hides rows whose owning `profiles` row has been switched off (#254, #258).
+ * Hides rows whose owning `profiles` row has been switched off (#254, #258)
+ * or soft-deleted (BE-FX-75).
  *
  * #254 scoped the sub-profiles and stopped there, which hid the *profile* but
  * not the things a profile owns. A deactivated community still came back from
@@ -27,6 +28,12 @@ use Illuminate\Support\Facades\DB;
  * to preserve. If that ever changes, this scope starts silently hiding rows with
  * a null owner and needs an explicit `orWhereNull`.
  *
+ * `profiles` uses SoftDeletes, and deleting an account does not clear
+ * `is_active`. So a raw `profiles` subquery has to exclude `deleted_at` itself:
+ * without it, a deleted owner with `is_active = true` passed, and their kolab
+ * reached Explore with no owner. The admin panel showed it as "— (—)" and the
+ * card as "Unknown" (BE-FX-75).
+ *
  * NOT applied to Profile itself — see ActiveProfileScope for why.
  */
 class ActiveOwnerScope implements Scope
@@ -42,7 +49,8 @@ class ActiveOwnerScope implements Scope
             $query->select(DB::raw(1))
                 ->from('profiles')
                 ->whereColumn('profiles.id', "{$table}.{$ownerKey}")
-                ->where('profiles.is_active', true);
+                ->where('profiles.is_active', true)
+                ->whereNull('profiles.deleted_at');
         });
     }
 }
