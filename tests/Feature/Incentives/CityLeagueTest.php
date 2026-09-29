@@ -14,6 +14,7 @@ use App\Services\Incentives\OrganiserLevelService;
 use App\Support\PublicProfileLink;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Carbon;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class CityLeagueTest extends TestCase
@@ -99,7 +100,9 @@ class CityLeagueTest extends TestCase
             ->assertJsonPath('data.points', 28)
             ->assertJsonPath('data.promotion_zone', false)
             ->assertJsonPath('data.relegation_zone', false)
-            ->assertJsonPath('data.top_reward', 'Top organisers get personal intros to sports brands, fashion brands and venues');
+            // 8 ranked communities → top 2 get Top.
+            ->assertJsonPath('data.top_slots', 2)
+            ->assertJsonPath('data.top_reward', 'The top 2 organisers of your division get Top: personal intros to sports brands, fashion brands and venues');
 
         $this->assertSame([1, 2, 3, 5, 6, 7], array_column($response->json('data.preview'), 'rank'));
         $this->assertSame('Club 1', $response->json('data.preview.0.display_name'));
@@ -190,7 +193,9 @@ class CityLeagueTest extends TestCase
         $standing = fn (Profile $p): LeagueStanding => LeagueStanding::query()->where('profile_id', $p->id)->sole();
         $this->assertSame(LeagueStanding::BADGE_CHAMPION, $standing($smalls[4])->badge);
         $this->assertSame('promoted', $standing($smalls[4])->movement);
-        $this->assertSame(LeagueStanding::BADGE_TOP3, $standing($smalls[2])->badge);
+        // 4 ranked communities per division → only #1 gets a badge.
+        $this->assertNull($standing($smalls[3])->badge);
+        $this->assertNull($standing($smalls[2])->badge);
         $this->assertNull($standing($smalls[1])->badge);
         $this->assertTrue($standing($smalls[4])->isIntroDue());
         $this->assertSame(2, LeagueStanding::query()->where('badge', 'champion')->count());
@@ -227,9 +232,64 @@ class CityLeagueTest extends TestCase
     {
         $league = app(CityLeagueService::class);
 
+        $this->assertSame(1, $league->topThreshold(0));
+        $this->assertSame(1, $league->topThreshold(3));
+        $this->assertSame(1, $league->topThreshold(4));
+        $this->assertSame(2, $league->topThreshold(5));
+        $this->assertSame(2, $league->topThreshold(7));
+        $this->assertSame(2, $league->topThreshold(9));
+        $this->assertSame(3, $league->topThreshold(10));
         $this->assertSame(3, $league->topThreshold(12));
         $this->assertSame(3, $league->topThreshold(30));
         $this->assertSame(5, $league->topThreshold(45));
+    }
+
+    /**
+     * @return array<string, array{0: int, 1: int, 2: array<int, string|null>}>
+     */
+    public static function smallLeagueSizes(): array
+    {
+        return [
+            '3 communities: top 1' => [3, 1, [1 => 'champion', 2 => null, 3 => null]],
+            '7 communities: top 2' => [7, 2, [1 => 'champion', 2 => 'top3', 3 => null, 4 => null]],
+            '12 communities: top 3' => [12, 3, [1 => 'champion', 2 => 'top3', 3 => 'top3', 4 => null]],
+        ];
+    }
+
+    /**
+     * @param  array<int, string|null>  $expected
+     */
+    #[DataProvider('smallLeagueSizes')]
+    public function test_small_leagues_rank_everyone_but_limit_benefits_to_the_top_slots(int $communities, int $slots, array $expected): void
+    {
+        $city = $this->city();
+        $clubs = [];
+        foreach (range(1, $communities) as $i) {
+            $clubs[$i] = $this->organiser($city, "Club {$i}");
+            $this->eventWithCheckins($clubs[$i], 30 - $i, '2026-09-10 19:00:00');
+        }
+
+        // Live table: everyone ranked, Top slots scaled to the division.
+        $rows = collect(app(CityLeagueService::class)->table($city, '2026-09')['rows']);
+        $this->assertSame(range(1, $communities), $rows->pluck('rank')->all());
+        $this->assertSame([$slots], $rows->pluck('top_slots')->unique()->values()->all());
+
+        $this->actingAs($clubs[$communities])->getJson('/api/v1/me/community-rank')
+            ->assertOk()
+            ->assertJsonPath('data.rank', $communities)
+            ->assertJsonPath('data.total', $communities)
+            ->assertJsonPath('data.top_slots', $slots);
+
+        // Season close: winner badges only inside the Top slots.
+        Carbon::setTestNow(Carbon::parse('2026-09-30 22:30:00', 'UTC'));
+        $this->artisan('app:close-league-seasons')->assertSuccessful();
+
+        $this->assertSame($communities, LeagueStanding::query()->count());
+        foreach ($expected as $i => $badge) {
+            $this->assertSame($badge, LeagueStanding::query()->where('profile_id', $clubs[$i]->id)->sole()->badge, "Club {$i}");
+        }
+        $this->assertSame(1, LeagueStanding::query()->where('badge', LeagueStanding::BADGE_CHAMPION)->count());
+        $this->assertSame(min($slots, 3) - 1, LeagueStanding::query()->where('badge', LeagueStanding::BADGE_TOP3)->count());
     }
 
     public function test_city_table_is_for_organisers_of_that_city_and_shows_names_only(): void

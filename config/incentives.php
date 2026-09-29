@@ -26,9 +26,9 @@ return [
             'min_checkins' => (int) env('INCENTIVES_TRUSTED_MIN_CHECKINS', 20),
         ],
 
-        // Top = Trusted AND inside the top of their city league division:
-        // the top `city_league.top_ranks`, or `city_league.top_percent` when
-        // the division is large. Live table this month or last month's final.
+        // Top = Trusted AND inside the top slots of their city league
+        // division (`city_league.top_slots`, scaled to the number of ranked
+        // communities in it). Live table this month or last month's final.
 
         // `perks` is the full perk set a level holds (next_perks = what the
         // next level adds).
@@ -123,8 +123,18 @@ return [
         // Once divisions exist: top N move up, bottom N move down next season.
         'promotion_slots' => 3,
 
-        // "Top of the division" for the Top organiser level.
-        'top_ranks' => 3,
+        // "Top of the division": how many ranks get the Top organiser level
+        // and the season-close winner badges (Daniel, 28 Sep 2026: small
+        // leagues still rank everyone, but only the top 1 or 2 get benefits).
+        // Keys = minimum ranked communities (points > 0) in the division,
+        // values = Top slots: under 5 → top 1, 5 to 9 → top 2, 10+ → top 3.
+        'top_slots' => [
+            0 => 1,
+            5 => 2,
+            10 => 3,
+        ],
+        // From the last tier up, the top 10% when that is more than the slots
+        // (e.g. 45 ranked communities → top 5).
         'top_percent' => 0.10,
 
         // Division winners of last season get this much extra venue-side
@@ -135,7 +145,11 @@ return [
         'preview_top' => 3,
         'preview_neighbours' => 1,
 
-        'top_reward' => 'Top organisers get personal intros to sports brands, fashion brands and venues',
+        // /me/community-rank top_reward copy, by the viewer's division Top slots.
+        'top_reward' => [
+            'one' => 'The #1 organiser of your division gets Top: personal intros to sports brands, fashion brands and venues',
+            'many' => 'The top :slots organisers of your division get Top: personal intros to sports brands, fashion brands and venues',
+        ],
 
         'division_labels' => [
             'city' => 'City',

@@ -15,6 +15,7 @@ use App\Services\Incentives\OrganiserLevelService;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class OrganiserLevelTest extends TestCase
@@ -161,8 +162,9 @@ class OrganiserLevelTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.next_reward.type', 'level')
             ->assertJsonPath('data.next_reward.level', 'top')
-            ->assertJsonPath('data.next_reward.message', "You're #5. Reach the top 3 of your city league for Top: personal intros to sports brands, fashion brands and venues")
-            ->assertJsonPath('data.next_reward.remaining', ['ranks' => 2]);
+            // 5 ranked communities → top 2 slots.
+            ->assertJsonPath('data.next_reward.message', "You're #5. Reach the top 2 of your city league for Top: personal intros to sports brands, fashion brands and venues")
+            ->assertJsonPath('data.next_reward.remaining', ['ranks' => 3]);
 
         $this->actingAs($leader)->getJson('/api/v1/me/organiser-level')
             ->assertOk()
@@ -171,6 +173,55 @@ class OrganiserLevelTest extends TestCase
             ->assertJsonPath('data.next_perks', [])
             ->assertJsonPath('data.next_reward.type', 'keep')
             ->assertJsonFragment(['Personal introductions to sports brands, fashion brands and venues']);
+    }
+
+    /**
+     * @return array<string, array{0: int, 1: int, 2: OrganiserLevel, 3: int, 4: string}>
+     */
+    public static function smallLeagueTopSlots(): array
+    {
+        $perk = 'personal intros to sports brands, fashion brands and venues';
+
+        return [
+            '3 communities, #1 is Top' => [3, 1, OrganiserLevel::Top, 1, "You're #1. Stay #1 in your city league to keep Top: {$perk}"],
+            '3 communities, #2 is not Top' => [3, 2, OrganiserLevel::Trusted, 1, "You're #2. Reach #1 of your city league for Top: {$perk}"],
+            '7 communities, #2 is Top' => [7, 2, OrganiserLevel::Top, 2, "You're #2. Stay in the top 2 of your city league to keep Top: {$perk}"],
+            '7 communities, #3 is not Top' => [7, 3, OrganiserLevel::Trusted, 2, "You're #3. Reach the top 2 of your city league for Top: {$perk}"],
+            '12 communities, #3 is Top' => [12, 3, OrganiserLevel::Top, 3, "You're #3. Stay in the top 3 of your city league to keep Top: {$perk}"],
+            '12 communities, #4 is not Top' => [12, 4, OrganiserLevel::Trusted, 3, "You're #4. Reach the top 3 of your city league for Top: {$perk}"],
+        ];
+    }
+
+    #[DataProvider('smallLeagueTopSlots')]
+    public function test_top_slots_scale_with_the_number_of_ranked_communities(int $communities, int $rank, OrganiserLevel $level, int $slots, string $message): void
+    {
+        $organiser = $this->organiser(name: 'Target Run Club');
+        $this->kolab($organiser, '2026-09-05 19:00:00', 20); // 40 + 40 = 80 pts, Trusted
+
+        for ($i = 1; $i < $rank; $i++) {
+            $this->eventWithCheckins($this->organiser(name: "Above {$i}"), 45, '2026-09-10 19:00:00'); // 90 pts
+        }
+        for ($i = 1; $i <= $communities - $rank; $i++) {
+            $this->eventWithCheckins($this->organiser(name: "Below {$i}"), 10, '2026-09-10 19:00:00'); // 20 pts
+        }
+
+        $snapshot = $this->evaluate($organiser);
+        $this->assertSame($level, $snapshot->level);
+        $this->assertSame($rank, $snapshot->criteria['metrics']['league_rank']);
+        $this->assertSame($slots, $snapshot->criteria['metrics']['league_threshold']);
+        $this->assertSame($level === OrganiserLevel::Top, $snapshot->isIntroDue());
+        // Top adds 8 venue-side ranking points, Trusted 5; league 0.02 × 80 = 2.
+        $this->assertSame(($level === OrganiserLevel::Top ? 8 : 5) + 2, $snapshot->discovery_score);
+
+        $this->actingAs($organiser)->getJson('/api/v1/me/organiser-level')
+            ->assertOk()
+            ->assertJsonPath('data.level', $level->value)
+            ->assertJsonPath('data.next_reward.message', $message);
+
+        $this->actingAs($organiser)->getJson('/api/v1/me/community-rank')
+            ->assertOk()
+            ->assertJsonPath('data.total', $communities)
+            ->assertJsonPath('data.top_slots', $slots);
     }
 
     public function test_the_nightly_job_scores_each_city_once_not_once_per_organiser(): void

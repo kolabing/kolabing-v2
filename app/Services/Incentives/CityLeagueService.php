@@ -33,6 +33,11 @@ use Illuminate\Support\Facades\DB;
  * Organisers in a division below N join the nearest division that stands.
  * Once a city has divisions, last season's top 3 move up and bottom 3 move
  * down for the next season; newcomers are placed by member count.
+ *
+ * Everyone with points is ranked, but benefits (Top level, Champion / Top 3
+ * badges) only go to the division's Top slots, which scale with how many
+ * communities are ranked in it: under 5 → top 1, 5 to 9 → top 2, 10+ → top 3
+ * (or the top 10% when that is more). See topThreshold().
  */
 class CityLeagueService
 {
@@ -178,15 +183,49 @@ class CityLeagueService
     }
 
     /**
-     * Rank a profile needs to be inside to count as "top" of its division:
-     * the top 3, or the top 10% when the division is large.
+     * Top slots of a division: the rank a profile needs to be inside to count
+     * as "top" (Top level, winner badges). Scales with the number of ranked
+     * communities (points > 0) in the division: under 5 → 1, 5 to 9 → 2,
+     * 10+ → 3, or the top 10% from the last tier up when that is more.
      */
-    public function topThreshold(int $divisionSize): int
+    public function topThreshold(int $rankedCount): int
     {
-        $ranks = (int) config('incentives.city_league.top_ranks', 3);
-        $percent = (float) config('incentives.city_league.top_percent', 0.10);
+        $tiers = (array) config('incentives.city_league.top_slots', [0 => 1, 5 => 2, 10 => 3]);
+        ksort($tiers);
 
-        return max($ranks, (int) ceil($divisionSize * $percent));
+        $slots = 1;
+        $lastTierFrom = 0;
+        foreach ($tiers as $from => $tierSlots) {
+            if ($rankedCount >= (int) $from) {
+                $slots = (int) $tierSlots;
+                $lastTierFrom = (int) $from;
+            }
+        }
+
+        if ($lastTierFrom === (int) array_key_last($tiers)) {
+            $percent = (float) config('incentives.city_league.top_percent', 0.10);
+            $slots = max($slots, (int) ceil($rankedCount * $percent));
+        }
+
+        return max(1, $slots);
+    }
+
+    /**
+     * Season-close winner badge for a final rank: Champion for #1, Top 3 for
+     * the rest of the division's Top slots (never past #3, the badge name).
+     */
+    public function badgeFor(int $rank, int $rankedCount): ?string
+    {
+        $badgeSlots = min(
+            $this->topThreshold($rankedCount),
+            (int) config('incentives.city_league.promotion_slots', 3),
+        );
+
+        return match (true) {
+            $rank === 1 => LeagueStanding::BADGE_CHAMPION,
+            $rank <= $badgeSlots => LeagueStanding::BADGE_TOP3,
+            default => null,
+        };
     }
 
     /**
@@ -201,9 +240,8 @@ class CityLeagueService
         }
 
         $table = $this->table($city, $month);
-        $slots = (int) config('incentives.city_league.promotion_slots', 3);
 
-        return DB::transaction(function () use ($city, $month, $table, $existing, $slots): LeagueSeason {
+        return DB::transaction(function () use ($city, $month, $table, $existing): LeagueSeason {
             $season = $existing ?? new LeagueSeason(['city_id' => $city->id, 'month' => $month]);
             $season->fill([
                 'starts_at' => $table['starts_at']->utc(),
@@ -225,11 +263,7 @@ class CityLeagueService
                         'points' => $row['points'],
                         'score_breakdown' => $row['score_breakdown'],
                         'movement' => $row['promotion_zone'] ? 'promoted' : ($row['relegation_zone'] ? 'relegated' : null),
-                        'badge' => match (true) {
-                            $row['rank'] === 1 => LeagueStanding::BADGE_CHAMPION,
-                            $row['rank'] <= $slots => LeagueStanding::BADGE_TOP3,
-                            default => null,
-                        },
+                        'badge' => $this->badgeFor($row['rank'], $row['ranked_size']),
                     ],
                 );
             }
@@ -524,6 +558,8 @@ class CityLeagueService
         foreach (collect($rows)->groupBy('division') as $division => $group) {
             $sorted = $group->sort(fn (array $a, array $b): int => [$b['points'], mb_strtolower($a['display_name'])] <=> [$a['points'], mb_strtolower($b['display_name'])])->values();
             $size = $sorted->count();
+            $ranked = $sorted->filter(fn (array $r): bool => $r['points'] > 0)->count();
+            $topSlots = $this->topThreshold($ranked);
             $rank = 0;
             $previousPoints = null;
 
@@ -536,6 +572,9 @@ class CityLeagueService
                 $out[] = $row + [
                     'rank' => $rank,
                     'division_size' => $size,
+                    // Communities with points in the division, and the Top slots they give.
+                    'ranked_size' => $ranked,
+                    'top_slots' => $topSlots,
                     'promotion_zone' => $divisionsEnabled && $division !== $highest && $row['points'] > 0 && $rank <= $slots,
                     'relegation_zone' => $divisionsEnabled && $division !== $lowest && $rank > max($slots, $size - $slots),
                 ];
