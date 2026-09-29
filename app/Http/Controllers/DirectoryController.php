@@ -137,8 +137,13 @@ class DirectoryController extends Controller
             : 'Community';
     }
 
-    public function show(string $city): View
+    public function show(string $city): View|RedirectResponse
     {
+        $canonical = $this->canonicalCity($city);
+        if ($canonical !== $city) {
+            return redirect()->route('directory.city', $canonical, 301);
+        }
+
         $page = RankingPage::query()->published()->where('city', $city)->whereNull('topic')->firstOrFail();
 
         $communities = $this->projection->forCity($this->listedCommunities(), $city);
@@ -154,8 +159,13 @@ class DirectoryController extends Controller
         ]);
     }
 
-    public function topic(string $city, string $slug): View
+    public function topic(string $city, string $slug): View|RedirectResponse
     {
+        $canonical = $this->canonicalCity($city);
+        if ($canonical !== $city) {
+            return redirect()->route('directory.topic', [$canonical, $slug], 301);
+        }
+
         $page = RankingPage::query()->published()->where('slug', $slug)->where('city', $city)->firstOrFail();
 
         $communities = $this->projection->forCity($this->listedCommunities(), $city, (array) $page->verticals);
@@ -166,6 +176,30 @@ class DirectoryController extends Controller
             'ranked' => $ranked,
             'counts' => $this->socialCounts($ranked),
         ]);
+    }
+
+    /**
+     * The city as stored on its published pages ("Barcelona", "Mexico City") for
+     * any spelling of it in a URL: /communities/barcelona and
+     * /communities/mexico-city resolve and then 301 to the canonical casing.
+     * The lookup is case-insensitive because Postgres compares strings
+     * case-sensitively, and a lowercase city URL used to 404 (BE-FX-80).
+     */
+    private function canonicalCity(string $city): string
+    {
+        $wanted = $this->cityKey($city);
+
+        $match = RankingPage::query()->published()->distinct()->pluck('city')
+            ->first(fn (string $stored): bool => $this->cityKey($stored) === $wanted);
+
+        abort_if($match === null, 404);
+
+        return $match;
+    }
+
+    private function cityKey(string $city): string
+    {
+        return (string) Str::of($city)->lower()->replace(['-', '_'], ' ')->squish();
     }
 
     public function howWeRank(): View

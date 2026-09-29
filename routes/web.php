@@ -629,7 +629,9 @@ Route::get('/sitemap.xml', function () {
         foreach ($rankingPages as $page) {
             // A hub page is a city; the rest hang off a city as a topic.
             $urls[] = $page->topic === null
-                ? route('directory.city', $page->slug)
+                // The hub is served per CITY, not per slug: listing its slug
+                // advertised a URL that 404s (BE-FX-80).
+                ? route('directory.city', $page->city)
                 : route('directory.topic', [$page->city, $page->slug]);
         }
     }
