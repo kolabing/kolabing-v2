@@ -106,7 +106,7 @@ class SitemapAndLinksTest extends TestCase
         $this->get('http://kolabing.com/sitemap.xml')
             ->assertOk()
             ->assertSee('<loc>'.route('directory.index').'</loc>', false)
-            ->assertSee('<loc>'.route('directory.city', 'barcelona').'</loc>', false);
+            ->assertSee('<loc>'.route('directory.city', 'Barcelona').'</loc>', false);
     }
 
     public function test_the_sitemap_leaves_out_profiles_without_a_display_name(): void
