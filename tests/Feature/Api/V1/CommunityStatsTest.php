@@ -41,7 +41,7 @@ class CommunityStatsTest extends TestCase
         ]);
         CommunityMember::factory()->create([
             'community_id' => $community->id,
-            'joined_at' => now()->subDays(2),
+            'joined_at' => now(),
         ]);
         CommunityMember::factory()->create([
             'community_id' => $community->id,
