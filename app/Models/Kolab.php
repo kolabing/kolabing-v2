@@ -262,6 +262,9 @@ class Kolab extends Model
      * closed here while Explore still showed it, and the auto-lister put a
      * second card for the same business next to it (BE-FX-81).
      *
+     * An offer addressed to one community (`recipient_community_id`) is hidden
+     * from every other community, so it does not count as open either.
+     *
      * A recurring window can still hold no bookable weekday; callers that need
      * the exact feed answer also check hasSelectableDatesFrom().
      *
@@ -274,6 +277,7 @@ class Kolab extends Model
             ->where('status', KolabStatus::Published)
             ->whereIn('intent_type', [IntentType::VenuePromotion, IntentType::ProductPromotion])
             ->whereNull('multi_kolab_event_id')
+            ->whereNull('recipient_community_id')
             ->withSelectableDates();
     }
 

@@ -385,6 +385,21 @@ class BusinessAutoListingTest extends TestCase
         $this->assertNotNull(app(BusinessAutoListingService::class)->provision($profile));
     }
 
+    public function test_an_offer_addressed_to_one_community_does_not_count_as_open(): void
+    {
+        $profile = $this->venueBusiness();
+        $recipient = Profile::factory()->community()->create();
+        Kolab::factory()->published()->venuePromotion()->forCreator($profile)->create([
+            'preferred_city' => 'Barcelona',
+            'availability_start' => null,
+            'availability_end' => null,
+            'recipient_community_id' => $recipient->id,
+        ]);
+
+        $this->assertNull(app(BusinessAutoListingService::class)->skipReason($profile));
+        $this->assertNotNull(app(BusinessAutoListingService::class)->provision($profile));
+    }
+
     public function test_the_backfill_runs_daily_so_a_business_never_drops_out_of_explore(): void
     {
         $this->artisan('schedule:list')
