@@ -135,11 +135,27 @@ class BusinessAutoListingService
             return self::SKIP_AUTO_LISTING_EXISTS;
         }
 
-        if (Kolab::query()->where('creator_profile_id', $profile->id)->openBusinessOffer()->exists()) {
+        if ($this->hasOfferVisibleInExplore($profile)) {
             return self::SKIP_HAS_OPEN_KOLAB;
         }
 
         return null;
+    }
+
+    /**
+     * Whether Explore shows one of this business's own offers today: the SQL
+     * window check plus the bookable-day check the feed itself runs, so a
+     * recurring offer with no weekday left does not keep the business hidden.
+     */
+    private function hasOfferVisibleInExplore(Profile $profile): bool
+    {
+        $today = now()->startOfDay();
+
+        return Kolab::query()
+            ->where('creator_profile_id', $profile->id)
+            ->openBusinessOffer()
+            ->get()
+            ->contains(fn (Kolab $kolab): bool => $kolab->hasSelectableDatesFrom($today));
     }
 
     /**

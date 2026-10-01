@@ -254,25 +254,31 @@ class Kolab extends Model
     /**
      * Scope a query to offers a community can still find in Explore: published,
      * a venue or product offer, not a Multi-Kolab child, and with a window that
-     * has not run out — the same COALESCE(availability_end, availability_start)
-     * rule DiscoveryOpportunityService applies.
+     * has not run out — the withSelectableDates() rule DiscoveryOpportunityService
+     * applies, where an absent end is open-ended (BE-FX-74).
+     *
+     * It used to keep the old COALESCE(availability_end, availability_start)
+     * reading, so a flexible offer that had started with no end counted as
+     * closed here while Explore still showed it, and the auto-lister put a
+     * second card for the same business next to it (BE-FX-81).
+     *
+     * An offer addressed to one community (`recipient_community_id`) is hidden
+     * from every other community, so it does not count as open either.
+     *
+     * A recurring window can still hold no bookable weekday; callers that need
+     * the exact feed answer also check hasSelectableDatesFrom().
      *
      * @param  Builder<Kolab>  $query
      * @return Builder<Kolab>
      */
     public function scopeOpenBusinessOffer(Builder $query): Builder
     {
-        $today = now()->toDateString();
-
         return $query
             ->where('status', KolabStatus::Published)
             ->whereIn('intent_type', [IntentType::VenuePromotion, IntentType::ProductPromotion])
             ->whereNull('multi_kolab_event_id')
-            ->where(function (Builder $window) use ($today): void {
-                $window->where(function (Builder $open): void {
-                    $open->whereNull('availability_start')->whereNull('availability_end');
-                })->orWhereRaw('COALESCE(availability_end, availability_start) >= ?', [$today]);
-            });
+            ->whereNull('recipient_community_id')
+            ->withSelectableDates();
     }
 
     /**

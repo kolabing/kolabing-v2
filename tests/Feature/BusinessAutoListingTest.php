@@ -323,6 +323,90 @@ class BusinessAutoListingTest extends TestCase
         $this->assertCount(1, $this->kolabsOf($profile));
     }
 
+    public function test_a_flexible_offer_that_started_in_the_past_with_no_end_still_counts_as_open(): void
+    {
+        $profile = $this->venueBusiness();
+        Kolab::factory()->published()->venuePromotion()->forCreator($profile)->create([
+            'preferred_city' => 'Barcelona',
+            'availability_mode' => 'flexible',
+            'availability_start' => now()->subDays(10)->toDateString(),
+            'availability_end' => null,
+        ]);
+
+        $this->assertSame(BusinessAutoListingService::SKIP_HAS_OPEN_KOLAB, app(BusinessAutoListingService::class)->skipReason($profile));
+        $this->assertNull(app(BusinessAutoListingService::class)->provision($profile));
+        $this->assertCount(1, $this->kolabsOf($profile), 'No duplicate card next to an offer Explore still shows.');
+    }
+
+    public function test_a_business_whose_own_offer_expired_is_auto_listed_and_reappears_in_explore(): void
+    {
+        $business = $this->venueBusiness();
+        Kolab::factory()->published()->venuePromotion()->forCreator($business)->create([
+            'preferred_city' => 'Barcelona',
+            'availability_mode' => 'one_time',
+            'availability_start' => now()->subDays(40)->toDateString(),
+            'availability_end' => now()->subDays(20)->toDateString(),
+        ]);
+
+        $listing = app(BusinessAutoListingService::class)->provision($business);
+
+        $this->assertNotNull($listing);
+        $this->assertTrue($listing->is_auto_listing);
+
+        $community = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $community->id,
+            'name' => 'Barcelona Brunch Club',
+            'community_type' => 'run_club',
+            'city_id' => $this->city()->id,
+        ]);
+
+        $this->actingAs($community)
+            ->getJson('/api/v1/discovery/opportunities?city=Barcelona')
+            ->assertOk()
+            ->assertJsonPath('data.meta.total', 1)
+            ->assertJsonPath('data.data.0.id', $listing->id);
+    }
+
+    public function test_a_recurring_offer_with_no_bookable_day_left_does_not_count_as_open(): void
+    {
+        $this->travelTo(now()->next('Monday'));
+
+        $profile = $this->venueBusiness();
+        Kolab::factory()->published()->venuePromotion()->forCreator($profile)->create([
+            'preferred_city' => 'Barcelona',
+            'availability_mode' => 'recurring',
+            'availability_start' => now()->subDays(30)->toDateString(),
+            'availability_end' => now()->addDays(2)->toDateString(),
+            'recurring_days' => [6, 7],
+        ]);
+
+        $this->assertNull(app(BusinessAutoListingService::class)->skipReason($profile));
+        $this->assertNotNull(app(BusinessAutoListingService::class)->provision($profile));
+    }
+
+    public function test_an_offer_addressed_to_one_community_does_not_count_as_open(): void
+    {
+        $profile = $this->venueBusiness();
+        $recipient = Profile::factory()->community()->create();
+        Kolab::factory()->published()->venuePromotion()->forCreator($profile)->create([
+            'preferred_city' => 'Barcelona',
+            'availability_start' => null,
+            'availability_end' => null,
+            'recipient_community_id' => $recipient->id,
+        ]);
+
+        $this->assertNull(app(BusinessAutoListingService::class)->skipReason($profile));
+        $this->assertNotNull(app(BusinessAutoListingService::class)->provision($profile));
+    }
+
+    public function test_the_backfill_runs_daily_so_a_business_never_drops_out_of_explore(): void
+    {
+        $this->artisan('schedule:list')
+            ->expectsOutputToContain('kolabing:autolist-businesses --apply')
+            ->assertSuccessful();
+    }
+
     public function test_a_business_that_already_used_its_free_kolab_is_still_listed(): void
     {
         $profile = $this->venueBusiness();
