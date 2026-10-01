@@ -77,6 +77,13 @@ Schedule::command('app:evaluate-organiser-levels')
     ->dailyAt('02:30')
     ->withoutOverlapping();
 
+// Explore self-heal (BE-FX-81): a business whose own offers have all expired
+// drops out of community Explore. List it again before the morning, the same
+// way onboarding does. Idempotent: one auto listing per business, ever.
+Schedule::command('kolabing:autolist-businesses --apply')
+    ->dailyAt('04:30')
+    ->withoutOverlapping();
+
 // Instagram Connect (BE-NF-75): refresh long-lived tokens from day 50 of 60 and
 // disconnect expired ones. 05:00 is free (04:00 suggestions, 08:00 reminders).
 Schedule::command('instagram:refresh-tokens')
