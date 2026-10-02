@@ -54,6 +54,13 @@ return [
         ],
     ],
 
+    'kolab' => [
+        'invite' => [
+            'title' => 'You\'re invited to a Kolab',
+            'body' => ':business in :city is looking for communities for ":kolab". Tap to see it and send your request.',
+        ],
+    ],
+
     'collaboration' => [
         'created' => [
             'title' => 'Collaboration started',

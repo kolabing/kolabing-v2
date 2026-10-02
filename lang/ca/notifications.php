@@ -54,6 +54,13 @@ return [
         ],
     ],
 
+    'kolab' => [
+        'invite' => [
+            'title' => 'Et convidem a un Kolab',
+            'body' => ':business a :city busca comunitats per a ":kolab". Toca per veure-ho i enviar la teva sol·licitud.',
+        ],
+    ],
+
     'collaboration' => [
         'created' => [
             'title' => 'Col·laboració iniciada',

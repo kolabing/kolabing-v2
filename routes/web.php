@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\EmailTemplateController as AdminEmailTemplateCont
 use App\Http\Controllers\Admin\GamificationController as AdminGamificationController;
 use App\Http\Controllers\Admin\IconLibraryController as AdminIconLibraryController;
 use App\Http\Controllers\Admin\KolabController as AdminKolabController;
+use App\Http\Controllers\Admin\KolabInviteController as AdminKolabInviteController;
 use App\Http\Controllers\Admin\ManagedUserController;
 use App\Http\Controllers\Admin\OfferOptionController as AdminOfferOptionController;
 use App\Http\Controllers\Admin\PartnerRewardController as AdminPartnerRewardController;
@@ -371,6 +372,12 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::get('/auto-kolabs', [AdminAutoKolabController::class, 'index'])->name('auto-kolabs.index');
     Route::post('/auto-kolabs/preview', [AdminAutoKolabController::class, 'preview'])->name('auto-kolabs.preview');
     Route::post('/auto-kolabs', [AdminAutoKolabController::class, 'store'])->name('auto-kolabs.store');
+
+    // Invite communities to apply to an open business offer (KolabInviteService).
+    // Preview is its own POST so nothing is sent until the maintainer confirms.
+    Route::get('/kolab-invites', [AdminKolabInviteController::class, 'index'])->name('kolab-invites.index');
+    Route::post('/kolab-invites/preview', [AdminKolabInviteController::class, 'preview'])->name('kolab-invites.preview');
+    Route::post('/kolab-invites', [AdminKolabInviteController::class, 'store'])->name('kolab-invites.store');
 
     Route::get('/kolabs', [AdminKolabController::class, 'index'])->name('kolabs.index');
     Route::get('/kolabs/{kolab}/edit', [AdminKolabController::class, 'edit'])->name('kolabs.edit');
