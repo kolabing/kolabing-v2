@@ -110,6 +110,41 @@ class KolabCityFilterTest extends TestCase
             ->assertJsonPath('data.data.0.title', 'Roma Sur coffee mornings');
     }
 
+    public function test_discovery_defaults_to_the_viewers_city_and_city_all_opts_out(): void
+    {
+        $barcelona = City::query()->where('name', 'Barcelona')->firstOrFail();
+        $viewer = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $viewer->id,
+            'name' => 'Kontakt BCN',
+            'community_type' => 'social_community',
+            'city_id' => $barcelona->id,
+        ]);
+
+        foreach (['Barcelona' => 'Rooftop in Barcelona', 'Ciudad de México' => 'Roma Sur coffee mornings'] as $city => $title) {
+            $business = Profile::factory()->business()->create();
+            BusinessProfile::factory()->create(['profile_id' => $business->id, 'name' => $title, 'city_name' => $city]);
+            Kolab::factory()->published()->venuePromotion()->forCreator($business)->create([
+                'title' => $title,
+                'preferred_city' => $city,
+                'availability_mode' => 'flexible',
+                'availability_start' => now()->addWeek(),
+                'availability_end' => now()->addMonth(),
+            ]);
+        }
+
+        $this->actingAs($viewer)
+            ->getJson('/api/v1/discovery/opportunities?feed=all')
+            ->assertStatus(200)
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.data.0.title', 'Rooftop in Barcelona');
+
+        $this->actingAs($viewer)
+            ->getJson('/api/v1/discovery/opportunities?feed=all&city=all')
+            ->assertStatus(200)
+            ->assertJsonPath('meta.total', 2);
+    }
+
     public function test_creating_a_venue_kolab_stores_the_canonical_city(): void
     {
         $business = Profile::factory()->business()->create();

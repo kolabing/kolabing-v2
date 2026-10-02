@@ -108,6 +108,7 @@ class DiscoveryOpportunityService
         ]);
 
         $normalizedFilters = $this->normalizeFilters($filters, $perPage);
+        $normalizedFilters = $this->defaultToViewerCity($normalizedFilters, $viewer);
 
         $baseQuery = $this->makeBaseQuery($viewer, $viewerRole);
         $hasPublishedResults = (clone $baseQuery)->exists();
@@ -1226,6 +1227,32 @@ class DiscoveryOpportunityService
     private function itemModelId(array $item): string
     {
         return (string) $item['model']->id;
+    }
+
+    /**
+     * Explore shows the viewer's own city unless they pick another one
+     * (Daniel 2026-10-02: a Barcelona community saw three Mexico City venues).
+     * The city used to be only a score boost, so any listing anywhere could
+     * fill the deck. `city=all` (or `any`) keeps the old, every-city feed.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array<string, mixed>
+     */
+    private function defaultToViewerCity(array $filters, Profile $viewer): array
+    {
+        $city = $filters['city'];
+
+        if ($city !== null && in_array(mb_strtolower($city), ['all', 'any'], true)) {
+            $filters['city'] = null;
+
+            return $filters;
+        }
+
+        if ($city === null) {
+            $filters['city'] = $this->normalizeNullableString($this->resolveViewerCity($viewer));
+        }
+
+        return $filters;
     }
 
     private function resolveViewerCity(Profile $viewer): ?string
