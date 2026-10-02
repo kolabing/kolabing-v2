@@ -54,11 +54,14 @@ class ApplicationService
      * @param  Profile  $applicant  The profile applying to the opportunity
      * @param  Kolab  $opportunity  The Kolab to apply to
      * @param  array{message?: string|null, availability?: string|null}  $data  Application data
+     * @param  bool  $notify  False only for an application Kolabing files on the
+     *                        applicant's behalf (AutoKolabService), which sends its
+     *                        own "Kolabing set this up" copy instead.
      *
      * @throws InvalidArgumentException When validation fails
      * @throws RuntimeException When subscription requirements are not met
      */
-    public function apply(Profile $applicant, Kolab $opportunity, array $data): Application
+    public function apply(Profile $applicant, Kolab $opportunity, array $data, bool $notify = true): Application
     {
         $this->validateCanApply($applicant, $opportunity);
 
@@ -71,7 +74,9 @@ class ApplicationService
             'status' => ApplicationStatus::Pending,
         ]);
 
-        $this->notificationService->notifyApplicationReceived($application);
+        if ($notify) {
+            $this->notificationService->notifyApplicationReceived($application);
+        }
         $this->notificationReminderService->syncApplicationPendingReminder($application->fresh(['kolab']));
 
         // Missions: the applicant progresses application_submitted; the kolab
@@ -97,11 +102,14 @@ class ApplicationService
      *
      * @param  Application  $application  The application to accept
      * @param  array{scheduled_date?: string|null, contact_methods?: array<string, mixed>|null}  $data  Collaboration data
+     * @param  bool  $notify  False only for an acceptance Kolabing performs on the
+     *                        owner's behalf (AutoKolabService); counters, missions,
+     *                        the happening and analytics still run.
      * @return array{application: Application, collaboration: Collaboration}
      *
      * @throws InvalidArgumentException When application cannot be accepted
      */
-    public function accept(Application $application, array $data = []): array
+    public function accept(Application $application, array $data = [], bool $notify = true): array
     {
         $application->loadMissing([
             'collaboration',
@@ -124,7 +132,7 @@ class ApplicationService
 
         $this->validateCanAccept($application);
 
-        $result = DB::transaction(function () use ($application, $data): array {
+        $result = DB::transaction(function () use ($application, $data, $notify): array {
             $application->update([
                 'status' => ApplicationStatus::Accepted,
                 'accepted_at' => now(),
@@ -133,7 +141,9 @@ class ApplicationService
 
             $collaboration = $this->createCollaboration($application, $data);
 
-            $this->notificationService->notifyApplicationAccepted($application);
+            if ($notify) {
+                $this->notificationService->notifyApplicationAccepted($application);
+            }
 
             return [
                 'application' => $application->fresh(),
@@ -145,12 +155,14 @@ class ApplicationService
         $collaboration = $result['collaboration'];
         $opportunity = $acceptedApplication->kolab;
 
-        try {
-            $this->notificationService->notifyCollaborationCreated(
-                $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'kolab']),
-            );
-        } catch (\Throwable $e) {
-            report($e);
+        if ($notify) {
+            try {
+                $this->notificationService->notifyCollaborationCreated(
+                    $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'kolab']),
+                );
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         if ($opportunity === null) {

@@ -345,6 +345,12 @@ return [
             'active' => ['admin/kolabs', 'admin/kolabs/*'],
         ],
         [
+            'text' => 'Auto-kolabs',
+            'route' => 'admin.auto-kolabs.index',
+            'icon' => 'fas fa-fw fa-link',
+            'active' => ['admin/auto-kolabs', 'admin/auto-kolabs/*'],
+        ],
+        [
             'text' => 'Invite communities',
             'route' => 'admin.kolab-invites.index',
             'icon' => 'fas fa-fw fa-bullhorn',

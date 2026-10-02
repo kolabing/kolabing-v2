@@ -66,6 +66,10 @@ return [
             'title' => 'Collaboration started',
             'body' => 'Your collaboration for ":kolab" is set up. Tap to view the details.',
         ],
+        'auto_created' => [
+            'title' => 'Kolabing set up a Kolab for you',
+            'body' => 'We matched you with :partner for ":kolab". It\'s confirmed. Tap to see the details and say hello.',
+        ],
         'activated' => [
             'title' => 'Collaboration activated',
             'actor_body' => 'You marked the collaboration for ":kolab" as active.',

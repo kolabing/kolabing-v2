@@ -656,6 +656,49 @@ class NotificationService
     }
 
     /**
+     * Tell both owners that Kolabing set up an already-matched Kolab for them
+     * (AutoKolabService). Rides the `collaboration_created` type on purpose:
+     * the app already routes it to the collaboration, push and email honour the
+     * same `collaboration_updates` switch, and the email is the existing
+     * "collab confirmed" template. Only the copy differs, so nobody reads
+     * "X accepted your application" for an application they never sent.
+     *
+     * The partner name is resolved per recipient, so a business without an
+     * active subscription gets the neutral community name (ROLES §2.5).
+     */
+    public function notifyAutoKolabCreated(Collaboration $collaboration): void
+    {
+        $collaboration->loadMissing(['creatorProfile', 'applicantProfile', 'kolab']);
+        $kolab = $this->collaborationKolabTitle($collaboration);
+
+        foreach ([$collaboration->creatorProfile, $collaboration->applicantProfile] as $profile) {
+            if ($profile === null) {
+                continue;
+            }
+
+            $counterpart = $profile->id === $collaboration->creatorProfile?->id
+                ? $collaboration->applicantProfile
+                : $collaboration->creatorProfile;
+            $partnerName = $this->nameForRecipient($profile, $counterpart, 'your partner');
+
+            $this->createLocalizedNotification(
+                recipient: $profile,
+                type: NotificationType::CollaborationCreated,
+                titleKey: 'notifications.collaboration.auto_created.title',
+                bodyKey: 'notifications.collaboration.auto_created.body',
+                replace: ['kolab' => $kolab, 'partner' => $partnerName],
+                actor: null,
+                targetId: $collaboration->id,
+                targetType: 'collaboration',
+                emailModel: [
+                    'partner_name' => $partnerName,
+                    'scheduled_date' => $collaboration->scheduled_date?->format('l, j M Y') ?? 'soon',
+                ],
+            );
+        }
+    }
+
+    /**
      * Notify when a collaboration is activated. The actor (who activated it)
      * sees actor-aware copy; the counterpart sees "{name} marked…".
      */

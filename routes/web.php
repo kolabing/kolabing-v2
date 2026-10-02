@@ -3,6 +3,7 @@
 use App\Enums\EventVisibility;
 use App\Enums\UserType;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
+use App\Http\Controllers\Admin\AutoKolabController as AdminAutoKolabController;
 use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
 use App\Http\Controllers\Admin\BlogController as AdminBlogController;
 use App\Http\Controllers\Admin\BusinessVisibilityBoostController as AdminBusinessVisibilityBoostController;
@@ -365,6 +366,12 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::get('/community-verification', [AdminCommunityVerificationController::class, 'index'])->name('community-verification.index');
     Route::post('/users/{profile}/verification/verify', [AdminCommunityVerificationController::class, 'verify'])->name('users.verification.verify');
     Route::post('/users/{profile}/verification/reject', [AdminCommunityVerificationController::class, 'reject'])->name('users.verification.reject');
+
+    // Auto-kolabs: a Kolab set up already matched (AutoKolabService). Preview
+    // is its own POST so nothing is written until the maintainer confirms.
+    Route::get('/auto-kolabs', [AdminAutoKolabController::class, 'index'])->name('auto-kolabs.index');
+    Route::post('/auto-kolabs/preview', [AdminAutoKolabController::class, 'preview'])->name('auto-kolabs.preview');
+    Route::post('/auto-kolabs', [AdminAutoKolabController::class, 'store'])->name('auto-kolabs.store');
 
     // Invite communities to apply to an open business offer (KolabInviteService).
     // Preview is its own POST so nothing is sent until the maintainer confirms.
