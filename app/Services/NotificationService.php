@@ -92,6 +92,11 @@ class NotificationService
         'collab_day_reminder' => 'collaboration_updates',
         'collab_followup_reminder' => 'collaboration_updates',
         'review_reminder' => 'collaboration_updates',
+
+        // Kolabing inviting a community to apply to a Kolab (KolabInviteService).
+        // Rides the Kolab-activity switch rather than `marketing_tips`, whose
+        // column defaults to FALSE and would mute it for almost everyone.
+        'kolab_invite' => 'collaboration_updates',
     ];
 
     public function __construct(
@@ -875,6 +880,31 @@ class NotificationService
     private function applicationOpportunity(Application $application): mixed
     {
         return $application->kolab;
+    }
+
+    /**
+     * Invite a community to apply to a Kolab (KolabInviteService). In-app row
+     * always; push unless the community switched off `collaboration_updates`.
+     * Targets the Kolab itself, so the app opens it with its Apply button.
+     */
+    public function notifyKolabInvite(Profile $community, Kolab $kolab): Notification
+    {
+        $kolab->loadMissing('creatorProfile.businessProfile');
+
+        return $this->createLocalizedNotification(
+            recipient: $community,
+            type: NotificationType::KolabInvite,
+            titleKey: 'notifications.kolab.invite.title',
+            bodyKey: 'notifications.kolab.invite.body',
+            replace: [
+                'kolab' => $kolab->title,
+                'business' => $kolab->creatorProfile?->getExtendedProfile()?->name ?? 'A business',
+                'city' => $kolab->preferred_city,
+            ],
+            actor: $kolab->creatorProfile,
+            targetId: $kolab->id,
+            targetType: 'kolab',
+        );
     }
 
     /**

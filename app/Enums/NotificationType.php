@@ -47,6 +47,10 @@ enum NotificationType: string
     case ReactivationPrompt = 'reactivation_prompt';
     case TierPromoted = 'tier_promoted';
 
+    // Kolabing invites a community to apply to a Kolab (KolabInviteService).
+    // target_type = 'kolab', target_id = the Kolab id; the app opens /opportunity/{id}.
+    case KolabInvite = 'kolab_invite';
+
     // Multi-Kolab Event MVP — deliberately new cases, never overloading the
     // attendee EventCancelled case above (different domain entirely).
     case MultiKolabApplicationReceived = 'multi_kolab_application_received';

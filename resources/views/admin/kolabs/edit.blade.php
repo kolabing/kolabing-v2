@@ -8,6 +8,12 @@
         <i class="fas fa-arrow-left mr-1"></i>
         Back
     </a>
+    @if ($kolab->status === \App\Enums\KolabStatus::Published && in_array($kolab->intent_type, [\App\Enums\IntentType::VenuePromotion, \App\Enums\IntentType::ProductPromotion], true) && $kolab->recipient_community_id === null)
+        <a href="{{ route('admin.kolab-invites.index', ['kolab' => $kolab->id]) }}" class="btn btn-outline-primary mr-2">
+            <i class="fas fa-bullhorn mr-1"></i>
+            Invite communities
+        </a>
+    @endif
     <form method="POST" action="{{ route('admin.kolabs.destroy', $kolab) }}" class="d-inline" onsubmit="return confirm('Delete this Kolab? This cannot be undone.');">
         @csrf
         @method('DELETE')
