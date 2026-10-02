@@ -87,6 +87,17 @@ class AutoKolabTest extends TestCase
         return $profile->fresh();
     }
 
+    /**
+     * The match notifications (mission/badge side effects, if any are seeded,
+     * are not this feature's business).
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, Notification>
+     */
+    private function matchNotifications(): \Illuminate\Database\Eloquent\Collection
+    {
+        return Notification::query()->where('type', NotificationType::CollaborationCreated->value)->get();
+    }
+
     private function maintainer(): User
     {
         return User::factory()->create(['is_maintainer' => true]);
@@ -151,7 +162,11 @@ class AutoKolabTest extends TestCase
 
         // One "Kolabing set it up" notification each, routed to the collaboration;
         // none of the "X applied" / "X accepted you" copy that would be false here.
-        $notifications = Notification::query()->get();
+        $this->assertSame(0, Notification::query()->whereIn('type', [
+            NotificationType::ApplicationReceived->value,
+            NotificationType::ApplicationAccepted->value,
+        ])->count());
+        $notifications = $this->matchNotifications();
         $this->assertCount(2, $notifications);
         $this->assertEqualsCanonicalizing([$business->id, $community->id], $notifications->pluck('profile_id')->all());
         foreach ($notifications as $notification) {
@@ -163,7 +178,11 @@ class AutoKolabTest extends TestCase
         $this->assertStringContainsString('Real Run Club', $notifications->firstWhere('profile_id', $business->id)->body);
         $this->assertStringContainsString('Eixample 46', $notifications->firstWhere('profile_id', $community->id)->body);
 
-        Queue::assertPushed(SendPushNotification::class, 2);
+        Queue::assertPushed(
+            SendPushNotification::class,
+            fn (SendPushNotification $job): bool => $job->type === NotificationType::CollaborationCreated && $job->targetId === $collaboration->id,
+        );
+        $this->assertSame(2, Queue::pushed(SendPushNotification::class, fn (SendPushNotification $job): bool => $job->type === NotificationType::CollaborationCreated)->count());
     }
 
     public function test_a_free_business_does_not_learn_the_community_name_from_the_notification(): void
@@ -177,7 +196,7 @@ class AutoKolabTest extends TestCase
             '--apply' => true,
         ])->assertSuccessful();
 
-        $body = Notification::query()->where('profile_id', $business->id)->sole()->body;
+        $body = $this->matchNotifications()->where('profile_id', $business->id)->sole()->body;
         $this->assertStringNotContainsString('Real Run Club', $body);
         $this->assertStringContainsString('A community', $body);
     }
@@ -192,8 +211,8 @@ class AutoKolabTest extends TestCase
         ])->assertSuccessful();
 
         $this->assertSame(1, Collaboration::query()->count());
-        $this->assertSame(0, Notification::query()->count());
-        Queue::assertNotPushed(SendPushNotification::class);
+        $this->assertCount(0, $this->matchNotifications());
+        Queue::assertNotPushed(SendPushNotification::class, fn (SendPushNotification $job): bool => $job->type === NotificationType::CollaborationCreated);
     }
 
     public function test_the_gift_kolab_does_not_use_up_the_business_free_kolab(): void
@@ -291,7 +310,7 @@ class AutoKolabTest extends TestCase
         $kolab = Kolab::query()->sole();
         $this->assertSame('Sunday run + brunch', $kolab->title);
         $this->assertSame($admin->id, $kolab->created_by_admin_id);
-        $this->assertSame(0, Notification::query()->count(), 'Notify unticked.');
+        $this->assertCount(0, $this->matchNotifications(), 'Notify unticked.');
 
         $this->actingAs($admin, 'admin')
             ->get(route('admin.auto-kolabs.index'))
