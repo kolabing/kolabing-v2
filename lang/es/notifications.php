@@ -59,6 +59,10 @@ return [
             'title' => 'Colaboración iniciada',
             'body' => 'Tu colaboración para ":kolab" está lista. Toca para ver los detalles.',
         ],
+        'auto_created' => [
+            'title' => 'Kolabing te ha preparado un Kolab',
+            'body' => 'Te hemos conectado con :partner para ":kolab". Ya está confirmado. Toca para ver los detalles y saludar.',
+        ],
         'activated' => [
             'title' => 'Colaboración activada',
             'actor_body' => 'Has marcado como activa la colaboración para ":kolab".',

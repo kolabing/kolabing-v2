@@ -602,7 +602,9 @@ class Profile extends Authenticatable
      * non-CommunitySeeking kolab publish (the freemium quota).
      *
      * CommunitySeeking publishes are always free and never count toward
-     * the quota.
+     * the quota. Neither does a Kolab a maintainer set up already matched
+     * (AutoKolabService): that one is Kolabing's gift, not the business's
+     * own publish.
      */
     public function hasUsedFreeKolab(): bool
     {
@@ -612,6 +614,7 @@ class Profile extends Authenticatable
                 IntentType::ProductPromotion,
             ])
             ->whereNotNull('published_at')
+            ->where('is_auto_matched', false)
             ->exists();
     }
 

@@ -23,6 +23,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property IntentType $intent_type
  * @property KolabStatus $status
  * @property bool $is_auto_listing
+ * @property bool $is_auto_matched
+ * @property int|null $created_by_admin_id
  * @property string $title
  * @property string $description
  * @property string|null $goal
@@ -137,6 +139,7 @@ class Kolab extends Model
             'intent_type' => IntentType::class,
             'status' => KolabStatus::class,
             'is_auto_listing' => 'boolean',
+            'is_auto_matched' => 'boolean',
             'negotiation_triggers' => 'array',
             'media' => 'array',
             'availability_start' => 'date',
@@ -172,6 +175,17 @@ class Kolab extends Model
     public function recipientCommunity(): BelongsTo
     {
         return $this->belongsTo(Profile::class, 'recipient_community_id');
+    }
+
+    /**
+     * The maintainer who set this Kolab up as an auto-match, if any
+     * ({@see \App\Services\AutoKolabService}).
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function createdByAdmin(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_admin_id');
     }
 
     /**
@@ -249,6 +263,18 @@ class Kolab extends Model
     public function scopeAutoListing(Builder $query): Builder
     {
         return $query->where('is_auto_listing', true);
+    }
+
+    /**
+     * Scope a query to Kolabs a maintainer set up already matched
+     * ({@see \App\Services\AutoKolabService}).
+     *
+     * @param  Builder<Kolab>  $query
+     * @return Builder<Kolab>
+     */
+    public function scopeAutoMatched(Builder $query): Builder
+    {
+        return $query->where('is_auto_matched', true);
     }
 
     /**
