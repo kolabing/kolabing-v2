@@ -85,7 +85,7 @@ class DiscoveryPartnerStatusBoostTest extends TestCase
         $trustedPartnerKolab = $this->createIdenticalVenueKolab($trustedPartner, 'Trusted partner offer');
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/discovery/opportunities?feed=all&sort=recommended');
+            ->getJson('/api/v1/discovery/opportunities?feed=all&sort=recommended&city=all');
 
         $response->assertOk()
             ->assertJsonPath('data.data.0.id', $trustedPartnerKolab->id)
@@ -112,7 +112,7 @@ class DiscoveryPartnerStatusBoostTest extends TestCase
         $this->createIdenticalVenueKolab($favourite, 'Favourite offer');
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/discovery/opportunities?feed=all&sort=recommended');
+            ->getJson('/api/v1/discovery/opportunities?feed=all&sort=recommended&city=all');
 
         $response->assertOk()
             ->assertJsonPath('data.data.0.match.partner_status_boost.tier', 'community_favourite')
@@ -133,7 +133,7 @@ class DiscoveryPartnerStatusBoostTest extends TestCase
         ]);
 
         $response = $this->actingAs($businessViewer)
-            ->getJson('/api/v1/discovery/opportunities?feed=all');
+            ->getJson('/api/v1/discovery/opportunities?feed=all&city=all');
 
         $response->assertOk()
             ->assertJsonPath('data.meta.viewer_role', 'business');
@@ -162,7 +162,7 @@ class DiscoveryPartnerStatusBoostTest extends TestCase
         ]);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/discovery/opportunities?feed=all');
+            ->getJson('/api/v1/discovery/opportunities?feed=all&city=all');
 
         $entry = collect($response->json('data.data'))->firstWhere('id', $kolab->id);
 

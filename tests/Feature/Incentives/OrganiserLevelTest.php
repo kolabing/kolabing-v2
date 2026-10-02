@@ -338,7 +338,7 @@ class OrganiserLevelTest extends TestCase
         ]);
 
         $fetch = fn () => collect($this->actingAs($viewer)
-            ->getJson('/api/v1/discovery/opportunities?feed=all&sort=recommended')
+            ->getJson('/api/v1/discovery/opportunities?feed=all&sort=recommended&city=all')
             ->assertOk()
             ->json('data.data'))->keyBy('id');
 

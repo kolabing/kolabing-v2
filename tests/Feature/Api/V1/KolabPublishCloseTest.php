@@ -226,13 +226,13 @@ class KolabPublishCloseTest extends TestCase
             ->assertStatus(403);
 
         $this->actingAs($targetCommunity)
-            ->getJson('/api/v1/discovery/opportunities?feed=all')
+            ->getJson('/api/v1/discovery/opportunities?feed=all&city=all')
             ->assertOk()
             ->assertJsonPath('data.meta.total', 1)
             ->assertJsonPath('data.data.0.id', $kolab->id);
 
         $this->actingAs($otherCommunity)
-            ->getJson('/api/v1/discovery/opportunities?feed=all')
+            ->getJson('/api/v1/discovery/opportunities?feed=all&city=all')
             ->assertOk()
             ->assertJsonPath('data.meta.total', 0);
     }
