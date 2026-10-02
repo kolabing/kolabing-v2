@@ -93,7 +93,15 @@ class BusinessAutoListingService
     {
         $this->applyMapsAvatarFallback($profile);
 
-        if ($this->skipReason($profile) !== null) {
+        $reason = $this->skipReason($profile);
+
+        if ($reason !== null) {
+            // Silent skips hid why new businesses had no listing (2 Oct 2026).
+            Log::info('Business not auto-listed', [
+                'profile_id' => $profile->id,
+                'reason' => $reason,
+            ]);
+
             return null;
         }
 
