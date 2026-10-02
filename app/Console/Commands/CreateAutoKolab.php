@@ -23,7 +23,7 @@ class CreateAutoKolab extends Command
         {business : Business profile id, email, or exact business name}
         {community : Community profile id, email, or exact community name}
         {--date= : Kolab date, YYYY-MM-DD (optional; today or later)}
-        {--title= : Kolab title (default: "<business> x <community>")}
+        {--title= : Kolab title (default: the business listing title, e.g. "Host your community at <business>")}
         {--silent : Create it without notifying either side}
         {--apply : Create it (without this flag the command only reports)}';
 

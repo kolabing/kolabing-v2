@@ -141,7 +141,7 @@ class AutoKolabTest extends TestCase
         $this->assertSame(KolabStatus::Published, $kolab->status);
         $this->assertSame($business->id, $kolab->creator_profile_id);
         $this->assertSame($community->id, $kolab->recipient_community_id, 'Direct proposal: never in anyone else\'s Explore.');
-        $this->assertSame('Eixample 46 x Real Run Club', $kolab->title);
+        $this->assertSame('Partner with Eixample 46', $kolab->title, 'Default title never names the community (ROLES §2.5).');
         $this->assertSame($date, $kolab->availability_start?->toDateString());
 
         $application = Application::query()->sole();
@@ -199,6 +199,21 @@ class AutoKolabTest extends TestCase
         $body = $this->matchNotifications()->where('profile_id', $business->id)->sole()->body;
         $this->assertStringNotContainsString('Real Run Club', $body);
         $this->assertStringContainsString('A community', $body);
+    }
+
+    public function test_a_title_naming_the_community_is_refused_for_a_free_business(): void
+    {
+        $business = $this->business(subscribed: false);
+        $community = $this->community();
+
+        $this->artisan('kolabing:auto-kolab', [
+            'business' => $business->id,
+            'community' => $community->id,
+            '--title' => 'Eixample 46 x Real Run Club',
+            '--apply' => true,
+        ])->expectsOutputToContain('names the community')->assertFailed();
+
+        $this->assertSame(0, Kolab::query()->count());
     }
 
     public function test_silent_creates_the_match_without_notifying(): void

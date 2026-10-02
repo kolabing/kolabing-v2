@@ -148,7 +148,15 @@ class AutoKolabService
             $problems[] = 'These two already have an open Kolab set up by Kolabing.';
         }
 
-        $title = $this->titleFor($options['title'] ?? null, $businessName, $communityName);
+        $title = $this->titleFor($options['title'] ?? null, $payload['title'] ?? null);
+
+        // ROLES §2.5: a business without an active subscription must not learn
+        // the community's name, and the title is shown to it everywhere.
+        if (is_string($title) && is_string($communityName) && trim($communityName) !== ''
+            && $business->isBusiness() && ! $business->hasActiveSubscription()
+            && str_contains(mb_strtolower($title), mb_strtolower(trim($communityName)))) {
+            $problems[] = 'The title names the community, but this business has no active subscription and may not see community names. Change the title.';
+        }
 
         return [
             'problems' => $problems,
@@ -254,23 +262,18 @@ class AutoKolabService
             ->exists();
     }
 
-    private function titleFor(?string $title, ?string $businessName, ?string $communityName): ?string
+    /**
+     * The maintainer's title, else the business's own listing title ("Host
+     * your community at {name}" / "Partner with {name}"). The default never
+     * names the community: a free business must not see it (ROLES §2.5).
+     */
+    private function titleFor(?string $title, ?string $listingTitle): ?string
     {
         if (is_string($title) && trim($title) !== '') {
             return Str::limit(trim($title), 255, '');
         }
 
-        if (! is_string($businessName) || trim($businessName) === '') {
-            return null;
-        }
-
-        $community = is_string($communityName) && trim($communityName) !== '' ? trim($communityName) : null;
-
-        return Str::limit(
-            $community === null ? trim($businessName) : trim($businessName).' x '.$community,
-            255,
-            '',
-        );
+        return is_string($listingTitle) && trim($listingTitle) !== '' ? $listingTitle : null;
     }
 
     private function resolveProfile(string $reference, UserType $type): Profile

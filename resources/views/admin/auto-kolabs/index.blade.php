@@ -48,7 +48,7 @@
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label for="title">Title <small class="text-muted">(optional — default "Business x Community")</small></label>
+                            <label for="title">Title <small class="text-muted">(optional — default: the business's listing title)</small></label>
                             <input type="text" id="title" name="title" class="form-control" maxlength="255" value="{{ old('title', request('title')) }}">
                         </div>
                     </div>
