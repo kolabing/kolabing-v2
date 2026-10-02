@@ -462,11 +462,16 @@ class ManagedProfileService
      */
     public function activate(Profile $profile): Profile
     {
-        return DB::transaction(function () use ($profile): Profile {
+        $profile = DB::transaction(function () use ($profile): Profile {
             $profile->forceFill(['is_active' => true])->save();
 
             return $profile->refresh();
         });
+
+        // A switched-off business was skipped by every auto-listing pass, so
+        // switching it back on is the moment it gets its Explore listing
+        // (2 Oct 2026: Eixample 46 came back with nothing live).
+        return $this->listBusiness($profile);
     }
 
     /**
@@ -514,10 +519,19 @@ class ManagedProfileService
             return 0;
         }
 
-        return DB::transaction(fn (): int => Profile::query()
+        $changed = DB::transaction(fn (): int => Profile::query()
             ->whereIn('id', $profileIds)
             ->where('is_active', false)
             ->update(['is_active' => true]));
+
+        // Same as activate(): each business switched back on gets its listing.
+        Profile::query()
+            ->whereIn('id', $profileIds)
+            ->where('user_type', UserType::Business)
+            ->get()
+            ->each(fn (Profile $profile) => $this->onboardingService->provisionBusinessAutoOffer($profile));
+
+        return $changed;
     }
 
     public function grantSubscription(Profile $profile, int $months = 12, SubscriptionPlan $plan = SubscriptionPlan::Standard): BusinessSubscription

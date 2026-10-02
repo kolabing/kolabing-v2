@@ -280,6 +280,30 @@ class BusinessAutoListingTest extends TestCase
         $this->assertSingleOpenAutoListing($profile);
     }
 
+    public function test_reactivating_a_switched_off_business_lists_it(): void
+    {
+        $profile = $this->venueBusiness([], ['is_active' => false]);
+        $service = app(BusinessAutoListingService::class);
+
+        $this->assertSame(BusinessAutoListingService::SKIP_INACTIVE, $service->skipReason($profile));
+        $this->assertCount(0, $this->kolabsOf($profile));
+
+        app(\App\Services\Admin\ManagedProfileService::class)->activate($profile);
+
+        $this->assertSingleOpenAutoListing($profile->fresh());
+    }
+
+    public function test_bulk_reactivation_lists_each_business(): void
+    {
+        $first = $this->venueBusiness([], ['is_active' => false]);
+        $second = $this->venueBusiness(['name' => 'Tefi Bakery'], ['is_active' => false]);
+
+        app(\App\Services\Admin\ManagedProfileService::class)->activateMany([$first->id, $second->id]);
+
+        $this->assertSingleOpenAutoListing($first->fresh());
+        $this->assertSingleOpenAutoListing($second->fresh());
+    }
+
     public function test_a_closed_auto_listing_is_never_recreated(): void
     {
         $profile = $this->venueBusiness();
