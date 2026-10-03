@@ -1317,7 +1317,23 @@ class DiscoveryOpportunityService
             'seeking_communities' => $this->normalizeTagObjects($kolab->seeking_communities),
             'min_community_size' => $kolab->min_community_size,
             'expected_deliverables' => $this->normalizeDeliverables($kolab->expects),
+            // How many people the venue holds, so Quick chat can cap the group
+            // size (kolabing-app IF-44). The kolab's own capacity wins; an
+            // auto listing has none, so fall back to the business's venue.
+            'capacity' => $this->resolveOfferCapacity($kolab),
         ];
+    }
+
+    private function resolveOfferCapacity(Kolab $kolab): ?int
+    {
+        if (is_numeric($kolab->capacity) && (int) $kolab->capacity > 0) {
+            return (int) $kolab->capacity;
+        }
+
+        $venue = $kolab->creatorProfile?->businessProfile?->primary_venue;
+        $capacity = is_array($venue) ? ($venue['capacity'] ?? null) : null;
+
+        return is_numeric($capacity) && (int) $capacity > 0 ? (int) $capacity : null;
     }
 
     private function buildCommunityRequestBlock(Kolab $kolab): ?array

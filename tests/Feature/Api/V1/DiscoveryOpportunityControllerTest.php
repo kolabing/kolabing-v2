@@ -174,6 +174,12 @@ class DiscoveryOpportunityControllerTest extends TestCase
             'offering' => ['venue_space', 'free_drinks'],
             'seeking_communities' => ['Run Club', 'Fitness'],
             'min_community_size' => 80,
+            // No kolab capacity: the feed falls back to the venue's (120).
+            'capacity' => null,
+            'media' => [
+                ['url' => 'https://cdn.kolabing.test/cafe-1.jpg', 'type' => 'image', 'sort_order' => 0],
+                ['url' => 'https://cdn.kolabing.test/cafe-2.jpg', 'type' => 'image', 'sort_order' => 1],
+            ],
             'expects' => ['social_media', 'community_reach'],
             'availability_start' => now()->addDays(10),
             'availability_end' => now()->addDays(12),
@@ -258,6 +264,8 @@ class DiscoveryOpportunityControllerTest extends TestCase
             ->assertJsonPath('data.data.0.community_request', null)
             ->assertJsonPath('data.data.0.business_offer.venue_type', 'cafe')
             ->assertJsonPath('data.data.0.business_offer.min_community_size', 80)
+            ->assertJsonPath('data.data.0.business_offer.capacity', 120)
+            ->assertJsonPath('data.data.0.photo_urls', ['https://cdn.kolabing.test/cafe-1.jpg', 'https://cdn.kolabing.test/cafe-2.jpg'])
             ->assertJsonPath('data.data.0.business_offer.base_offer', 'Reserved cafe space plus drinks for running groups after weekend sessions.')
             ->assertJsonMissingPath('data.data.0.business_offer.negotiation_triggers');
 
