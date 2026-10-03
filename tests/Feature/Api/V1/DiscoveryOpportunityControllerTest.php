@@ -19,7 +19,7 @@ class DiscoveryOpportunityControllerTest extends TestCase
 
     public function test_discovery_requires_authentication(): void
     {
-        $response = $this->getJson('/api/v1/discovery/opportunities');
+        $response = $this->getJson('/api/v1/discovery/opportunities?city=all');
 
         $response->assertStatus(401);
     }
@@ -118,7 +118,7 @@ class DiscoveryOpportunityControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/discovery/opportunities');
+            ->getJson('/api/v1/discovery/opportunities?city=all');
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
@@ -334,7 +334,7 @@ class DiscoveryOpportunityControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/discovery/opportunities');
+            ->getJson('/api/v1/discovery/opportunities?city=all');
 
         $response->assertOk()
             ->assertJsonPath('success', true)
@@ -386,7 +386,7 @@ class DiscoveryOpportunityControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/discovery/opportunities');
+            ->getJson('/api/v1/discovery/opportunities?city=all');
 
         $response->assertOk()
             ->assertJsonPath('success', true)
@@ -464,7 +464,7 @@ class DiscoveryOpportunityControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/discovery/opportunities');
+            ->getJson('/api/v1/discovery/opportunities?city=all');
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
@@ -516,7 +516,7 @@ class DiscoveryOpportunityControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/discovery/opportunities');
+            ->getJson('/api/v1/discovery/opportunities?city=all');
 
         $response->assertOk()
             ->assertJsonPath('success', true);
@@ -599,7 +599,7 @@ class DiscoveryOpportunityControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/discovery/opportunities');
+            ->getJson('/api/v1/discovery/opportunities?city=all');
 
         $response->assertOk()
             ->assertJsonPath('success', true)
@@ -678,7 +678,7 @@ class DiscoveryOpportunityControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/discovery/opportunities?feed=all&sort=ending_soon');
+            ->getJson('/api/v1/discovery/opportunities?feed=all&sort=ending_soon&city=all');
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
@@ -739,7 +739,7 @@ class DiscoveryOpportunityControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/discovery/opportunities?feed=all&audience_size_band=small');
+            ->getJson('/api/v1/discovery/opportunities?feed=all&audience_size_band=small&city=all');
 
         $response->assertStatus(200)
             ->assertJsonPath('data.meta.total', 1)
@@ -794,7 +794,7 @@ class DiscoveryOpportunityControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/discovery/opportunities?feed=all&search=rooftop');
+            ->getJson('/api/v1/discovery/opportunities?feed=all&search=rooftop&city=all');
 
         $response->assertStatus(200)
             ->assertJsonPath('data.meta.total', 1)
@@ -854,7 +854,7 @@ class DiscoveryOpportunityControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/discovery/opportunities');
+            ->getJson('/api/v1/discovery/opportunities?city=all');
 
         $response->assertStatus(200)
             ->assertJsonPath('data.meta.total', 2);
@@ -924,7 +924,7 @@ class DiscoveryOpportunityControllerTest extends TestCase
             ->create();
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/discovery/opportunities?feed=all');
+            ->getJson('/api/v1/discovery/opportunities?feed=all&city=all');
 
         $response->assertStatus(200)
             ->assertJsonPath('data.meta.total', 1)
@@ -982,7 +982,7 @@ class DiscoveryOpportunityControllerTest extends TestCase
             ->create();
 
         $response = $this->actingAs($viewer)
-            ->getJson('/api/v1/discovery/opportunities?feed=all');
+            ->getJson('/api/v1/discovery/opportunities?feed=all&city=all');
 
         $response->assertStatus(200)
             ->assertJsonPath('data.meta.total', 1)

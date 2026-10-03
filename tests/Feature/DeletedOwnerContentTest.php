@@ -93,7 +93,7 @@ class DeletedOwnerContentTest extends TestCase
     private function exploreKolabIds(Profile $viewer): array
     {
         $response = $this->actingAs($viewer, 'sanctum')
-            ->getJson('/api/v1/discovery/opportunities?feed=all&per_page=50')
+            ->getJson('/api/v1/discovery/opportunities?feed=all&per_page=50&city=all')
             ->assertOk();
 
         return collect($response->json('data.data'))
