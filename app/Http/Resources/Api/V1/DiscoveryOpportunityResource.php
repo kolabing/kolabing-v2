@@ -35,6 +35,9 @@ class DiscoveryOpportunityResource extends JsonResource
             'preferred_city' => $this->preferred_city,
             'area' => $this->resolveArea(),
             'cover_photo_url' => $this->resolveCoverPhotoUrl(),
+            // Every photo of the kolab itself, for the swipeable card and the
+            // detail gallery (kolabing-app IF-44). From the existing `media`.
+            'photo_urls' => $this->resolvePhotoUrls(),
             'published_at' => $this->published_at?->toIso8601String(),
             'availability' => [
                 'mode' => $this->availability_mode,
@@ -74,6 +77,22 @@ class DiscoveryOpportunityResource extends JsonResource
         }
 
         return $this->creatorProfile?->avatar_url;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function resolvePhotoUrls(): array
+    {
+        $urls = [];
+
+        foreach ($this->normalizeMediaCollection($this->media) as $item) {
+            if (($item['type'] ?? 'image') === 'image' && is_string($item['url'] ?? null)) {
+                $urls[] = $item['url'];
+            }
+        }
+
+        return array_slice(array_values(array_unique($urls)), 0, 8);
     }
 
     private function resolveOfferHeadline(): ?string
