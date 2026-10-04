@@ -1249,7 +1249,11 @@ class DiscoveryOpportunityService
         }
 
         if ($city === null) {
-            $filters['city'] = $this->normalizeNullableString($this->resolveViewerCity($viewer));
+            // Default only to a city we know, by its canonical name. An unknown
+            // one (a town that is neither a `cities` row nor an alias) matches
+            // no Kolab, so defaulting to it emptied the feed; such a viewer
+            // gets the unfiltered feed instead (BE-FX-82).
+            $filters['city'] = $this->cityResolver->canonicalFor($this->resolveViewerCity($viewer));
         }
 
         return $filters;
