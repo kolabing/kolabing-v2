@@ -24,6 +24,7 @@
       '@graph' => [
           [
               '@type' => 'Organization',
+              '@id' => url('/').'/#organization',
               'name' => 'Kolabing',
               'url' => route('home'),
               'logo' => url('/brand/kolabing-k-on-black.png'),
@@ -32,8 +33,18 @@
           ],
           [
               '@type' => 'WebSite',
+              '@id' => url('/').'/#website',
               'name' => 'Kolabing',
               'url' => route('home'),
+              'publisher' => ['@id' => url('/').'/#organization'],
+          ],
+          [
+              '@type' => 'WebPage',
+              '@id' => url('/').'/#webpage',
+              'url' => route('home'),
+              'name' => 'Kolabing — Local Business & Community Collaboration',
+              'isPartOf' => ['@id' => url('/').'/#website'],
+              'about' => ['@id' => url('/').'/#organization'],
           ],
           [
               '@type' => 'FAQPage',
@@ -1842,7 +1853,7 @@
 </section>
 @endif
 
-<section class="section-faq" id="faq">
+<section class="section-faq" id="faq" data-block="faq">
   <div class="faq-track">
     <div class="faq-heading-col">
       <div class="section-label fade">support</div>
