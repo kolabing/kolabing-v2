@@ -619,6 +619,60 @@ class Profile extends Authenticatable
     }
 
     /**
+     * Use $url as the profile photo when the user has none yet, so someone who
+     * filled a gallery but skipped the photo step doesn't end up with a blank
+     * avatar. Never overwrites an existing photo. Returns true if it adopted.
+     */
+    public function adoptProfilePhotoIfMissing(?string $url): bool
+    {
+        if (blank($url)) {
+            return false;
+        }
+
+        $extended = $this->isAttendee() ? null : $this->getExtendedProfile();
+
+        if ($extended !== null) {
+            if (filled($extended->profile_photo)) {
+                return false;
+            }
+
+            // The extended model's saved hook mirrors profile_photo onto avatar_url.
+            $extended->forceFill(['profile_photo' => $url])->save();
+            $this->avatar_url = $url;
+
+            return true;
+        }
+
+        if (filled($this->avatar_url)) {
+            return false;
+        }
+
+        $this->forceFill(['avatar_url' => $url])->save();
+
+        return true;
+    }
+
+    /**
+     * Whether $url is also one of the user's gallery, venue or offer photos,
+     * i.e. a profile photo adopted from there whose file must not be deleted
+     * when the profile photo is replaced.
+     */
+    public function photoIsSharedWithGallery(string $url): bool
+    {
+        if ($this->galleryPhotos()->where('url', $url)->exists()) {
+            return true;
+        }
+
+        $business = $this->isBusiness() ? $this->businessProfile : null;
+
+        return $business !== null && in_array(
+            $url,
+            [...($business->primary_venue['photos'] ?? []), ...($business->offer_photos ?? [])],
+            true
+        );
+    }
+
+    /**
      * Get the extended profile based on user type.
      */
     public function getExtendedProfile(): AttendeeProfile|BusinessProfile|CommunityProfile|null

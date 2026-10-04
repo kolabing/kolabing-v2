@@ -461,6 +461,10 @@ class InstagramService
             $kolab->forceFill(['media' => $kolabMedia])->save();
         }
 
+        if ($isGallery && $created !== []) {
+            $profile->adoptProfilePhotoIfMissing($this->firstGalleryUrl($profile));
+        }
+
         return ['items' => $created, 'skipped' => $skipped];
     }
 
@@ -981,6 +985,11 @@ class InstagramService
         }
 
         return array_values(array_map('trim', array_filter((array) $permissions, 'is_string')));
+    }
+
+    private function firstGalleryUrl(Profile $profile): ?string
+    {
+        return $profile->galleryPhotos()->orderBy('sort_order')->orderByDesc('created_at')->value('url');
     }
 
     private function hasPhoto(Profile $profile): bool

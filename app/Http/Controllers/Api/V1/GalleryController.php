@@ -93,6 +93,11 @@ class GalleryController extends Controller
             ]);
         }
 
+        // No profile photo yet: the first gallery photo becomes it.
+        $profile->adoptProfilePhotoIfMissing(
+            $profile->galleryPhotos()->orderBy('sort_order')->orderByDesc('created_at')->value('url')
+        );
+
         return response()->json([
             'success' => true,
             'message' => __('Photo uploaded successfully.'),
@@ -176,7 +181,10 @@ class GalleryController extends Controller
             ], 403);
         }
 
-        $this->fileUploadService->delete($photo->url);
+        // Keep the file when it doubles as the profile photo (adopted from the gallery).
+        if ($photo->url !== $profile->getExtendedProfile()?->profile_photo && $photo->url !== $profile->avatar_url) {
+            $this->fileUploadService->delete($photo->url);
+        }
         if ($photo->video_url !== null) {
             $this->fileUploadService->delete($photo->video_url);
         }

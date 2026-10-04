@@ -58,6 +58,24 @@ class BusinessVenueService
     }
 
     /**
+     * The first photo of a business's signup gallery (venue photos, then
+     * product/offer photos), used as the profile photo when none was uploaded.
+     *
+     * @param  array<string, mixed>|null  $primaryVenue
+     * @param  array<int, string>  $offerPhotos
+     */
+    public function firstGalleryPhoto(?array $primaryVenue, array $offerPhotos): ?string
+    {
+        foreach ([...($primaryVenue['photos'] ?? []), ...$offerPhotos] as $photo) {
+            if (is_string($photo) && $photo !== '') {
+                return $photo;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Normalize a standalone photo list (e.g. product/service offer photos)
      * using the same rehosting rules as venue photos.
      *

@@ -109,7 +109,8 @@ class ProfileController extends Controller
             $profileData = array_merge($profileData, $request->getAttendeeProfileData());
 
             if ($request->hasFile('profile_photo')) {
-                if ($profile->avatar_url) {
+                if ($profile->avatar_url
+                    && ! $profile->photoIsSharedWithGallery($profile->avatar_url)) {
                     $this->fileUploadService->delete($profile->avatar_url);
                 }
 
@@ -139,8 +140,9 @@ class ProfileController extends Controller
                 ? $profile->businessProfile
                 : $profile->communityProfile;
 
-            // Delete old photo if exists
-            if ($extendedProfile?->profile_photo) {
+            // Delete old photo if exists, unless it is a gallery photo adopted as the avatar
+            if ($extendedProfile?->profile_photo
+                && ! $profile->photoIsSharedWithGallery($extendedProfile->profile_photo)) {
                 $this->fileUploadService->delete($extendedProfile->profile_photo);
             }
 
