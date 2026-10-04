@@ -129,6 +129,21 @@ class StructuredDataTest extends TestCase
         $types = collect($graph['@graph'])->pluck('@type')->all();
         $this->assertContains('Organization', $types);
         $this->assertContains('WebSite', $types);
+        $this->assertContains('WebPage', $types);
+    }
+
+    /**
+     * Stable entity ids ({domain}/#organization, /#website) so every page and every
+     * answer engine resolves the same Kolabing entity (venture SEO/GEO check, Oct 2026).
+     */
+    public function test_the_homepage_graph_uses_stable_entity_ids(): void
+    {
+        $blocks = $this->structuredData($this->get('http://kolabing.com/')->assertOk());
+        $nodes = collect(collect($blocks)->first(fn (array $block): bool => isset($block['@graph']))['@graph']);
+
+        $this->assertSame('http://kolabing.com/#organization', $nodes->firstWhere('@type', 'Organization')['@id'] ?? null);
+        $this->assertSame('http://kolabing.com/#website', $nodes->firstWhere('@type', 'WebSite')['@id'] ?? null);
+        $this->assertSame(['@id' => 'http://kolabing.com/#organization'], $nodes->firstWhere('@type', 'WebSite')['publisher'] ?? null);
     }
 
     public function test_the_pricing_pages_describe_the_product_and_the_faq(): void
