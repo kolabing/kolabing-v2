@@ -145,6 +145,87 @@ class KolabCityFilterTest extends TestCase
             ->assertJsonPath('meta.total', 2);
     }
 
+    /**
+     * BE-FX-82 — prod, 2026-10-04: a business in L'Hospitalet de Llobregat (a
+     * Barcelona metro town, Google's `locality` for its venue) saw an empty
+     * Explore, because the default city filter used that name verbatim.
+     */
+    public function test_discovery_defaults_a_barcelona_metro_viewer_to_barcelona(): void
+    {
+        $viewer = $this->businessViewerIn("L'Hospitalet de Llobregat");
+        $this->communityKolabIn('Barcelona', 'Brunch run in Barcelona');
+        $this->communityKolabIn('Ciudad de México', 'Roma Sur run club');
+
+        $this->actingAs($viewer)
+            ->getJson('/api/v1/discovery/opportunities?feed=all')
+            ->assertStatus(200)
+            ->assertJsonPath('meta.applied_filters.city', 'Barcelona')
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.data.0.title', 'Brunch run in Barcelona');
+    }
+
+    public function test_discovery_does_not_default_to_a_city_it_does_not_know(): void
+    {
+        $viewer = $this->businessViewerIn('Atlantis');
+        $this->communityKolabIn('Barcelona', 'Brunch run in Barcelona');
+        $this->communityKolabIn('Ciudad de México', 'Roma Sur run club');
+
+        $response = $this->actingAs($viewer)
+            ->getJson('/api/v1/discovery/opportunities?feed=all')
+            ->assertStatus(200)
+            ->assertJsonPath('meta.total', 2);
+
+        $this->assertNull($response->json('meta.applied_filters.city'));
+
+        // An explicit city still filters, known or not.
+        $this->actingAs($viewer)
+            ->getJson('/api/v1/discovery/opportunities?feed=all&city=Barcelona')
+            ->assertStatus(200)
+            ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_the_recommended_feed_is_not_emptied_by_an_unknown_viewer_city(): void
+    {
+        $viewer = $this->businessViewerIn('Atlantis');
+        $this->communityKolabIn('Barcelona', 'Brunch run in Barcelona');
+
+        $this->actingAs($viewer)
+            ->getJson('/api/v1/discovery/opportunities?feed=recommended')
+            ->assertStatus(200)
+            ->assertJsonPath('meta.total', 1);
+    }
+
+    private function businessViewerIn(string $cityName): Profile
+    {
+        $viewer = Profile::factory()->business()->create();
+        BusinessProfile::factory()->create([
+            'profile_id' => $viewer->id,
+            'name' => 'Padel club',
+            'city_name' => $cityName,
+            'city_id' => null,
+        ]);
+
+        return $viewer;
+    }
+
+    private function communityKolabIn(string $city, string $title): void
+    {
+        $community = Profile::factory()->community()->create();
+        CommunityProfile::factory()->create([
+            'profile_id' => $community->id,
+            'name' => $title.' crew',
+            'community_type' => 'sports_community',
+        ]);
+
+        Kolab::factory()->published()->forCreator($community)->create([
+            'title' => $title,
+            'preferred_city' => $city,
+            'availability_mode' => 'flexible',
+            'availability_start' => now()->addWeek(),
+            'availability_end' => now()->addMonth(),
+        ]);
+    }
+
     public function test_creating_a_venue_kolab_stores_the_canonical_city(): void
     {
         $business = Profile::factory()->business()->create();

@@ -58,6 +58,24 @@ return [
 
         'Barcelona' => [
             'Barcelone',
+            // The first ring of the Àrea Metropolitana: Google returns these as
+            // the `locality` for venues a metro stop from Barcelona, and their
+            // businesses and communities belong to the Barcelona market. Without
+            // them a venue in L'Hospitalet saw an empty Explore (BE-FX-82).
+            "L'Hospitalet de Llobregat",
+            'Hospitalet de Llobregat',
+            "L'Hospitalet",
+            'Badalona',
+            'Santa Coloma de Gramenet',
+            'Sant Adrià de Besòs',
+            'Esplugues de Llobregat',
+            'Cornellà de Llobregat',
+            'El Prat de Llobregat',
+            'Sant Joan Despí',
+            'Sant Just Desvern',
+            'Sant Feliu de Llobregat',
+            'Montcada i Reixac',
+            'Sant Cugat del Vallès',
         ],
 
         'Sevilla' => [

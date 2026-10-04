@@ -516,6 +516,13 @@ Communities see everything in Explore. No blurring, no gating, ever.
 
 **Date-exhausted Kolabs are hidden from the Explore feed (both roles).** A Kolab whose application dates have all passed (`availability_end` before today) is not returned in the browse feed, so an applicant never lands on a Kolab with an empty date picker ("No available dates for this kolab"). This mirrors the apply-time rule that rejects applications to date-exhausted Kolabs. A Kolab you explicitly **saved** still shows in your saved list even after it expires.
 
+**Explore defaults to the viewer's city — only a city we know (BE-FX-82, 2026-10-04).** Both roles.
+With no `city` parameter, `GET /discovery/opportunities` filters to the viewer's city (#374;
+`city=all` opts out). The default is the city's canonical `cities.name` via `CityResolver`, so a
+venue whose Google locality is a Barcelona metro town (L'Hospitalet de Llobregat, Badalona, …,
+`config/cities.php`) gets the Barcelona feed. A viewer whose city is no known city or alias gets
+the unfiltered feed — the default never empties Explore. No gate moved. Backend map §44.
+
 **Explore renders exactly what the API returns (FX-58, 2026-09-22).** Visibility only — no gate
 moved and neither role's rules changed. The rule above is enforced by
 `GET /discovery/opportunities` alone; the app no longer filters the deck a second time. It used to
