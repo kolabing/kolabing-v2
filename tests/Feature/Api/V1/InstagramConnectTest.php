@@ -827,6 +827,45 @@ class InstagramConnectTest extends TestCase
         $this->assertNotNull($account->fresh()->access_token);
     }
 
+    public function test_an_instagram_import_never_becomes_the_profile_photo(): void
+    {
+        // The "use your Instagram picture" offer must stay available: an
+        // imported post (maybe a product shot) is not silently the avatar.
+        $account = $this->connected();
+        Http::fake([
+            'graph.instagram.com/v25.0/2001*' => Http::response(['id' => '2001', 'media_type' => 'IMAGE', 'media_url' => 'https://scontent.cdninstagram.com/2001.jpg', 'username' => 'cafe.rosa']),
+            'scontent.cdninstagram.com/*' => Http::response($this->jpeg(), 200, ['Content-Type' => 'image/jpeg']),
+        ]);
+
+        $this->actingAs($account->profile)
+            ->postJson('/api/v1/me/instagram/media/import', ['ids' => ['2001'], 'target' => 'gallery'])
+            ->assertStatus(201);
+
+        $profile = $account->profile->fresh();
+        $this->assertNull($profile->avatar_url);
+        $this->assertNull($profile->businessProfile->profile_photo);
+    }
+
+    public function test_data_deletion_clears_a_profile_photo_that_was_an_imported_photo(): void
+    {
+        $account = $this->connected();
+        $imported = ProfileGalleryPhoto::factory()->forProfile($account->profile)->create([
+            'instagram_source_id' => '9101',
+            'url' => 'https://cdn.kolabing.com/gallery/ig-9101.jpg',
+        ]);
+        $account->profile->businessProfile->forceFill(['profile_photo' => $imported->url])->save();
+        $this->assertSame($imported->url, $account->profile->fresh()->avatar_url);
+
+        $this->post('/instagram/data-deletion', ['signed_request' => $this->signedRequest([
+            'algorithm' => 'HMAC-SHA256', 'issued_at' => time(), 'user_id' => self::IG_USER_ID,
+        ])])->assertOk();
+
+        // The file is gone, so nothing may still point at it.
+        $profile = Profile::query()->findOrFail($account->profile_id);
+        $this->assertNull($profile->avatar_url);
+        $this->assertNull($profile->businessProfile->profile_photo);
+    }
+
     public function test_data_deletion_removes_the_connection_and_imported_media(): void
     {
         $account = $this->connected();

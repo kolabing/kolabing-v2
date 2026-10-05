@@ -71,6 +71,13 @@ Business Explore shows Kolabs, NOT community profiles. A community profile is re
 - The offering the business makes to communities
 - Home / Dashboard: performance statistics from past collaborations (revenue generated, Instagram followers gained)
 
+**A missing profile photo is filled from the gallery (BE-FX-84, 2026-10-04).** Business, community and
+attendee alike. When a user has no photo at all (`avatar_url` and the extended `profile_photo` both empty),
+the first photo of a `POST /me/gallery` upload becomes it; a business's signup/onboarding uses the first venue
+or offer photo (`applyMapsAvatarFallback`). An existing photo — an uploaded logo or a Google picture — is never
+replaced, and an Instagram import never becomes the photo (the explicit "use my Instagram picture" offer stays).
+No gate or paywall moved. Backend map §45.
+
 ### 2.5 Free (non-subscribed) business — exact capabilities
 A free business CAN:
 - Register, complete onboarding, and build its profile
