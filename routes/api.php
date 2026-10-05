@@ -680,6 +680,11 @@ Route::prefix('v1')->group(function (): void {
         Route::get('communities/{community}/leaderboard', [LeaderboardController::class, 'communityLeaderboard'])
             ->name('api.v1.communities.leaderboard');
 
+        // Weekly check-ins leaderboard (NF-7): resets every Europe/Madrid
+        // calendar week, distinct from the all-time points leaderboard above.
+        Route::get('communities/{community}/leaderboard/weekly', [LeaderboardController::class, 'communityWeeklyLeaderboard'])
+            ->name('api.v1.communities.leaderboard.weekly');
+
         // Incentives v1 (C): organiser level card (community profiles only).
         Route::get('me/organiser-level', [OrganiserLevelController::class, 'show'])
             ->name('api.v1.me.organiser-level');
