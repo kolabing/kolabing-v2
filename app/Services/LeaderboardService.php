@@ -279,6 +279,135 @@ class LeaderboardService
     }
 
     /**
+     * Weekly check-ins leaderboard (NF-7): ranks a community's active members
+     * by verified event check-ins within the current calendar week
+     * (Europe/Madrid, Monday to Sunday) — distinct check-ins per event, so one
+     * event cannot be farmed for extra rank. Rows with 0 check-ins this week
+     * are omitted; a quiet week renders an empty board, not a zeroed roster.
+     *
+     * @return Collection<int, array{profile_id: string, display_name: string, profile_photo: string|null, checkins: int, rank: int}>
+     */
+    public function getCommunityWeeklyLeaderboard(Community $community, int $limit = 50): Collection
+    {
+        $memberIds = $this->activeMemberIds($community);
+
+        if ($memberIds === []) {
+            return collect();
+        }
+
+        [$start, $end] = $this->weekBounds();
+
+        $rows = DB::table('event_checkins')
+            ->join('events', 'events.id', '=', 'event_checkins.event_id')
+            ->where('events.community_id', $community->id)
+            ->whereIn('event_checkins.profile_id', $memberIds)
+            ->whereBetween('event_checkins.checked_in_at', [$start, $end])
+            ->selectRaw('event_checkins.profile_id, COUNT(DISTINCT event_checkins.event_id) as checkins')
+            ->groupBy('event_checkins.profile_id')
+            ->orderByDesc('checkins')
+            ->limit($limit)
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return collect();
+        }
+
+        $profiles = Profile::query()
+            ->whereIn('id', $rows->pluck('profile_id'))
+            ->get()
+            ->keyBy('id');
+
+        $rank = 0;
+        $previousCheckins = null;
+
+        return $rows->map(function ($row) use ($profiles, &$rank, &$previousCheckins): array {
+            $profile = $profiles->get($row->profile_id);
+            $checkins = (int) $row->checkins;
+
+            if ($checkins !== $previousCheckins) {
+                $rank++;
+                $previousCheckins = $checkins;
+            }
+
+            return [
+                'profile_id' => $row->profile_id,
+                'display_name' => PublicDisplayName::for($profile),
+                'profile_photo' => $profile?->avatar_url,
+                'checkins' => $checkins,
+                'rank' => $rank,
+            ];
+        });
+    }
+
+    /**
+     * The authenticated member's row on the weekly check-ins leaderboard, or
+     * null when they are not an active member or have no check-ins this week.
+     *
+     * @return array{profile_id: string, checkins: int, rank: int}|null
+     */
+    public function getMyCommunityWeeklyRank(Community $community, Profile $profile): ?array
+    {
+        $isMember = $community->members()
+            ->where('profile_id', $profile->id)
+            ->where('status', CommunityMemberStatus::Active->value)
+            ->exists();
+
+        if (! $isMember) {
+            return null;
+        }
+
+        [$start, $end] = $this->weekBounds();
+
+        $myCheckins = (int) DB::table('event_checkins')
+            ->join('events', 'events.id', '=', 'event_checkins.event_id')
+            ->where('events.community_id', $community->id)
+            ->where('event_checkins.profile_id', $profile->id)
+            ->whereBetween('event_checkins.checked_in_at', [$start, $end])
+            ->distinct('event_checkins.event_id')
+            ->count('event_checkins.event_id');
+
+        if ($myCheckins === 0) {
+            return null;
+        }
+
+        $memberIds = $this->activeMemberIds($community);
+
+        $ahead = DB::table('event_checkins')
+            ->join('events', 'events.id', '=', 'event_checkins.event_id')
+            ->where('events.community_id', $community->id)
+            ->whereIn('event_checkins.profile_id', $memberIds)
+            ->whereBetween('event_checkins.checked_in_at', [$start, $end])
+            ->selectRaw('event_checkins.profile_id, COUNT(DISTINCT event_checkins.event_id) as checkins')
+            ->groupBy('event_checkins.profile_id')
+            ->havingRaw('COUNT(DISTINCT event_checkins.event_id) > ?', [$myCheckins])
+            ->get()
+            ->count();
+
+        return [
+            'profile_id' => $profile->id,
+            'checkins' => $myCheckins,
+            'rank' => $ahead + 1,
+        ];
+    }
+
+    /**
+     * Current calendar week bounds, Monday 00:00 to Sunday 23:59:59.999,
+     * Europe/Madrid — matching the house convention for incentives windows
+     * (see Incentives\CityLeagueService::monthBounds).
+     *
+     * @return array{0: \Illuminate\Support\Carbon, 1: \Illuminate\Support\Carbon}
+     */
+    private function weekBounds(): array
+    {
+        $now = now()->setTimezone('Europe/Madrid');
+
+        return [
+            $now->copy()->startOfWeek()->utc(),
+            $now->copy()->endOfWeek()->utc(),
+        ];
+    }
+
+    /**
      * @return array<int, string>
      */
     private function activeMemberIds(Community $community): array
