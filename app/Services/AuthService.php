@@ -513,8 +513,7 @@ class AuthService
                 'target_city_ids' => $targetCityIds === [] ? null : $targetCityIds,
                 'instagram' => $businessProfileData['instagram'],
                 'website' => $businessProfileData['website'],
-                'profile_photo' => $profilePhotoUrl
-                    ?? $this->businessVenueService->firstGalleryPhoto($primaryVenue, $offerPhotos),
+                'profile_photo' => $profilePhotoUrl,
                 'primary_venue' => $primaryVenue,
                 'offer_photos' => $offerPhotos === [] ? null : $offerPhotos,
             ]);

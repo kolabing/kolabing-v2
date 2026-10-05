@@ -173,6 +173,73 @@ class GalleryPhotoAsProfilePhotoTest extends TestCase
         $this->assertSame($photo->url, $profile->communityProfile->fresh()->profile_photo);
     }
 
+    public function test_gallery_upload_never_overwrites_a_google_avatar(): void
+    {
+        // Google sign-up: avatar_url is the Google picture, profile_photo is
+        // still empty. That is a photo; the gallery must not replace it.
+        $profile = Profile::factory()->community()->create(['avatar_url' => 'https://lh3.googleusercontent.com/a/pic']);
+        CommunityProfile::factory()->incomplete()->create(['profile_id' => $profile->id, 'profile_photo' => null]);
+
+        $this->actingAs($profile)->post('/api/v1/me/gallery', [
+            'photo' => UploadedFile::fake()->image('a.jpg'),
+        ], ['Accept' => 'application/json'])->assertCreated();
+
+        $this->assertSame('https://lh3.googleusercontent.com/a/pic', $profile->fresh()->avatar_url);
+        $this->assertNull($profile->communityProfile->fresh()->profile_photo);
+    }
+
+    public function test_adopting_leaves_the_profile_model_clean(): void
+    {
+        $profile = Profile::factory()->community()->create(['avatar_url' => null]);
+        CommunityProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+
+        $this->assertTrue($profile->adoptProfilePhotoIfMissing('https://cdn.example.com/g.jpg'));
+
+        $this->assertSame('https://cdn.example.com/g.jpg', $profile->avatar_url);
+        $this->assertFalse($profile->isDirty('avatar_url'));
+        $this->assertSame('https://cdn.example.com/g.jpg', $profile->fresh()->avatar_url);
+    }
+
+    public function test_replacing_an_adopted_photo_keeps_the_gallery_file(): void
+    {
+        $profile = Profile::factory()->community()->create(['avatar_url' => null]);
+        CommunityProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+
+        $upload = $this->actingAs($profile)->post('/api/v1/me/gallery', [
+            'photo' => UploadedFile::fake()->image('a.jpg'),
+        ], ['Accept' => 'application/json'])->assertCreated();
+        $galleryPath = $this->storagePath($upload->json('data.url'));
+
+        $this->actingAs($profile)->post('/api/v1/me/profile', [
+            '_method' => 'PUT',
+            'profile_photo' => UploadedFile::fake()->image('logo.jpg'),
+        ], ['Accept' => 'application/json'])->assertOk();
+
+        // The gallery still shows that photo, so its file must survive.
+        Storage::disk('public')->assertExists($galleryPath);
+        $this->assertNotSame($upload->json('data.url'), $profile->communityProfile->fresh()->profile_photo);
+    }
+
+    public function test_replacing_a_photo_that_is_not_in_the_gallery_deletes_its_file(): void
+    {
+        $profile = Profile::factory()->community()->create(['avatar_url' => null]);
+        CommunityProfile::factory()->incomplete()->create(['profile_id' => $profile->id]);
+
+        $this->actingAs($profile)->post('/api/v1/me/profile', [
+            '_method' => 'PUT',
+            'profile_photo' => UploadedFile::fake()->image('first.jpg'),
+        ], ['Accept' => 'application/json'])->assertOk();
+        $firstPath = $this->storagePath((string) $profile->communityProfile->fresh()->profile_photo);
+        Storage::disk('public')->assertExists($firstPath);
+
+        $this->actingAs($profile)->post('/api/v1/me/profile', [
+            '_method' => 'PUT',
+            'profile_photo' => UploadedFile::fake()->image('second.jpg'),
+        ], ['Accept' => 'application/json'])->assertOk();
+
+        Storage::disk('public')->assertMissing($firstPath);
+    }
+
     private function storagePath(string $url): string
     {
         return ltrim((string) preg_replace('#^.*/storage/#', '', (string) parse_url($url, PHP_URL_PATH)), '/');

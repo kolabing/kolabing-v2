@@ -461,10 +461,6 @@ class InstagramService
             $kolab->forceFill(['media' => $kolabMedia])->save();
         }
 
-        if ($isGallery && $created !== []) {
-            $profile->adoptProfilePhotoIfMissing($this->firstGalleryUrl($profile));
-        }
-
         return ['items' => $created, 'skipped' => $skipped];
     }
 
@@ -669,6 +665,7 @@ class InstagramService
             ->whereNotNull('instagram_source_id')
             ->get()
             ->each(function (ProfileGalleryPhoto $photo) use (&$deleted): void {
+                $this->clearProfilePhotoIfItIs($photo->profile_id, $photo->url);
                 $this->files->delete($photo->url);
                 if ($photo->video_url !== null) {
                     $this->files->delete($photo->video_url);
@@ -700,6 +697,27 @@ class InstagramService
         });
 
         return $deleted;
+    }
+
+    /**
+     * A Meta data-deletion request removes the file, so a profile photo that
+     * points at it must go too, or the avatar is left a broken link.
+     */
+    private function clearProfilePhotoIfItIs(string $profileId, string $url): void
+    {
+        $profile = Profile::query()->find($profileId);
+
+        if ($profile === null || ! $profile->isProfilePhoto($url)) {
+            return;
+        }
+
+        $extended = $profile->isAttendee() ? null : $profile->getExtendedProfile();
+
+        if ($extended !== null && $extended->profile_photo === $url) {
+            $extended->forceFill(['profile_photo' => null])->save();
+        }
+
+        $profile->forceFill(['avatar_url' => null])->save();
     }
 
     /**
@@ -987,20 +1005,9 @@ class InstagramService
         return array_values(array_map('trim', array_filter((array) $permissions, 'is_string')));
     }
 
-    private function firstGalleryUrl(Profile $profile): ?string
-    {
-        return $profile->galleryPhotos()->orderBy('sort_order')->orderByDesc('created_at')->value('url');
-    }
-
     private function hasPhoto(Profile $profile): bool
     {
-        if (filled($profile->avatar_url)) {
-            return true;
-        }
-
-        $extended = $profile->getExtendedProfile();
-
-        return $extended !== null && filled($extended->profile_photo ?? null);
+        return $profile->hasProfilePhoto();
     }
 
     private function caption(mixed $caption): ?string

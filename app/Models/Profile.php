@@ -619,37 +619,59 @@ class Profile extends Authenticatable
     }
 
     /**
+     * Whether the user already has a profile photo: their avatar (which may be
+     * a Google picture, set before any extended profile_photo) or the
+     * business/community profile_photo. The one rule for "has a photo".
+     */
+    public function hasProfilePhoto(): bool
+    {
+        if (filled($this->avatar_url)) {
+            return true;
+        }
+
+        $extended = $this->isAttendee() ? null : $this->getExtendedProfile();
+
+        return $extended !== null && filled($extended->profile_photo ?? null);
+    }
+
+    /**
      * Use $url as the profile photo when the user has none yet, so someone who
      * filled a gallery but skipped the photo step doesn't end up with a blank
-     * avatar. Never overwrites an existing photo. Returns true if it adopted.
+     * avatar. Never overwrites an existing photo, Google avatars included.
+     * Returns true if it adopted.
      */
     public function adoptProfilePhotoIfMissing(?string $url): bool
     {
-        if (blank($url)) {
+        if (blank($url) || $this->hasProfilePhoto()) {
             return false;
         }
 
         $extended = $this->isAttendee() ? null : $this->getExtendedProfile();
 
         if ($extended !== null) {
-            if (filled($extended->profile_photo)) {
-                return false;
-            }
-
-            // The extended model's saved hook mirrors profile_photo onto avatar_url.
+            // The extended model's saved hook mirrors profile_photo onto
+            // avatar_url in the database; mirror it here too, as clean, so a
+            // later save() of this model does not write it again.
             $extended->forceFill(['profile_photo' => $url])->save();
-            $this->avatar_url = $url;
+            $this->setAttribute('avatar_url', $url);
+            $this->syncOriginalAttribute('avatar_url');
 
             return true;
-        }
-
-        if (filled($this->avatar_url)) {
-            return false;
         }
 
         $this->forceFill(['avatar_url' => $url])->save();
 
         return true;
+    }
+
+    /**
+     * Whether $url is the user's profile photo (extended profile_photo or
+     * avatar_url).
+     */
+    public function isProfilePhoto(string $url): bool
+    {
+        return $url === $this->avatar_url
+            || $url === ($this->isAttendee() ? null : $this->getExtendedProfile()?->profile_photo);
     }
 
     /**

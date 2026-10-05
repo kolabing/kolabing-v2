@@ -93,10 +93,10 @@ class GalleryController extends Controller
             ]);
         }
 
-        // No profile photo yet: the first gallery photo becomes it.
-        $profile->adoptProfilePhotoIfMissing(
-            $profile->galleryPhotos()->orderBy('sort_order')->orderByDesc('created_at')->value('url')
-        );
+        // No profile photo yet: the first photo of this upload becomes it.
+        // The user's own upload, never an Instagram import (those stay
+        // removable by Meta's data-deletion callback).
+        $profile->adoptProfilePhotoIfMissing($created[0]->url ?? null);
 
         return response()->json([
             'success' => true,
@@ -181,8 +181,9 @@ class GalleryController extends Controller
             ], 403);
         }
 
-        // Keep the file when it doubles as the profile photo (adopted from the gallery).
-        if ($photo->url !== $profile->getExtendedProfile()?->profile_photo && $photo->url !== $profile->avatar_url) {
+        // Keep the file when it doubles as the profile photo (adopted from the
+        // gallery); ProfileController deletes it once the photo is replaced.
+        if (! $profile->isProfilePhoto($photo->url)) {
             $this->fileUploadService->delete($photo->url);
         }
         if ($photo->video_url !== null) {

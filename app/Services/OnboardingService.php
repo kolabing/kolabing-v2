@@ -226,9 +226,7 @@ class OnboardingService
                 'target_city_ids' => $targetCityIds === [] ? ($businessProfile->target_city_ids ?? null) : $targetCityIds,
                 'instagram' => $this->sanitizeSocialHandle($data['instagram'] ?? null),
                 'website' => $data['website'] ?? null,
-                'profile_photo' => $profilePhotoUrl
-                    ?? $businessProfile->profile_photo
-                    ?? $this->businessVenueService->firstGalleryPhoto($primaryVenue, $offerPhotos),
+                'profile_photo' => $profilePhotoUrl ?? $businessProfile->profile_photo,
                 'primary_venue' => $primaryVenue,
                 'offer_photos' => $offerPhotos === [] ? null : $offerPhotos,
             ]);
