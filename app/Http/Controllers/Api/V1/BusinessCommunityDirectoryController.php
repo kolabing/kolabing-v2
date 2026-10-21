@@ -9,6 +9,7 @@ use App\Enums\UserType;
 use App\Enums\VerificationStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Profile;
+use App\Services\ModerationService;
 use App\Support\CommunityIdentityMask;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,6 +54,17 @@ class BusinessCommunityDirectoryController extends Controller
                 $q->where('status', KolabStatus::Published);
             }]);
 
+        // Half-onboarded rows carry nothing to judge a fit on: same completeness
+        // rule as suggestions (PairCandidateFinder), plus a name to show a subscriber.
+        $query->whereNotNull('community_profiles.community_type')
+            ->whereNotNull('community_profiles.name');
+
+        // Blocks cut both ways, as on Explore and suggestions (App Review 1.2).
+        $blockedIds = app(ModerationService::class)->blockedIds($viewer);
+        if ($blockedIds !== []) {
+            $query->whereNotIn('profiles.id', $blockedIds);
+        }
+
         // Test accounts see each other (App Review); real venues never see them.
         if (! $viewer->is_test_user) {
             $query->where('profiles.is_test_user', false);
@@ -80,7 +92,10 @@ class BusinessCommunityDirectoryController extends Controller
             $masked = CommunityIdentityMask::applies($viewer, $community);
 
             return [
-                'id' => $community->id,
+                // Withheld under the mask too: older endpoints still resolve a
+                // profile id to a name (BE-FX-21 and the follow-up), and a masked
+                // row only ever opens the paywall, so it needs no id.
+                'id' => $masked ? null : $community->id,
                 'identity_masked' => $masked,
                 'display_name' => $masked ? null : $extended?->name,
                 'avatar_url' => $masked ? null : ($community->avatar_url ?: $extended?->profile_photo),

@@ -3034,5 +3034,6 @@ Rule: ROLES §2.23. Where it lives:
 - Reads `profiles` (`user_type = community`, `is_active`, `is_test_user` unless the viewer is a test account) joined to
   `community_profiles` (+ `cities`), with a `kolabs` count where `status = published`. No new table or column.
 - Identity: `App\Support\CommunityIdentityMask::applies($viewer, $community)`; masked rows send `display_name` and
-  `avatar_url` as null. Non-business viewers → 403.
+  `avatar_url` and `id` as null. Non-business viewers → 403. Excludes `user_blocks` both ways
+  (`ModerationService::blockedIds`) and rows with a null `community_type` or `name`.
 - Tests: `tests/Feature/Api/V1/BusinessCommunityDirectoryTest.php`.

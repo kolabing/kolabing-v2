@@ -501,10 +501,12 @@ down)."* Explore lists Kolabs (§2.3), so a community with no open Kolab never r
 
 - `GET /api/v1/discovery/communities` (`BusinessCommunityDirectoryController`): every active community profile,
   paged (20 per page, at most 50), **never capped**. Optional `city_id` and `community_type` filters. Test communities are
-  left out unless the viewer is a test account (App Review).
+  left out unless the viewer is a test account (App Review). Blocked profiles are left out both ways (as on Explore), and
+  so are half-onboarded communities (no `community_type` or no name).
 - **Business only.** A community or attendee gets 403. Communities stay free and unaffected (§3).
 - **The blur is server-side.** `CommunityIdentityMask` decides, the same rule as §2.5's profile mask: a free business gets
-  `identity_masked: true` with `display_name` and `avatar_url` null. Kept so it stays a blur and not a block: community
+  `identity_masked: true` with `display_name`, `avatar_url` **and `id`** null (older endpoints still resolve a profile id
+  to a name, so a masked row carries no id; it only ever opens the paywall). Kept so it stays a blur and not a block: community
   type, size, city, verified badge, published Kolab count. Not sent at all: about, handles, links, public channels.
   The order (featured, verified, size) never uses the name.
 - Tapping a masked row opens the paywall; a subscribed business opens the community's profile as before. **No new paywall**:

@@ -67,6 +67,8 @@ class BusinessCommunityDirectoryTest extends TestCase
             $this->assertTrue($item['identity_masked']);
             $this->assertNull($item['display_name']);
             $this->assertNull($item['avatar_url']);
+            // The id would let a client pull the name from an older endpoint.
+            $this->assertNull($item['id']);
         }
 
         // The name is nowhere in the payload, not only blank in one field.
@@ -101,7 +103,7 @@ class BusinessCommunityDirectoryTest extends TestCase
     {
         $community = $this->community('Quiet Club');
 
-        $this->list($this->business())
+        $this->list($this->business(subscribed: true))
             ->assertOk()
             ->assertJsonPath('data.0.id', $community->id)
             ->assertJsonPath('data.0.published_kolabs_count', 0);
@@ -308,5 +310,41 @@ class BusinessCommunityDirectoryTest extends TestCase
         $large = count(\Illuminate\Support\Facades\DB::getQueryLog());
 
         $this->assertSame($small, $large, 'directory query count grows with the number of rows (N+1)');
+    }
+
+    public function test_a_masked_row_does_not_send_the_profile_id(): void
+    {
+        $community = $this->community('Barcelona Run Club');
+
+        $response = $this->list($this->business())->assertOk();
+        $response->assertJsonPath('data.0.id', null);
+        $this->assertStringNotContainsString($community->id, $response->getContent());
+    }
+
+    public function test_blocked_communities_are_left_out_both_ways(): void
+    {
+        $viewer = $this->business(subscribed: true);
+        $blockedByViewer = $this->community('Blocked By Venue');
+        $blockedTheViewer = $this->community('Blocked The Venue');
+        $this->community('Visible Club');
+
+        \App\Models\UserBlock::query()->create(['blocker_profile_id' => $viewer->id, 'blocked_profile_id' => $blockedByViewer->id]);
+        \App\Models\UserBlock::query()->create(['blocker_profile_id' => $blockedTheViewer->id, 'blocked_profile_id' => $viewer->id]);
+
+        $this->list($viewer)
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.display_name', 'Visible Club');
+    }
+
+    public function test_half_onboarded_communities_are_left_out(): void
+    {
+        $this->community('Complete Club');
+        $this->community('No Type Club', [], ['community_type' => null]);
+
+        $this->list($this->business(subscribed: true))
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.display_name', 'Complete Club');
     }
 }
