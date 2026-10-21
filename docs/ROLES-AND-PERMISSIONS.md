@@ -61,7 +61,7 @@ The business Explore feed shows COMMUNITY Kolabs (the posts communities created,
 - The community size / number of people expected at the event
 - The available dates
 
-Business Explore shows Kolabs, NOT community profiles. A community profile is reached by tapping into a Kolab (subscribed businesses only).
+Business Explore shows Kolabs, NOT community profiles. A community profile is reached by tapping into a Kolab (subscribed businesses only). The one exception is the community directory (§2.24): every community as a list, blurred for a free business.
 
 ### 2.4 Profile — what a business has
 - Logo, business name, venue or product type (formatted tag, e.g. "Coffee Shop", never "coffee_shop")
@@ -494,6 +494,24 @@ Daniel 2026-10-02: *"we should be able to invite communities through app notific
   invited. Applying is the normal, free community flow (§2.7 unchanged).
 
 No gate moved. Backend map §43.
+
+### 2.24 Community directory — every community, for a business to scroll (SERR-201, added 2026-10-21)
+Daniel 2026-10-21, a condition of a hotel subscribing: *"show all communities (even with names hidden, so he can scroll
+down)."* Explore lists Kolabs (§2.3), so a community with no open Kolab never reached a venue.
+
+- `GET /api/v1/discovery/communities` (`BusinessCommunityDirectoryController`): every active community profile,
+  paged (20 per page, at most 50), **never capped**. Optional `city_id` and `community_type` filters. Test communities are
+  left out unless the viewer is a test account (App Review). Blocked profiles are left out both ways (as on Explore), and
+  so are half-onboarded communities (no `community_type` or no name).
+- **Business only.** A community or attendee gets 403. Communities stay free and unaffected (§3).
+- **The blur is server-side.** `CommunityIdentityMask` decides, the same rule as §2.5's profile mask: a free business gets
+  `identity_masked: true` with `display_name`, `avatar_url` **and `id`** null (older endpoints still resolve a profile id
+  to a name, so a masked row carries no id; it only ever opens the paywall). Kept so it stays a blur and not a block: community
+  type, size, city, verified badge, published Kolab count. Not sent at all: about, handles, links, public channels.
+  The order (featured, verified, size) never uses the name.
+- Tapping a masked row opens the paywall; a subscribed business opens the community's profile as before. **No new paywall**:
+  the two gated actions (§2.7) are unchanged.
+
 
 ## 3. Community role
 
