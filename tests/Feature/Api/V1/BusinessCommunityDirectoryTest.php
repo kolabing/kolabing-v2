@@ -181,4 +181,132 @@ class BusinessCommunityDirectoryTest extends TestCase
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.community_type', 'running');
     }
+
+    // ── Who counts as subscribed ────────────────────────────────────────
+
+    public function test_a_lapsed_or_past_due_subscription_is_masked(): void
+    {
+        $this->community('Barcelona Run Club');
+
+        foreach (['cancelled', 'pastDue'] as $state) {
+            $viewer = $this->business();
+            BusinessSubscription::factory()->{$state}()->create(['profile_id' => $viewer->id]);
+
+            $response = $this->list($viewer->fresh())->assertOk();
+            $response->assertJsonPath('data.0.identity_masked', true);
+            $this->assertStringNotContainsString('Barcelona Run Club', $response->getContent());
+        }
+    }
+
+    public function test_apple_and_pro_subscribers_see_names(): void
+    {
+        $this->community('Barcelona Run Club');
+
+        foreach (['apple', 'pro'] as $state) {
+            $viewer = $this->business();
+            BusinessSubscription::factory()->active()->{$state}()->create(['profile_id' => $viewer->id]);
+
+            $this->list($viewer->fresh())
+                ->assertOk()
+                ->assertJsonPath('data.0.identity_masked', false)
+                ->assertJsonPath('data.0.display_name', 'Barcelona Run Club');
+        }
+    }
+
+    // ── Who is listed ───────────────────────────────────────────────────
+
+    public function test_a_soft_deleted_community_is_not_listed(): void
+    {
+        $this->community('Visible Club');
+        $this->community('Deleted Club')->delete();
+
+        $response = $this->list($this->business(subscribed: true))->assertOk();
+        $response->assertJsonPath('meta.total', 1);
+        $this->assertStringNotContainsString('Deleted Club', $response->getContent());
+    }
+
+    public function test_a_masked_row_carries_no_identifying_field(): void
+    {
+        $this->community('Barcelona Run Club', ['handle' => 'barcelona-run-club'], [
+            'about' => 'We run every Sunday.',
+            'instagram' => '@bcnrunclub',
+            'website' => 'https://bcnrunclub.example',
+            'profile_photo' => 'https://cdn.test/photo.png',
+        ]);
+
+        $response = $this->list($this->business())->assertOk();
+        $item = $response->json('data.0');
+
+        $this->assertSame(
+            ['id', 'identity_masked', 'display_name', 'avatar_url', 'community_type', 'community_size', 'city_name', 'is_verified', 'published_kolabs_count'],
+            array_keys($item),
+        );
+        foreach (['barcelona-run-club', 'bcnrunclub', 'We run every Sunday', 'cdn.test/photo.png'] as $needle) {
+            $this->assertStringNotContainsString($needle, $response->getContent());
+        }
+    }
+
+    // ── Input ───────────────────────────────────────────────────────────
+
+    public function test_bad_input_is_rejected(): void
+    {
+        $viewer = $this->business();
+
+        $this->list($viewer, '?per_page=51')->assertUnprocessable();
+        $this->list($viewer, '?per_page=0')->assertUnprocessable();
+        $this->list($viewer, '?city_id=not-a-uuid')->assertUnprocessable();
+    }
+
+    public function test_it_filters_by_city(): void
+    {
+        $barcelona = \App\Models\City::factory()->create();
+        $madrid = \App\Models\City::factory()->create();
+        $this->community('BCN Club', [], ['city_id' => $barcelona->id]);
+        $this->community('MAD Club', [], ['city_id' => $madrid->id]);
+
+        $this->list($this->business(subscribed: true), "?city_id={$barcelona->id}")
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.display_name', 'BCN Club');
+    }
+
+    // ── Order and cost ──────────────────────────────────────────────────
+
+    public function test_featured_then_verified_then_larger_communities_come_first(): void
+    {
+        $this->community('Small', [], ['community_size' => 10, 'is_featured' => false, 'verification_status' => 'unverified']);
+        $this->community('Big', [], ['community_size' => 500, 'is_featured' => false, 'verification_status' => 'unverified']);
+        $this->community('Verified', [], ['community_size' => 5, 'is_featured' => false, 'verification_status' => 'verified']);
+        $this->community('Featured', [], ['community_size' => 1, 'is_featured' => true, 'verification_status' => 'unverified']);
+
+        $names = collect($this->list($this->business(subscribed: true))->assertOk()->json('data'))
+            ->pluck('display_name')->all();
+
+        $this->assertSame(['Featured', 'Verified', 'Big', 'Small'], $names);
+    }
+
+    public function test_the_query_count_does_not_grow_with_the_page(): void
+    {
+        $viewer = $this->business();
+        foreach (range(1, 3) as $i) {
+            $this->community("Club {$i}");
+        }
+
+        // Warm-up: the viewer's own subscription is loaded once, then cached.
+        $this->list($viewer)->assertOk();
+
+        \Illuminate\Support\Facades\DB::enableQueryLog();
+        $this->list($viewer)->assertOk();
+        $small = count(\Illuminate\Support\Facades\DB::getQueryLog());
+
+        foreach (range(4, 20) as $i) {
+            $this->community("Club {$i}");
+        }
+
+        \Illuminate\Support\Facades\DB::flushQueryLog();
+        $this->list($viewer)->assertOk();
+        $large = count(\Illuminate\Support\Facades\DB::getQueryLog());
+
+        $this->assertSame($small, $large, 'directory query count grows with the number of rows (N+1)');
+    }
 }
