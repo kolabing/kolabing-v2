@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\ApplicationController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BadgeController;
 use App\Http\Controllers\Api\V1\BlockController;
+use App\Http\Controllers\Api\V1\BusinessCommunityDirectoryController;
 use App\Http\Controllers\Api\V1\ChallengeCompletionController;
 use App\Http\Controllers\Api\V1\ChallengeController;
 use App\Http\Controllers\Api\V1\ChatController;
@@ -852,6 +853,10 @@ Route::prefix('v1')->group(function (): void {
         // Role-aware discovery feed for Explore
         Route::get('discovery/opportunities', DiscoveryOpportunityController::class)
             ->name('api.v1.discovery.opportunities');
+
+        // Every community, for a business to scroll; identity masked for a free business (SERR-201)
+        Route::get('discovery/communities', BusinessCommunityDirectoryController::class)
+            ->name('api.v1.discovery.communities');
 
         /*
         |--------------------------------------------------------------------------

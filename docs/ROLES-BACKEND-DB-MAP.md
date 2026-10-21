@@ -3028,3 +3028,11 @@ Rule: ROLES §2.23. Where it lives:
 - Tests: `tests/Feature/Api/V1/KolabCityFilterTest.php` (metro viewer → Barcelona; unknown city →
   unfiltered, `recommended` included).
 
+
+## 45. Community directory for businesses (SERR-201, added 2026-10-21)
+- ROLES §2.24. `GET /api/v1/discovery/communities` → `App\Http\Controllers\Api\V1\BusinessCommunityDirectoryController`.
+- Reads `profiles` (`user_type = community`, `is_active`, `is_test_user` unless the viewer is a test account) joined to
+  `community_profiles` (+ `cities`), with a `kolabs` count where `status = published`. No new table or column.
+- Identity: `App\Support\CommunityIdentityMask::applies($viewer, $community)`; masked rows send `display_name` and
+  `avatar_url` as null. Non-business viewers → 403.
+- Tests: `tests/Feature/Api/V1/BusinessCommunityDirectoryTest.php`.
