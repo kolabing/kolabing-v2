@@ -115,6 +115,38 @@ class LeaderboardController extends Controller
     }
 
     /**
+     * The weekly check-ins leaderboard (NF-7): ranks a community's active
+     * members by verified event check-ins in the current calendar week
+     * (Europe/Madrid, Monday to Sunday). Resets every week; distinct from the
+     * all-time points leaderboard above. Members and organisers only.
+     *
+     * GET /api/v1/communities/{community}/leaderboard/weekly
+     */
+    public function communityWeeklyLeaderboard(Request $request, Community $community): JsonResponse
+    {
+        /** @var Profile $profile */
+        $profile = $request->user();
+
+        $limit = min((int) $request->query('limit', '50'), 100);
+        $limit = max($limit, 1);
+
+        if ($profile->cannot('viewLeaderboard', $community)) {
+            return $this->forbidden();
+        }
+
+        $leaderboard = $this->leaderboardService->getCommunityWeeklyLeaderboard($community, $limit);
+        $myRank = $this->leaderboardService->getMyCommunityWeeklyRank($community, $profile);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'leaderboard' => $leaderboard->values()->all(),
+                'my_rank' => $myRank,
+            ],
+        ]);
+    }
+
+    /**
      * Community rankings are for that community's members and organisers only.
      */
     private function forbidden(): JsonResponse
