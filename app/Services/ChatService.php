@@ -115,11 +115,13 @@ class ChatService
         // Get applications where user is either the applicant or the opportunity creator
         $applicationIds = $this->getParticipatingApplicationIds($profile);
 
-        return ChatMessage::query()
+        $collaborationUnread = ChatMessage::query()
             ->whereIn('application_id', $applicationIds)
             ->where('sender_profile_id', '!=', $profile->id)
             ->whereNull('read_at')
             ->count();
+
+        return $collaborationUnread + $this->teamThreadUnread($profile);
     }
 
     /**
@@ -213,6 +215,7 @@ class ChatService
         return $this->visibleCollaborationThreads($profile)
             ->merge($this->visibleCommunityThreads($profile))
             ->merge($this->visibleEventThreads($profile))
+            ->merge($this->visibleTeamThreads($profile))
             ->sortByDesc(fn (ChatThread $thread): int => $thread->last_message_at?->getTimestamp() ?? 0)
             ->values();
     }
@@ -396,6 +399,12 @@ class ChatService
             return $thread->application !== null && $this->canParticipate($profile, $thread->application);
         }
 
+        // Kolabing team thread: only the profile it talks to (the maintainers
+        // read and answer it from admin, never through this API).
+        if ($thread->type === ChatThreadType::KolabingTeam) {
+            return $thread->team_profile_id !== null && $thread->team_profile_id === $profile->id;
+        }
+
         // Event chats: a `going` sign-up, or the community leader/can_manage.
         if ($thread->type === ChatThreadType::Event) {
             return $this->canAccessEventThread($profile, $thread);
@@ -425,7 +434,7 @@ class ChatService
     {
         return ChatMessage::query()
             ->where('thread_id', $thread->id)
-            ->with('senderProfile.businessProfile', 'senderProfile.communityProfile')
+            ->with('senderProfile.businessProfile', 'senderProfile.communityProfile', 'teamOffer.kolab', 'teamOffer.communityProfile.communityProfile')
             ->orderBy('created_at')
             ->paginate($perPage);
     }
@@ -474,6 +483,48 @@ class ChatService
         FanOutThreadMessageNotifications::dispatch($message->id, $thread->id, $sender->id);
 
         return $message;
+    }
+
+    /**
+     * The profile's Kolabing team thread, created on first use. One per profile
+     * (unique `team_profile_id`), so a race resolves to the same row.
+     */
+    public function teamThreadFor(Profile $profile): ChatThread
+    {
+        return ChatThread::query()->firstOrCreate(
+            ['team_profile_id' => $profile->id],
+            ['type' => ChatThreadType::KolabingTeam->value, 'name' => 'Kolabing team'],
+        );
+    }
+
+    /**
+     * The viewer's Kolabing team thread, if Kolabing has ever written to them.
+     * A thread with no message yet stays out of the inbox.
+     *
+     * @return Collection<int, ChatThread>
+     */
+    private function visibleTeamThreads(Profile $profile): Collection
+    {
+        $threads = ChatThread::query()
+            ->where('type', ChatThreadType::KolabingTeam->value)
+            ->where('team_profile_id', $profile->id)
+            ->whereNotNull('last_message_at')
+            ->get();
+
+        $this->attachUnreadCounts($profile, $threads);
+        $this->attachLatestMessages($threads);
+
+        return $threads;
+    }
+
+    private function teamThreadUnread(Profile $profile): int
+    {
+        $thread = ChatThread::query()
+            ->where('type', ChatThreadType::KolabingTeam->value)
+            ->where('team_profile_id', $profile->id)
+            ->first();
+
+        return $thread === null ? 0 : $this->unreadForThread($profile, $thread);
     }
 
     /**
@@ -896,7 +947,7 @@ class ChatService
 
         $query = ChatMessage::query()
             ->where('thread_id', $thread->id)
-            ->where('sender_profile_id', '!=', $profile->id);
+            ->where(fn ($q) => $q->whereNull('sender_profile_id')->orWhere('sender_profile_id', '!=', $profile->id));
 
         if ($read?->last_read_at !== null) {
             $query->where('created_at', '>', $read->last_read_at);
@@ -969,7 +1020,7 @@ class ChatService
                     ->where('chat_thread_reads.profile_id', '=', $profile->id);
             })
             ->whereIn('chat_messages.thread_id', $threadIds)
-            ->where('chat_messages.sender_profile_id', '!=', $profile->id)
+            ->where(fn ($q) => $q->whereNull('chat_messages.sender_profile_id')->orWhere('chat_messages.sender_profile_id', '!=', $profile->id))
             ->where(function ($query): void {
                 $query->whereNull('chat_thread_reads.last_read_at')
                     ->orWhereColumn('chat_messages.created_at', '>', 'chat_thread_reads.last_read_at');

@@ -1184,3 +1184,7 @@ This file and `docs/ROLES-BACKEND-DB-MAP.md` are read by every Claude session th
 5. If the change adds or removes a role surface entirely, update the project `CLAUDE.md` "MUST READ" block too.
 
 Treat this maintenance as part of the change, not optional.
+
+## 2.22 Kolabing team offers (SERR-658)
+
+Kolabing can message a single profile as itself, from a `kolabing_team` chat thread, with an offer card (Accept / Not now). Admin-only sender; the recipient can reply. **A business accepting a Kolabing team offer creates a direct proposal to the named community without the active-subscription check** (§2.5 still holds elsewhere: the public `recipient_community_id` publish path keeps the check, and the card does not name the community to an unsubscribed business). A community accepting runs the normal apply flow. Never paywalled for communities. No Kolabing profile exists: the team is a sender type, not a user.

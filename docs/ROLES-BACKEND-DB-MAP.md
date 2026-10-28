@@ -3044,3 +3044,9 @@ Rule: ROLES §2.23. Where it lives:
 - `AppleIAPService::appleIdentityAttributes` sets `plan` from the transaction's `productId` on verify, restore and every App Store Server Notification, so upgrade, renewal and downgrade need no new flow.
 - No schema change. Tests: `AppleSubscriptionProductsTest`, `AppleIAPControllerTest`, `AppleWebhookControllerTest`.
 - Needs before it can be bought: the product created in App Store Connect and `APPLE_IAP_PRO_MONTHLY_PRODUCT_ID` left at its default (or set) in prod.
+
+## 42. Kolabing team offers (SERR-658)
+
+- Rule: Kolabing messages one profile as itself; business Accept skips the subscription check for these offers only.
+- Code: `App\Services\KolabingTeamService` (draft/send/accept/decline/reply), `Admin\KolabingTeamController`, `Api\V1\KolabingTeamOfferController`, `ChatService::teamThreadFor` / `visibleTeamThreads` / `canAccessThread`.
+- DB: `chat_threads.team_profile_id` (+ type `kolabing_team`), `chat_messages.sender_type|sender_user_id|team_offer_id` (`sender_profile_id` nullable), `kolabing_team_offers`.

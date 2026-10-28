@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\ChatSenderType;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,14 +14,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $id
  * @property string $application_id
  * @property string|null $thread_id
- * @property string $sender_profile_id
+ * @property string|null $sender_profile_id Null for a Kolabing team message.
+ * @property ChatSenderType $sender_type
+ * @property int|null $sender_user_id The maintainer behind a team message.
+ * @property string|null $team_offer_id
  * @property string $content
  * @property \Illuminate\Support\Carbon|null $read_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read Application $application
  * @property-read ChatThread|null $thread
- * @property-read Profile $senderProfile
+ * @property-read Profile|null $senderProfile
+ * @property-read KolabingTeamOffer|null $teamOffer
  */
 class ChatMessage extends Model
 {
@@ -36,6 +41,9 @@ class ChatMessage extends Model
         'application_id',
         'thread_id',
         'sender_profile_id',
+        'sender_type',
+        'sender_user_id',
+        'team_offer_id',
         'content',
         'read_at',
     ];
@@ -49,6 +57,7 @@ class ChatMessage extends Model
     {
         return [
             'read_at' => 'datetime',
+            'sender_type' => ChatSenderType::class,
         ];
     }
 
@@ -80,6 +89,21 @@ class ChatMessage extends Model
     public function senderProfile(): BelongsTo
     {
         return $this->belongsTo(Profile::class, 'sender_profile_id');
+    }
+
+    /**
+     * The offer card attached to a Kolabing team message.
+     *
+     * @return BelongsTo<KolabingTeamOffer, $this>
+     */
+    public function teamOffer(): BelongsTo
+    {
+        return $this->belongsTo(KolabingTeamOffer::class, 'team_offer_id');
+    }
+
+    public function isFromTeam(): bool
+    {
+        return $this->sender_type === ChatSenderType::Team;
     }
 
     /**

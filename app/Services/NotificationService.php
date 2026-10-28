@@ -97,6 +97,9 @@ class NotificationService
         // Rides the Kolab-activity switch rather than `marketing_tips`, whose
         // column defaults to FALSE and would mute it for almost everyone.
         'kolab_invite' => 'collaboration_updates',
+
+        // Kolabing team thread messages and offers (KolabingTeamService): same switch.
+        'kolabing_team_message' => 'collaboration_updates',
     ];
 
     public function __construct(
