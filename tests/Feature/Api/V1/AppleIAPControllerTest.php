@@ -46,6 +46,11 @@ class AppleIAPControllerTest extends TestCase
         return (string) config('subscriptions.business.apple.monthly.apple_product_id');
     }
 
+    private function proAppleProductId(): string
+    {
+        return (string) config('subscriptions.business.apple.pro_monthly.apple_product_id');
+    }
+
     private function threeMonthAppleProductId(): string
     {
         return (string) config('subscriptions.business.apple.three_months.apple_product_id');
@@ -223,6 +228,76 @@ class AppleIAPControllerTest extends TestCase
             'status' => 'active',
             'apple_product_id' => $this->threeMonthAppleProductId(),
         ]);
+    }
+
+    public function test_verify_of_the_pro_product_unlocks_venue_pro(): void
+    {
+        $profile = $this->createBusinessProfile();
+        $proId = $this->proAppleProductId();
+
+        $mock = $this->partialAppleIAPService();
+        $mock->shouldReceive('verifyTransaction')->once()->andReturn($this->fakeTransactionData(['productId' => $proId]));
+
+        $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', [
+            'transaction_id' => '2000000111111111',
+            'original_transaction_id' => '2000000000000001',
+            'product_id' => $proId,
+        ])->assertOk()
+            ->assertJsonPath('data.apple_product_id', $proId)
+            ->assertJsonPath('data.plan', 'pro');
+
+        $this->assertDatabaseHas('business_subscriptions', ['profile_id' => $profile->id, 'plan' => 'pro', 'status' => 'active']);
+        $this->assertTrue($profile->fresh()->hasVenueProAccess());
+    }
+
+    public function test_the_monthly_product_unlocks_only_the_standard_plan(): void
+    {
+        $this->assertStandardPlanFor($this->monthlyAppleProductId());
+    }
+
+    public function test_the_three_month_product_unlocks_only_the_standard_plan(): void
+    {
+        $this->assertStandardPlanFor($this->threeMonthAppleProductId());
+    }
+
+    private function assertStandardPlanFor(string $productId): void
+    {
+        $profile = $this->createBusinessProfile();
+        $mock = $this->partialAppleIAPService();
+        $mock->shouldReceive('verifyTransaction')->once()->andReturn($this->fakeTransactionData(['productId' => $productId]));
+
+        $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', [
+            'transaction_id' => '2000000111111111',
+            'original_transaction_id' => '2000000000000001',
+            'product_id' => $productId,
+        ])->assertOk()->assertJsonPath('data.plan', 'standard');
+
+        $this->assertFalse($profile->fresh()->hasVenueProAccess());
+    }
+
+    public function test_upgrading_standard_to_pro_updates_the_same_subscription_row(): void
+    {
+        $profile = $this->createBusinessProfile();
+        BusinessSubscription::factory()->apple()->create([
+            'profile_id' => $profile->id,
+            'plan' => 'standard',
+            'apple_original_transaction_id' => '2000000000000001',
+            'apple_transaction_id' => '2000000111111110',
+            'apple_product_id' => $this->monthlyAppleProductId(),
+        ]);
+        $proId = $this->proAppleProductId();
+
+        $mock = $this->partialAppleIAPService();
+        $mock->shouldReceive('verifyTransaction')->once()->andReturn($this->fakeTransactionData(['productId' => $proId]));
+
+        $this->actingAs($profile)->postJson('/api/v1/me/subscription/apple-verify', [
+            'transaction_id' => '2000000111111111',
+            'original_transaction_id' => '2000000000000001',
+            'product_id' => $proId,
+        ])->assertOk()->assertJsonPath('data.plan', 'pro');
+
+        $this->assertSame(1, BusinessSubscription::query()->where('profile_id', $profile->id)->count());
+        $this->assertTrue($profile->fresh()->hasVenueProAccess());
     }
 
     public function test_verify_is_idempotent_and_does_not_duplicate_referral_reward(): void

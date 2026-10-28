@@ -93,6 +93,61 @@ class AppleWebhookControllerTest extends TestCase
         ]);
     }
 
+    public function test_webhook_renewal_on_the_pro_product_keeps_venue_pro(): void
+    {
+        $subscription = $this->createAppleSubscription(['plan' => 'standard']);
+        $this->renewWith($subscription, (string) config('subscriptions.business.apple.pro_monthly.apple_product_id'));
+
+        $this->assertDatabaseHas('business_subscriptions', ['id' => $subscription->id, 'plan' => 'pro', 'status' => 'active']);
+    }
+
+    public function test_webhook_renewal_after_a_downgrade_drops_back_to_standard(): void
+    {
+        $subscription = $this->createAppleSubscription(['plan' => 'pro']);
+        $this->renewWith($subscription, (string) config('subscriptions.business.apple.monthly.apple_product_id'));
+
+        $this->assertDatabaseHas('business_subscriptions', ['id' => $subscription->id, 'plan' => 'standard', 'status' => 'active']);
+    }
+
+    public function test_webhook_expiry_of_a_pro_subscription_ends_access(): void
+    {
+        $subscription = $this->createAppleSubscription(['plan' => 'pro']);
+        $mock = $this->partialAppleIAPService();
+        $mock->shouldReceive('decodeSignedJwt')->once()->with('outer.jws.payload')->andReturn([
+            'notificationType' => 'EXPIRED',
+            'subtype' => '',
+            'data' => ['signedTransactionInfo' => 'inner.jws.transaction'],
+        ]);
+        $mock->shouldReceive('decodeSignedJwt')->once()->with('inner.jws.transaction')->andReturn($this->fakeTransactionData([
+            'originalTransactionId' => $subscription->apple_original_transaction_id,
+            'productId' => (string) config('subscriptions.business.apple.pro_monthly.apple_product_id'),
+            'expiresDate' => now()->subMinute()->getTimestampMs(),
+        ]));
+
+        $this->postJson('/api/v1/webhooks/apple', ['signedPayload' => 'outer.jws.payload'])->assertOk();
+
+        $this->assertDatabaseHas('business_subscriptions', ['id' => $subscription->id, 'status' => 'inactive']);
+        $this->assertFalse($subscription->profile->fresh()->hasVenueProAccess());
+    }
+
+    private function renewWith(BusinessSubscription $subscription, string $productId): void
+    {
+        $mock = $this->partialAppleIAPService();
+        $mock->shouldReceive('decodeSignedJwt')->once()->with('outer.jws.payload')->andReturn([
+            'notificationType' => 'DID_RENEW',
+            'subtype' => '',
+            'data' => ['signedTransactionInfo' => 'inner.jws.transaction'],
+        ]);
+        $mock->shouldReceive('decodeSignedJwt')->once()->with('inner.jws.transaction')->andReturn($this->fakeTransactionData([
+            'transactionId' => '2000000333333333',
+            'originalTransactionId' => $subscription->apple_original_transaction_id,
+            'productId' => $productId,
+            'expiresDate' => now()->addMonth()->getTimestampMs(),
+        ]));
+
+        $this->postJson('/api/v1/webhooks/apple', ['signedPayload' => 'outer.jws.payload'])->assertOk();
+    }
+
     public function test_webhook_handles_auto_renew_disabled_notification(): void
     {
         $subscription = $this->createAppleSubscription();

@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\MissionTrigger;
-use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionSource;
 use App\Enums\SubscriptionStatus;
 use App\Models\BusinessSubscription;
 use App\Models\Profile;
+use App\Support\AppleSubscriptionProducts;
 use Carbon\Carbon;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
@@ -496,9 +496,10 @@ class AppleIAPService
     {
         return [
             'source' => SubscriptionSource::AppleIap,
-            // Venue Pro is web-only (BE-NF-68): an App Store purchase is always
-            // the standard plan, even on a row that once held Pro.
-            'plan' => SubscriptionPlan::Standard,
+            // The plan follows the App Store product: the Venue Pro product is Pro,
+            // the other two (and anything unknown) are standard. A row that once
+            // held Pro on Stripe still becomes standard on a standard purchase.
+            'plan' => AppleSubscriptionProducts::planFor($transactionData['productId'] ?? null),
             'stripe_customer_id' => null,
             'stripe_subscription_id' => null,
             'apple_original_transaction_id' => $transactionData['originalTransactionId'] ?? null,
