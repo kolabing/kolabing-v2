@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\EmailTemplateController as AdminEmailTemplateCont
 use App\Http\Controllers\Admin\GamificationController as AdminGamificationController;
 use App\Http\Controllers\Admin\IconLibraryController as AdminIconLibraryController;
 use App\Http\Controllers\Admin\KolabController as AdminKolabController;
+use App\Http\Controllers\Admin\KolabingTeamController as AdminKolabingTeamController;
 use App\Http\Controllers\Admin\KolabInviteController as AdminKolabInviteController;
 use App\Http\Controllers\Admin\ManagedUserController;
 use App\Http\Controllers\Admin\OfferOptionController as AdminOfferOptionController;
@@ -378,6 +379,16 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::get('/kolab-invites', [AdminKolabInviteController::class, 'index'])->name('kolab-invites.index');
     Route::post('/kolab-invites/preview', [AdminKolabInviteController::class, 'preview'])->name('kolab-invites.preview');
     Route::post('/kolab-invites', [AdminKolabInviteController::class, 'store'])->name('kolab-invites.store');
+
+    // Kolabing team: one drafted offer = one send, plus the replies thread
+    // (KolabingTeamService). Nothing is bulk; Send is its own POST per row.
+    Route::get('/kolabing-team', [AdminKolabingTeamController::class, 'index'])->name('kolabing-team.index');
+    Route::post('/kolabing-team', [AdminKolabingTeamController::class, 'store'])->name('kolabing-team.store');
+    Route::post('/kolabing-team/offers/{offer}/send', [AdminKolabingTeamController::class, 'send'])->name('kolabing-team.send');
+    Route::post('/kolabing-team/offers/{offer}/cancel', [AdminKolabingTeamController::class, 'cancel'])->name('kolabing-team.cancel');
+    Route::get('/kolabing-team/inbox', [AdminKolabingTeamController::class, 'inbox'])->name('kolabing-team.inbox');
+    Route::get('/kolabing-team/threads/{thread}', [AdminKolabingTeamController::class, 'show'])->name('kolabing-team.thread');
+    Route::post('/kolabing-team/threads/{thread}/reply', [AdminKolabingTeamController::class, 'reply'])->name('kolabing-team.reply');
 
     Route::get('/kolabs', [AdminKolabController::class, 'index'])->name('kolabs.index');
     Route::get('/kolabs/{kolab}/edit', [AdminKolabController::class, 'edit'])->name('kolabs.edit');

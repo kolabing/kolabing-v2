@@ -51,6 +51,9 @@ enum NotificationType: string
     // target_type = 'kolab', target_id = the Kolab id; the app opens /opportunity/{id}.
     case KolabInvite = 'kolab_invite';
 
+    // A message or offer from the Kolabing team thread (KolabingTeamService).
+    case KolabingTeamMessage = 'kolabing_team_message';
+
     // Multi-Kolab Event MVP — deliberately new cases, never overloading the
     // attendee EventCancelled case above (different domain entirely).
     case MultiKolabApplicationReceived = 'multi_kolab_application_received';

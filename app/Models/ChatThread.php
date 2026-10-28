@@ -18,6 +18,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string|null $application_id
  * @property string|null $community_id
  * @property string|null $event_id
+ * @property string|null $team_profile_id
+ * @property \Illuminate\Support\Carbon|null $admin_last_read_at
  * @property string|null $slug
  * @property string|null $name
  * @property string|null $created_by
@@ -39,6 +41,8 @@ class ChatThread extends Model
         'community_id',
         'event_id',
         'series_id',
+        'team_profile_id',
+        'admin_last_read_at',
         'slug',
         'name',
         'created_by',
@@ -53,6 +57,7 @@ class ChatThread extends Model
         return [
             'type' => ChatThreadType::class,
             'last_message_at' => 'datetime',
+            'admin_last_read_at' => 'datetime',
         ];
     }
 
@@ -70,6 +75,16 @@ class ChatThread extends Model
     public function community(): BelongsTo
     {
         return $this->belongsTo(Community::class);
+    }
+
+    /**
+     * The profile a `kolabing_team` thread talks to.
+     *
+     * @return BelongsTo<Profile, $this>
+     */
+    public function teamProfile(): BelongsTo
+    {
+        return $this->belongsTo(Profile::class, 'team_profile_id');
     }
 
     /**

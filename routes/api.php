@@ -48,6 +48,7 @@ use App\Http\Controllers\Api\V1\GamificationController;
 use App\Http\Controllers\Api\V1\GamificationStatsController;
 use App\Http\Controllers\Api\V1\InstagramController;
 use App\Http\Controllers\Api\V1\KolabController;
+use App\Http\Controllers\Api\V1\KolabingTeamOfferController;
 use App\Http\Controllers\Api\V1\LeaderboardController;
 use App\Http\Controllers\Api\V1\LookupController;
 use App\Http\Controllers\Api\V1\MeRewardsOverviewController;
@@ -1129,6 +1130,13 @@ Route::prefix('v1')->group(function (): void {
             ->name('api.v1.chats.messages.store');
         Route::post('chats/{thread}/read', [ChatController::class, 'readThread'])
             ->name('api.v1.chats.read');
+
+        // Kolabing team offer cards (SERR-658): the recipient's Accept / Not now.
+        // Offers are created and sent from admin only.
+        Route::post('kolabing-team/offers/{offer}/accept', [KolabingTeamOfferController::class, 'accept'])
+            ->name('api.v1.kolabing-team.offers.accept');
+        Route::post('kolabing-team/offers/{offer}/decline', [KolabingTeamOfferController::class, 'decline'])
+            ->name('api.v1.kolabing-team.offers.decline');
 
         /*
         |--------------------------------------------------------------------------

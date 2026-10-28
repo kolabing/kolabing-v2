@@ -25,7 +25,7 @@ class ChatThreadResource extends JsonResource
         return [
             'id' => $this->id,
             'type' => $type,
-            'name' => $this->name,
+            'name' => $type === ChatThreadType::KolabingTeam->value ? 'Kolabing team' : $this->name,
             // Stable per-community slug. The gating key: a tier grants access to a
             // custom chat by listing its slug in permissions.chat_channels, so the
             // app needs it to build the per-tier channel picker.

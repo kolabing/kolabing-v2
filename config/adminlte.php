@@ -357,6 +357,18 @@ return [
             'active' => ['admin/kolab-invites', 'admin/kolab-invites/*'],
         ],
         [
+            'text' => 'Kolabing team offers',
+            'route' => 'admin.kolabing-team.index',
+            'icon' => 'fas fa-fw fa-paper-plane',
+            'active' => ['admin/kolabing-team', 'admin/kolabing-team/offers/*'],
+        ],
+        [
+            'text' => 'Kolabing team inbox',
+            'route' => 'admin.kolabing-team.inbox',
+            'icon' => 'fas fa-fw fa-inbox',
+            'active' => ['admin/kolabing-team/inbox', 'admin/kolabing-team/threads/*'],
+        ],
+        [
             'text' => 'Reviews',
             'route' => 'admin.reviews.index',
             'icon' => 'fas fa-fw fa-star',

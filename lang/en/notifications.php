@@ -54,6 +54,10 @@ return [
         ],
     ],
 
+    'kolabing_team' => [
+        'title' => 'Kolabing team',
+    ],
+
     'kolab' => [
         'invite' => [
             'title' => 'You\'re invited to a Kolab',

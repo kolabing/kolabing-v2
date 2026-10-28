@@ -154,6 +154,7 @@ class PushNotificationService
             NotificationType::ApplicationPending => $targetId ? "/application/{$targetId}" : '/notifications',
             NotificationType::KolabCreateIncomplete => $targetId ? "/kolabs/{$targetId}/edit" : '/kolabs',
             NotificationType::KolabInvite => $targetId ? "/opportunity/{$targetId}" : '/notifications',
+            NotificationType::KolabingTeamMessage => '/chats',
             NotificationType::BadgeAwarded,
             NotificationType::GamificationBadgeEarned => '/badges',
             NotificationType::ChallengeVerified,
@@ -188,6 +189,7 @@ class PushNotificationService
             NotificationType::ApplicationDeclined => 'Application update',
             NotificationType::ApplicationPending => 'Pending application',
             NotificationType::KolabInvite => 'Kolab invite',
+            NotificationType::KolabingTeamMessage => 'Kolabing team',
             default => 'Kolabing',
         };
     }
@@ -267,6 +269,7 @@ class PushNotificationService
             NotificationType::ApplicationPending => 'applications_'.($targetId ?? 'general'),
             NotificationType::KolabCreateIncomplete => 'kolabs_'.($targetId ?? 'draft'),
             NotificationType::KolabInvite => 'kolab_invites',
+            NotificationType::KolabingTeamMessage => 'kolabing_team',
             default => 'kolabing_general',
         };
     }
