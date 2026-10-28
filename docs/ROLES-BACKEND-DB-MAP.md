@@ -3037,3 +3037,10 @@ Rule: ROLES §2.23. Where it lives:
   `avatar_url` and `id` as null. Non-business viewers → 403. Excludes `user_blocks` both ways
   (`ModerationService::blockedIds`) and rows with a null `community_type` or `name`.
 - Tests: `tests/Feature/Api/V1/BusinessCommunityDirectoryTest.php`.
+
+## 46. Venue Pro as an App Store product (SERR-201, added 2026-10-28)
+- ROLES §2.19. `config/subscriptions.php` `business.apple.pro_monthly` (price 299, plan `pro`, env `APPLE_IAP_PRO_MONTHLY_PRODUCT_ID`).
+- `App\Support\AppleSubscriptionProducts::all()` now allows the Pro id in verify/restore; `planFor($productId)` maps a product to a plan (Pro only for the Pro id).
+- `AppleIAPService::appleIdentityAttributes` sets `plan` from the transaction's `productId` on verify, restore and every App Store Server Notification, so upgrade, renewal and downgrade need no new flow.
+- No schema change. Tests: `AppleSubscriptionProductsTest`, `AppleIAPControllerTest`, `AppleWebhookControllerTest`.
+- Needs before it can be bought: the product created in App Store Connect and `APPLE_IAP_PRO_MONTHLY_PRODUCT_ID` left at its default (or set) in prod.
