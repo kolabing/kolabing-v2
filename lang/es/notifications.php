@@ -55,6 +55,7 @@ return [
     ],
 
     'kolabing_team' => [
+        'claim_disclaimer' => 'Puedes eliminar esta página cuando quieras después de reclamarla.',
         'title' => 'Equipo de Kolabing',
     ],
 

@@ -50,6 +50,10 @@ class KolabingTeamOfferResource extends JsonResource
             'what_business_gets' => $this->what_business_gets,
             'what_community_gets' => $this->what_community_gets,
             'can_respond' => $this->isOpenForResponse(),
+            'expired' => $this->isExpired(),
+            'expires_at' => $this->expires_at?->toIso8601String(),
+            // Set by the show endpoint so a tapped link can open the thread.
+            'thread_id' => $this->resource->getAttribute('thread_id'),
             'result_kolab_id' => $this->result_kolab_id,
             'result_application_id' => $this->result_application_id,
             'sent_at' => $this->sent_at?->toIso8601String(),

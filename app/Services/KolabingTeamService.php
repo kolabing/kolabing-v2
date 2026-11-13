@@ -16,11 +16,14 @@ use App\Models\ChatThread;
 use App\Models\Kolab;
 use App\Models\KolabingTeamOffer;
 use App\Models\Profile;
+use App\Models\Scopes\ActiveProfileScope;
 use App\Models\User;
 use App\Models\UserBlock;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 /**
@@ -65,7 +68,7 @@ class KolabingTeamService
     /**
      * Draft one offer. Nothing reaches the recipient until send().
      *
-     * @param  array{kind: string, recipient: string, kolab?: string|null, community?: string|null, title?: string|null, message?: string|null, what_business_gets?: string|null, what_community_gets?: string|null, proposed_date?: string|null, test_send?: bool|null}  $data
+     * @param  array{kind: string, recipient: string, kolab?: string|null, community?: string|null, title?: string|null, message?: string|null, what_business_gets?: string|null, what_community_gets?: string|null, proposed_date?: string|null, test_send?: bool|null, contact_email?: string|null}  $data
      *
      * @throws InvalidArgumentException
      */
@@ -126,6 +129,7 @@ class KolabingTeamService
             'is_test_send' => (bool) ($data['test_send'] ?? false),
             'channel' => 'thread',
             'dedupe_key' => $dedupeKey,
+            'contact_email' => $this->nullIfBlank($data['contact_email'] ?? null),
             'created_by_admin_id' => $admin?->id,
         ]);
 
@@ -139,27 +143,40 @@ class KolabingTeamService
      */
     public function problems(KolabingTeamOffer $offer): array
     {
-        $offer->loadMissing(['recipient.businessProfile', 'recipient.communityProfile', 'kolab', 'communityProfile']);
-        $problems = [];
+        $this->loadOfferDetails($offer);
 
         if ($offer->status !== KolabingTeamOfferStatus::Draft) {
             return ['This offer was already '.$offer->status->value.'.'];
         }
+
+        return $this->deliveryProblems($offer);
+    }
+
+    /**
+     * Why this offer cannot go out now, for a first send or a resend. The cap
+     * counts every send already made to the recipient in the last 7 days, a
+     * resend included (SERR-1344).
+     *
+     * @return list<string>
+     */
+    private function deliveryProblems(KolabingTeamOffer $offer): array
+    {
+        $this->loadOfferDetails($offer);
+        $problems = [];
 
         $recipient = $offer->recipient;
         foreach ($this->profileProblems($recipient, 'Recipient', $offer->is_test_send) as $problem) {
             $problems[] = $problem;
         }
 
+        if ($recipient->isUnclaimed() && ! (bool) config('kolabing_team.allow_unclaimed_send')) {
+            $problems[] = 'Sending to unclaimed profiles is switched off (config kolabing_team.allow_unclaimed_send).';
+        }
+
         $weeklyCap = self::DEFAULT_WEEKLY_CAP;
-        $recent = KolabingTeamOffer::query()
-            ->where('recipient_profile_id', $recipient->id)
-            ->where('is_test_send', false)
-            ->whereNotNull('sent_at')
-            ->where('sent_at', '>=', now()->subDays(7))
-            ->count();
+        $recent = $this->sendsInLastWeek($recipient);
         if (! $offer->is_test_send && $recent >= $weeklyCap) {
-            $problems[] = "Recipient already got {$recent} Kolabing team offers in the last 7 days (cap {$weeklyCap}).";
+            $problems[] = "Recipient already got {$recent} Kolabing team sends in the last 7 days (cap {$weeklyCap}).";
         }
 
         if ($offer->kind === KolabingTeamOfferKind::CommunityApply) {
@@ -183,6 +200,9 @@ class KolabingTeamService
                 foreach ($this->profileProblems($community, 'Community', $offer->is_test_send) as $problem) {
                     $problems[] = $problem;
                 }
+                if ($community->isUnclaimed()) {
+                    $problems[] = 'The named community is unclaimed, so it cannot take a proposal yet.';
+                }
                 if ($this->isBlockedPair($recipient->id, $community->id)) {
                     $problems[] = 'The business and the community have blocked each other.';
                 }
@@ -196,6 +216,21 @@ class KolabingTeamService
         }
 
         return $problems;
+    }
+
+    /**
+     * Real sends to this recipient in the last 7 days: first sends plus
+     * resends. Test sends never count.
+     */
+    private function sendsInLastWeek(Profile $recipient): int
+    {
+        $since = now()->subDays(7);
+        $base = fn () => KolabingTeamOffer::query()
+            ->where('recipient_profile_id', $recipient->id)
+            ->where('is_test_send', false);
+
+        return $base()->whereNotNull('sent_at')->where('sent_at', '>=', $since)->count()
+            + $base()->whereNotNull('resent_at')->where('resent_at', '>=', $since)->count();
     }
 
     /**
@@ -215,6 +250,22 @@ class KolabingTeamService
             }
 
             $recipient = $locked->recipient;
+
+            if ($recipient->isUnclaimed()) {
+                // No owner to read a thread yet: the message is the claim link.
+                $locked->forceFill([
+                    'status' => KolabingTeamOfferStatus::Sent,
+                    'channel' => 'claim',
+                    'sent_by_admin_id' => $admin->id,
+                    'sent_at' => now(),
+                    'expires_at' => now()->addDays($this->expiryDays()),
+                ]);
+                $this->issueClaimToken($locked);
+                $locked->save();
+
+                return $locked;
+            }
+
             $reachable = $this->hasOpenedTheApp($recipient);
             $thread = $this->chatService->teamThreadFor($recipient);
 
@@ -235,6 +286,7 @@ class KolabingTeamService
                 'sent_by_admin_id' => $admin->id,
                 'chat_message_id' => $message->id,
                 'sent_at' => now(),
+                'expires_at' => now()->addDays($this->expiryDays()),
             ])->save();
 
             return $locked;
@@ -251,6 +303,249 @@ class KolabingTeamService
         ]);
 
         return $sent->fresh(['recipient', 'kolab', 'communityProfile']);
+    }
+
+    /**
+     * Send an offer one more time (SERR-1344). Allowed once per row, on an offer
+     * nobody answered (still open or expired); it restarts the 7 days, moves the
+     * card to the bottom of the thread, pushes again, and counts toward the
+     * weekly cap like any other send.
+     *
+     * @throws InvalidArgumentException when it cannot go out again
+     */
+    public function resend(KolabingTeamOffer $offer, User $admin): KolabingTeamOffer
+    {
+        $resent = DB::transaction(function () use ($offer): KolabingTeamOffer {
+            $locked = KolabingTeamOffer::query()->lockForUpdate()->findOrFail($offer->id);
+
+            if ($locked->status !== KolabingTeamOfferStatus::Sent) {
+                throw new InvalidArgumentException('Only an offer that was sent and not answered can be resent.');
+            }
+            if ($locked->resend_count >= 1) {
+                throw new InvalidArgumentException('This offer was already resent once.');
+            }
+
+            $problems = $this->deliveryProblems($locked);
+            if ($problems !== []) {
+                throw new InvalidArgumentException(implode(' ', $problems));
+            }
+
+            $locked->forceFill([
+                'resent_at' => now(),
+                'resend_count' => $locked->resend_count + 1,
+                'expires_at' => now()->addDays($this->expiryDays()),
+            ])->save();
+
+            // The card moves to the bottom of the thread instead of doubling up.
+            if ($locked->chat_message_id !== null) {
+                $message = ChatMessage::query()->find($locked->chat_message_id);
+                if ($message !== null) {
+                    $message->forceFill(['created_at' => now()])->save();
+                    $this->chatService->teamThreadFor($locked->recipient)->forceFill(['last_message_at' => now()])->save();
+                }
+            }
+
+            return $locked;
+        });
+
+        $this->announce($resent, resend: true);
+
+        Log::info('Kolabing team offer resent', ['offer_id' => $resent->id, 'admin_id' => $admin->id]);
+
+        return $resent->fresh(['recipient', 'kolab', 'communityProfile']);
+    }
+
+    /**
+     * What the owner sees before claiming: the card, the profile's name and the
+     * line that they may delete the page afterwards. Null for an unknown token.
+     *
+     * @return array{offer: KolabingTeamOffer, profile_name: string, profile_type: string, disclaimer: string, expired: bool, claimable: bool}|null
+     */
+    public function previewClaim(string $token): ?array
+    {
+        $offer = $this->offerForClaimToken($token);
+        if ($offer === null) {
+            return null;
+        }
+
+        $this->loadOfferDetails($offer);
+        $recipient = $offer->recipient;
+
+        return [
+            'offer' => $offer,
+            'profile_name' => (string) (($recipient->isBusiness() ? $recipient->businessProfile : $recipient->communityProfile)?->name ?? ''),
+            'profile_type' => $recipient->user_type->value,
+            'disclaimer' => $this->claimDisclaimer($recipient),
+            'expired' => $offer->isExpired(),
+            'claimable' => $recipient->isUnclaimed() && $offer->isOpenForResponse(),
+        ];
+    }
+
+    /**
+     * The owner claims the profile by accepting the offer (SERR-1344). Their
+     * sign-in identity (already verified by the caller) becomes the profile's,
+     * the profile switches on, and the offer is accepted exactly as if they had
+     * tapped Accept in the app: a community applies, a business gets its Kolab.
+     * All inside one transaction, so a refused accept leaves the profile
+     * unclaimed.
+     *
+     * @param  array{google_id?: string|null, apple_id?: string|null, email?: string|null, avatar_url?: string|null, email_verified?: bool|null}  $identity
+     * @return array{profile: Profile, offer: KolabingTeamOffer, kolab: Kolab|null, application: Application|null}
+     *
+     * @throws InvalidArgumentException message is safe to show; code 404 unknown, 410 expired or used, 409 identity already has a profile
+     */
+    public function claim(string $token, array $identity): array
+    {
+        $result = DB::transaction(function () use ($token, $identity): array {
+            $found = $this->offerForClaimToken($token);
+            if ($found === null) {
+                throw new InvalidArgumentException('This claim link is not valid.', 404);
+            }
+
+            $offer = KolabingTeamOffer::query()->lockForUpdate()->findOrFail($found->id);
+            $profile = Profile::withTrashed()->lockForUpdate()->findOrFail($offer->recipient_profile_id);
+
+            if ($profile->trashed() || ! $profile->isUnclaimed()) {
+                throw new InvalidArgumentException('This profile was already claimed.', 410);
+            }
+            if ($offer->isExpired()) {
+                throw new InvalidArgumentException('This offer expired. Ask the Kolabing team to send it again.', 410);
+            }
+            if ($offer->status !== KolabingTeamOfferStatus::Sent) {
+                throw new InvalidArgumentException('This offer was already answered.', 410);
+            }
+
+            $googleId = $identity['google_id'] ?? null;
+            $appleId = $identity['apple_id'] ?? null;
+            $email = isset($identity['email']) && $identity['email'] !== '' ? mb_strtolower((string) $identity['email']) : null;
+
+            $taken = Profile::query()->where('id', '!=', $profile->id)->where(function ($q) use ($googleId, $appleId, $email): void {
+                if ($googleId) {
+                    $q->orWhere('google_id', $googleId);
+                }
+                if ($appleId) {
+                    $q->orWhere('apple_id', $appleId);
+                }
+                if ($email) {
+                    $q->orWhereRaw('lower(email) = ?', [$email]);
+                }
+            })->exists();
+            if (($googleId || $appleId || $email) && $taken) {
+                throw new InvalidArgumentException('That account already has a Kolabing profile. Sign in with another account to claim this one.', 409);
+            }
+            if (! $googleId && ! $appleId) {
+                throw new InvalidArgumentException('Sign in with Google or Apple to claim this profile.', 422);
+            }
+
+            $profile->forceFill([
+                'email' => $email ?? $profile->email,
+                'google_id' => $googleId ?: $profile->google_id,
+                'apple_id' => $appleId ?: $profile->apple_id,
+                'avatar_url' => $profile->avatar_url ?: ($identity['avatar_url'] ?? null),
+                'email_verified_at' => $email !== null ? now() : $profile->email_verified_at,
+                'is_unclaimed' => false,
+                'is_active' => true,
+                'claimed_at' => now(),
+            ])->save();
+
+            // The link works once.
+            $offer->forceFill(['claim_token_hash' => null, 'claim_token_enc' => null])->save();
+
+            $accepted = $this->accept($offer->fresh(), $profile->fresh());
+
+            return ['profile' => $profile->fresh(), ...$accepted];
+        });
+
+        // A claimed business gets its own listing like any active business. After commit; never throws.
+        if ($result['profile']->isBusiness()) {
+            $this->autoListing->provisionSafely($result['profile']);
+        }
+
+        return $result;
+    }
+
+    /**
+     * The link a message carries. A claim offer opens the claim screen; any
+     * other offer opens the offer card (the app resolves it to the thread).
+     */
+    public function deepLink(KolabingTeamOffer $offer): string
+    {
+        $base = rtrim((string) config('webapp.url'), '/');
+
+        $token = $this->claimTokenFor($offer);
+        if ($token !== null) {
+            return $base.'/claim/'.$token;
+        }
+
+        return $base.'/o/'.$offer->id;
+    }
+
+    /**
+     * The plain claim token, for the admin to see the same link again.
+     */
+    public function claimTokenFor(KolabingTeamOffer $offer): ?string
+    {
+        if ($offer->claim_token_enc === null) {
+            return null;
+        }
+
+        try {
+            return Crypt::decryptString($offer->claim_token_enc);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Load the offer's profiles WITH their detail rows. The detail models carry
+     * a default scope that hides rows of switched-off profiles, and an unclaimed
+     * profile is switched off by design: without this the team would read its
+     * own unclaimed business as "not onboarded" and a claim screen would show no
+     * name.
+     */
+    private function loadOfferDetails(KolabingTeamOffer $offer): void
+    {
+        $offer->loadMissing(['recipient', 'kolab', 'communityProfile']);
+
+        foreach ([$offer->recipient, $offer->communityProfile] as $profile) {
+            if ($profile === null || $profile->relationLoaded('businessProfile') && $profile->relationLoaded('communityProfile')) {
+                continue;
+            }
+            $profile->load([
+                'businessProfile' => fn ($q) => $q->withoutGlobalScope(ActiveProfileScope::class),
+                'communityProfile' => fn ($q) => $q->withoutGlobalScope(ActiveProfileScope::class),
+            ]);
+        }
+    }
+
+    private function issueClaimToken(KolabingTeamOffer $offer): void
+    {
+        $token = Str::random(48);
+        $offer->forceFill([
+            'claim_token_hash' => hash('sha256', $token),
+            'claim_token_enc' => Crypt::encryptString($token),
+        ]);
+    }
+
+    private function offerForClaimToken(string $token): ?KolabingTeamOffer
+    {
+        if ($token === '' || strlen($token) > 128) {
+            return null;
+        }
+
+        return KolabingTeamOffer::query()->where('claim_token_hash', hash('sha256', $token))->first();
+    }
+
+    private function claimDisclaimer(Profile $profile): string
+    {
+        $locale = $profile->preferred_locale ?? config('app.fallback_locale');
+
+        return __('notifications.kolabing_team.claim_disclaimer', [], $locale);
+    }
+
+    private function expiryDays(): int
+    {
+        return max(1, (int) config('kolabing_team.offer_expiry_days', 7));
     }
 
     /**
@@ -363,6 +658,9 @@ class KolabingTeamService
         if ($locked->recipient_profile_id !== $actor->id) {
             throw new InvalidArgumentException('This offer is not yours.');
         }
+        if ($locked->isExpired()) {
+            throw new InvalidArgumentException('This offer expired on '.$locked->expires_at->format('j M Y').'. Ask the Kolabing team to send it again.');
+        }
         if (! $locked->isOpenForResponse()) {
             throw new InvalidArgumentException('This offer was already answered.');
         }
@@ -410,8 +708,14 @@ class KolabingTeamService
         return $kolab;
     }
 
-    private function announce(KolabingTeamOffer $offer): void
+    private function announce(KolabingTeamOffer $offer, bool $resend = false): void
     {
+        if ($offer->channel === 'claim') {
+            $this->emailClaimLink($offer);
+
+            return;
+        }
+
         $message = ChatMessage::query()->with('teamOffer')->find($offer->chat_message_id);
         $recipient = $offer->recipient;
 
@@ -432,13 +736,36 @@ class KolabingTeamService
             try {
                 $this->emailService->sendRawToAddress(
                     $recipient->email,
-                    'Kolabing has an offer for you',
+                    $resend ? 'Your Kolabing offer, again' : 'Kolabing has an offer for you',
                     nl2br(e($this->fallbackText($offer))),
                     $this->fallbackText($offer),
                 );
             } catch (\Throwable $e) {
                 report($e);
             }
+        }
+    }
+
+    /**
+     * The one approved message of a claim offer. Only goes out when the draft
+     * carries a contact email; the same text is always on the admin row to
+     * copy into Instagram or WhatsApp.
+     */
+    private function emailClaimLink(KolabingTeamOffer $offer): void
+    {
+        if ($offer->is_test_send || $offer->contact_email === null || $offer->contact_email === '') {
+            return;
+        }
+
+        try {
+            $this->emailService->sendRawToAddress(
+                $offer->contact_email,
+                'Kolabing has an offer for you',
+                nl2br(e($this->fallbackText($offer))),
+                $this->fallbackText($offer),
+            );
+        } catch (\Throwable $e) {
+            report($e);
         }
     }
 
@@ -472,13 +799,30 @@ class KolabingTeamService
         return $intro;
     }
 
-    private function fallbackText(KolabingTeamOffer $offer): string
+    /**
+     * The text for email and the `wa.me` nudge. It links to the offer card (or
+     * the claim screen), never to a store: the link opens the app where it is
+     * installed and the right store page where it is not. A claim message also
+     * carries the line that the owner may delete the page after claiming it.
+     */
+    public function fallbackText(KolabingTeamOffer $offer): string
     {
-        $link = (string) (config('webapp.play_store_url') ?: config('app.url'));
+        $offer->loadMissing('recipient');
+        $link = $this->deepLink($offer);
 
-        return trim(($offer->message ?? 'Kolabing has a Kolab idea for you.')
-            .PHP_EOL.PHP_EOL.$offer->title
-            .PHP_EOL.PHP_EOL.'Open the Kolabing app and look for the "Kolabing team" chat to accept it: '.$link);
+        $parts = [
+            $offer->message ?? 'Kolabing has a Kolab idea for you.',
+            $offer->title,
+        ];
+
+        if ($offer->isClaimOffer()) {
+            $parts[] = 'Claim your Kolabing page and answer the offer here: '.$link;
+            $parts[] = $this->claimDisclaimer($offer->recipient);
+        } else {
+            $parts[] = 'Open the offer in the Kolabing app to accept it: '.$link;
+        }
+
+        return trim(implode(PHP_EOL.PHP_EOL, $parts));
     }
 
     /**
@@ -490,7 +834,7 @@ class KolabingTeamService
 
         if ($profile->trashed()) {
             $problems[] = "{$label} account is deleted.";
-        } elseif ($profile->is_active === false) {
+        } elseif ($profile->is_active === false && ! $profile->isUnclaimed()) {
             $problems[] = "{$label} account is switched off.";
         }
         // Real sends never reach a test account, and a test send reaches nothing else.

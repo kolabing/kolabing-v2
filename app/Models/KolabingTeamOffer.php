@@ -37,6 +37,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $failure_reason
  * @property \Illuminate\Support\Carbon|null $sent_at
  * @property \Illuminate\Support\Carbon|null $responded_at
+ * @property \Illuminate\Support\Carbon|null $expires_at
+ * @property \Illuminate\Support\Carbon|null $resent_at
+ * @property int $resend_count
+ * @property string|null $claim_token_hash
+ * @property string|null $claim_token_enc
+ * @property string|null $contact_email
  * @property-read Profile $recipient
  * @property-read Kolab|null $kolab
  * @property-read Profile|null $communityProfile
@@ -73,6 +79,12 @@ class KolabingTeamOffer extends Model
         'failure_reason',
         'sent_at',
         'responded_at',
+        'expires_at',
+        'resent_at',
+        'resend_count',
+        'claim_token_hash',
+        'claim_token_enc',
+        'contact_email',
     ];
 
     /**
@@ -87,6 +99,9 @@ class KolabingTeamOffer extends Model
             'is_test_send' => 'boolean',
             'sent_at' => 'datetime',
             'responded_at' => 'datetime',
+            'expires_at' => 'datetime',
+            'resent_at' => 'datetime',
+            'resend_count' => 'integer',
         ];
     }
 
@@ -117,8 +132,28 @@ class KolabingTeamOffer extends Model
         return $this->belongsTo(Profile::class, 'community_profile_id')->withTrashed();
     }
 
+    /**
+     * Sent, never answered, and past its 7 days (SERR-1344). Read from
+     * `expires_at`; the status stays `sent`, so a resend can reopen it.
+     */
+    public function isExpired(): bool
+    {
+        return $this->status === KolabingTeamOfferStatus::Sent
+            && $this->expires_at !== null
+            && $this->expires_at->isPast();
+    }
+
     public function isOpenForResponse(): bool
     {
-        return $this->status === KolabingTeamOfferStatus::Sent;
+        return $this->status === KolabingTeamOfferStatus::Sent && ! $this->isExpired();
+    }
+
+    /**
+     * An offer to an unclaimed profile reaches its owner by a claim link, not
+     * by the in-app thread.
+     */
+    public function isClaimOffer(): bool
+    {
+        return $this->claim_token_hash !== null || $this->recipient?->isUnclaimed() === true;
     }
 }

@@ -3050,3 +3050,11 @@ Rule: ROLES §2.23. Where it lives:
 - Rule: Kolabing messages one profile as itself; business Accept skips the subscription check for these offers only.
 - Code: `App\Services\KolabingTeamService` (draft/send/accept/decline/reply), `Admin\KolabingTeamController`, `Api\V1\KolabingTeamOfferController`, `ChatService::teamThreadFor` / `visibleTeamThreads` / `canAccessThread`.
 - DB: `chat_threads.team_profile_id` (+ type `kolabing_team`), `chat_messages.sender_type|sender_user_id|team_offer_id` (`sender_profile_id` nullable), `kolabing_team_offers`.
+
+## 42.1 Team offer expiry, resend, unclaimed profiles (SERR-1344)
+
+- Rule: 7-day expiry, one resend counted in the weekly cap, unclaimed profiles hidden until claimed, claim sending switched off by default.
+- Code: `KolabingTeamService::resend|claim|previewClaim|deepLink|fallbackText`, `KolabingTeamOffer::isExpired`, `Profile::isUnclaimed`, `ManagedProfileService::onboard($data, unclaimed: true)` (+ `activate()` refuses unclaimed), `Api\V1\KolabingTeamOfferController::show|claimPreview|claim`, `TeamOfferLinkController`, `config/kolabing_team.php`.
+- DB: `kolabing_team_offers.expires_at|resent_at|resend_count|claim_token_hash|claim_token_enc|contact_email`, `profiles.is_unclaimed|claimed_at`.
+- Gotcha: the detail models (`BusinessProfile`, `CommunityProfile`) hide rows of switched-off profiles (`ActiveProfileScope`), so code that reads an unclaimed profile's detail row must load it `withoutGlobalScope(ActiveProfileScope::class)`.
+- Last updated: 2026-11-13.

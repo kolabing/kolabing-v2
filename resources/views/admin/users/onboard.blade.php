@@ -69,7 +69,13 @@
                         <div class="form-group">
                             <label for="email">Email</label>
                             <input id="email" type="email" name="email" value="{{ old('email') }}"
-                                   class="form-control @error('email') is-invalid @enderror" required>
+                                   class="form-control @error('email') is-invalid @enderror">
+                            <div class="form-check mt-2">
+                                <input type="checkbox" class="form-check-input" id="unclaimed" name="unclaimed" value="1" @checked(old('unclaimed'))>
+                                <label class="form-check-label" for="unclaimed">
+                                    <strong>Unclaimed profile</strong>: the owner has not joined. No email needed. The page stays hidden from Explore, the directory and the stats until the owner claims it through a Kolabing team offer.
+                                </label>
+                            </div>
                             <small class="form-text text-muted">
                                 No password is set here. The owner creates one from the welcome email,
                                 which you send from their edit page in the right language.

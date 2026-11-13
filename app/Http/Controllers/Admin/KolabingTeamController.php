@@ -37,7 +37,12 @@ class KolabingTeamController extends Controller
     public function index(): View
     {
         $offers = KolabingTeamOffer::query()
-            ->with(['recipient.businessProfile', 'recipient.communityProfile', 'kolab', 'communityProfile.communityProfile'])
+            ->with([
+                'recipient.businessProfile' => fn ($q) => $q->withoutGlobalScopes(),
+                'recipient.communityProfile' => fn ($q) => $q->withoutGlobalScopes(),
+                'kolab',
+                'communityProfile.communityProfile' => fn ($q) => $q->withoutGlobalScopes(),
+            ])
             ->latest()
             ->limit(100)
             ->get();
@@ -47,8 +52,15 @@ class KolabingTeamController extends Controller
             'problems' => $offers->mapWithKeys(fn (KolabingTeamOffer $o): array => [
                 $o->id => $o->status === KolabingTeamOfferStatus::Draft ? $this->team->problems($o) : [],
             ]),
+            'claimLinks' => $offers->mapWithKeys(fn (KolabingTeamOffer $o): array => [
+                $o->id => $o->claim_token_enc !== null ? $this->team->deepLink($o) : null,
+            ]),
+            'claimTexts' => $offers->mapWithKeys(fn (KolabingTeamOffer $o): array => [
+                $o->id => $o->channel === 'claim' ? $this->team->fallbackText($o) : null,
+            ]),
+            'unclaimedSwitch' => (bool) config('kolabing_team.allow_unclaimed_send'),
             'whatsapp' => $offers->mapWithKeys(fn (KolabingTeamOffer $o): array => [
-                $o->id => $o->channel === 'email' ? $this->team->whatsappLink($o) : null,
+                $o->id => in_array($o->channel, ['email', 'claim'], true) ? $this->team->whatsappLink($o) : null,
             ]),
             'kolabs' => $this->invites->invitableKolabs(),
             'unanswered' => $this->unansweredCount(),
@@ -92,7 +104,26 @@ class KolabingTeamController extends Controller
         }
 
         return redirect()->route('admin.kolabing-team.index')
-            ->with('status', "Sent \"{$sent->title}\" via the ".($sent->channel === 'thread' ? 'Kolabing team thread' : 'Kolabing team thread and email').'.');
+            ->with('status', "Sent \"{$sent->title}\" via ".match ($sent->channel) {
+                'thread' => 'the Kolabing team thread',
+                'claim' => 'a claim link (copy the message from its row)',
+                default => 'the Kolabing team thread and email',
+            }.'.');
+    }
+
+    public function resend(Request $request, KolabingTeamOffer $offer): RedirectResponse
+    {
+        $admin = $request->user('admin');
+        abort_unless($admin instanceof User, 403);
+
+        try {
+            $resent = $this->team->resend($offer, $admin);
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['send' => $e->getMessage()]);
+        }
+
+        return redirect()->route('admin.kolabing-team.index')
+            ->with('status', "Resent \"{$resent->title}\". It is open until {$resent->expires_at->toDayDateTimeString()}. This was its one resend.");
     }
 
     public function cancel(KolabingTeamOffer $offer): RedirectResponse

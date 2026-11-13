@@ -30,8 +30,11 @@ final class AdminCommunityOnboardingRequest extends CommunityOnboardingRequest
     {
         return [
             ...parent::rules(),
+            // An unclaimed profile has no owner email yet (SERR-1344).
+            'unclaimed' => ['nullable', 'boolean'],
             'email' => [
-                'required',
+                \Illuminate\Validation\Rule::requiredIf(fn (): bool => ! $this->boolean('unclaimed')),
+                'nullable',
                 'email',
                 'max:255',
                 Rule::unique('profiles', 'email')->whereNull('deleted_at'),

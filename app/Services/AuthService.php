@@ -410,6 +410,20 @@ class AuthService
     }
 
     /**
+     * Start a session for a profile that did not come through login(): the
+     * claim flow signs the new owner in once the profile is theirs.
+     *
+     * @return TokenPair
+     */
+    public function startSessionFor(Profile $profile): array
+    {
+        $this->revokeExistingMobileTokens($profile);
+        $this->loadProfileRelationships($profile);
+
+        return $this->issueTokenPair($profile);
+    }
+
+    /**
      * Issue a new access token and refresh token pair.
      *
      * @return TokenPair

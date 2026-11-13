@@ -99,6 +99,15 @@ Route::prefix('v1')->group(function (): void {
     Route::post('auth/apple', [AuthController::class, 'apple'])
         ->name('api.v1.auth.apple');
 
+    // Claim link of an unclaimed profile (SERR-1344): the token is the proof, the
+    // team shared it with the owner personally. Throttled like the sign-in routes.
+    Route::get('kolabing-team/claim/{token}', [KolabingTeamOfferController::class, 'claimPreview'])
+        ->middleware('throttle:30,1')
+        ->name('api.v1.kolabing-team.claim.preview');
+    Route::post('kolabing-team/claim/{token}', [KolabingTeamOfferController::class, 'claim'])
+        ->middleware('throttle:10,1')
+        ->name('api.v1.kolabing-team.claim');
+
     Route::post('auth/register/business', [AuthController::class, 'registerBusiness'])
         ->name('api.v1.auth.register.business');
 
@@ -1133,6 +1142,8 @@ Route::prefix('v1')->group(function (): void {
 
         // Kolabing team offer cards (SERR-658): the recipient's Accept / Not now.
         // Offers are created and sent from admin only.
+        Route::get('kolabing-team/offers/{offer}', [KolabingTeamOfferController::class, 'show'])
+            ->name('api.v1.kolabing-team.offers.show');
         Route::post('kolabing-team/offers/{offer}/accept', [KolabingTeamOfferController::class, 'accept'])
             ->name('api.v1.kolabing-team.offers.accept');
         Route::post('kolabing-team/offers/{offer}/decline', [KolabingTeamOfferController::class, 'decline'])

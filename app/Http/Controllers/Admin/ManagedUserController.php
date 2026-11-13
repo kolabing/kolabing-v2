@@ -228,10 +228,16 @@ class ManagedUserController extends Controller
     public function onboardBusiness(AdminBusinessOnboardingRequest $request): RedirectResponse
     {
         // The route decides the type, not the payload.
+        $unclaimed = $request->boolean('unclaimed');
         $profile = $this->managedProfileService->onboard([
             ...$request->validated(),
             'user_type' => UserType::Business->value,
-        ]);
+        ], $unclaimed);
+
+        if ($unclaimed) {
+            return redirect()->route('admin.kolabing-team.index')
+                ->with('status', __('Unclaimed business created. It stays hidden until its owner claims it: draft an offer for it below.'));
+        }
 
         /*
          * Don't claim the Kolab is live without checking. provisionBusinessAutoOffer()
@@ -250,10 +256,16 @@ class ManagedUserController extends Controller
 
     public function onboardCommunity(AdminCommunityOnboardingRequest $request): RedirectResponse
     {
+        $unclaimed = $request->boolean('unclaimed');
         $profile = $this->managedProfileService->onboard([
             ...$request->validated(),
             'user_type' => UserType::Community->value,
-        ]);
+        ], $unclaimed);
+
+        if ($unclaimed) {
+            return redirect()->route('admin.kolabing-team.index')
+                ->with('status', __('Unclaimed community created. It stays hidden until its owner claims it: draft an offer for it below.'));
+        }
 
         return redirect()->route('admin.users.edit', $profile)
             ->with('status', __('Community onboarded. Send the welcome email below once you know the language.'));
@@ -409,7 +421,11 @@ class ManagedUserController extends Controller
 
     public function activate(Profile $profile): RedirectResponse
     {
-        $this->managedProfileService->activate($profile);
+        try {
+            $this->managedProfileService->activate($profile);
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->back()->withErrors(['activate' => $e->getMessage()]);
+        }
 
         return redirect()->back()
             ->with('status', __('Account activated.'));
