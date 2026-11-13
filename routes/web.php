@@ -147,6 +147,13 @@ $webappRoutes = function (): void {
     Route::get('/c/{slug}', [\App\Http\Controllers\CommunityJoinPageController::class, 'show'])
         ->name('communities.join-page');
 
+    // Kolabing team message links (SERR-1344): the app opens them as app links;
+    // this is the page for a phone without the app. No auth, names nothing.
+    Route::get('/o/{offer}', [\App\Http\Controllers\TeamOfferLinkController::class, 'offer'])
+        ->whereUuid('offer')->name('team-offer.link');
+    Route::get('/claim/{token}', [\App\Http\Controllers\TeamOfferLinkController::class, 'claim'])
+        ->name('team-claim.link');
+
     Route::view('/account', 'webapp.account');
     // Profile section tabs (BE-NF-35). Settings stay inside the Details page's
     // existing accordion — splitting them would be churn with no user benefit.
@@ -385,6 +392,7 @@ Route::middleware(['auth:admin', 'maintainer'])->prefix('admin')->as('admin.')->
     Route::get('/kolabing-team', [AdminKolabingTeamController::class, 'index'])->name('kolabing-team.index');
     Route::post('/kolabing-team', [AdminKolabingTeamController::class, 'store'])->name('kolabing-team.store');
     Route::post('/kolabing-team/offers/{offer}/send', [AdminKolabingTeamController::class, 'send'])->name('kolabing-team.send');
+    Route::post('/kolabing-team/offers/{offer}/resend', [AdminKolabingTeamController::class, 'resend'])->name('kolabing-team.resend');
     Route::post('/kolabing-team/offers/{offer}/cancel', [AdminKolabingTeamController::class, 'cancel'])->name('kolabing-team.cancel');
     Route::get('/kolabing-team/inbox', [AdminKolabingTeamController::class, 'inbox'])->name('kolabing-team.inbox');
     Route::get('/kolabing-team/threads/{thread}', [AdminKolabingTeamController::class, 'show'])->name('kolabing-team.thread');

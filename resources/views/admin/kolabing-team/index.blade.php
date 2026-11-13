@@ -84,6 +84,11 @@
                         </div>
                     </div>
                 </div>
+                <div class="form-group">
+                    <label for="contact_email">Contact email <small class="text-muted">(only for an unclaimed profile: where its one claim message goes. Blank = copy the text from the row and send it yourself.)</small></label>
+                    <input type="email" id="contact_email" name="contact_email" class="form-control" maxlength="255" value="{{ old('contact_email') }}">
+                    <small class="text-muted">Sending to unclaimed profiles is <strong>{{ $unclaimedSwitch ? 'ON' : 'OFF' }}</strong>. Create the profile with "Unclaimed profile" ticked on the <a href="{{ route('admin.users.onboard') }}">onboard form</a>.</small>
+                </div>
                 <div class="form-check">
                     <input type="checkbox" class="form-check-input" id="test_send" name="test_send" value="1" @checked(old('test_send'))>
                     <label class="form-check-label" for="test_send">Test send (the recipient must be a test account; nothing is emailed)</label>
@@ -105,9 +110,20 @@
                             <tr>
                                 <td>{{ $o->recipient?->businessProfile?->name ?? $o->recipient?->communityProfile?->name ?? $o->recipient?->email }}<br><small class="text-muted">{{ $o->recipient?->email }}{{ $o->is_test_send ? ' · test send' : '' }}</small></td>
                                 <td>{{ $o->title }}<br><small class="text-muted">{{ $o->kind->value }}{{ $o->communityProfile ? ' → '.($o->communityProfile->communityProfile?->name ?? $o->communityProfile->email) : '' }}</small></td>
-                                <td>{{ $o->status->value }}@if($o->sent_at)<br><small class="text-muted">{{ $o->sent_at->toDayDateTimeString() }}</small>@endif</td>
+                                <td>{{ $o->isExpired() ? 'sent, expired' : $o->status->value }}@if($o->sent_at)<br><small class="text-muted">{{ $o->sent_at->toDayDateTimeString() }}</small>@endif
+                                    @if($o->expires_at && $o->status === \App\Enums\KolabingTeamOfferStatus::Sent)<br><small class="text-muted">{{ $o->isExpired() ? 'expired' : 'open until' }} {{ $o->expires_at->toDayDateTimeString() }}</small>@endif
+                                    @if($o->resend_count > 0)<br><small class="text-muted">resent once</small>@endif</td>
                                 <td>{{ $o->channel }}@if (($whatsapp[$o->id] ?? null))<br><a href="{{ $whatsapp[$o->id] }}" target="_blank" rel="noopener">WhatsApp</a>@endif</td>
                                 <td class="text-right">
+                                    @if ($o->status === \App\Enums\KolabingTeamOfferStatus::Sent && $o->resend_count < 1 && ! $o->is_test_send)
+                                        <form method="post" action="{{ route('admin.kolabing-team.resend', $o) }}" class="d-inline" onsubmit="return confirm('Resend this offer? It is allowed once, restarts the 7 days and counts toward the weekly cap of {{ \App\Services\KolabingTeamService::DEFAULT_WEEKLY_CAP }}.');">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-outline-primary">Resend (once)</button>
+                                        </form>
+                                    @endif
+                                    @if (($claimTexts[$o->id] ?? null))
+                                        <details class="text-left mt-1"><summary class="small">Claim message</summary><textarea readonly rows="6" class="form-control form-control-sm" onclick="this.select()">{{ $claimTexts[$o->id] }}</textarea></details>
+                                    @endif
                                     @if ($o->status === \App\Enums\KolabingTeamOfferStatus::Draft)
                                         @foreach ($problems[$o->id] as $problem)<div class="text-danger small">{{ $problem }}</div>@endforeach
                                         @if ($problems[$o->id] === [])

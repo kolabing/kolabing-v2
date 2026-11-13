@@ -55,9 +55,16 @@ class ManagedProfileService
      *
      * @param  array<string, mixed>  $data  the validated onboarding payload
      *
+     * An unclaimed profile (SERR-1344, `$unclaimed = true`) is the same onboarding for an
+     * owner who has not joined: the shell is created switched off (`is_active = false`, the
+     * switch that keeps it out of Explore, the directory and the stats) and flagged
+     * `is_unclaimed`, under a placeholder email nobody can sign in with, so no auto-listing
+     * is made. The owner claims it through the claim link on a Kolabing team offer
+     * ({@see \App\Services\KolabingTeamService::claim()}).
+     *
      * @throws InvalidArgumentException when asked to onboard an attendee
      */
-    public function onboard(array $data): Profile
+    public function onboard(array $data, bool $unclaimed = false): Profile
     {
         $userType = UserType::from((string) $data['user_type']);
 
@@ -65,14 +72,21 @@ class ManagedProfileService
             throw new InvalidArgumentException('Full onboarding covers business and community profiles only.');
         }
 
-        $profile = DB::transaction(function () use ($data, $userType): Profile {
+        $profile = DB::transaction(function () use ($data, $userType, $unclaimed): Profile {
             $profile = Profile::query()->create([
-                'email' => $data['email'],
+                'email' => $unclaimed ? 'unclaimed-'.Str::uuid().'@unclaimed.kolabing.invalid' : $data['email'],
                 'password' => Str::random(32),
                 'phone_number' => ($data['phone_number'] ?? null) ?: null,
                 'user_type' => $userType,
-                'email_verified_at' => now(),
+                'email_verified_at' => $unclaimed ? null : now(),
             ]);
+
+            // Flagged now, switched off AFTER onboarding: the detail models hide the
+            // rows of a switched-off profile, so OnboardingService could not find
+            // the shell it updates. The flag already keeps the auto-listing away.
+            if ($unclaimed) {
+                $profile->forceFill(['is_unclaimed' => true])->save();
+            }
 
             // The shell detail row has to exist first: OnboardingService *updates*
             // businessProfile/communityProfile and would fatal on a null relation.
@@ -92,9 +106,15 @@ class ManagedProfileService
         });
 
         try {
-            return $userType === UserType::Business
+            $onboarded = $userType === UserType::Business
                 ? $this->onboardingService->completeBusinessOnboarding($profile, $data)
                 : $this->onboardingService->completeCommunityOnboarding($profile, $data);
+
+            if ($unclaimed) {
+                $onboarded->forceFill(['is_active' => false])->save();
+            }
+
+            return $onboarded;
         } catch (Throwable $e) {
             // Onboarding runs outside the shell's transaction (it opens its own and
             // dispatches after commit), so a failure here would otherwise leave a
@@ -209,6 +229,10 @@ class ManagedProfileService
      */
     public function sendWelcomeEmail(Profile $profile, string $locale): void
     {
+        if ($profile->isUnclaimed()) {
+            throw new InvalidArgumentException('An unclaimed profile has no owner email. It is reached by a Kolabing team offer with a claim link.');
+        }
+
         $template = $this->resolveActiveTemplate($locale);
 
         $token = Password::broker()->createToken($profile);
@@ -462,6 +486,11 @@ class ManagedProfileService
      */
     public function activate(Profile $profile): Profile
     {
+        // An unclaimed profile goes live only when its owner claims it.
+        if ($profile->isUnclaimed()) {
+            throw new InvalidArgumentException('This profile is unclaimed. It goes live when its owner claims it.');
+        }
+
         $profile = DB::transaction(function () use ($profile): Profile {
             $profile->forceFill(['is_active' => true])->save();
 
@@ -522,6 +551,7 @@ class ManagedProfileService
         $changed = DB::transaction(fn (): int => Profile::query()
             ->whereIn('id', $profileIds)
             ->where('is_active', false)
+            ->where('is_unclaimed', false)
             ->update(['is_active' => true]));
 
         // Same as activate(): each business switched back on gets its listing.

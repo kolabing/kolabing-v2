@@ -217,7 +217,10 @@ class EventCheckinSyncTest extends TestCase
             ->assertJsonPath('applinks.details.0.components.1./', '/c/????????-????-????-????-????????????')
             // The app reads check-in links only in its own scanner, so a camera
             // scan must keep reaching the web door page.
-            ->assertJsonCount(2, 'applinks.details.0.components');
+            // Kolabing team offer card and claim link (SERR-1344).
+            ->assertJsonPath('applinks.details.0.components.2./', '/o/????????-????-????-????-????????????')
+            ->assertJsonPath('applinks.details.0.components.3./', '/claim/*')
+            ->assertJsonCount(4, 'applinks.details.0.components');
 
         $this->get("http://{$host}/.well-known/assetlinks.json")
             ->assertOk()

@@ -40,6 +40,8 @@ use Laravel\Sanctum\HasApiTokens;
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property bool $is_active
+ * @property bool $is_unclaimed
+ * @property \Illuminate\Support\Carbon|null $claimed_at
  * @property \Illuminate\Support\Carbon|null $deleted_at
  * @property-read AttendeeProfile|null $attendeeProfile
  * @property-read City|null $city
@@ -134,6 +136,7 @@ class Profile extends Authenticatable
         'device_platform',
         'is_test_user',
         'is_active',
+        'is_unclaimed',
     ];
 
     /**
@@ -149,6 +152,8 @@ class Profile extends Authenticatable
             'password' => 'hashed',
             'is_test_user' => 'boolean',
             'is_active' => 'boolean',
+            'is_unclaimed' => 'boolean',
+            'claimed_at' => 'datetime',
             'last_active_at' => 'datetime',
             'analytics_opt_out' => 'boolean',
             'interests' => 'array',
@@ -170,6 +175,17 @@ class Profile extends Authenticatable
     public function scopeActive(\Illuminate\Database\Eloquent\Builder $query): void
     {
         $query->where('profiles.is_active', true);
+    }
+
+    /**
+     * A profile the Kolabing team created before its owner joined (SERR-1344).
+     * It is also `is_active = false`: that single switch is what keeps it out of
+     * Explore, the directory, the leaderboards and the stats, so there is no
+     * second filter to forget. `is_unclaimed` says why it is off.
+     */
+    public function isUnclaimed(): bool
+    {
+        return $this->is_unclaimed === true;
     }
 
     /**

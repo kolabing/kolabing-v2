@@ -33,6 +33,8 @@ class StoreKolabingTeamOfferRequest extends FormRequest
             'what_community_gets' => ['nullable', 'string', 'max:500'],
             'proposed_date' => ['nullable', 'date_format:Y-m-d'],
             'test_send' => ['nullable', 'boolean'],
+            // Where the claim message goes when the recipient is an unclaimed profile.
+            'contact_email' => ['nullable', 'email', 'max:255'],
         ];
     }
 }

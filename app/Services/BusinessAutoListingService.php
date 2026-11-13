@@ -117,7 +117,7 @@ class BusinessAutoListingService
             return self::SKIP_NOT_BUSINESS;
         }
 
-        if ($profile->trashed() || $profile->is_active === false) {
+        if ($profile->trashed() || $profile->is_active === false || $profile->isUnclaimed()) {
             return self::SKIP_INACTIVE;
         }
 

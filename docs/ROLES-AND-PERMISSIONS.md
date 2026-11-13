@@ -1188,3 +1188,10 @@ Treat this maintenance as part of the change, not optional.
 ## 2.22 Kolabing team offers (SERR-658)
 
 Kolabing can message a single profile as itself, from a `kolabing_team` chat thread, with an offer card (Accept / Not now). Admin-only sender; the recipient can reply. **A business accepting a Kolabing team offer creates a direct proposal to the named community without the active-subscription check** (§2.5 still holds elsewhere: the public `recipient_community_id` publish path keeps the check, and the card does not name the community to an unsubscribed business). A community accepting runs the normal apply flow. Never paywalled for communities. No Kolabing profile exists: the team is a sender type, not a user.
+
+### 2.22.1 Expiry, resend, unclaimed profiles (SERR-1344)
+
+- A team offer is open for 7 days after `sent_at`. After that, Accept and Not now are refused with a clear message (422). The admin may resend a row once; the resend restarts the 7 days and counts toward the weekly cap of 2.
+- The message links to the offer card in the app (`/o/{offerId}`), never to a store.
+- **Unclaimed profile** (business or community): the team creates it before its owner joins. It is hidden from Explore, the directory, the leaderboards and the stats until claimed (it is `is_active = false`; `is_unclaimed` says why, and a plain "activate" is refused). The offer to it carries a claim link; the owner signs in with Google or Apple, becomes the profile holder and the offer is accepted (kolab created). The claim confirmation and the message both say the owner can delete the page after claiming. No banner on the unclaimed page, no auto-removal, ownership is proven by the team contacting the owner personally. Sending to unclaimed profiles is off by default (`KOLABING_TEAM_ALLOW_UNCLAIMED_SEND`).
+- Last updated: 2026-11-13.

@@ -55,6 +55,7 @@ return [
     ],
 
     'kolabing_team' => [
+        'claim_disclaimer' => 'You can delete this page whenever you like after you claim it.',
         'title' => 'Kolabing team',
     ],
 
